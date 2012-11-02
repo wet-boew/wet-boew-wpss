@@ -1,0 +1,2199 @@
+
+#***********************************************************************
+#
+# Compressed Core Subject Thesaurus File
+#
+# This file is a compressed verion of the Core Subject Thesaurus
+# text delimited file.  It contains only the prefered subject terms.
+# This file was generated as follows
+#    compress_thesaurus_file.pl goc_core_subject_thesaurus_eng.txt
+# at: 11:46 2012-10-17
+#
+# This file should not be modified.
+#
+#***********************************************************************
+abbreviations
+aboriginal affairs
+aboriginal businesses
+aboriginal culture
+aboriginal governments
+aboriginal lands
+aboriginal languages
+aboriginal law
+aboriginal peoples
+aboriginal policing
+aboriginal programs
+aboriginal reserves
+aboriginal rights
+aboriginal youth
+abortion
+access to education
+access to information
+accessibility
+accessibility for persons with disabilities
+accessible transport
+accident prevention
+accidents
+accountability
+accounting
+acculturation
+acid rain
+acquisitions (businesses)
+acquittal
+actuarial science
+addiction
+adjustment
+administrative data
+administrative law
+administrative services
+administrative writing
+adolescence
+adolescents
+adoption
+adoptive parents
+adulthood
+adults
+advertising
+advisory committees
+advisory services
+advocacy
+aerial photography
+aeronautical maps
+aerospace industry
+affirmative action
+afforestation
+agenda
+aging
+agreements
+agri-food industry
+agri-food products
+agricultural assistance
+agricultural economics
+agricultural fairs
+agricultural policy
+agricultural technology
+agricultural workers
+agriculture
+agriculture statistics
+aid programs
+aids (disease)
+air
+air conditioning
+air pollution
+air quality
+air safety
+air temperature
+air transport
+air transport industry
+aircraft
+aircraft accidents
+aircraft anti-icing
+aircraft de-icing
+airlines
+airplanes
+airport authorities
+airports
+alcohol consumption
+alcohol education
+alcoholic beverages
+alcoholism
+allergies
+allied forces
+allowances
+almanacs
+alternative energy
+alternative fuels
+alternative medicine
+alzheimer's disease
+amateur sports
+amendments
+amphibians
+analysis
+anatomy
+animal diseases
+animal health
+animal husbandry
+animal inspection
+animal migrations
+animal nutrition
+animal populations
+animal reproduction
+animal research
+animal rights
+animal testing
+animals
+annual reports
+antarctic
+anthropology
+anti-dumping
+apartment buildings
+appeals
+apples
+applicants
+applied research
+appointments
+approval processes
+aquaculture
+aquariums
+aquatic animals
+aquatic birds
+aquatic ecosystems
+aquatic plants
+aquatic wildlife
+arachnids
+arbitration
+archaeological investigations
+archaeology
+architectural drawings
+architectural heritage
+architectural services
+architecture
+archives
+arctic
+arctic ecosystems
+armed forces
+armouries
+arms control
+arrests
+art exhibitions
+art galleries
+art works
+artefacts
+arthritis
+arthropods
+artificial insemination
+artificial intelligence
+artists
+arts
+assessment
+assets
+assignments
+assistive technologies
+associations
+astronaut training
+astronauts
+astronomical observatories
+astronomy
+athletes
+atlantic provinces
+atlases
+atmospheric emissions
+attitudes
+auctions
+audiovisual equipment
+audit
+authentication
+authorization
+authors
+automation
+automobile industry
+automobile safety equipment
+automobiles
+avalanches
+aviation
+aviation industry
+awards
+awareness
+bacteria
+bacteriology
+banking
+bankruptcies
+banks
+barley
+battlefields
+beef cattle
+beekeeping
+beer
+behaviour
+benchmarks
+beneficiaries
+benefits
+best practices
+beverage industry
+beverages
+bibliographic data interchange
+bibliographies
+bicycle paths
+bicycle safety equipment
+bilingual services
+bilingualism
+bills of sale
+bioassay
+biochemicals
+biochemistry
+biodegradation
+bioenergy
+bioethics
+biographies
+biological diversity
+biological products
+biological warfare
+biological weapons
+biology
+biomass
+biomedical experiments
+biotechnology
+birds
+birth
+birth certificates
+birth rate
+blindness
+blood supply
+board of directors
+bonds
+booklets
+books
+border crossing
+boreal ecosystems
+borrowers
+botanical gardens
+botany
+boundaries
+boundary waters
+braille
+breast cancer
+bridges
+briefing papers
+broadcasting
+broadcasting industry
+budget planning
+budgets
+buildings
+burials
+buses
+business development
+business intelligence
+business loans
+business names
+business numbers
+business opportunities
+business plans
+business services
+business start-ups
+business types
+businesses
+butter
+butterflies
+buyers
+by-elections
+by-laws
+cabinet
+cable television
+caisses populaires
+calendar year
+call for tenders
+canadian-american relations
+canadian history
+canadian identity
+canadian literature
+canadian studies
+canals
+cancer
+candidates
+canola oil
+capital
+capital markets
+cardiovascular diseases
+caregivers
+carrots
+cartographic records
+cartography
+case studies
+casinos
+catalogues
+cataloguing
+cattle
+cd-roms
+cells
+cellular telephones
+cemeteries
+censorship
+census
+census data
+centralization
+ceramics
+cereals
+certificate of origin
+certification
+change of address
+charitable donations
+charitable organizations
+charter of rights and freedoms
+charters
+cheese
+chemical industry
+chemical warfare
+chemical weapons
+chemicals
+chemistry
+chief electoral officer
+child care
+child custody
+child development
+child poverty
+child safety
+child support
+childhood
+childhood diseases
+children
+children's books
+children's health
+children's literature
+children's rights
+chronic diseases
+cinema
+citizen participation
+citizenship
+citizenship documents
+civil aviation
+civil law
+civil rights
+civilian aircraft
+claims
+claims processing
+classification
+clean technology
+client satisfaction
+clients
+climate
+climate archives
+climate change
+cloning
+clothing
+clothing industry
+coaching
+coal
+coast guard
+coastal waters
+coasts
+codes of practice
+coding
+coffee
+coins
+collaborative research
+collections
+collective agreements
+collective bargaining
+colleges
+colonization
+commemoration
+commercial architecture
+commercial buildings
+commercial law
+commercial ships
+commercialization
+commissions of inquiry
+committees
+commodities
+common-law unions
+commonwealth
+communications
+communications equipment
+communications industry
+community development
+community education
+community infrastructures
+community justice
+community partnerships
+community programs
+community radio
+community relations
+community services
+compact discs
+comparison
+competition
+competitiveness
+complaints
+compliance
+composting
+comptrollership
+computer crime
+computer networks
+computer programming
+computer science
+computer security
+computer services
+computer systems
+computers
+concrete
+conferences
+confidentiality
+conflict resolution
+conflicts
+conflicts of interest
+conglomerates
+conservation
+conservation areas
+consortia
+constitution
+constitutional law
+construction
+construction industry
+construction materials
+consular services
+consultations
+consulting
+consumer loans
+consumer products
+consumer protection
+consumerism
+consumers
+contact
+contaminated sites
+continuing education
+contracting
+contracts
+contravention
+control
+conviction
+cooking
+cooperation
+cooperation agreements
+cooperative education
+cooperatives
+coordination
+copyright
+copyright clearance
+corn
+corporate image
+corporate income tax
+corporate names
+corporations
+correctional institutions
+correspondence
+corruption
+cost benefit analysis
+costs
+costume
+counselling services
+couples
+court appearances
+court decisions
+courts
+crafts
+cream
+credit
+credit unions
+crime
+crime against humanity
+crime prevention
+criminal code
+criminal investigations
+criminal justice
+criminal law
+criminal records
+crisis
+crop insurance
+crop rotation
+crops
+crown assets
+crown corporations
+crown lands
+cruise ships
+crustaceans
+cryptography
+cultural development
+cultural diversity
+cultural events
+cultural groups
+cultural heritage
+cultural industry
+cultural institutions
+cultural policy
+cultural programming
+cultural studies
+culture
+currency
+curriculum
+customer services
+customs
+customs and excise
+cycling
+daily life
+dairy cattle
+dairy industry
+dairy products
+dams
+dance
+data dictionaries
+data processing
+data protection
+databases
+daycare
+daylight saving time
+deafness
+death
+death certificates
+death rate
+debt
+debt management
+debt redemption
+debtors
+decentralization
+decision making
+decisions
+decontamination
+decorations
+decorative arts
+defaulted loans
+defence industry
+defence policy
+deficit
+deforestation
+degenerative diseases
+delegation of authority
+delegations
+deliveries
+demand
+demining
+demographic data
+demographic maps
+demographic statistics
+demography
+dental insurance
+departmental relations
+deportation
+design
+destroyers
+detection
+developing countries
+development
+devolution
+diabetes
+diagnosis
+diamonds
+dictionaries
+diesel fuel
+digital collections
+digital libraries
+digital recordings
+digital technology
+digitization
+diplomatic missions
+direct marketing
+directories
+disabilities
+disability pensions
+disadvantaged persons
+disaster relief
+disasters
+disbursements
+discharge
+disclosure of wrongdoing
+discounts
+discrimination
+diseases
+dismissal
+disposal services
+dissolution
+distance education
+distribution
+diversification
+divestiture
+division of powers
+divorce
+domestic animals
+domestic architecture
+domestic markets
+domestic trade
+domestic waste
+donations
+drainage
+drawings
+drilling
+drinking water
+driver education
+driving
+drought
+drug addiction
+drug education
+drug insurance
+drug labelling
+drug laws
+drug use
+drugs
+dumping
+earth sciences
+earthquakes
+east-west relations
+ecology
+economic analysis
+economic conditions
+economic crime
+economic development
+economic forecasting
+economic history
+economic impact
+economic indicators
+economic issues
+economic policy
+economic regulations
+economic research
+economic sanctions
+economic statistics
+economic trends
+economics
+economy
+ecosystems
+edible oils and fats
+education
+education indicators
+education policy
+educational funding
+educational guidance
+educational institutions
+educational resources
+educational technology
+eggs
+elder abuse
+elderly care
+elections
+electoral districts
+electoral system
+electric power stations
+electric vehicles
+electrical appliances
+electrical equipment
+electricity
+electronic commerce
+electronic data interchange
+electronic documents
+electronic equipment
+electronic government
+electronic information
+electronic mail
+electronic monitoring
+electronic publishing
+electronic waste
+electronics
+electronics industry
+elementary education
+elementary schools
+eligibility
+emblems
+emergency preparedness
+emergency relief
+emergency services
+emigration
+emission control technology
+employee discipline
+employers
+employment
+employment abroad
+employment act
+employment centres
+employment equity
+employment insurance
+employment opportunities
+employment programs
+encyclopaedias
+endangered species
+energy
+energy conservation
+energy efficiency
+energy management
+energy policy
+energy production
+energy supply
+energy technology
+energy use
+enforcement
+engineering
+english language
+english second language
+enrolment applications
+entitlement
+entomology
+entrepreneurs
+entrepreneurship
+entry to canada
+environment
+environmental accidents
+environmental adaptation
+environmental agreements
+environmental economics
+environmental education
+environmental emergencies
+environmental hazards
+environmental impact
+environmental impact assessment
+environmental indicators
+environmental law
+environmental management
+environmental policy
+environmental programs
+environmental protection
+environmental quality
+environmental sciences
+environmental services
+environmental standards
+environmental technology
+epidemics
+epidemiology
+equal opportunities
+equipment
+equipment industry
+ergonomics
+erosion
+estates
+estimates
+estuaries
+ethics
+ethnic groups
+ethnic minorities
+ethnology
+euthanasia
+evacuations
+evidence
+exchange programs
+exchange rates
+excise
+excise taxes
+exclusion
+executives
+exemption
+expectations
+expenditure management
+expenditures
+experiments
+expertise
+explorations
+explosions
+explosives
+exports
+expropriation
+external relations
+extraction
+extradition
+family
+family allowances
+family businesses
+family education
+family law
+family planning
+family violence
+famine
+farm buildings
+farmlands
+farms
+feasibility studies
+federal contracts
+federal departments
+federal government
+federal institutions
+federal programs
+federal provincial agreements
+federal provincial relations
+federal taxes
+federal territorial agreements
+federal territorial relations
+fees
+ferries
+fertility
+fertilizers
+festivals
+fiduciary obligations
+film industry
+finance
+financial analysis
+financial assistance
+financial audit
+financial crisis
+financial institutions
+financial management
+financial services
+financial statements
+financing companies
+fines
+fire
+fire prevention
+firearms
+fiscal agreements
+fiscal assistance
+fiscal issues
+fiscal law
+fiscal policy
+fish
+fish farming
+fisheries
+fisheries management
+fisheries policy
+fisheries products
+fisheries resources
+fisheries technology
+fishing (sport)
+fishing area
+fishing permits
+fishing rights
+fishing ships
+fitness
+flags
+fleet management
+floods
+floors
+flora
+flowcharts
+fluorides
+folk art
+folklore
+food
+food inspection
+food irradiation
+food labelling
+food policy
+food processing
+food safety
+food security
+food supply
+forage crops
+forecasting
+foreign affairs
+foreign aid
+foreign investments
+foreign languages
+foreign payments
+foreign policy
+foreign service
+foreign students
+forensics
+forest fires
+forest management
+forestry
+forestry industry
+forestry policy
+forestry products
+forestry technology
+forests
+forgery
+forms
+fossils
+franchises
+francophonie
+fraud
+free trade
+free trade agreements
+freedom of information
+freight
+french in the workplace
+french language
+french second language
+fresh water
+freshwater fish
+frigates
+fruit crops
+fruits
+fuel supply
+fuels
+full-time employment
+functional foods
+funding
+fundraising
+fungi
+fungicides
+furniture
+furniture industry
+furs
+future
+gambling
+game (wildlife)
+games
+gangs
+gardening
+gardens
+gas industry
+gases
+gasoline
+gazetteers
+gender discrimination
+gender equality
+genealogy
+genetic engineering
+genetically modified foods
+genetically modified organisms
+genetics
+genomics
+geochemistry
+geodesy
+geographic data
+geographic information systems
+geographical maps
+geography
+geological maps
+geology
+geomatics
+geomorphology
+geophysics
+geothermal energy
+geriatrics
+gerontology
+gift books
+glaciers
+glass
+glass industry
+global positioning systems
+global warming
+globalization
+gold
+goods and services tax
+governance
+government communications
+government information
+government leader
+government libraries
+government policy
+government publications
+government services
+governments
+governor general
+grain elevators
+grains
+grants
+grapes
+graphic arts
+grasslands
+green products
+greenhouse effect
+greenhouse gases
+greenhouses
+gross domestic product
+gross national product
+groundwater
+growth capital
+guidelines
+habitats
+handbooks
+handling
+harassment
+harbour authorities
+harbours
+harmonized sales tax
+harvest
+hatcheries
+hazardous materials
+hazardous materials transport
+hazardous waste
+headquarters
+health
+health care
+health care facilities
+health care industry
+health care products
+health care quality
+health care system
+health hazards
+health impact
+health indicators
+health insurance
+health policy
+health professionals
+health promotion
+health protection
+health sciences
+hearing disabilities
+hearings
+heating
+helicopters
+hepatitis
+heraldry
+herbaria
+herbicides
+heredity
+heritage
+heritage buildings
+heritage conservation
+heritage languages
+hibernation
+high technology
+hiking
+historic sites
+historical research
+historical societies
+history
+hockey
+hogs
+holidays
+home-based businesses
+home economics
+home renovations
+homelessness
+homeopathy
+homicide
+honey
+horses
+horticulture
+hospitality industry
+house of commons
+household equipment
+household finance
+household income
+housing
+housing assistance
+hovercraft
+human beings
+human capital
+human resources
+human rights
+human security
+human trafficking
+humanitarian aid
+humanitarian crisis
+humanities
+humidity
+humour
+hunger
+hunting (sport)
+hunting permits
+hydroelectric plants
+hydrography
+hydrology
+hydroponics
+hydropower
+hygiene
+ice
+ice caps
+icebreakers
+ichthyology
+identification
+idioms
+illustrations
+immigrants
+immigration
+immigration policy
+immunization
+impact studies
+implementation
+imports
+imprisonment
+incentives
+income
+income security
+income tax
+incorporation
+indemnities
+independent living
+indexes
+indians
+indicators
+industrial buildings
+industrial design
+industrial development
+industrial management
+industrial policy
+industrial productivity
+industrial products
+industrial research
+industrial technology
+industrial waste
+industrial workers
+industry
+industry analysis
+industry assistance
+industry classification
+inequality
+infant care
+infant nutrition
+infants
+infected blood
+infectious diseases
+inflation
+influenza
+information
+information dissemination
+information management
+information policy
+information requests
+information systems
+information technology
+infrastructures
+inheritance
+initial public offering
+injunctions
+injuries
+inland waters
+inmates
+innovation
+innu
+inquiry
+insecticides
+insects
+inspection
+instructional materials
+insulation
+insurable earnings
+insurance
+insurance companies
+integrated management
+integration
+intellectual capital
+intellectual disabilities
+intellectual property
+intelligent systems
+intelligent transportation systems
+intercity transport
+interest groups
+interest rates
+intergovernmental organizations
+intergovernmental relations
+interlibrary loans
+internal migration
+international adoption
+international agreements
+international business development
+international cooperation
+international courts
+international development
+international economics
+international exhibitions
+international finance
+international law
+international markets
+international organizations
+international programs
+international security
+international telecommunications
+international trade
+international transport
+international travel
+internet
+internships
+interpersonal relations
+interpretation
+interprovincial relations
+interprovincial transport
+interviews
+intimidation
+intranets
+inuit
+invasive species
+inventions
+inventories
+investigative bodies
+investment policy
+investments
+irradiation
+irregular migration
+irrigation
+isolated communities
+jewellery
+job applications
+job classification
+job creation
+job description
+job promotion
+job search
+journalism
+judges
+jurisprudence
+justice system
+juvenile court
+knowledge based economy
+knowledge management
+knowledge transfer
+labelling
+laboratories
+labour
+labour code
+labour disputes
+labour force
+labour law
+labour market
+labour mobility
+labour relations
+labour standards
+labour union training
+labour unions
+lakes
+land claims
+land management
+landmines
+landslides
+language education
+language groups
+language minorities
+language policy
+language rights
+language training
+languages
+law
+lead
+leader of the official opposition
+leadership
+learning
+learning disabilities
+lease
+leasing
+leave of absence
+legal aid
+legal documents
+legal issues
+legal obligations
+legal rights
+legal services
+legislation
+legislative assemblies
+legislative writing
+lettuce
+liability
+libraries
+licensing
+lieutenant governor
+life expectancy
+life insurance
+life sciences
+life skills
+lifestyle
+lighthouses
+lighting
+linguistic diversity
+linguistic duality
+literacy
+literature
+litigation
+livestock
+living organisms
+loans
+lobbying
+local governments
+locks
+logging industry
+logistical support
+logistics
+lotteries
+low income
+lumber industry
+machine readable data
+macroeconomic analysis
+magnetism
+maintenance
+mammals
+management
+management information systems
+mandate
+manufacturing industry
+manure
+manuscripts
+maple products
+maps
+marijuana
+marinas
+marine accidents
+marine biology
+marine conservation areas
+marine equipment
+marine heritage
+marine installations
+marine safety
+marine safety equipment
+marital status
+maritime law
+market analysis
+market development
+market entry
+market place
+marketing
+marketing campaigns
+marketplace services
+markets
+marriage
+material management
+materials technology
+maternity benefits
+mathematics
+measurement
+meat
+mechanical engineering
+media
+media monitoring
+media relations
+mediation
+medical law
+medical products
+medical products industry
+medical records
+medical research
+medical technology
+medicinal plants
+medicine
+meetings
+members of the house of commons
+members of the senate
+men
+mental health
+mentoring
+mercury
+mergers
+merit
+metadata
+metals
+metalworking industry
+meteorological data
+meteorology
+methadone
+methodology
+métis
+metric system
+microbiology
+microeconomic analysis
+microeconomic policy
+microelectronics
+micrographics
+microorganisms
+migrant workers
+migration
+migratory birds
+military aircraft
+military architecture
+military aviation
+military colleges
+military command
+military communications
+military engineering
+military history
+military installations
+military law
+military personnel
+military police
+military technology
+military training
+milk
+minerals
+minimum wage
+mining accidents
+mining industry
+mining technology
+ministers
+minorities
+minority language education
+minutes
+misappropriation of funds
+mission statements
+model forests
+modelling
+models
+modernization
+molluscs
+monarchy
+monetary policy
+monographic series
+monuments
+moratorium
+mortgage assistance
+mortgage insurance
+mortgage loans
+mother tongue
+motor vehicles
+mountains
+multiculturalism
+multilateral agreement on investment
+multilateral agreements
+multilateral programs
+multilingualism
+multimedia
+multinational corporations
+municipal buildings
+municipalities
+museum collections
+museums
+music
+music industry
+music scores
+mutual insurance companies
+nanotechnology
+narcotic control
+narcotics
+national anthems
+national archives
+national bibliographies
+national capital
+national debt
+national heritage
+national income
+national libraries
+national parks
+national security
+national symbols
+nationalism
+natural disasters
+natural gas
+natural heritage
+natural history
+natural resources
+natural sciences
+nature conservation
+nautical charts
+navigation
+navigation systems
+needs
+negotiations
+networks
+newsletters
+newspapers
+nomenclature
+non-status indians
+non profit organizations
+non renewable resources
+nongovernmental organizations
+nonprescription drugs
+north-south relations
+northern canada
+northern development
+northern studies
+northerners
+nuclear energy
+nuclear facilities
+nuclear medicine
+nuclear power plants
+nuclear technology
+nuclear weapons
+numeracy
+numismatics
+nutrition
+oats
+obesity
+objectives
+occupational accidents
+occupational diseases
+occupational health
+occupational safety
+occupations
+ocean energy
+ocean floor
+oceanography
+oceans
+offences
+office automation
+office consolidations
+office equipment
+office management
+official languages
+official languages promotion
+official residences
+offprints
+offshore area
+offshore drilling
+oil sands
+oil spills
+old age
+olympic games
+ombudsman
+operations
+oral communication
+oral health
+orchestras
+organ transplantation
+organic foods
+organizations
+organized crime
+ornamental plants
+ornaments
+ornithology
+outdoor recreation
+outfitters
+outreach services
+ozone
+ozone depletion
+packaging
+pain
+painting
+palaeontology
+panamerican games
+parasites
+parenting
+parents
+pari mutuel
+parking
+parks
+parliament
+parliamentary committees
+parliamentary leaders
+parliamentary procedure
+parole
+part-time employment
+part-time students
+participation
+partnerships
+passports
+patented medicines
+patents
+paternity benefits
+pay equity
+peace
+peacekeeping
+peacekeeping forces
+pensions
+perceptions
+performance assessment
+performance indicators
+performing arts
+perinatal care
+periodicals
+permafrost
+permits
+personal assets
+personal care products
+personal digital assistant
+personal finance
+personal income
+personal income tax
+personal information
+personal information banks
+personnel management
+persons with disabilities
+pesticides
+pests
+petroleum
+petroleum industry
+pharmaceutical industry
+pharmacology
+philately
+philosophy
+photographs
+photography
+physical disabilities
+physical sciences
+physics
+physiology
+pilotage
+pioneers
+pipelines
+plain language
+planetariums
+planning
+plant diseases
+plants
+plastics industry
+pleasure craft
+poetry
+poisoning
+polar regions
+polar sciences
+police services
+policing
+policy
+policy development
+policy review
+political parties
+political science
+politics
+pollutants
+pollution
+pollution control
+pollution prevention
+popular culture
+population
+population distribution
+pornography
+position papers
+postal services
+posters
+postsecondary education
+potatoes
+pottery
+poultry
+poverty
+prairie ecosystems
+precious metals
+precipitation
+pregnancy
+premiums
+preschool education
+prescription drugs
+press releases
+prevention
+preventive medicine
+price indexes
+price regulation
+prices
+pricing
+primary industry
+primates
+prime minister
+printing
+prints
+privacy
+private investments
+private pensions
+private schools
+private sector
+privatization
+probate
+proceeds of crime
+processing
+product codes
+product development
+product recalls
+production
+productivity
+products
+professional associations
+professional development
+profitability
+program assessment
+program delivery
+program development
+program management
+program review
+programming
+programs
+progress reports
+prohibition
+project management
+pronunciation
+propaganda
+propane
+property
+property and casualty insurance
+property management
+property tax
+prospecting
+prostitution
+protected species
+protocol
+prototyping
+provinces
+provincial governments
+provincial institutions
+provincial parks
+provincial taxes
+psychology
+public-private partnerships
+public access
+public accounts
+public administration
+public architecture
+public buildings
+public diplomacy
+public expenditures
+public finance
+public funding
+public hearings
+public libraries
+public notices
+public opinion
+public opinion polls
+public pensions
+public relations
+public safety
+public schools
+public sector
+public service
+public transit
+public works
+publishing
+pulp and paper industry
+purchasing
+qualifications
+quality control
+quality of life
+quality of service
+quality standards
+quarantine
+questionnaires
+quilting
+race relations
+racial discrimination
+radar
+radiation
+radio
+radioactive materials
+radioactive waste
+radioactivity
+rail companies
+rail transport
+rail transport industry
+railway accidents
+railway installations
+railway networks
+railway safety
+rates
+reading
+real estate
+real estate industry
+real property services
+receiver general
+reciprocal agreements
+record of employment
+records
+records management
+recourse
+recoveries
+recreation
+recreational facilities
+recreational hunting
+recruiting
+recyclable materials
+recycling
+reference services
+reforestation
+reform
+refrigeration equipment
+refugees
+regional cooperation
+regional development
+regional markets
+regions
+registers
+registration
+regulation
+regulations
+regulatory agencies
+rehabilitation
+religion
+religious architecture
+religious buildings
+religious heritage
+religious history
+remote sensing
+renewable energy
+renewable resources
+reports
+representatives
+reproductive technology
+reprography
+reptiles
+rescue
+rescue equipment
+research
+research and development
+research chairs
+research grants
+research institutes
+residential schools
+resignation
+resource allocation
+resource development
+resources conservation
+resources management
+respiratory diseases
+restaurants
+restoration
+restructuring
+retail trade
+retention of staff
+retirement
+retraining
+review
+risk management
+risk premiums
+rivers
+road accidents
+road construction
+road maps
+road networks
+road safety
+road transport
+robotics
+rodenticides
+rodents
+roles
+royalties
+rubber industry
+rural communities
+rural development
+rural environment
+safety
+safety education
+safety equipment
+safety measures
+safety regulations
+safety standards
+sailboats
+salaries
+sales
+sales taxes
+salt water
+salt water fish
+same-sex couples
+samples
+satellites
+savings
+scholarships
+school boards
+schools
+science education
+science policy
+sciences
+scientific equipment
+scientific information
+scientific research
+screening (medicine)
+sculpture
+seafood
+sealing
+seals
+seas
+seasonal employment
+second language assessment
+second language education
+second languages
+secondary education
+secondary industry
+secondary schools
+sector analysis
+securities
+security intelligence
+security investigations
+sedimentology
+sediments
+seizure (of property)
+selection
+self employment
+self government
+semen
+senate
+seniors
+service agreements
+service contracts
+service industry
+severance pay
+sewing
+sexual harassment
+sexual offences
+sexual orientation
+sexually transmitted diseases
+shares
+sheep
+shipbuilding
+shipping
+ships
+shoe industry
+shortage
+side effects
+signs
+silver
+single parent families
+site management
+skating
+ski trails
+skiing
+skills
+skills transfer
+slaughtering
+slides
+small business loans
+small businesses
+smog
+smoking
+smoking prevention
+snow
+social assistance
+social conditions
+social development
+social equity
+social history
+social indicators
+social insurance number
+social issues
+social life
+social media
+social movement
+social policy
+social problems
+social programs
+social rights
+social sciences
+social security
+social services
+social statistics
+social structure
+social surveys
+social trends
+socioeconomic analysis
+socioeconomic data
+sociology
+software
+soil
+soil conservation
+soil pollution
+soil quality
+soil taxonomy
+solar energy
+solar heating
+sole proprietorships
+solvents
+sound archives
+sound recordings
+sovereignty
+space exploration
+space sciences
+space station
+space technology
+special libraries
+specifications
+spectrum management
+sponsorship
+sports
+sports events
+staffing
+stamps
+standard of living
+standardization
+standards
+standing offers
+state ceremonial
+statements
+statistical analysis
+statistical profile
+statistics
+status of disabled persons
+status of the elderly
+status of women
+steel
+stem cells
+stewardship
+stock markets
+storage
+storms
+strategic management
+strategies
+stratigraphy
+streams
+street gangs
+student labour
+student loans
+students
+studies abroad
+style manuals
+submarines
+subsidized housing
+suicide
+supervision
+supplements
+suppliers
+supplies
+supply
+support businesses
+surface water
+surplus
+surveying
+surveys
+survival
+survivor benefits
+suspension
+sustainable development
+sustainable transportation
+symbols
+systems
+tables
+tariff barriers
+tariff protection
+tariff relief
+tariffs
+tax avoidance
+tax benefits
+tax credits
+tax fraud
+tax incentives
+tax refunds
+taxation regulations
+taxes
+taxonomy
+tea
+teachers
+technical education
+technical reports
+technical services
+technical writing
+technological innovation
+technology
+technology policy
+technology transfer
+telecommunications
+telecommunications networks
+telecommunications policy
+teleconferencing
+telegrams
+telegraph
+telehealth
+telemedicine
+telephone directories
+telephones
+television
+telework
+temperature
+temporary employment
+tenders
+term loans
+termination of employment
+terminology
+terms of reference
+terrestrial ecosystems
+territorial governments
+territorial parks
+territories
+terrorism
+testimony
+testing
+textile industry
+textiles
+theatre
+therapy
+thesauri
+tides
+time
+time zones
+tissues
+tobacco industry
+tolls
+tools
+topographical maps
+topography
+toponymy
+tourism
+tourism facilities
+toxic spills
+toxic substances
+toxicology
+toys
+trade
+trade agreements
+trade disputes
+trade missions
+trade negotiations
+trade office
+trade policy
+trade promotion
+trade relations
+trade shows
+trademarks
+train stations
+training
+training centres
+trains
+transborder data flow
+transfer payments
+transfers
+transfers of personnel
+transformation
+translation
+transplantation (medicine)
+transport
+transport industry
+transport policy
+transportation safety
+travel
+travel documents
+trees
+trends
+trucking industry
+trucks
+trust companies
+trustees
+tsunamis
+tunnels
+ultraviolet radiation
+unemployment
+universities
+unpaid work
+urban communities
+urban development
+urban environment
+urban planning
+urban transit
+user education
+uses
+utilities
+vacations
+vandalism
+vegetable crops
+vegetables
+vehicles
+vendors
+venture capital
+vessels
+veteran pensions
+veterans
+veterinary drugs
+veterinary medicine
+victims
+videorecordings
+violence
+violence against children
+violence against women
+virtual exhibitions
+viruses
+visas
+visible minorities
+visits of state
+visual archives
+visual arts
+visual disabilities
+vital statistics
+vitamins
+viticulture
+vocational guidance
+vocational rehabilitation
+vocational training
+voice mail
+volcanoes
+volunteer work
+war
+war crimes
+war memorials
+warranties
+warrants
+waste
+waste management
+waste water
+water
+water conservation
+water demand
+water management
+water pollution
+water quality
+water supply
+water transport
+water transport industry
+water use
+watercourses
+watersheds
+waterways
+weapons
+weather
+weather forecasts
+weather warnings
+weaving
+web sites
+web usability
+weeds
+western provinces
+wetlands
+whales
+whaling
+wharfs
+wheat
+wheelchairs
+whistleblower protection
+wholesale trade
+wild plants
+wildlife
+wildlife management
+wind
+wind energy
+wine
+wine industry
+winter sports
+women
+women's health
+women workers
+wood
+woodworking industry
+work organization
+work permits
+workers
+working capital
+working conditions
+workplace
+workplace automation
+workplace pollution
+workplace violence
+world heritage
+writing
+xenotransplantation
+yearbooks
+yogurt
+young adults
+young offenders
+youth
+zoological gardens
+zoology

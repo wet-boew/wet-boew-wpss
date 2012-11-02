@@ -1,0 +1,90 @@
+#***********************************************************************
+#
+# Name:   language_map.txt
+#
+# $Revision$
+# $URL$
+# $Date$
+#
+# Description:
+#   This file contains a map of the language files names to the ISO 639
+# 3 character language code.
+#
+# Comment (lines starting with #) and blank lines are ignored.
+#
+#***********************************************************************
+
+afr afrikaans.lm
+alb albanian.lm
+amh amharic-utf.lm
+ara arabic-iso8859_6.lm
+ara arabic-windows1256.lm
+arm armenian.lm
+baq basque.lm
+bel belarus-windows1251.lm
+bos bosnian.lm
+bre breton.lm
+bul bulgarian-iso8859_5.lm
+#cat catalan.lm
+chi chinese-big5.lm
+chi chinese-gb2312.lm
+hrv croatian-ascii.lm
+cze czech-iso8859_2.lm
+dan danish.lm
+dut dutch.lm
+eng english.lm
+epo esperanto.lm
+est estonian.lm
+fin finnish.lm
+fra french.lm
+fra frisian.lm
+geo georgian.lm
+ger german.lm
+gre greek-iso8859-7.lm
+heb hebrew-iso8859_8.lm
+hin hindi.lm
+hun hungarian.lm
+ice icelandic.lm
+ind indonesian.lm
+gle irish.lm
+ita italian.lm
+jpn japanese-euc_jp.lm
+jpn japanese-shift_jis.lm
+kor korean.lm
+lat latin.lm
+lav latvian.lm
+lit lithuanian.lm
+may malay.lm
+glv manx.lm
+mar marathi.lm
+#    mingo.lm
+nep nepali.lm
+nor norwegian.lm
+per persian.lm
+pol polish.lm
+por portuguese.lm
+que quechua.lm
+rum romanian.lm
+#    rumantsch.lm
+rus russian-iso8859_5.lm
+rus russian-koi8_r.lm
+rus russian-windows1251.lm
+san sanskrit.lm
+sco scots.lm
+gla scots_gaelic.lm
+srp serbian-ascii.lm
+slk slovak-ascii.lm
+slk slovak-windows1250.lm
+slv slovenian-ascii.lm
+slv slovenian-iso8859_2.lm
+spa spanish.lm
+swa swahili.lm
+swe swedish.lm
+tgl tagalog.lm
+tam tamil.lm
+tha thai.lm
+tur turkish.lm
+ukr ukrainian-koi8_u.lm
+vie vietnamese.lm
+wel welsh.lm
+yid yiddish-utf.lm

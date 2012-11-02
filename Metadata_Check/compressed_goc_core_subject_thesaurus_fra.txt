@@ -1,0 +1,2199 @@
+
+#***********************************************************************
+#
+# Compressed Core Subject Thesaurus File
+#
+# This file is a compressed verion of the Core Subject Thesaurus
+# text delimited file.  It contains only the prefered subject terms.
+# This file was generated as follows
+#    compress_thesaurus_file.pl goc_core_subject_thesaurus_fra.txt
+# at: 11:46 2012-10-17
+#
+# This file should not be modified.
+#
+#***********************************************************************
+abattage d'animaux
+abréviation
+accès à l'éducation
+accès à l'information
+accès public
+accessibilité
+accessibilité aux personnes handicapées
+accident
+accident d'aviation
+accident de la route
+accident de travail
+accident environnemental
+accident ferroviaire
+accident maritime
+accident minier
+accise
+accord
+accord commercial
+accord de coopération
+accord de libre-échange
+accord de réciprocité
+accord de service
+accord en matière d'environnement
+accord fédéral-provincial
+accord fédéral-territorial
+accord fiscal
+accord international
+accord multilatéral
+accord multilatéral sur l'investissement
+accréditation
+acculturation
+achat
+acheteur
+acier
+acquisition (entreprise)
+acquittement
+acte de vente
+actif
+action
+action positive
+actuariat
+adaptation
+adaptation à l'environnement
+administration aéroportuaire
+administration locale
+administration portuaire
+administration publique
+admissibilité
+adolescence
+adolescent
+adoption
+adoption internationale
+adulte
+aéroglisseur
+aéronef
+aéronef civil
+aéronef militaire
+aéroport
+affaires autochtones
+affaires étrangères
+affectation
+affiche
+affranchissement des droits
+Âge adulte
+agriculture
+aide à l'agriculture
+aide à l'étranger
+aide à l'industrie
+aide au logement
+aide financière
+aide fiscale
+aide humanitaire
+aide hypothécaire
+aide juridique
+aide sociale
+aîné
+air
+aire de conservation
+aire marine de conservation
+alcoolisme
+alerte météorologique
+aliment
+aliment biologique
+aliment fonctionnel
+aliment génétiquement modifié
+alimentation
+alimentation animale
+alimentation du nouveau-né
+allègement tarifaire
+allergie
+allocation
+allocation des ressources
+allocations familiales
+almanach
+alphabétisation
+amende
+amendement
+ameublement
+amphibien
+analyse
+analyse coût-bénéfice
+analyse de l'industrie
+analyse de marché
+analyse économique
+analyse financière
+analyse macro-économique
+analyse micro-économique
+analyse sectorielle
+analyse socio-économique
+analyse statistique
+anatomie
+ancien combattant
+anglais
+anglais langue seconde
+animal
+animal aquatique
+animal domestique
+année civile
+annuaire
+antarctique
+anthropologie
+antigivrage des aéronefs
+apiculture
+appareil électrique
+appauvrissement de l'ozone
+appel
+appel d'offres
+apprentissage
+approvisionnement en eau
+approvisionnement en sang
+approvisionnements
+aquaculture
+aquarium
+arachnide
+arbitrage
+arbre
+archéologie
+architecture
+architecture commerciale
+architecture domestique
+architecture militaire
+architecture publique
+architecture religieuse
+archives
+archives cartographiques
+archives climatologiques
+archives nationales
+archives sonores
+archives visuelles
+arctique
+argent (minerai)
+arme
+arme à feu
+arme biologique
+arme chimique
+arme nucléaire
+arpentage
+arrestation
+arsenal
+art culinaire
+art d'être parent
+art populaire
+artefact
+arthrite
+arthropode
+artisanat
+artiste
+arts
+arts d'interprétation
+arts décoratifs
+arts graphiques
+arts visuels
+assemblée législative
+assistance professionnelle
+assistant numérique personnel
+association
+association professionnelle
+assurance
+assurance-emploi
+assurance-récolte
+assurance-vie
+assurance dentaire
+assurance hypothécaire
+assurance maladie
+assurance médicaments
+assurance sur les biens et risques
+astronaute
+astronomie
+athlète
+atlas
+attentes
+attitude
+attribution de permis
+audience
+audience publique
+auteur
+authentification
+autobus
+autochtones
+automatisation
+automatisation du travail
+automobile
+autonomie gouvernementale
+autonomie personnelle
+autorisation
+avalanche
+avantage fiscal
+avantages sociaux
+aviation
+aviation civile
+aviation militaire
+avion
+avis public
+avoine
+avortement
+bactérie
+bactériologie
+bail
+baleine
+banque
+barrage
+barrière tarifaire
+base de données
+bassin hydrologique
+bateau de plaisance
+bâtiment
+bâtiment agricole
+bâtiment commercial
+bâtiment industriel
+bénéficiaire
+bénévolat
+besoins
+besoins en eau
+bétail
+béton
+beurre
+bibliographie
+bibliographie nationale
+bibliothèque
+bibliothèque gouvernementale
+bibliothèque nationale
+bibliothèque numérique
+bibliothèque publique
+bibliothèque spécialisée
+biens
+biens de la couronne
+biens mobiliers
+bière
+bilinguisme
+biochimie
+biodégradation
+bioénergie
+bioéthique
+biographie
+biologie
+biologie marine
+biomasse
+biotechnologie
+blé
+blessure
+bois
+boisement
+boisson
+boisson alcoolisée
+botanique
+bourse d'études
+bovin
+bovin de boucherie
+bovin laitier
+braille
+brevet
+brise-glace
+brochure
+budget
+bulletin
+bureau commercial
+bureautique
+câblodistribution
+cadre de référence
+café
+caisse populaire
+calotte glaciaire
+camion
+campagne de marketing
+canal
+cancer
+cancer du sein
+candidat
+capital
+capital de croissance
+capital de risque
+capital humain
+capital intellectuel
+capitale nationale
+carburant de remplacement
+carburant diesel
+carotte
+carte
+carte aéronautique
+carte démographique
+carte géographique
+carte géologique
+carte marine
+carte routière
+carte topographique
+cartographie
+casier judiciaire
+casino
+catalogage
+catalogue
+catastrophe naturelle
+cécité
+cédérom
+cellule
+cellule souche
+cénotaphe
+censure
+centrale électrique
+centrale hydroélectrique
+centrale nucléaire
+centralisation
+centre d'emploi
+centre de formation
+céramique
+céréale
+cérémonial d'État
+certificat d'origine
+certificat de décès
+certificat de naissance
+cessation d'emploi
+chaire de recherche
+chambre des communes
+champ de bataille
+champignon
+changement climatique
+changement d'adresse
+charbon
+charte
+charte des droits et libertés
+chasse à la baleine
+chasse au phoque
+chasse récréative
+chasse sportive
+chauffage
+chauffage solaire
+chef de l'opposition officielle
+cheval
+chimie
+chômage
+cimetière
+cinéma
+circonscription électorale
+citoyenneté
+classification
+classification des emplois
+classification des industries
+classification des sols
+client
+climat
+climatisation
+clonage
+code criminel
+code de pratiques
+code de produit
+code du travail
+codification
+codification administrative
+collecte de fonds
+collection
+collection de monographies
+collection muséale
+collection numérique
+collège
+collège militaire
+colonisation
+combustible
+comité
+comité consultatif
+commandement militaire
+commandite
+commémoration
+commerce
+commerce de détail
+commerce de gros
+commerce électronique
+commerce extérieur
+commerce intérieur
+commercialisation
+commission d'enquête
+commission parlementaire
+commission scolaire
+commonwealth
+communauté isolée
+communauté rurale
+communauté urbaine
+communication orale
+communications
+communications gouvernementales
+communications militaires
+communiqué de presse
+compagnie aérienne
+compagnie d'assurances
+compagnie ferroviaire
+comparaison
+comparution
+compétitivité
+comportement
+compostage
+comptabilité
+comptes publics
+conception
+concurrence
+condamnation
+condition de la femme
+condition de la personne âgée
+condition de la personne handicapée
+condition physique
+conditions de travail
+conditions économiques
+conditions sociales
+conduite automobile
+confidentialité
+conflit
+conflit d'intérêt
+conflit de travail
+conformité
+congé
+congédiement
+conglomérat
+congrès
+conseil d'administration
+conseil des ministres
+conservation
+conservation de l'eau
+conservation de l'énergie
+conservation de la nature
+conservation des ressources
+consommateur
+consommation
+consommation d'alcool
+consommation d'énergie
+consommation de drogues
+consortium
+constitution
+construction
+construction navale
+construction routière
+consultation
+contrat
+contrat de service
+contrat du gouvernement fédéral
+contravention
+contrôle
+contrôle d'application
+contrôle de la qualité
+contrôle des armements
+convention collective
+coopération
+coopération internationale
+coopération régionale
+coopérative
+coordination
+correspondance
+corruption
+costume
+couple
+couple de même sexe
+courrier électronique
+cours d'eau
+cours de conduite automobile
+coût
+coutume
+couture
+couveuse
+créance
+création d'emploi
+crédit
+crédit d'impôt
+crédit ménager
+crème
+crime
+crime contre l'humanité
+crime de guerre
+crime économique
+crime informatique
+crime organisé
+crise
+crise financière
+crise humanitaire
+crustacé
+cryptographie
+culture
+culture autochtone
+culture hydroponique
+culture populaire
+cultures
+cultures fourragères
+cultures fruitières
+cultures maraîchères
+curriculum
+cyclisme
+danse
+débiteur
+déboisement
+décaissement
+décentralisation
+déchets
+déchets dangereux
+déchets domestiques
+déchets électroniques
+déchets industriels
+déchets radioactifs
+décision
+décision du tribunal
+déclaration
+décontamination
+décoration
+défense des droits
+déficience
+déficience auditive
+déficience intellectuelle
+déficience physique
+déficience visuelle
+déficit
+dégivrage des aéronefs
+délégation
+délégation commerciale
+délégation de pouvoir
+demande
+demande d'admission
+demande d'emploi
+demande d'information
+demandeur
+démarrage d'une entreprise
+déminage
+démission
+démographie
+dépendance
+dépenses
+dépenses publiques
+dépistage (médecine)
+déportation
+député fédéral
+dérogation
+désastre
+description de poste
+dessaisissement
+dessin
+dessin d'architecture
+dessin industriel
+destroyer
+détection
+détenu
+détournement de fonds
+dette
+dette nationale
+développement
+développement communautaire
+développement culturel
+développement de l'enfant
+développement de l'entreprise
+développement de produit
+développement des marchés
+développement du commerce international
+développement du nord
+développement durable
+développement économique
+développement industriel
+développement international
+développement professionnel
+développement régional
+développement rural
+développement social
+développement urbain
+déversement de pétrole
+déversement de substances toxiques
+diabète
+diagnostic
+diamant
+diapositive
+dictionnaire
+dictionnaire de données
+différend commercial
+diffusion de l'information
+diplomatie ouverte
+directeur général des élections
+discipline du travail
+discrimination
+discrimination raciale
+discrimination sexuelle
+disponibilités alimentaires
+disponibilités en combustible
+disponibilités énergétiques
+disque compact
+dissolution
+distribution
+diversification
+diversité biologique
+diversité culturelle
+diversité linguistique
+divorce
+divulgation d'actes fautifs
+document d'information
+document électronique
+document juridique
+don
+don de charité
+données administratives
+données démographiques
+données du recensement
+données géographiques
+données lisibles par machine
+données météorologiques
+données socio-économiques
+dossier
+dossier médical
+dotation
+douanes
+douleur
+drainage
+drapeau
+drogue
+droit
+droit administratif
+droit autochtone
+droit civil
+droit commercial
+droit constitutionnel
+droit criminel
+droit d'auteur
+droit de l'environnement
+droit de la famille
+droit du travail
+droit fiscal
+droit international
+droit maritime
+droit médical
+droit militaire
+droits antidumping
+droits civils
+droits de l'enfant
+droits de la personne
+droits de pêche
+droits des animaux
+droits des autochtones
+droits linguistiques
+droits sociaux
+dualité linguistique
+dumping
+eau
+eau de surface
+eau douce
+eau potable
+eau salée
+eau souterraine
+eaux côtières
+eaux intérieures
+eaux limitrophes
+eaux usées
+Échange de données bibliographiques
+Échange de données informatisées
+Échantillon
+Éclairage
+Écluse
+École
+École primaire
+École privée
+École publique
+École résidentielle
+École secondaire
+Écologie
+Économie
+Économie agricole
+Économie de l'environnement
+Économie domestique
+Économie du savoir
+Économie internationale
+Écosystème
+Écosystème aquatique
+Écosystème arctique
+Écosystème boréal
+Écosystème prairial
+Écosystème terrestre
+Édifice municipal
+Édifice patrimonial
+Édifice public
+Édifice religieux
+Édition
+Édition électronique
+Éducation
+Éducation à l'environnement
+Éducation communautaire
+Éducation familiale
+Éducation permanente
+Éducation préscolaire
+effet de serre
+effet secondaire
+Égalité des chances
+Égalité des sexes
+Élaboration de programme
+Élaboration des politiques
+Élection partielle
+Élections
+Électricité
+Électronique
+Élevage
+emballage
+embarcation
+emblème
+Émigration
+Émissions atmosphériques
+emploi
+emploi à l'étranger
+emploi à temps partiel
+emploi à temps plein
+emploi autonome
+emploi saisonnier
+emploi temporaire
+employeur
+empoisonnement
+emprisonnement
+emprunteur
+encyclopédie
+Énergie
+Énergie de remplacement
+Énergie éolienne
+Énergie géothermique
+Énergie marine
+Énergie nucléaire
+Énergie renouvelable
+Énergie solaire
+enfance
+enfant
+engrais
+Énoncé de mission
+enquête
+enquête criminelle
+enquête de sécurité
+enquête sociale
+enregistrement
+enregistrement numérique
+enregistrement sonore
+enregistrement vidéo
+enseignant
+enseignement coopératif
+enseignement dans la langue de la minorité
+enseignement de la langue seconde
+enseignement de la sécurité
+enseignement des langues
+enseignement des sciences
+enseignement postsecondaire
+enseignement primaire
+enseignement secondaire
+enseignement technique
+entomologie
+entraînement des astronautes
+entrée au canada
+entrée sur le marché
+entreposage
+entrepreneur
+entrepreneuriat
+entreprise
+entreprise autochtone
+entreprise de soutien
+entreprise domiciliaire
+entreprise familiale
+entreprise individuelle
+entretien
+entrevue
+environnement
+Épargne
+Épidémie
+Épidémiologie
+Épreuve biologique
+Équipement
+Équipement audiovisuel
+Équipement de bureau
+Équipement de communications
+Équipement de réfrigération
+Équipement de sauvetage
+Équipement de sécurité
+Équipement de sécurité automobile
+Équipement de sécurité cycliste
+Équipement de sécurité nautique
+Équipement électrique
+Équipement électronique
+Équipement maritime
+Équipement ménager
+Équipement scientifique
+Équité en matière d'emploi
+Équité salariale
+Équité sociale
+ergonomie
+Érosion
+espèce envahissante
+espèce menacée
+espèce protégée
+espérance de vie
+essence
+estuaire
+Établissement d'enseignement
+Établissement de santé
+Établissement des prix
+Établissement pénitentiaire
+État matrimonial
+États financiers
+Éthique
+ethnologie
+Étiquetage
+Étiquetage des aliments
+Étiquetage des médicaments
+Être humain
+Étude d'impact
+Étude de cas
+Étude de faisabilité
+Études à l'étranger
+Études canadiennes
+Études culturelles
+Études nordiques
+Étudiant
+Étudiant à temps partiel
+Étudiant étranger
+euthanasie
+Évacuation
+Évaluation
+Évaluation de la langue seconde
+Évaluation de programme
+Évaluation du rendement
+Évaluation environnementale
+Événement culturel
+Événement sportif
+Évitement fiscal
+examen des politiques
+exclusion
+expédition
+expérimentation
+expérimentation biomédicale
+expérimentation sur les animaux
+expertise
+exploitation agricole
+exploitation des ressources
+exploration
+exploration spatiale
+explosif
+explosion
+exportation
+exposé de principe
+exposition d'œuvres d'art
+exposition internationale
+exposition virtuelle
+expropriation
+extraction
+extradition
+facilité d'emploi du web
+faible revenu
+faillite
+faim
+falsification
+famille
+famille monoparentale
+famine
+faune
+faune aquatique
+fauteuil roulant
+fécondité
+femme
+festival
+fichier de renseignements personnels
+fiduciaire
+financement
+financement de l'éducation
+financement public
+finances
+finances internationales
+finances personnelles
+finances publiques
+flore
+fluorure
+flux transfrontière de données
+foire agricole
+folklore
+fonction de contrôleur
+fonction publique
+fonctionnement
+fond marin
+fonds de roulement
+fongicide
+forage
+forage en mer
+forces alliées
+forces armées
+forces de maintien de la paix
+foresterie
+forêt
+forêt modèle
+formation
+formation à distance
+formation de reconversion
+formation des utilisateurs
+formation linguistique
+formation militaire
+formation professionnelle
+formation syndicale
+formulaire
+fossile
+fouilles archéologiques
+fournisseur
+fourrure
+frais
+français
+français au travail
+français langue seconde
+franchise
+francophonie
+fraude
+fraude fiscale
+frégate
+fret
+fromage
+frontière
+fruit
+fruits de mer
+fumier
+fuseau horaire
+fusion
+futur
+galerie d'art
+gangs
+gangs de rue
+garantie
+garantie juridique
+garde côtière
+garde des enfants
+garderie
+gare ferroviaire
+gaz
+gaz à effet de serre
+gaz naturel
+généalogie
+génétique
+génie génétique
+génie mécanique
+génie militaire
+génomique
+géochimie
+géodésie
+géographie
+géologie
+géomatique
+géomorphologie
+géophysique
+gérance
+gériatrie
+gérontologie
+gestion
+gestion administrative
+gestion de l'eau
+gestion de l'environnement
+gestion de l'information
+gestion de la dette
+gestion de la faune
+gestion de programme
+gestion de projet
+gestion de site
+gestion des biens
+gestion des déchets
+gestion des dépenses
+gestion des documents
+gestion des pêches
+gestion des ressources
+gestion des risques
+gestion des terres
+gestion du matériel
+gestion du parc automobile
+gestion du personnel
+gestion du savoir
+gestion du spectre
+gestion énergétique
+gestion financière
+gestion forestière
+gestion industrielle
+gestion intégrée
+gestion stratégique
+gibier
+glace
+glacier
+glissement de terrain
+gouvernance
+gouvernement
+gouvernement autochtone
+gouvernement en ligne
+gouvernement fédéral
+gouvernement provincial
+gouvernement territorial
+gouverneur général
+grain
+gravure
+grippe
+grossesse
+groupe culturel
+groupe d'intérêt
+groupe ethnique
+groupe linguistique
+guerre
+guerre biologique
+guerre chimique
+guide de rédaction
+habiletés
+habiletés fondamentales
+habillement
+habitant du nord
+habitat
+harcèlement
+harcèlement sexuel
+hélicoptère
+hépatite
+héraldique
+herbicide
+herbier
+hérédité
+héritage
+heure avancée
+hibernation
+histoire
+histoire du canada
+histoire économique
+histoire militaire
+histoire naturelle
+histoire religieuse
+histoire sociale
+hockey
+homéopathie
+homicide
+homme
+homologation
+horticulture
+huile de canola
+huiles et gras comestibles
+humidité
+humour
+hydroélectricité
+hydrographie
+hydrologie
+hygiène
+hymne national
+ichtyologie
+identification
+identité canadienne
+idiome
+illustration
+image de marque
+immeuble d'habitation
+immigrant
+immigration
+immobilier
+immunisation
+impact économique
+impact sur l'environnement
+impact sur la santé
+implantation
+importation
+impôt
+impôt fédéral
+impôt foncier
+impôt provincial
+impôt sur le revenu
+impôt sur le revenu des particuliers
+impôt sur le revenu des sociétés
+imprimerie
+imputabilité
+incendie
+incendie de forêt
+incitatif
+incitatif fiscal
+incorporation
+indemnité
+indemnité de cessation d'emploi
+index
+indicateur
+indicateur de l'éducation
+indicateur de performance
+indicateur de santé
+indicateur économique
+indicateur environnemental
+indicateur social
+indice des prix
+indien non-inscrit
+indiens
+industrie
+industrie agro-alimentaire
+industrie chimique
+industrie cinématographique
+industrie culturelle
+industrie de l'aéronautique
+industrie de l'aérospatiale
+industrie de l'automobile
+industrie de l'électronique
+industrie de l'équipement
+industrie de l'exploitation forestière
+industrie de l'immobilier
+industrie de la chaussure
+industrie de la construction
+industrie de la défense
+industrie de la fabrication
+industrie de la musique
+industrie de la radiodiffusion
+industrie des boissons
+industrie des communications
+industrie des matières plastiques
+industrie des pâtes et papiers
+industrie des produits médicaux
+industrie des services
+industrie des soins de santé
+industrie du bois
+industrie du bois d'œuvre
+industrie du camionnage
+industrie du caoutchouc
+industrie du meuble
+industrie du tabac
+industrie du transport
+industrie du transport aérien
+industrie du transport ferroviaire
+industrie du transport maritime
+industrie du verre
+industrie du vêtement
+industrie forestière
+industrie gazière
+industrie hôtelière
+industrie laitière
+industrie métallurgique
+industrie minière
+industrie pétrolière
+industrie pharmaceutique
+industrie primaire
+industrie secondaire
+industrie textile
+industrie vinicole
+inégalité
+inflation
+information
+information gouvernementale
+information numérisée
+information scientifique
+informatique
+infraction
+infraction sexuelle
+infrastructure
+infrastructure communautaire
+ingénierie
+inhumation
+injonction
+innovation
+innovation technologique
+innu
+inondation
+insecte
+insecticide
+insémination artificielle
+inspection
+inspection des aliments
+inspection des animaux
+installations ferroviaires
+installations maritimes
+installations militaires
+installations nucléaires
+installations récréatives
+installations touristiques
+institut de recherche
+institution culturelle
+institution fédérale
+institution financière
+institution provinciale
+intégration
+intelligence artificielle
+interdiction
+internet
+interprétation
+intimidation
+intranet
+inuit
+inventaire
+invention
+investissement
+investissement étranger
+investissement privé
+irradiation
+irradiation des aliments
+irrigation
+isolation thermique
+jardin
+jardin botanique
+jardin zoologique
+jardinage
+jeu
+jeu de hasard
+jeune adulte
+jeune autochtone
+jeune contrevenant
+jeunesse
+jeux olympiques
+jeux panaméricains
+joaillerie
+jouet
+jour férié
+journal
+journalisme
+juge
+justice communautaire
+justice pénale
+laboratoire
+lac
+lait
+laitue
+langage simple
+langue
+langue ancestrale
+langue autochtone
+langue étrangère
+langue maternelle
+langue officielle
+langue seconde
+leader du gouvernement
+leader parlementaire
+leadership
+lecture
+législation
+légume
+libération conditionnelle
+liberté d'information
+libre-échange
+lieu du marché
+lieu historique
+lieutenant-gouverneur
+lignes directrices
+litige
+littérature
+littérature canadienne
+littérature de jeunesse
+littoral
+livraison
+livre
+livre cadeau
+livre pour enfant
+lobbying
+location
+logement
+logement subventionné
+logiciel
+logistique
+loi sur l'emploi
+loi sur les médicaments
+loisir
+loisir de plein air
+loterie
+lutte antidrogue
+lutte contre la pollution
+magnétisme
+main-d'œuvre
+maintien de l'effectif
+maintien de l'ordre public
+maintien de la paix
+maïs
+maladie
+maladie animale
+maladie cardiovasculaire
+maladie chronique
+maladie d'alzheimer
+maladie dégénérative
+maladie des plantes
+maladie infantile
+maladie infectieuse
+maladie professionnelle
+maladie respiratoire
+maladie transmise sexuellement
+mammifère
+mandat
+mandat de perquisition
+manuel
+manuscrit
+manutention
+marché
+marché de capitaux
+marché des valeurs
+marché du travail
+marché intérieur
+marché international
+marché régional
+marée
+mariage
+marijuana
+marketing
+marketing direct
+marque de commerce
+matelassage
+matériau de construction
+matériel didactique
+mathématiques
+matière dangereuse
+matière radioactive
+matière recyclable
+médecine
+médecine douce
+médecine légale
+médecine nucléaire
+médecine préventive
+médecine vétérinaire
+média
+média social
+médiation
+médicament
+médicament breveté
+médicament d'ordonnance
+médicament en vente libre
+médicament vétérinaire
+meilleures pratiques
+mentorat
+mer
+mercure
+mérite
+messagerie vocale
+mesure
+mesure de sécurité
+métadonnées
+métal
+métal précieux
+météorologie
+méthadone
+méthodologie
+métis
+microbiologie
+microélectronique
+micrographie
+microorganisme
+miel
+migration
+migration animale
+migration clandestine
+migration interne
+milieu de travail
+milieu rural
+milieu urbain
+mine terrestre
+minerai
+ministère du gouvernement fédéral
+ministre
+minorité
+minorité ethnique
+minorité linguistique
+minorité visible
+mission diplomatique
+mobilité de la main-d'œuvre
+mode de vie
+modèle
+modélisation
+modernisation
+mollusque
+monarchie
+mondialisation
+monnaie
+montagne
+monument
+moratoire
+mort
+mouton
+mouvement social
+multiculturalisme
+multilinguisme
+multimédia
+multinationale
+municipalité
+musée
+musique
+mutation de personnel
+naissance
+nanotechnologie
+nationalisme
+navigation
+navire
+navire commercial
+navire de croisière
+navire de pêche
+négociation
+négociation collective
+négociation commerciale
+neige
+niveau de vie
+nom commercial
+nomenclature
+nomination
+nord canadien
+normalisation
+norme
+norme de qualité
+norme de sécurité
+norme relative à l'environnement
+normes du travail
+nouveau-né
+numératie
+numérisation
+numéro d'assurance sociale
+numéro d'entreprise
+numismatique
+obésité
+objectif
+obligation fiduciaire
+obligation légale
+obligations
+observatoire
+océan
+océanographie
+Œuf
+Œuvre d'art
+offre
+offre permanente
+oiseau
+oiseau aquatique
+oiseau migrateur
+opération bancaire
+opinion publique
+or
+orchestre
+ordinateur
+ordre du jour
+organigramme
+organisation
+organisation du travail
+organisation non gouvernementale
+organisme à but non lucratif
+organisme d'enquête
+organisme de bienfaisance
+organisme de réglementation
+organisme génétiquement modifié
+organisme intergouvernemental
+organisme international
+organisme nuisible
+organisme vivant
+orge
+orientation professionnelle
+orientation scolaire
+orientation sexuelle
+ornithologie
+outillage
+ozone
+paiement de transfert
+paiement étranger
+paix
+paléontologie
+papillon
+parasite
+parc
+parc national
+parc provincial
+parc territorial
+parent
+parent adoptif
+pari mutuel
+parlement
+partenariat
+partenariat communautaire
+partenariat public-privé
+parti politique
+participation
+participation du citoyen
+partition musicale
+parure
+passage des frontières
+passation des marchés
+passeport
+patinage
+patrimoine
+patrimoine architectural
+patrimoine culturel
+patrimoine maritime
+patrimoine mondial
+patrimoine national
+patrimoine naturel
+patrimoine religieux
+pâturage
+pauvreté
+pauvreté dans l'enfance
+pays en développement
+péage
+pêche sportive
+pêcheries
+peinture
+pension
+pension alimentaire
+pension d'invalidité
+pension des anciens combattants
+pension privée
+pension publique
+pénurie
+perception
+pergélisol
+permis
+permis de chasse
+permis de pêche
+permis de travail
+personne-ressource
+personne défavorisée
+personne handicapée
+personnel de direction
+personnel militaire
+pesticide
+petite entreprise
+pétrole
+phare
+pharmacologie
+philatélie
+philosophie
+philosophie du droit
+phoque
+photographie (art)
+photographie (image)
+photographie aérienne
+physiologie
+physique
+pièce de monnaie
+pilotage
+pionnier
+pipeline
+pisciculture
+piste cyclable
+piste de ski
+placement initial
+plainte
+plan d'affaires
+plancher
+planétarium
+planification
+planification budgétaire
+planification des naissances
+plante
+plante aquatique
+plante médicinale
+plante nuisible
+plante ornementale
+plante sauvage
+plomb
+pluies acides
+poésie
+poisson
+poisson d'eau douce
+poisson de mer
+police des autochtones
+police militaire
+politique
+politique agricole
+politique alimentaire
+politique commerciale
+politique culturelle
+politique d'immigration
+politique d'information
+politique d'investissement
+politique de défense
+politique des pêches
+politique des transports
+politique économique
+politique éducative
+politique en matière de santé
+politique en matière de télécommunications
+politique énergétique
+politique environnementale
+politique étrangère
+politique fiscale
+politique forestière
+politique gouvernementale
+politique industrielle
+politique linguistique
+politique microéconomique
+politique monétaire
+politique scientifique
+politique sociale
+politique technologique
+polluant
+pollution
+pollution atmosphérique
+pollution de l'eau
+pollution des sols
+pollution en milieu de travail
+pomme
+pomme de terre
+pont
+population
+population animale
+porc
+pornographie
+port
+port de plaisance
+possibilité d'affaires
+possibilité d'emploi
+poterie
+pourvoirie
+précipitations
+premier ministre
+préservation des sols
+prestation au survivant
+prestation de maternité
+prestation de paternité
+prêt
+prêt à l'entreprise
+prêt à la consommation
+prêt à la petite entreprise
+prêt à terme
+prêt entre bibliothèques
+prêt étudiant
+prêt hypothécaire
+prêt non remboursé
+preuve
+preuve de citoyenneté
+prévention
+prévention de l'alcoolisme
+prévention de la criminalité
+prévention de la pollution
+prévention de la toxicomanie
+prévention des accidents
+prévention des incendies
+prévention du tabagisme
+prévision
+prévision économique
+prévisions budgétaires
+prévisions météorologiques
+primate
+prime
+prime de risque
+prise de décision
+privatisation
+prix
+problème social
+procédure d'agrément
+procédure parlementaire
+procès-verbal
+production
+production d'énergie
+productivité
+productivité industrielle
+produit
+produit agro-alimentaire
+produit biochimique
+produit biologique
+produit chimique
+produit de base
+produit de consommation
+produit de l'érable
+produit de la criminalité
+produit de la pêche
+produit de soins de santé
+produit de soins personnels
+produit écologique
+produit forestier
+produit industriel
+produit intérieur brut
+produit laitier
+produit médical
+produit national brut
+profession
+professionnel de la santé
+profil statistique
+programmation
+programmation culturelle
+programmation d'ordinateur
+programme
+programme communautaire
+programme d'aide
+programme d'échanges
+programme d'emploi
+programme fédéral
+programme international
+programme multilatéral
+programme pour autochtones
+programme relatif à l'environnement
+programmes sociaux
+promotion de la santé
+promotion des langues officielles
+promotion du commerce
+promotion en emploi
+prononciation
+propagande
+propane
+propriété intellectuelle
+prospection
+prostitution
+protecteur du citoyen
+protection civile
+protection de l'environnement
+protection de la santé
+protection des dénonciateurs
+protection des données
+protection des tarifs douaniers
+protection du consommateur
+protection du patrimoine
+protocole
+prototypage
+province
+provinces atlantiques
+provinces de l'ouest
+psychologie
+publication en série
+publication gouvernementale
+publicité
+quai
+qualifications
+qualité de l'air
+qualité de l'eau
+qualité de l'environnement
+qualité de service
+qualité de vie
+qualité des soins de santé
+qualité des sols
+quarantaine
+questionnaire
+questions économiques
+questions fiscales
+questions juridiques
+questions sociales
+rabais
+radar
+radio
+radio communautaire
+radioactivité
+radiodiffusion
+raisin
+raison sociale
+randonnée pédestre
+rappel de produit
+rapport
+rapport annuel
+rapport d'étape
+rapport technique
+rayonnement
+rayonnement ultraviolet
+réadaptation
+réadaptation professionnelle
+réalisation de programme
+reboisement
+recensement
+receveur général
+réchauffement de la planète
+recherche
+recherche appliquée
+recherche coopérative
+recherche d'emploi
+recherche économique
+recherche et développement
+recherche historique
+recherche industrielle
+recherche médicale
+recherche scientifique
+recherche sur les animaux
+récolte
+récompense
+recours
+recouvrement
+recrutement
+recyclage
+rédaction
+rédaction administrative
+rédaction des lois
+rédaction technique
+redevances
+réforme
+réfugié
+région
+région polaire
+registre
+règlement administratif
+réglementation
+réglementation des prix
+réglementation en matière d'économie
+réglementation en matière de sécurité
+réglementation en matière de taxation
+règlements
+relations avec les médias
+relations canado-américaines
+relations commerciales
+relations communautaires
+relations de travail
+relations est-ouest
+relations extérieures
+relations fédérales-provinciales
+relations fédérales-territoriales
+relations intergouvernementales
+relations interpersonnelles
+relations interprovinciales
+relations ministérielles
+relations nord-sud
+relations publiques
+relations raciales
+relevé d'emploi
+religion
+remboursement d'impôt
+remboursement de la dette
+rémunération assurable
+rendement énergétique
+rénovation domiciliaire
+renseignement de sécurité
+renseignements d'affaires
+renseignements personnels
+rentabilité
+répartition de la population
+répartition des pouvoirs
+repère
+répertoire
+répertoire géographique
+répertoire téléphonique
+représentant
+reproduction animale
+reprographie
+reptile
+réseau
+réseau de télécommunications
+réseau ferroviaire
+réseau informatique
+réseau routier
+réserve autochtone
+résidence officielle
+résolution de conflit
+ressources halieutiques
+ressources humaines
+ressources naturelles
+ressources non renouvelables
+ressources pédagogiques
+ressources renouvelables
+restaurant
+restauration
+restructuration
+retraite
+réunion
+revendication
+revendication territoriale
+revenu
+revenu familial
+revenu individuel
+revenu national
+révision
+révision de programme
+révocation
+risque pour l'environnement
+risque pour la santé
+rivière
+robotique
+rodenticide
+rôle
+rongeur
+rotation des cultures
+ruisseau
+sables bitumineux
+saisie
+salaire
+salaire minimum
+salon professionnel
+salubrité des aliments
+sanction économique
+sang contaminé
+sans-abri
+santé
+santé animale
+santé au travail
+santé buccodentaire
+santé de l'enfant
+santé de la femme
+santé mentale
+satellite
+satisfaction du client
+sauvetage
+science économique
+science politique
+sciences
+sciences de l'environnement
+sciences de l'espace
+sciences de la santé
+sciences de la terre
+sciences de la vie
+sciences humaines
+sciences naturelles
+sciences physiques
+sciences polaires
+sciences sociales
+sculpture
+sécheresse
+secours d'urgence
+secours en cas de désastre
+secteur privé
+secteur public
+sécurité
+sécurité aérienne
+sécurité alimentaire
+sécurité au travail
+sécurité de l'enfant
+sécurité des transports
+sécurité du revenu
+sécurité ferroviaire
+sécurité humaine
+sécurité informatique
+sécurité internationale
+sécurité nationale
+sécurité nautique
+sécurité publique
+sécurité routière
+sécurité sociale
+sédiment
+sédimentologie
+sélection
+sénat
+sénateur
+sensibilisation
+serre
+service à la clientèle
+service conseil
+service d'aliénation
+service d'approche
+service d'orientation
+service de l'architecture
+service de police
+service de référence
+service diplomatique
+service postal
+services administratifs
+services aux entreprises
+services aux marchés
+services bilingues
+services communautaires
+services consulaires
+services consultatifs
+services d'urgence
+services environnementaux
+services financiers
+services gouvernementaux
+services immobiliers
+services informatiques
+services juridiques
+services publics
+services sociaux
+services techniques
+sida
+siège social
+signalisation
+silo à grains
+site contaminé
+site web
+ski
+smog
+société d'État
+société d'histoire
+société de crédit
+société de fiducie
+société de financement
+société mutuelle d'assurances
+sociétés
+sociologie
+soignant
+soin de l'enfant
+soin de la personne âgée
+soin du nouveau-né
+soins de santé
+soins périnataux
+sol
+solvant
+sondage
+sondage d'opinion
+soumission
+sous-marin
+soutien logistique
+souveraineté
+spécification
+sperme
+sport
+sport amateur
+sport d'hiver
+stage
+station orbitale
+stationnement
+statistiques
+statistiques de l'agriculture
+statistiques de l'état civil
+statistiques démographiques
+statistiques économiques
+statistiques sociales
+stratégie
+stratigraphie
+structure sociale
+substance toxique
+subvention
+subvention de recherche
+succession
+suicide
+supervision
+supplément
+surdité
+surplus
+surveillance des médias
+surveillance électronique
+survie
+suspension
+symbole
+symbole national
+syndicat
+système
+système d'aide à la navigation
+système d'information
+système d'information de gestion
+système d'information géographique
+système de positionnement global
+système de soins de santé
+système de transport intelligent
+système électoral
+système informatique
+système intelligent
+système judiciaire
+système métrique
+tabagisme
+tableau
+tarif douanier
+taux
+taux d'intérêt
+taux de change
+taux de mortalité
+taux de natalité
+taxe d'accise
+taxe de vente
+taxe de vente harmonisée
+taxe sur les produits et services
+taxonomie
+technologie
+technologie agricole
+technologie antipollution
+technologie d'aide
+technologie de l'information
+technologie de la pêche
+technologie de la reproduction
+technologie de pointe
+technologie des matériaux
+technologie éducative
+technologie énergétique
+technologie environnementale
+technologie forestière
+technologie industrielle
+technologie médicale
+technologie militaire
+technologie minière
+technologie nucléaire
+technologie numérique
+technologie propre
+technologie spatiale
+télécommunications
+télécommunications internationales
+téléconférence
+télédétection
+télégrammes
+télégraphe
+télémédecine
+téléphone
+téléphone cellulaire
+télésanté
+télétravail
+télévision
+témoignage
+température
+température de l'air
+tempête
+temps
+temps (météorologie)
+tendances
+tendances économiques
+tendances sociales
+terminologie
+terre agricole
+terres autochtones
+terres de la couronne
+territoire
+terrorisme
+test
+textile
+thé
+théâtre
+thérapie
+thésaurus
+timbre
+tiré à part
+tissage
+tissu (biologie)
+titre de voyage
+topographie
+toponymie
+tourisme
+toxicologie
+toxicomanie
+traduction
+train
+traite de personnes
+traitement
+traitement des demandes
+traitement des données
+transfert
+transfert d'habiletés
+transfert de droit
+transfert de responsabilités
+transfert technologique
+transformation
+transformation des aliments
+transmission du savoir
+transplantation (médecine)
+transplantation d'organes
+transport
+transport accessible
+transport aérien
+transport des matières dangereuses
+transport durable
+transport en commun
+transport ferroviaire
+transport international
+transport interprovincial
+transport interurbain
+transport maritime
+transport routier
+transport urbain
+travail
+travail étudiant
+travail non rémunéré
+travailleur
+travailleur agricole
+travailleur de l'industrie
+travailleur migrant
+travailleuse
+travaux publics
+traversier
+tremblement de terre
+tribunal
+tribunal de la jeunesse
+tribunal international
+trouble d'apprentissage
+tsunami
+tunnel
+type d'entreprise
+union de fait
+université
+urbanisme
+urgence environnementale
+utilisation
+utilisation de l'eau
+vacances
+valeurs mobilières
+vandalisme
+véhicule
+véhicule automobile
+véhicule électrique
+vendeur
+vent
+vente
+vente aux enchères
+vérification
+vérification comptable
+verre
+viande
+victime
+vie politique
+vie privée
+vie quotidienne
+vie sociale
+vieillesse
+vieillissement
+vin
+violence
+violence en milieu de travail
+violence faite aux enfants
+violence faite aux femmes
+violence faite aux personnes âgées
+violence familiale
+virus
+visa
+visite officielle
+vitamine
+viticulture
+voie navigable
+voilier
+volaille
+volcan
+voyage
+voyage international
+xénotransplantation
+yogourt
+zone de pêche
+zone extracôtière
+zone humide
+zoologie
