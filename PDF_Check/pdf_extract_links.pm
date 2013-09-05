@@ -2,9 +2,9 @@
 #
 # Name: pdf_extract_links.pm	
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 6314 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/PDF_Check/Tools/pdf_extract_links.pm $
+# $Date: 2013-06-26 11:53:02 -0400 (Wed, 26 Jun 2013) $
 #
 # Description:
 #

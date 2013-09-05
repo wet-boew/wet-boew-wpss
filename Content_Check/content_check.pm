@@ -2,9 +2,9 @@
 #
 # Name:   content_check.pm
 #
-# $Revision: 6006 $
+# $Revision: 6276 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/content_check.pm $
-# $Date: 2012-10-04 12:52:22 -0400 (Thu, 04 Oct 2012) $
+# $Date: 2013-05-28 09:52:05 -0400 (Tue, 28 May 2013) $
 #
 # Description:
 #
@@ -100,8 +100,9 @@ my ($debug) = 0;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%content_check_profile_map, $current_testcase_profile);
 my ($html_lang, @content_lines, $current_url, $found_content_section);
-my (%parent_heading_value, %parent_heading_location, $current_heading_level);
-my (%peer_heading_value, %peer_heading_location, $results_list_addr);
+my (%parent_subsection_heading_value, %parent_subsection_heading_location);
+my (%peer_subsection_heading_value, %peer_subsection_heading_location);
+my ($current_heading_level, $results_list_addr);
 my (@content_headings, $content_section_handler, %inside_html_tag);
 my ($dc_title_text, $dcterms_title_text);
 my (%subsection_text, $have_text_handler, $title_text, @all_headings);
@@ -476,7 +477,6 @@ sub Content_Check_HTML_Headings_Report {
         $report .= "
 <h2><a href=\"$url\">$url</a></h2>
 <p>" . String_Value("Title") . " =\"$title\"</p>
-<ul>
 ";
 
         #
@@ -487,7 +487,10 @@ sub Content_Check_HTML_Headings_Report {
         #
         # Do we have any headings ?
         #
-        if ( @$heading_list > 0 ) {
+        if ( ! defined($heading_list) ) {
+        }
+        elsif ( @$heading_list > 0 ) {
+            $report .= "<ul>";
             foreach $heading (@$heading_list) {
                 ($heading_level, $heading_value) = split(/:/, $heading);
                 $heading_value = encode_entities($heading_value);
@@ -496,6 +499,9 @@ sub Content_Check_HTML_Headings_Report {
 <li>" . $heading_indents{$heading_level} . "H$heading_level: $heading_value</li>
 ";
             }
+        $report .= "
+</ul>
+";
         }
         else {
             #
@@ -504,13 +510,6 @@ sub Content_Check_HTML_Headings_Report {
             $report .= "
 <p>" . encode_entities(String_Value("No Headings In Document")) . "</p>";
         }
-        
-        #
-        # Finish off list of headings
-        #
-        $report .= "
-</ul>
-";
     }
     
     #
@@ -669,19 +668,15 @@ sub Record_Result {
 sub Initialize_Test_Results {
     my ($profile, $local_results_list_addr) = @_;
 
-    my ($test_case); 
+    my ($test_case, $level); 
 
     #
     # Initialize heading tables
     #
-    if ( defined($parent_heading_value{1}) ) {
-        delete $parent_heading_value{1};
-        delete $parent_heading_location{1};
-    }
-    if ( defined($peer_heading_value{1}) ) {
-        delete $peer_heading_value{1};
-        delete $peer_heading_location{1};
-    }
+    %parent_subsection_heading_value = ();
+    %parent_subsection_heading_location = ();
+    %peer_subsection_heading_value = ();
+    %peer_subsection_heading_location = ();
 
     #
     # Set current hash tables
@@ -766,7 +761,9 @@ sub HTML_Tag_Handler {
 sub Start_H_Tag_Handler {
     my ( $self, $tagname, $line, $column, $text, %attr ) = @_;
 
-    my ($level, $i, @peer_value, @peer_location, $array);
+    my ($level, $i, @peer_value, @peer_location, $array, $subsection);
+    my ($parent_heading_value, $parent_heading_location);
+    my ($peer_heading_value, $peer_heading_location);
 
     #
     # Get heading level number from the tag
@@ -784,16 +781,41 @@ sub Start_H_Tag_Handler {
     $have_text_handler = 1;
 
     #
+    # Get the current subsection name, if we don't have one assume it is
+    # the content subsection.
+    #
+    $subsection = $content_section_handler->current_content_subsection;
+    if ( $subsection eq "" ) {
+        $subsection = "CONTENT";
+    }
+
+    #
+    # Get parent and peer heading tables
+    #
+    if ( ! defined($parent_subsection_heading_value{$subsection}) ) {
+        my (%parent_heading_value_table, %parent_heading_location_table);
+        my (%peer_heading_value_table, %peer_heading_location_table);
+        $parent_subsection_heading_value{$subsection} = \%parent_heading_value_table;
+        $parent_subsection_heading_location{$subsection} = \%parent_heading_location_table;
+        $peer_subsection_heading_value{$subsection} = \%peer_heading_value_table;
+        $peer_subsection_heading_location{$subsection} = \%peer_heading_location_table;
+    }
+    $parent_heading_value =  $parent_subsection_heading_value{$subsection};
+    $parent_heading_location =  $parent_subsection_heading_location{$subsection};
+    $peer_heading_value =  $peer_subsection_heading_value{$subsection};
+    $peer_heading_location =  $peer_subsection_heading_location{$subsection};
+
+    #
     # Clear out heading values for the next few (in case
     # there is a skip in level numbers).
     #
     for ( $i = $level + 1; $i < ($level + 5); $i++) {
-        if ( defined($parent_heading_value{$i}) ) {
-            delete $parent_heading_value{$i};
+        if ( defined($$parent_heading_value{$i}) ) {
+            delete $$parent_heading_value{$i};
         }
-        if ( defined($peer_heading_value{$i}) ) {
-            delete $peer_heading_value{$i};
-            delete $peer_heading_location{$i};
+        if ( defined($$peer_heading_value{$i}) ) {
+            delete $$peer_heading_value{$i};
+            delete $$peer_heading_location{$i};
         }
     }
 
@@ -801,20 +823,20 @@ sub Start_H_Tag_Handler {
     # Save heading location in parent heading structure
     #
     $current_heading_level = $level;
-    $parent_heading_location{$level} = "$line:$column";
+    $$parent_heading_location{$level} = "$line:$column";
 
     #
     # Create peer heading lists if they do not exist
     #
-    if ( ! defined($peer_heading_value{$level}) ) {
-        $peer_heading_value{$level} = \@peer_value;
-        $peer_heading_location{$level} = \@peer_location;
+    if ( ! defined($$peer_heading_value{$level}) ) {
+        $$peer_heading_value{$level} = \@peer_value;
+        $$peer_heading_location{$level} = \@peer_location;
     }
 
     #
     # Save heading location in peer heading structure
     #
-    $array = $peer_heading_location{$level};
+    $array = $$peer_heading_location{$level};
     push(@$array, "$line:$column");
     print "h$level at $line:$column\n" if $debug;
 }
@@ -824,6 +846,9 @@ sub Start_H_Tag_Handler {
 # Name: Check_Parent_Heading_Values
 #
 # Parameters: heading_value - heading value
+#             parent_heading_value - address of table of parent heading values
+#             parent_heading_location - address of table of parent heading
+#                                       locations
 #
 # Description:
 #
@@ -832,7 +857,7 @@ sub Start_H_Tag_Handler {
 #
 #***********************************************************************
 sub Check_Parent_Heading_Values {
-    my ($heading_value) = @_;
+    my ($heading_value, $parent_heading_value, $parent_heading_location) = @_;
 
     my ($i, $lc_heading_value);
 
@@ -845,25 +870,25 @@ sub Check_Parent_Heading_Values {
     # Check parent headings looking for a duplicate
     #
     for ($i = $current_heading_level - 1; $i > 0; $i--) {
-        if ( defined($parent_heading_value{$i}) &&
-             (lc($parent_heading_value{$i}) eq $lc_heading_value) ) {
+        if ( defined($$parent_heading_value{$i}) &&
+             (lc($$parent_heading_value{$i}) eq $lc_heading_value) ) {
             #
             # Duplicate heading value
             #
             print "Duplicate heading value \"$heading_value\" at " .
-                  $parent_heading_location{$current_heading_level} .
+                  $$parent_heading_location{$current_heading_level} .
                   " and " .
-                  $parent_heading_location{$i} . "\n" if $debug;
+                  $$parent_heading_location{$i} . "\n" if $debug;
 
             Record_Result("DUPLICATE_HEADINGS",
                           String_Value("Duplicate headings") .
-                          "\"" . $parent_heading_value{$i} . "\"" .
+                          "\"" . $$parent_heading_value{$i} . "\"" .
                           " h$current_heading_level " . String_Value("at") .
                           String_Value("line:column") .
-                          $parent_heading_location{$current_heading_level} .
+                          $$parent_heading_location{$current_heading_level} .
                           " " . String_Value("and") . " h$i " .
                           String_Value("at") . String_Value("line:column") .
-                          $parent_heading_location{$i});
+                          $$parent_heading_location{$i});
         }
     }
 }
@@ -873,6 +898,9 @@ sub Check_Parent_Heading_Values {
 # Name: Check_Peer_Heading_Values
 #
 # Parameters: heading_value - heading value
+#             peer_heading_value - address of table of peer heading values
+#             peer_heading_location - address of table of peer heading
+#                                     locations
 #
 # Description:
 #
@@ -881,7 +909,7 @@ sub Check_Parent_Heading_Values {
 #
 #***********************************************************************
 sub Check_Peer_Heading_Values {
-    my ($heading_value) = @_;
+    my ($heading_value, $peer_heading_value, $peer_heading_location) = @_;
 
     my ($i, $lc_heading_value, $heading_count, $peer_value, $peer_location);
     my ($current_location);
@@ -894,8 +922,8 @@ sub Check_Peer_Heading_Values {
     #
     # Get current heading location
     #
-    $peer_value = $peer_heading_value{$current_heading_level};
-    $peer_location = $peer_heading_location{$current_heading_level};
+    $peer_value = $$peer_heading_value{$current_heading_level};
+    $peer_location = $$peer_heading_location{$current_heading_level};
     $heading_count = @$peer_location;
     $current_location = $$peer_location[$heading_count - 1];
 
@@ -946,7 +974,9 @@ sub Check_Peer_Heading_Values {
 sub End_H_Tag_Handler {
     my ( $self, $tagname, $line, $column, $text ) = @_;
 
-    my (@all_heading_text, $heading_title, $array);
+    my (@all_heading_text, $heading_title, $array, $subsection);
+    my ($parent_heading_value, $parent_heading_location);
+    my ($peer_heading_value, $peer_heading_location);
 
     #
     # Get all the text found within the heading tag
@@ -967,30 +997,54 @@ sub End_H_Tag_Handler {
     print "End $tagname, title = \"$heading_title\"\n" if $debug;
  
     #
-    # If we are at <h2> or greater, look for duplicates in our
-    # parent's headings.
+    # Get the current subsection name, if we don't have one assume it is
+    # the content subsection.
     #
-    if ( $current_heading_level > 1 ) {
-        Check_Parent_Heading_Values($heading_title);
+    $subsection = $content_section_handler->current_content_subsection;
+    if ( $subsection eq "" ) {
+        $subsection = "CONTENT";
     }
 
     #
-    # Check for duplicate peer level headings
+    # Get parent and peer heading tables
     #
-    Check_Peer_Heading_Values($heading_title);
+    if ( defined($parent_subsection_heading_value{$subsection}) ) {
+        $parent_heading_value =  $parent_subsection_heading_value{$subsection};
+        $parent_heading_location =  $parent_subsection_heading_location{$subsection};
+        $peer_heading_value =  $peer_subsection_heading_value{$subsection};
+        $peer_heading_location =  $peer_subsection_heading_location{$subsection};
 
-    #
-    # Save current heading value
-    #
-    $parent_heading_value{$current_heading_level} = $heading_title;
-    $array = $peer_heading_value{$current_heading_level};
-    push(@$array, "$heading_title");
-    print "h$current_heading_level value $heading_title\n" if $debug;
-        
+        #
+        # If we are at <h2> or greater, look for duplicates in our
+        # parent's headings.
+        #
+        print "Check content heading\n" if $debug;
+        if ( $current_heading_level > 1 ) {
+            Check_Parent_Heading_Values($heading_title,
+                                        $parent_heading_value,
+                                        $parent_heading_location);
+        }
+
+        #
+        # Check for duplicate peer level headings
+        #
+        Check_Peer_Heading_Values($heading_title,
+                                  $peer_heading_value,
+                                  $peer_heading_location);
+
+        #
+        # Save current heading value
+        #
+        $$parent_heading_value{$current_heading_level} = $heading_title;
+        $array = $$peer_heading_value{$current_heading_level};
+        push(@$array, "$heading_title");
+        print "h$current_heading_level value $heading_title\n" if $debug;
+    }
+
     #
     # Save heading if we are inside the content area
     #
-    if ( $content_section_handler->in_content_section("CONTENT") ) {
+    if ( $content_section_handler->current_content_subsection eq "CONTENT" ) {
         push(@content_headings, "$current_heading_level:$heading_title");
     }
     push(@all_headings, "$current_heading_level:$heading_title");
@@ -1192,7 +1246,7 @@ sub Start_Handler {
     #
     # Did we find the content area ?
     #
-    if ( $content_section_handler->in_content_section("CONTENT") ) {
+    if ( $content_section_handler->current_content_section eq "CONTENT" ) {
         $found_content_section = 1;
     }
 }
@@ -2200,9 +2254,7 @@ sub Content_Check_Extract_Content_From_HTML {
     #
     # Create a content section object
     #
-    if ( ! defined($content_section_handler) ) {
-        $content_section_handler = content_sections->new;
-    }
+    $content_section_handler = content_sections->new;
 
     #
     # Parse the HTML to extract the text

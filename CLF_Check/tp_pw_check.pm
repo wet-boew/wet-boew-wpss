@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 5267 $
+# $Revision: 6370 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2011-05-17 12:00:03 -0400 (Tue, 17 May 2011) $
+# $Date: 2013-08-21 09:01:04 -0400 (Wed, 21 Aug 2013) $
 #
 # Description:
 #
@@ -89,7 +89,6 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (%testcase_data);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my (%clf_check_profile_map, $current_clf_check_profile);
@@ -98,19 +97,35 @@ my ($doctype_line, $doctype_column, $doctype_text, $doctype_label);
 my ($doctype_version, $doctype_language, $doctype_class, $found_frame_tag);
 my ($current_url, %template_integrity, %template_version, %site_inc_version);
 my ($current_heading_level, $have_text_handler, %section_h1_count);
-my (%found_template_markers);
+my (%found_template_markers, $current_clf_check_profile_name);
+my ($valid_search_actions, $expected_search_inputs);
+my ($in_search_form);
 
 my ($max_error_message_string) = 2048;
 
-my ($template_repository, $template_directory, %trusted_template_domains);
-my ($site_inc_repository, $site_inc_directory, %trusted_site_inc_domains);
-my (%required_template_markers);
+my (%testcase_data_objects);
 
 #
 # Status values
 #
 my ($clf_check_pass)       = 0;
 my ($clf_check_fail)       = 1;
+
+#
+# Critical template file suffixes
+#
+my (%critical_template_file_suffix) = (
+    "css", 1,
+    "gif", 1,
+    "html", 1,
+    "ico", 1,
+    "jpg", 1,
+    "js", 1,
+    "png", 1,
+    "svg", 1,
+    "swf", 1,
+    "txt", 1,
+);
 
 #
 # String table for error strings.
@@ -125,6 +140,9 @@ my %string_table_en = (
     "Displayed e-mail address does not match mailto",  "Displayed e-mail address does not match 'mailto'",
     "Multiple <h1> tags found in section", "Multiple <h1> tags found in section",
     "Mismatch in template file domain, found", "Mismatch in template file domain, found",
+    "Mismatch in template file directory, found", "Mismatch in template file directory, found",
+    "Mismatch in site include file domain, found", "Mismatch in site include file domain, found",
+    "Mismatch in site include file directory, found", "Mismatch in site include file directory, found",
     "expecting",                      "expecting ",
     "Template file not found",        "Template file not found",
     "Checksum failed for template file", "Checksum failed for template file",
@@ -133,8 +151,15 @@ my %string_table_en = (
     "Invalid site includes version",  "Invalid site includes version",
     "Site includes file not found",   "Site includes file not found",
     "expecting one of",               "expecting one of ",
-    "Apache SSI error message found",  "Apache SSI error message found",
+    "Apache SSI error message found", "Apache SSI error message found",
+    "IIS SSI error message found",    "IIS SSI error message found",
     "Missing web page template marker", "Missing web page template marker",
+    "Invalid search action",          "Invalid search '<form action='",
+    "Invalid search input value",     "Invalid search input value",
+    "Application template used outside login, have target=_blank when not expected in navigation section",            "Application template used outside login, have target=_blank when not expected in navigation section ",
+    "GC navigation bar",              "Government of Canada navigation bar",
+    "Site footer",                    "Site/application footer",
+    "GC footer",                      "Government of Canada footer",
     );
 
 #
@@ -150,6 +175,9 @@ my %string_table_fr = (
     "Displayed e-mail address does not match mailto", "L'adresse courriel affichée ne correspond pas au 'mailto'",
     "Multiple <h1> tags found in section", "Plusieurs balises <h1> trouvé dans la section",
     "Mismatch in template file domain, found", "Erreur de correspondance des domaine des fichier de gabarit, a trouvé",
+    "Mismatch in template file directory, found", "Erreur de correspondance des répertoire des fichier de gabarit, a trouvé",
+    "Mismatch in site include file domain, found", "Erreur de correspondance des domaine des fichier des includes du site, a trouvé",
+    "Mismatch in site include file directory, found", "Erreur de correspondance des includes du site des fichier de gabarit, a trouvé",
     "expecting",                      "expectant ",
     "Template file not found",        "Ficher de gabarit pas trouvé",
     "Checksum failed for template file", "Checksum échoué pour le fichier de gabarit",
@@ -159,7 +187,15 @@ my %string_table_fr = (
     "Site includes file not found",   "Ficher des includes du site pas trouvé",
     "expecting one of",               "expectant une de ",
     "Apache SSI error message found", "Message d'erreur Apache SSI trouvé",
+    "IIS SSI error message found",    "Message d'erreur IIS SSI trouvé",
     "Missing web page template marker", "Marqueur de gabarit pas trouvé",
+    "Invalid search action",          "'<form action=' non valide dans la recherche",
+    "Invalid search input value",     "Valeur non valide saisie de recherche",
+    "Application template used outside login, have target=_blank when not expected in navigation section",
+            "Gabarit d'application utilisé en dehors connexion, avoir target = _blank lorsqu'il n'est pas prévu dans la section de navigation",
+    "GC navigation bar",              "Barre de navigation du gouvernement du Canada",
+    "Site footer",                    "Pied de page du site ou de l'application",
+    "GC footer",                      "Pied de page du gouvernement du Canada",
     );
 
 #
@@ -189,7 +225,8 @@ my (%testcase_description_en) = (
 "TP_PW_H",        "TP_PW_H: Heading structure",
 "TP_PW_MAILTO",   "TP_PW_MAILTO: Invalid e-mail address in anchor in 'mailto' link",
 "TP_PW_SITE",     "TP_PW_SITE: PWGSC site includes integrity",
-"TP_PW_SSI",      "TP_PW_SSI: Server side include error",
+"TP_PW_SRCH",     "TP_PW_SRCH: PWGSC search",
+"TP_PW_SSI",      "TP_PW_SSI: Server side include",
 "TP_PW_TECH",     "TP_PW_TECH: Baseline technologies",
 "TP_PW_TEMPLATE", "TP_PW_TEMPLATE: Template integrity",
 "TP_PW_URL",      "TP_PW_URL: Page addresses",
@@ -199,7 +236,8 @@ my (%testcase_description_fr) = (
 "TP_PW_H",        "TP_PW_H: Structure de l'en-tête",
 "TP_PW_MAILTO",   "TP_PW_MAILTO: Adresse électronique invalide dans l'ancrage du lien 'mailto'",
 "TP_PW_SITE",     "TP_PW_SITE: L'intégrité des fichier des includes du site",
-"TP_PW_SSI",      "TP_PW_SSI: Server side include error",
+"TP_PW_SRCH",     "TP_PW_SRCH: Recherche de TPSGC",
+"TP_PW_SSI",      "TP_PW_SSI: Server side include",
 "TP_PW_TECH",     "TP_PW_TECH: Technologies de base",
 "TP_PW_TEMPLATE", "TP_PW_TEMPLATE: L'intégrité des fichier de gabarit",
 "TP_PW_URL",      "TP_PW_URL: Adresses de page",
@@ -235,6 +273,11 @@ sub Set_TP_PW_Check_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+
+    #
+    # Set debug flag in supporting modules
+    #
+    Testcase_Data_Object_Debug($debug);
 }
 
 #**********************************************************************
@@ -466,7 +509,8 @@ sub String_Value {
 #
 # Name: Set_TP_PW_Check_Testcase_Data
 #
-# Parameters: testcase - testcase identifier
+# Parameters: profile - testcase profile
+#             testcase - testcase identifier
 #             data - string of data
 #
 # Description:
@@ -476,12 +520,27 @@ sub String_Value {
 #
 #***********************************************************************
 sub Set_TP_PW_Check_Testcase_Data {
-    my ($testcase, $data) = @_;
+    my ($profile, $testcase, $data) = @_;
 
-    my ($type, $value, @markers);
+    my ($type, $value, @markers, $object, $array, $hash);
+    my ($field1, $field2);
 
     #
-    # Do we have testcase specific data handling ?
+    # Do we have a testcase data object for this profile ?
+    #
+    if ( defined($testcase_data_objects{$profile}) ) {
+        $object = $testcase_data_objects{$profile};
+    }
+    else {
+        #
+        # No testcase data object, create one
+        #
+        $object = testcase_data_object->new;
+        $testcase_data_objects{$profile} = $object;
+    }
+    
+    #
+    # Do we have TP_PW_TEMPLATE testcase specific data ?
     #
     if ( $testcase eq "TP_PW_TEMPLATE" ) {
         #
@@ -493,33 +552,55 @@ sub Set_TP_PW_Check_Testcase_Data {
         # Do we have a template directory ?
         #
         if ( ($type eq "DIRECTORY") && defined($value) ) {
-            $template_directory = $value;
+            if ( ! ($object->has_field("template_directory")) ) {
+                $object->add_field("template_directory", "scalar");
+                $object->set_scalar_field("template_directory", $value);
+            }
         }
         #
         # Do we have template markers ?
         #
         elsif ( ($type eq "MARKERS") && defined($value) ) {
             @markers = split(/\s+/, $value);
+            if ( ! ($object->has_field("required_template_markers")) ) {
+                $object->add_field("required_template_markers", "hash");
+            }
+            $hash = $object->get_field("required_template_markers");
+            
+            #
+            # Save marker values
+            #
             foreach $value (@markers) {
-                $required_template_markers{$value} = 0;
+                $$hash{$value} = 0;
             }
         }
         #
         # Do we have the template repository ?
         #
         elsif ( ($type eq "REPOSITORY") && defined($value) ) {
-            $template_repository = $value;
+            if ( ! ($object->has_field("template_repository")) ) {
+                $object->add_field("template_repository", "scalar");
+                $object->set_scalar_field("template_repository", $value);
+            }
         }
         #
         # Do we have a trusted domain ? one that we do not
         # have to perform a checksum on template files ?
         #
         elsif ( ($type eq "TRUSTED") && defined($value) ) {
-            $trusted_template_domains{$value} = 1;
+            if ( ! ($object->has_field("trusted_template_domains")) ) {
+                $object->add_field("trusted_template_domains", "hash");
+            }
+            $hash = $object->get_field("trusted_template_domains");
+
+            #
+            # Save trusted domain value
+            #
+            $$hash{$value} = 1;
         }
     }
     #
-    # Do we have testcase specific data handling ?
+    # Do we have TP_PW_SITE testcase specific data?
     #
     elsif ( $testcase eq "TP_PW_SITE" ) {
         #
@@ -531,27 +612,77 @@ sub Set_TP_PW_Check_Testcase_Data {
         # Do we have a site includes directory ?
         #
         if ( ($type eq "DIRECTORY") && defined($value) ) {
-            $site_inc_directory = $value;
+            if ( ! ($object->has_field("site_inc_directory")) ) {
+                $object->add_field("site_inc_directory", "scalar");
+                $object->set_scalar_field("site_inc_directory", $value);
+            }
         }
         #
         # Do we have the site includes repository ?
         #
         elsif ( ($type eq "REPOSITORY") && defined($value) ) {
-            $site_inc_repository = $value;
+            if ( ! ($object->has_field("site_inc_repository")) ) {
+                $object->add_field("site_inc_repository", "scalar");
+                $object->set_scalar_field("site_inc_repository", $value);
+            }
         }
         #
         # Do we have a trusted domain ? one that we do not
         # have to perform a check of site includes.
         #
         elsif ( ($type eq "TRUSTED") && defined($value) ) {
-            $trusted_site_inc_domains{$value} = 1;
+            if ( ! ($object->has_field("trusted_site_inc_domains")) ) {
+                $object->add_field("trusted_site_inc_domains", "hash");
+            }
+            $hash = $object->get_field("trusted_site_inc_domains");
+
+            #
+            # Save trusted domain value
+            #
+            $$hash{$value} = 1;
+
         }
     }
-    else {
+    #
+    # Do we have TP_PW_SRCH testcase specific data?
+    #
+    elsif ( $testcase eq "TP_PW_SRCH" ) {
         #
-        # Copy the data into the table
+        # Get the search testcase data type
         #
-        $testcase_data{$testcase} = $data;
+        ($type, $value) = split(/\s+/, $data, 2);
+
+        #
+        # Save the possible action value
+        #
+        if ( ($type eq "ACTION") && defined($value) ) {
+            if ( ! ($object->has_field("valid_search_actions")) ) {
+                $object->add_field("valid_search_actions", "array");
+            }
+            $array = $object->get_field("valid_search_actions");
+            push(@$array, $value);
+        }
+        #
+        # Save possible input values
+        #
+        elsif ( ($type eq "INPUT") && defined($value) ) {
+            #
+            # Split the value portion into name & value
+            #
+            ($field1, $field2) = split(/\s+/, $value, 2);
+
+            #
+            # Do we have name & portion ?
+            #
+            if ( defined($field2) && ($field2 ne "") ) {
+                if ( ! ($object->has_field("expected_search_inputs")) ) {
+                    $object->add_field("expected_search_inputs", "hash");
+                }
+
+                $hash = $object->get_field("expected_search_inputs");
+                $$hash{$field1} = $field2;
+            }
+        }
     }
 }
 
@@ -572,7 +703,7 @@ sub Set_TP_PW_Check_Test_Profile {
     my ($profile, $clf_checks ) = @_;
 
     my (%local_clf_checks);
-    my ($key, $value);
+    my ($key, $value, $object);
 
     #
     # Make a local copy of the hash table as we will be storing the address
@@ -581,6 +712,14 @@ sub Set_TP_PW_Check_Test_Profile {
     print "Set_TP_PW_Check_Test_Profile, profile = $profile\n" if $debug;
     %local_clf_checks = %$clf_checks;
     $clf_check_profile_map{$profile} = \%local_clf_checks;
+    
+    #
+    # Create a testcase data object for this profile if we don't have one
+    #
+    if ( ! defined($testcase_data_objects{$profile}) ) {
+        $object = testcase_data_object->new;
+        $testcase_data_objects{$profile} = $object;
+    }
 }
 
 #**********************************************************************
@@ -631,6 +770,30 @@ sub Testcase_Description {
 #***********************************************************************
 sub Initialize_Test_Results {
     my ($profile, $local_results_list_addr) = @_;
+    
+    my ($required_template_markers, $object);
+
+    #
+    # Get required template markers
+    #
+    $object = $testcase_data_objects{$profile};
+    if ( $object->has_field("required_template_markers") ) {
+        $required_template_markers = $object->get_field("required_template_markers");
+    }
+
+    #
+    # Get the list of valid search actions
+    #
+    if ( $object->has_field("valid_search_actions") ) {
+        $valid_search_actions = $object->get_field("valid_search_actions");
+    }
+
+    #
+    # Get the set of expected search inputs
+    #
+    if ( $object->has_field("expected_search_inputs") ) {
+        $expected_search_inputs = $object->get_field("expected_search_inputs");
+    }
 
     #
     # Set current hash tables
@@ -641,11 +804,18 @@ sub Initialize_Test_Results {
     #
     # Initialize flags and counters
     #
+    $current_clf_check_profile_name = $profile;
     $found_frame_tag = 0;
     $current_heading_level = 0;
     $have_text_handler = 0;
     %section_h1_count = ();
-    %found_template_markers = %required_template_markers;
+    $in_search_form = 0;
+    if ( defined($required_template_markers) ) {
+        %found_template_markers = %$required_template_markers;
+    }
+    else {
+        %found_template_markers = ();
+    }
 }
 
 #***********************************************************************
@@ -1016,6 +1186,144 @@ sub Anchor_Tag_Handler {
         }
     }
 }
+ 
+#***********************************************************************
+#
+# Name: Form_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles form tags.
+#
+#***********************************************************************
+sub Form_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    my ($action, $subsection, $valid_action, $possible_action);
+
+    #
+    # Are we inside the site banner subsection ?
+    #
+    $subsection = $content_section_handler->current_content_subsection();
+    if ( $subsection eq "SITE_BANNER" ) {
+        #
+        # Do we have an action attribute
+        #
+        if ( defined( $attr{"action"} ) ) {
+
+            #
+            # We assume we are in the search form.
+            #
+            $in_search_form = 1;
+
+            #
+            # Get the action value, remove any leading or trailing whitespace
+            #
+            $action = $attr{"action"};
+            $action =~ s/^\s*//g;
+            $action =~ s/\s*$//g;
+            print "Form_Tag_Handler, action = \"$action\"\n" if $debug;
+
+            #
+            # Does the action match one of the expected values ?
+            #
+            if ( defined($valid_search_actions) &&
+                 (@$valid_search_actions > 0) ) {
+                $valid_action = 0;
+                foreach $possible_action (@$valid_search_actions) {
+                    if ( $action eq $possible_action ) {
+                        $valid_action = 1;
+                        last;
+                    }
+                }
+
+                #
+                # Did we find a valid search action value ?
+                #
+                if ( ! $valid_action ) {
+                Record_Result("TP_PW_SRCH", $line, $column, $text,
+                              String_Value("Invalid search action") .
+                              " '$action' " .
+                              String_Value("expecting one of") .
+                              join(", ", @$valid_search_actions));
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Input_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles input tags.
+#
+#***********************************************************************
+sub Input_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    my ($name, $value);
+
+    #
+    # Are we inside the site banner search form ?
+    #
+    if ( $in_search_form ) {
+        #
+        # Do we have a name attribute
+        #
+        if ( defined($attr{"name"}) ) {
+            #
+            # Get the name value, remove any leading or trailing whitespace
+            #
+            $name = $attr{"name"};
+            $name =~ s/^\s*//g;
+            $name =~ s/\s*$//g;
+            print "Input_Tag_Handler, name = \"$name\"\n" if $debug;
+
+            #
+            # Does the name match one of the expected values ?
+            #
+            if ( defined($$expected_search_inputs{$name}) ) {
+                #
+                # Do we have a value attribute ?
+                #
+                if ( defined($attr{"value"}) ) {
+                    $value = $attr{"value"};
+                    $value =~ s/^\s*//g;
+                    $value =~ s/\s*$//g;
+                }
+                else {
+                    $value = "";
+                }
+
+                #
+                # Does the value match the expected value ?
+                #
+                if ( $value ne $$expected_search_inputs{$name} ) {
+                    Record_Result("TP_PW_SRCH", $line, $column, $text,
+                                  String_Value("Invalid search input value") .
+                                  " '$value' " .
+                                  String_Value("expecting") .
+                                  "\"" . $$expected_search_inputs{$name} . "\"");
+                }
+            }
+        }
+    }
+}
 
 #***********************************************************************
 #
@@ -1070,10 +1378,24 @@ sub Start_Handler {
     }
 
     #
+    # Check form tag
+    #
+    elsif ( $tagname eq "form" ) {
+        Form_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+
+    #
     # Check frame tag
     #
     elsif ( $tagname eq "frame" ) {
         Frame_Tag_Handler( "<frame>", $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check input tag
+    #
+    elsif ( $tagname eq "input" ) {
+        Input_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
 
     #
@@ -1231,6 +1553,30 @@ sub End_Anchor_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: End_Form_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end form tag.
+#
+#***********************************************************************
+sub End_Form_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    #
+    # End of form, we can no longer be inside the search form
+    #
+    $in_search_form = 0;
+}
+
+#***********************************************************************
+#
 # Name: End_Handler
 #
 # Parameters: self - reference to this parser
@@ -1261,6 +1607,13 @@ sub End_Handler {
         # See if there are any problems with the anchor tag
         #
         End_Anchor_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    # Check form tag
+    #
+    elsif ( $tagname eq "form" ) {
+        End_Form_Tag_Handler( $self, $line, $column, $text);
     }
 
     #
@@ -1304,6 +1657,14 @@ sub Check_Server_Side_Include_Errors {
         if ( $text =~ /\[an error occurred while processing this directive\]/i ) {
             Record_Result("TP_PW_SSI", -1, 0, "",
                           String_Value("Apache SSI error message found"));
+        }
+
+        #
+        # Check for IIS server side include error message
+        #
+        if ( $text =~ /Error processing SSI file/i ) {
+            Record_Result("TP_PW_SSI", -1, 0, "",
+                          String_Value("IIS SSI error message found"));
         }
     }
 }
@@ -1535,6 +1896,9 @@ sub Checksum {
 # Name: Verify_Template_Checksums
 #
 # Parameters: domain - protocol and domain of server
+#             template_directory_parent - template top level directory
+#             template_subdirectory - template subdirectory
+#             profile - testcase profile
 #
 # Description:
 #
@@ -1545,35 +1909,67 @@ sub Checksum {
 #
 #***********************************************************************
 sub Verify_Template_Checksums {
-    my ($domain) = @_;
+    my ($domain, $template_directory_parent, $template_subdirectory,
+        $profile) = @_;
 
     my ($manifest_url, $url, $resp, $line, $checksum, $file_path);
-    my ($calculated_checksum);
+    my ($calculated_checksum, $object, $template_directory);
+    my ($object, $trusted_template_domains, @fields, $last_field);
+
+    #
+    # Get testcase data object
+    $object = $testcase_data_objects{$profile};
+    
+    #
+    # Get hash table of trusted domains
+    #
+    $trusted_template_domains = $object->get_field("trusted_template_domains");
 
     #
     # Is this a trusted domain or a local file (domain = file:) ? 
     # if so we don't have to check the file checksums.
     #
     print "Verify_Template_Checksums for domain $domain\n" if $debug;
-    if ( ($domain =~ /^file:/i) || defined($trusted_template_domains{$domain}) ) {
+    if ( ($domain =~ /^file:/i) ||
+         (defined($trusted_template_domains) &&
+          defined($$trusted_template_domains{$domain})) ) {
         print "Skipping template checksums for domain $domain\n" if $debug;
         return;
     }
+
+    #
+    # Get template directory value
+    #
+    $template_directory = $object->get_field("template_directory");
 
     #
     # Have we already checked the template files for this domain ?
     #
     if ( ! defined($template_integrity{$domain}) ) {
         #
-        # Construct the manifest URL
+        # Construct the manifest URL from template subdirectory
+        # (this file may not exist prior to WET 3.0.5 & 3.1.1)
         #
-        $manifest_url = "$domain/$template_directory/manifest.txt";
+        $manifest_url = "$domain/$template_directory_parent$template_directory/$template_subdirectory/manifest.txt";
 
         #
         # Get the manifest file
         #
         print "Get template manifest file $manifest_url\n" if $debug;
         ($url, $resp) = Crawler_Get_HTTP_Response($manifest_url, "");
+
+        #
+        # Did we not get the manifest file ?
+        #
+        if ( ! defined($resp) || (! $resp->is_success) ) {
+            #
+            # Get the template manifest information from the template
+            # top level directory.
+            #
+            $manifest_url = "$domain/$template_directory_parent$template_directory/manifest.txt";
+            print "Get template manifest file $manifest_url\n" if $debug;
+            ($url, $resp) = Crawler_Get_HTTP_Response($manifest_url, "");
+        }
 
         #
         # Did we get the manifest file ?
@@ -1593,7 +1989,7 @@ sub Verify_Template_Checksums {
                 # See if we can get the file path from the server
                 #
                 if ( defined($file_path) ) {
-                    $url = $domain . "/$file_path";
+                    $url = $domain . "/$template_directory_parent$file_path";
                     print "Get template file $url\n" if $debug;
                     ($url, $resp) = Crawler_Get_HTTP_Response($url,"");
 
@@ -1625,11 +2021,28 @@ sub Verify_Template_Checksums {
                     }
                     else {
                         #
-                        # Failed to get template file
+                        # Failed to get template file.
+                        # Is the file suffix one of the critical types ?
+                        # Some web servers may not be configured to serve up
+                        # files with an unusual suffix (e.g. .old).
                         #
-                        Record_Result("TP_PW_TEMPLATE", -1, -1, "",
-                                      String_Value("Template file not found") .
-                                                      " \"$url\" ");
+                        @fields = split(/\./, $file_path);
+                        $last_field = @fields;
+                        if ( ($last_field > 0) && 
+                             ( ! defined($critical_template_file_suffix{lc($fields[$last_field - 1])})) ) {
+                            #
+                            # Ignore error on non-critical file
+                            #
+                            print "Non-critical template file not found, $url\n" if $debug;
+                        }
+                        else {
+                            #
+                            # Missing template file
+                            #
+                            Record_Result("TP_PW_TEMPLATE", -1, -1, "",
+                                          String_Value("Template file not found") .
+                                                          " \"$url\" ");
+                        }
                     }
                 }
             }
@@ -1655,6 +2068,9 @@ sub Verify_Template_Checksums {
 # Name: Verify_Site_Includes_Version
 #
 # Parameters: domain - protocol and domain of server
+#             template_directory_parent - template top level directory
+#             site_inc_subdirectory - site includes subdirectory
+#             profile - template profile
 #
 # Description:
 #
@@ -1664,17 +2080,37 @@ sub Verify_Template_Checksums {
 #
 #***********************************************************************
 sub Verify_Site_Includes_Version {
-    my ($domain) = @_;
+    my ($domain, $template_directory_parent, $site_inc_subdirectory,
+        $profile) = @_;
 
     my ($version_url, $url, $resp, $line, $file_path);
     my ($local_version, $repository_versions, $version_string, $valid_version);
+    my ($object, $site_inc_repository, $trusted_site_inc_domains);
+    my ($site_inc_directory);
+
+    #
+    # Get testcase data object
+    $object = $testcase_data_objects{$profile};
+
+    #
+    # Get site includes repository and directory values
+    #
+    $site_inc_repository = $object->get_field("site_inc_repository");
+    $site_inc_directory = $object->get_field("site_inc_directory");
+
+    #
+    # Get table of trusted site include domain values
+    #
+    $trusted_site_inc_domains = $object->get_field("trusted_site_inc_domains");
 
     #
     # Is this a trusted domain or a local file (domain = file:) ? 
     # if so we don't have to check the site includes version.
     #
     print "Verify_Site_Includes_Version for domain $domain\n" if $debug;
-    if ( ($domain =~ /^file:/i) || defined($trusted_site_inc_domains{$domain}) ) {
+    if ( ($domain =~ /^file:/i) || 
+         (defined($trusted_site_inc_domains) &&
+          defined($$trusted_site_inc_domains{$domain})) ) {
         print "Skipping site includes version check for domain $domain\n" if $debug;
         return;
     }
@@ -1691,21 +2127,38 @@ sub Verify_Site_Includes_Version {
     #
     if ( ! defined($site_inc_version{$domain}) ) {
         #
-        # Get the site includes version information
+        # Get the site includes version information from the site
+        # includes subdirectory (may not exist in older packages)
         #
-        $version_url = "$domain/$site_inc_directory/version.txt";
+        $version_url = "$domain/$template_directory_parent$site_inc_directory/$site_inc_subdirectory/version.txt";
         print "Get site includes version file $version_url\n" if $debug;
         ($url, $resp) = Crawler_Get_HTTP_Response($version_url, "");
 
         #
         # Did we get the version file ?
         #
+        if ( ! defined($resp) || (! $resp->is_success) ) {
+            #
+            # Get the site includes version information from the top
+            # level site includes directory.
+            #
+            $version_url = "$domain/$template_directory_parent$site_inc_directory/version.txt";
+            print "Get site includes version file $version_url\n" if $debug;
+            ($url, $resp) = Crawler_Get_HTTP_Response($version_url, "");
+        }
+
+        #
+        # Did we get the version file ?
+        #
         if ( defined($resp) && $resp->is_success ) {
             #
-            # Get the site includes version value
+            # Get the site includes version value.
+            # Strip off any possible trailing CR/LF.
             #
             $local_version = $resp->content;
             chop($local_version);
+            $local_version =~ s/\r$//g;
+            $local_version =~ s/\n$//g;
 
             #
             # Get the repository version information.
@@ -1770,6 +2223,9 @@ sub Verify_Site_Includes_Version {
 # Name: Verify_Template_Version
 #
 # Parameters: domain - protocol and domain of server
+#             template_directory_parent - template top level directory
+#             template_subdirectory - template subdirectory
+#             profile - testcase profile
 #
 # Description:
 #
@@ -1779,24 +2235,45 @@ sub Verify_Site_Includes_Version {
 #
 #***********************************************************************
 sub Verify_Template_Version {
-    my ($domain) = @_;
+    my ($domain, $template_directory_parent, $template_subdirectory,
+        $profile) = @_;
 
     my ($version_url, $url, $resp, $line, $file_path);
     my ($local_version, $repository_versions, $version_string, $valid_version);
+    my ($object, $template_directory, $template_repository);
+    my ($trusted_template_domains);
+
+    #
+    # Get testcase data object
+    #
+    $object = $testcase_data_objects{$profile};
+
+    #
+    # Get hash table of trusted domains
+    #
+    $trusted_template_domains = $object->get_field("trusted_template_domains");
 
     #
     # Is this a trusted domain or a local file (domain = file:) ? 
     # if so we don't have to check the template version.
     #
-    if ( ($domain =~ /^file:/i) || defined($trusted_template_domains{$domain}) ) {
+    if ( ($domain =~ /^file:/i) ||
+         (defined($trusted_template_domains) &&
+          defined($$trusted_template_domains{$domain})) ) {
         print "Skipping template version check for domain $domain\n" if $debug;
         return;
     }
 
     #
+    # Get template directory and repository values
+    #
+    $template_directory = $object->get_field("template_directory");
+    $template_repository = $object->get_field("template_repository");
+
+    #
     # Do we have a template repository value ?
     #
-    if ( ! defined($template_repository) ) {
+    if ( ! defined($template_directory) ) {
         return;
     }
 
@@ -1805,11 +2282,25 @@ sub Verify_Template_Version {
     #
     if ( ! defined($template_version{$domain}) ) {
         #
-        # Get the template version information
+        # Get the template version information from template subdirectory
+        # (this file may not exist prior to WET 3.0.5 & 3.1.1)
         #
-        $version_url = "$domain/$template_directory/version.txt";
+        $version_url = "$domain/$template_directory_parent$template_directory/$template_subdirectory/version.txt";
         print "Get template version file $version_url\n" if $debug;
         ($url, $resp) = Crawler_Get_HTTP_Response($version_url, "");
+
+        #
+        # Did we not get the version file ?
+        #
+        if ( ! defined($resp) || (! $resp->is_success) ) {
+            #
+            # Get the template version information from the template
+            # top level directory.
+            #
+            $version_url = "$domain/$template_directory_parent$template_directory/version.txt";
+            print "Get template version file $version_url\n" if $debug;
+            ($url, $resp) = Crawler_Get_HTTP_Response($version_url, "");
+        }
 
         #
         # Did we get the version file ?
@@ -1817,9 +2308,12 @@ sub Verify_Template_Version {
         if ( defined($resp) && $resp->is_success ) {
             #
             # Get the template version value
+            # Strip off any possible trailing CR/LF.
             #
             $local_version = $resp->content;
             chop($local_version);
+            $local_version =~ s/\r$//g;
+            $local_version =~ s/\n$//g;
 
             #
             # Get the repository version information.
@@ -1886,122 +2380,538 @@ sub Verify_Template_Version {
 # Parameters: url - URL
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             profile - testcase profile
 #
 # Description:
 #
 #    This function checks all the links to see if any reference the
 # template files folder.  It checks that all of the references are to
-# the same domain.
+# the same domain and same template subdirectory (version).
 #
 #***********************************************************************
 sub Check_Template_Links {
-    my ($url, $link_sets) = @_;
+    my ($url, $link_sets, $profile) = @_;
 
     my ($section, $list_addr, $link, $link_url, $protocol, $domain);
-    my ($file_path, $query, $template_domain);
+    my ($file_path, $query, $template_domain, $template_directory, $object);
     my ($template_link_count) = 0;
     my ($supporting_file_count) = 0;
+    my ($template_directory_parent) = "";
+    my ($template_subdirectory, $this_template_subdirectory);
+
+    #
+    # Get template directory and repository values
+    #
+    $object = $testcase_data_objects{$profile};
+    $template_directory = $object->get_field("template_directory");
 
     #
     # Are we checking template integrity ?
     #
-    if ( defined($$current_clf_check_profile{"TP_PW_TEMPLATE"}) &&
-         defined($template_directory) ) {
+    if ( ! defined($$current_clf_check_profile{"TP_PW_TEMPLATE"}) ||
+         ! defined($template_directory) ) {
         #
-        # Check each document section's list of links
+        # Skip check.
         #
-        while ( ($section, $list_addr) = each %$link_sets ) {
-            print "Check template links in section $section\n" if $debug;
+        return;
+    }
+
+    #
+    # Check each document section's list of links
+    #
+    while ( ($section, $list_addr) = each %$link_sets ) {
+        print "Check template links in section $section\n" if $debug;
+
+        #
+        # Check each link in the section
+        #
+        foreach $link (@$list_addr) {
+            $link_url = $link->abs_url;
 
             #
-            # Check each link in the section
+            # Break URL into components
             #
-            foreach $link (@$list_addr) {
-                $link_url = $link->abs_url;
+            ($protocol, $domain, $file_path, $query) = URL_Check_Parse_URL($link_url);
+
+            #
+            # Is this a supporting file (e.g. CSS or JavaScript ?)
+            #
+            if ( ($file_path =~ /\.css$/i) || ($file_path =~ /\.js$/i) ) {
+                $supporting_file_count++;
+            }
+
+            #
+            # Do we have any template files yet ? If not check for
+            # the 'template directory' path anywhere in the file path.
+            # The site may be setup with the template directory as a
+            # subdirectory rather than at the root level.
+            #
+            if ( ($template_link_count == 0) && 
+                 ($file_path =~ /\/$template_directory\//) ) {
+                print "Template directory is not at the root\n" if $debug;
+                $template_directory_parent = $file_path;
+                $template_directory_parent =~ s/\/$template_directory\/.*/\//;
+                print "Template parent directory is $template_directory_parent\n" if $debug;
+            }
+
+            #
+            # Does the file path start with the template directory ?
+            #
+            if ( $file_path =~ /^$template_directory_parent$template_directory\// ) {
+                print "Found template file reference $link_url\n" if $debug;
+                $template_link_count++;
 
                 #
-                # Break URL into components
+                # Get the template subdirectory, i.e. if the supporting file
+                # is under the path
+                #   /boew-wet/wet3.0/js/
+                # The template parent directory is /boew-wet and the
+                # template subdirectory is wet3.0
                 #
-                ($protocol, $domain, $file_path, $query) = URL_Check_Parse_URL($link_url);
+                $this_template_subdirectory = $file_path;
+                $this_template_subdirectory =~ s/^$template_directory_parent$template_directory\///g;
+                $this_template_subdirectory =~ s/\/.*$//g;
 
                 #
-                # Is this a supporting file (e.g. CSS or JavaScript ?)
+                # Have we seen a template subdirectory yet ?
+                # if not use this one.
                 #
-                if ( ($file_path =~ /\.css$/i) || ($file_path =~ /\.js$/i) ) {
-                    $supporting_file_count++;
+                if ( ! defined($template_subdirectory) ) {
+                    $template_subdirectory = $this_template_subdirectory;
                 }
 
                 #
-                # Does the file path start with the template directory ?
+                # Do we have a domain yet ?
                 #
-                if ( $file_path =~ /^$template_directory\// ) {
-                    print "Found template file reference $link_url\n" if $debug;
-                    $template_link_count++;
+                if ( ! defined($template_domain) ) {
+                    #
+                    # No domain, use this one as the expected
+                    # domain for any other template file references.
+                    #
+                    $template_domain = "$protocol//$domain";
+                }
 
+                #
+                # Does the domain of the supporting file match
+                # the previous supporting files ?
+                #
+                if ( $template_domain ne "$protocol//$domain" ) {
                     #
-                    # Do we have a domain yet ?
+                    # Domain mismatch
                     #
-                    if ( defined($template_domain) ) {
-                        if ( $template_domain ne "$protocol//$domain" ) {
-                            #
-                            # Domain mismatch
-                            #
-                            print "Domain mismatch in template file references\n" if $debug;
-                            Record_Result("TP_PW_TEMPLATE", $link->line_no, 
-                                          $link->column_no, $link->source_line,
+                    print "Domain mismatch in template file references\n" if $debug;
+                    Record_Result("TP_PW_TEMPLATE", $link->line_no, 
+                                  $link->column_no, $link->source_line,
                        String_Value("Mismatch in template file domain, found") .
-                                          " \"$protocol//$domain\" " . 
-                                          String_Value("expecting") .
-                                          "\"$template_domain\"");
-                        }
-                    }
-                    else {
-                        #
-                        # No domain, use this one as the expected
-                        # domain for any other template file references.
-                        #
-                        $template_domain = "$protocol//$domain";
-                    }
+                                  " \"$protocol//$domain\" " . 
+                                  String_Value("expecting") .
+                                  "\"$template_domain\"");
+                }
+
+                #
+                # Does the subdirectory of the supporting file match
+                # the previous supporting files ?
+                #
+                if ( $this_template_subdirectory ne $template_subdirectory ) {
+                    #
+                    # Subdirectory mismatch
+                    #
+                    print "Template subdirectory mismatch in template file references\n" if $debug;
+                    Record_Result("TP_PW_TEMPLATE", $link->line_no, 
+                                  $link->column_no, $link->source_line,
+                       String_Value("Mismatch in template file directory, found") .
+                                  " \"$this_template_subdirectory\" " . 
+                                  String_Value("expecting") .
+                                  "\"$template_subdirectory\"");
                 }
             }
         }
+    }
 
-        #
-        # Did we get a template file domain ?
-        #
-        if ( ! defined($template_domain) ) {
-            #
-            # No template domain, use the domain from the URL we are checking.
-            #
-            print "No template domain found, use this URL's domain\n" if $debug;
-            ($protocol, $domain, $file_path, $query) = URL_Check_Parse_URL($url);
-            $template_domain = "$protocol//$domain";
-        }
-
+    #
+    # Did we get a template file domain ?
+    #
+    if ( ! defined($template_domain) ) {
         #
         # Verify checksum values of the template files.
         #
-        Verify_Template_Checksums($template_domain);
+        Verify_Template_Checksums($template_domain, $template_directory_parent,
+                                  $template_subdirectory, $profile);
 
         #
         # Verify the template version
         #
-        Verify_Template_Version($template_domain);
+        Verify_Template_Version($template_domain, $template_directory_parent,
+                                $template_subdirectory, $profile);
+    }
+
+    #
+    # Did we find any template files ? We should have found several
+    # CSS, JavaScript and GIF files.
+    #
+    if ( ($supporting_file_count > 0 ) && ($template_link_count == 0) ) {
+        print "Found $supporting_file_count supporting files and 0 template files\n" if $debug;
+        Record_Result("TP_PW_TEMPLATE", -1, -1, "",
+                      String_Value("No template supporting files used from") .
+                      " $protocol//$domain/$template_directory");
+    }
+
+    #
+    # Return the path of the template parent directory
+    #
+    return($template_directory_parent);
+}
+
+#***********************************************************************
+#
+# Name: Check_Site_Includes_Links
+#
+# Parameters: url - URL
+#             link_sets - table of lists of link objects (1 list per
+#               document section)
+#             profile - testcase profile
+#             template_directory_parent - parent directory of the template
+#               files
+#
+# Description:
+#
+#    This function checks all the links to see if any reference the
+# site files folder.  It checks that all of the references are to
+# the same domain and same subdirectory (version).
+#
+#***********************************************************************
+sub Check_Site_Includes_Links {
+    my ($url, $link_sets, $profile, $template_directory_parent) = @_;
+
+    my ($section, $list_addr, $link, $link_url, $protocol, $domain);
+    my ($file_path, $query, $site_inc_domain, $site_inc_directory, $object);
+    my ($site_inc_link_count) = 0;
+    my ($site_inc_directory_parent) = "";
+    my ($site_inc_subdirectory, $this_site_inc_subdirectory);
+
+    #
+    # Get site includes directory value
+    #
+    $object = $testcase_data_objects{$profile};
+    $site_inc_directory = $object->get_field("site_inc_directory");
+
+    #
+    # Are we checking site includes integrity ?
+    #
+    if ( ! defined($$current_clf_check_profile{"TP_PW_SITE"}) ||
+         ! defined($site_inc_directory) ) {
+        #
+        # Skip check.
+        #
+        return;
+    }
+
+    #
+    # Get the expected domain for the site includes
+    #
+    ($protocol, $domain, $file_path, $query) = URL_Check_Parse_URL($url);
+    $site_inc_domain = "$protocol//$domain";
+
+    #
+    # Check each document section's list of links
+    #
+    while ( ($section, $list_addr) = each %$link_sets ) {
+        print "Check site include links in section $section\n" if $debug;
 
         #
-        # Verify the site includes version
+        # Check each link in the section
         #
-        Verify_Site_Includes_Version($template_domain);
+        foreach $link (@$list_addr) {
+            $link_url = $link->abs_url;
+
+            #
+            # Break URL into components
+            #
+            ($protocol, $domain, $file_path, $query) = URL_Check_Parse_URL($link_url);
+
+            #
+            # Is this a supporting file (e.g. CSS or JavaScript ?)
+            #
+            if ( ! ( ($file_path =~ /\.css$/i) || 
+                     ($file_path =~ /\.js$/i) ) ) {
+                #
+                # Not a supporting file, don't check it.
+                #
+                next;
+            }
+
+            #
+            # Do we have any site include files yet ? If not check for
+            # the 'site includes directory' path anywhere in the file path.
+            # The site may be setup with the site includes directory as a
+            # subdirectory rather than at the root level.
+            #
+            if ( ($site_inc_link_count == 0) && 
+                 ($file_path =~ /\/$site_inc_directory\//) ) {
+                print "Site includes directory is not at the root\n" if $debug;
+                $site_inc_directory_parent = $file_path;
+                $site_inc_directory_parent =~ s/\/$site_inc_directory\/.*/\//;
+                print "Site includes parent directory is $site_inc_directory_parent\n" if $debug;
+            }
+
+            #
+            # Does the file path start with the site includes directory ?
+            #
+            if ( $file_path =~ /^$site_inc_directory_parent$site_inc_directory\// ) {
+                print "Found site includes file reference $link_url\n" if $debug;
+                $site_inc_link_count++;
+
+                #
+                # Get the site includes subdirectory, i.e. if the supporting
+                # file is under the path
+                #   /site/wet3.0/html5/
+                # The site includes parent directory is /site and the
+                # subdirectory is wet3.0
+                #
+                $this_site_inc_subdirectory = $file_path;
+                $this_site_inc_subdirectory =~ s/^$site_inc_directory_parent$site_inc_directory\///g;
+                $this_site_inc_subdirectory =~ s/\/.*$//g;
+
+                #
+                # Have we seen a site includes subdirectory yet ?
+                # if not use this one.
+                #
+                if ( ! defined($site_inc_subdirectory) ) {
+                    $site_inc_subdirectory = $this_site_inc_subdirectory;
+                }
+
+                #
+                # Does the domain of the supporting file match
+                # the expected domain ?
+                #
+                if ( "$protocol//$domain" ne $site_inc_domain ) {
+                    #
+                    # Domain mismatch
+                    #
+                    print "Domain mismatch in site includes file references\n" if $debug;
+                    Record_Result("TP_PW_SITE", $link->line_no, 
+                                  $link->column_no, $link->source_line,
+                       String_Value("Mismatch in site include file domain, found") .
+                                  " \"$protocol//$domain\" " . 
+                                  String_Value("expecting") .
+                                  "\"$site_inc_domain\"");
+                }
+
+                #
+                # Does the subdirectory of the supporting file match
+                # the previous supporting files ?
+                #
+                if ( $this_site_inc_subdirectory ne $site_inc_subdirectory ) {
+                    #
+                    # Subdirectory mismatch
+                    #
+                    print "Site include subdirectory mismatch in file references\n" if $debug;
+                    Record_Result("TP_PW_SITE", $link->line_no, 
+                                  $link->column_no, $link->source_line,
+                       String_Value("Mismatch in site include file directory, found") .
+                                  " \"$this_site_inc_subdirectory\" " . 
+                                  String_Value("expecting") .
+                                  "\"$site_inc_subdirectory\"");
+                }
+            }
+        }
+    }
+
+    #
+    # Verify the site includes version.
+    #
+    Verify_Site_Includes_Version($site_inc_domain,
+                                 $template_directory_parent,
+                                 $site_inc_subdirectory, $profile);
+}
+
+#***********************************************************************
+#
+# Name: Check_New_Window_Attribute
+#
+# Parameters: logged_in - flag to indicate if we are logged into an
+#               application
+#             link - link object
+#             section - navigation section
+#
+# Description:
+#
+#    This function checks to see if the supplied link opens a new
+# window using the target attribute.  It then checks to see if the
+# behaviour matches the expected behaviour for the current logged in status.
+#
+# Returns:
+#  0 - link has an error
+#  1 - link is ok
+#
+#***********************************************************************
+sub Check_New_Window_Attribute {
+    my ($logged_in, $link, $section) = @_;
+
+    my (%attr, $have_new_window);
+
+    #
+    # Get attributes of the anchor tag
+    #
+    %attr = $link->attr;
+
+    #
+    # Does the link open in a new window ? i.e. target="_blank"
+    #
+    if ( defined($attr{"target"}) && ($attr{"target"} =~ /_blank/i) ) {
+        print "Have target=\"_blank\"\n" if $debug;
+        $have_new_window = 1;
+    }
+    else {
+        print "Do not have target=\"_blank\"\n" if $debug;
+        $have_new_window = 0;
+    }
+
+    #
+    # Is the new window status appropriate for the logged in state ?
+    #
+    if ( $have_new_window && ( ! $logged_in ) ) {
+        #
+        # We are not logged in so we should not open navigation in new
+        # windows.
+        #
+        print "Have target=\"_blank\" when not logged in\n" if $debug;
+        Record_Result("TP_PW_TEMPLATE", $link->line_no, $link->column_no, 
+                      $link->source_line,
+                      String_Value("Application template used outside login, have target=_blank when not expected in navigation section") . 
+                      " \"$section\"");
 
         #
-        # Did we find any template files ? We should have found several
-        # CSS, JavaScript and GIF files.
+        # Return non success
         #
-        if ( ($supporting_file_count > 0 ) && ($template_link_count == 0) ) {
-            print "Found $supporting_file_count supporting files and 0 template files\n" if $debug;
-            Record_Result("TP_PW_TEMPLATE", -1, -1, "",
-                          String_Value("No template supporting files used from") .
-                          " $protocol//$domain/$template_directory");
+        return(0);
+    }
+
+    #
+    # Link is ok, return success
+    #
+    return(1);
+}
+
+#***********************************************************************
+#
+# Name: Check_Application_Template_Navigation
+#
+# Parameters: url - URL
+#             link_sets - table of lists of link objects (1 list per
+#               document section)
+#             logged_in - flag to indicate if we are logged into an
+#               application
+#
+# Description:
+#
+# This function checks GC and site navigation for the use of 
+# target="_blank" outside a login. This suggests the use of 
+# application templates outside the login.
+#
+#***********************************************************************
+sub Check_Application_Template_Navigation {
+    my ($url, $link_sets, $logged_in) = @_;
+
+    my ($list_addr, $link, $link_count, $i);
+
+    #
+    # Check GC Navigation links
+    #
+    print "Check_Application_Template_Navigation: check GC Navigation links\n" if $debug;
+    if ( defined($$link_sets{"GC_NAV"}) ) {
+        $list_addr = $$link_sets{"GC_NAV"};
+        $link_count = @$list_addr;
+
+        #
+        # Check each link to see that they have the expected
+        # "Open in new window" status.
+        #
+        $i = 0;
+        foreach $link (@$list_addr) {
+            #
+            # Check anchor links only
+            #
+            $i++;
+            if ( $link->link_type eq "a" ) {
+                #
+                # Exclude the last link as it may be the language link.
+                # it may not have the same new window attribute as the
+                # rest of the GC navigation links.
+                #
+                if ( $i < $link_count ) {
+                    #
+                    # Check for consistent new window attribute
+                    #
+                    if ( ! Check_New_Window_Attribute($logged_in, $link, 
+                                               String_Value("GC navigation bar")) ) {
+                        #
+                        # Stop after first occurance
+                        #
+                        return();
+                    }
+                }
+            }
+        }
+    }
+
+    #
+    # Check site footer links
+    #
+    print "Check site footer links\n" if $debug;
+    if ( defined($$link_sets{"SITE_FOOTER"}) ) {
+        $list_addr = $$link_sets{"SITE_FOOTER"};
+
+        #
+        # Check each link to see that they have the expected
+        # "Open in new window" status.
+        #
+        foreach $link (@$list_addr) {
+            #
+            # Check anchor links only
+            #
+            if ( $link->link_type eq "a" ) {
+                #
+                # Check for consistent new window attribute
+                #
+                if ( ! Check_New_Window_Attribute($logged_in, $link, 
+                                           String_Value("Site footer")) ) {
+                    #
+                    # Stop after first occurance
+                    #
+                    return();
+                }
+            }
+        }
+    }
+
+    #
+    # Check GC footer links
+    #
+    print "Check GC footer links\n" if $debug;
+    if ( defined($$link_sets{"GC_FOOTER"}) ) {
+        $list_addr = $$link_sets{"GC_FOOTER"};
+
+        #
+        # Check each link to see that they have the expected
+        # "Open in new window" status.
+        #
+        foreach $link (@$list_addr) {
+            #
+            # Check anchor links only
+            #
+            if ( $link->link_type eq "a" ) {
+                #
+                # Check for consistent new window attribute
+                #
+                if ( ! Check_New_Window_Attribute($logged_in, $link, 
+                                           String_Value("GC footer")) ) {
+                    #
+                    # Stop after first occurance
+                    #
+                    return();
+                }
+            }
         }
     }
 }
@@ -2016,6 +2926,8 @@ sub Check_Template_Links {
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -2025,10 +2937,12 @@ sub Check_Template_Links {
 #
 #***********************************************************************
 sub TP_PW_Check_Links {
-    my ($tqa_results_list, $url, $profile, $language, $link_sets) = @_;
+    my ($tqa_results_list, $url, $profile, $language, $link_sets,
+        $logged_in) = @_;
 
     my ($result_object, @local_tqa_results_list, $list_addr);
     my ($expected_link_list_addr, @empty_list, $tcid, $do_tests);
+    my ($template_directory_parent);
 
     #
     # Do we have a valid profile ?
@@ -2083,7 +2997,22 @@ sub TP_PW_Check_Links {
     # Check for links to the template folder (defined in the testcase
     # data).
     #
-    Check_Template_Links($url, $link_sets);
+    $template_directory_parent = Check_Template_Links($url, $link_sets,
+                                                      $profile);
+
+    #
+    # Check for links to the site includes folder (defined in the testcase
+    # data).
+    #
+    Check_Site_Includes_Links($url, $link_sets, $profile, 
+                              $template_directory_parent);
+
+    #
+    # Check GC and site navigation for the use of target="_blank" outside
+    # a login. This suggests the use of application templates outside the
+    # login.
+    #
+    Check_Application_Template_Navigation($url, $link_sets, $logged_in);
 
     #
     # Add our results to previous results
@@ -2109,7 +3038,7 @@ sub Import_Packages {
 
     my ($package);
     my (@package_list) = ("tqa_result_object", "clf_check", "url_check",
-                          "crawler", "textcat");
+                          "crawler", "textcat", "testcase_data_object");
 
     #
     # Import packages, we don't use a 'use' statement as these packages

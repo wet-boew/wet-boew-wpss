@@ -1,27 +1,25 @@
 #***********************************************************************
 #
-# Name:   interop_check.pm
+# Name:   dept_check.pm
 #
-# $Revision: 6310 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_check.pm $
-# $Date: 2013-06-26 11:03:57 -0400 (Wed, 26 Jun 2013) $
+# $Revision: 6372 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Dept_Check/Tools/dept_check.pm $
+# $Date: 2013-08-22 09:52:06 -0400 (Thu, 22 Aug 2013) $
 #
 # Description:
 #
-#   This file contains routines that check Web documents for a number
-# of Interoperability check points.
+#   This file contains routines that parse HTML files and check for
+# a number of departmental checkpoints.
 #
 # Public functions:
-#     Set_Interop_Check_Language
-#     Set_Interop_Check_Debug
-#     Set_Interop_Check_Testcase_Data
-#     Set_Interop_Check_Test_Profile
-#     Interop_Check_Read_URL_Help_File
-#     Interop_Check
-#     Interop_Check_Testcase_URL
-#     Interop_Check_Feed_Details
-#     Interop_Check_Feeds
-#     Interop_Check_Links
+#     Set_Dept_Check_Language
+#     Set_Dept_Check_Debug
+#     Set_Dept_Check_Testcase_Data
+#     Set_Dept_Check_Test_Profile
+#     Dept_Check_Read_URL_Help_File
+#     Dept_Check
+#     Dept_Check_Links
+#     Dept_Check_Testcase_URL
 #
 # Terms and Conditions of Use
 # 
@@ -53,7 +51,7 @@
 # 
 #***********************************************************************
 
-package interop_check;
+package dept_check;
 
 use strict;
 use HTML::Entities;
@@ -70,16 +68,14 @@ BEGIN {
     use vars qw($VERSION @ISA @EXPORT);
 
     @ISA     = qw(Exporter);
-    @EXPORT  = qw(Set_Interop_Check_Language
-                  Set_Interop_Check_Debug
-                  Set_Interop_Check_Testcase_Data
-                  Set_Interop_Check_Test_Profile
-                  Interop_Check_Read_URL_Help_File
-                  Interop_Check
-                  Interop_Check_Testcase_URL
-                  Interop_Check_Feed_Details
-                  Interop_Check_Feeds
-                  Interop_Check_Links
+    @EXPORT  = qw(Set_Dept_Check_Language
+                  Set_Dept_Check_Debug
+                  Set_Dept_Check_Testcase_Data
+                  Set_Dept_Check_Test_Profile
+                  Dept_Check_Read_URL_Help_File
+                  Dept_Check
+                  Dept_Check_Links
+                  Dept_Check_Testcase_URL
                   );
     $VERSION = "1.0";
 }
@@ -95,7 +91,7 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 #***********************************************************************
 #
-# Name: Set_Interop_Check_Debug
+# Name: Set_Dept_Check_Debug
 #
 # Parameters: this_debug - debug flag
 #
@@ -104,15 +100,14 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 #   This function sets the package global debug flag.
 #
 #***********************************************************************
-sub Set_Interop_Check_Debug {
+sub Set_Dept_Check_Debug {
     my ($this_debug) = @_;
 
     #
     # Set other debug flags
     #
-    Set_Interop_HTML_Check_Debug($this_debug);
-    Set_Interop_XML_Check_Debug($this_debug);
-    Interop_Testcase_Debug($this_debug);
+    URL_Check_Debug($this_debug);
+    Set_TP_PW_Check_Debug($this_debug);
 
     #
     # Copy debug value to global variable
@@ -122,7 +117,7 @@ sub Set_Interop_Check_Debug {
 
 #**********************************************************************
 #
-# Name: Set_Interop_Check_Language
+# Name: Set_Dept_Check_Language
 #
 # Parameters: language
 #
@@ -132,19 +127,20 @@ sub Set_Interop_Check_Debug {
 # by this module.
 #
 #***********************************************************************
-sub Set_Interop_Check_Language {
+sub Set_Dept_Check_Language {
     my ($language) = @_;
 
     #
     # Set language in other modules
     #
-    Set_Interop_HTML_Check_Language($language);
-    Set_Interop_XML_Check_Language($language);
+    Set_URL_Check_Language($language);
+    Set_TP_PW_Check_Language($language);
+    Set_Content_Check_Language($language);
 }
 
 #**********************************************************************
 #
-# Name: Interop_Check_Read_URL_Help_File
+# Name: Dept_Check_Read_URL_Help_File
 #
 # Parameters: filename - path to help file
 #
@@ -156,18 +152,24 @@ sub Set_Interop_Check_Language {
 # URLs for the testcase.
 #
 #**********************************************************************
-sub Interop_Check_Read_URL_Help_File {
+sub Dept_Check_Read_URL_Help_File {
     my ($filename) = @_;
-    
+
     #
-    # Read in Interoperability checks URL help
+    # Read in PWGSC checks URL help
     #
-    Interop_Testcase_Read_URL_Help_File($filename);
+    TP_PW_Check_Read_URL_Help_File($filename);
+
+    #
+    # Read in content checks URL help
+    #
+    Content_Check_Read_URL_Help_File($filename);
+
 }
 
 #**********************************************************************
 #
-# Name: Interop_Check_Testcase_URL
+# Name: Dept_Check_Testcase_URL
 #
 # Parameters: key - testcase id
 #
@@ -177,15 +179,22 @@ sub Interop_Check_Read_URL_Help_File {
 # table for the specified key.
 #
 #**********************************************************************
-sub Interop_Check_Testcase_URL {
+sub Dept_Check_Testcase_URL {
     my ($key) = @_;
     
     my ($help_url);
 
     #
-    # Get URL information
+    # Get PWGSC check URL information
     #
-    $help_url = Interop_Testcase_URL($key);
+    $help_url = TP_PW_Check_Testcase_URL($key);
+
+    #
+    # Check for content check URL information
+    #
+    if ( ! defined($help_url) ) {
+        $help_url = Content_Check_Testcase_URL($key);
+    }
     
     #
     # Return URL value
@@ -195,9 +204,10 @@ sub Interop_Check_Testcase_URL {
 
 #***********************************************************************
 #
-# Name: Set_Interop_Check_Testcase_Data
+# Name: Set_Dept_Check_Testcase_Data
 #
-# Parameters: testcase - testcase identifier
+# Parameters: profile - testcase profile
+#             testcase - testcase identifier
 #             data - string of data
 #
 # Description:
@@ -206,42 +216,43 @@ sub Interop_Check_Testcase_URL {
 # for the specified testcase identifier.
 #
 #***********************************************************************
-sub Set_Interop_Check_Testcase_Data {
-    my ($testcase, $data) = @_;
+sub Set_Dept_Check_Testcase_Data {
+    my ($profile, $testcase, $data) = @_;
 
     #
     # Set other module testcase data
     #
-    Set_Interop_HTML_Check_Testcase_Data($testcase, $data);
-    Set_Interop_XML_Check_Testcase_Data($testcase, $data);
+    Set_URL_Check_Testcase_Data($testcase, $data);
+    Set_TP_PW_Check_Testcase_Data($profile, $testcase, $data);
 }
 
 #***********************************************************************
 #
-# Name: Set_Interop_Check_Test_Profile
+# Name: Set_Dept_Check_Test_Profile
 #
 # Parameters: profile - TQA check test profile
-#             checks - hash table of testcase name
+#             dept_checks - hash table of testcase name
 #
 # Description:
 #
 #   This function copies the passed table to unit global variables.
-# The hash table is indexed by testcase name.
+# The hash table is indexed by TQA testcase name.
 #
 #***********************************************************************
-sub Set_Interop_Check_Test_Profile {
-    my ($profile, $checks ) = @_;
+sub Set_Dept_Check_Test_Profile {
+    my ($profile, $dept_checks ) = @_;
 
     #
     # Set test case profile information in other modules
     #
-    Set_Interop_HTML_Check_Test_Profile($profile, $checks);
-    Set_Interop_XML_Check_Test_Profile($profile, $checks);
+    Set_URL_Check_Test_Profile($profile, $dept_checks);
+    Set_TP_PW_Check_Test_Profile($profile, $dept_checks);
+    Set_Content_Check_Test_Profile($profile, $dept_checks);
 }
 
 #***********************************************************************
 #
-# Name: Interop_Check
+# Name: Dept_Check
 #
 # Parameters: this_url - a URL
 #             language - URL language
@@ -255,40 +266,53 @@ sub Set_Interop_Check_Test_Profile {
 #   This function runs a number of technical QA checks the content.
 #
 #***********************************************************************
-sub Interop_Check {
+sub Dept_Check {
     my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
 
-    my (@tqa_results_list);
+    my (@tqa_results_list, $result_object, @other_tqa_results_list);
 
     #
     # Did we get any content ?
     #
-    print "Interop_Check: URL $this_url, mime-type = $mime_type, lanugage = $language, profile = $profile\n" if $debug;
-    if ( length($content) > 0 ) {
+    print "Dept_Check: URL $this_url, mime-type = $mime_type, lanugage = $language, profile = $profile\n" if $debug;
+    if ( ($mime_type =~ /text\/html/) && (length($content) > 0) ) {
         #
-        # Is this HTML content
+        # Perform PWGSC checks.
         #
-        if ( $mime_type =~ /text\/html/ ) {
-            @tqa_results_list = Interop_HTML_Check($this_url, $language,
-                                                   $profile, $mime_type, $resp,
-                                                   $content);
+        @tqa_results_list = TP_PW_Check($this_url, $language, $profile,
+                                        $mime_type, $resp, $content);
+
+        #
+        # Perform content checks the document
+        #
+        print "Perform_Content_Check on URL\n  --> $this_url\n" if $debug;
+        @other_tqa_results_list = Content_Check($this_url, $profile,
+                                              $mime_type, $content);
+
+        #
+        # Add results from content check into those from PWGSC to get
+        # results for the entire document.
+        #
+        foreach $result_object (@other_tqa_results_list) {
+            push(@tqa_results_list, $result_object);
         }
-        #
-        # Is this XML content
-        #
-        elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
-                ($mime_type =~ /application\/atom\+xml/) ||
-                ($mime_type =~ /application\/xml/) ||
-                ($mime_type =~ /application\/rss\+xml/) ||
-                ($mime_type =~ /text\/xml/) ||
-                ($this_url =~ /\.xml$/i) ) {
-            @tqa_results_list = Interop_XML_Check($this_url, $language,
-                                                  $profile, $mime_type, $resp,
-                                                  $content);
-        }
+
     }
     else {
-        print "No content passed to Interop_Check\n" if $debug;
+        print "No HTML content passed to Dept_Check\n" if $debug;
+    }
+
+    #
+    # Perform checks on the URL
+    #
+    @other_tqa_results_list = URL_Check($this_url, $profile);
+
+    #
+    # Add results from URL check into those from the previous check
+    # to get results for the entire document.
+    #
+    foreach $result_object (@other_tqa_results_list) {
+        push(@tqa_results_list, $result_object);
     }
 
     #
@@ -299,80 +323,35 @@ sub Interop_Check {
 
 #***********************************************************************
 #
-# Name: Interop_Check_Feed_Details
+# Name: Dept_Check_Links
 #
-# Parameters: this_url - a URL
-#             content - content
-#
-# Description:
-#
-#   This function returns a news feed object containing a number
-# of feed details (e.g. type, title).  If the content is not a
-# valid news feed, undefined is returned.
-#
-#***********************************************************************
-sub Interop_Check_Feed_Details {
-    my ($this_url, $content) = @_;
-
-    my ($feed_object);
-
-    $feed_object = Interop_XML_Feed_Details($this_url, $content);
-    return($feed_object);
-}
-
-#***********************************************************************
-#
-# Name: Interop_Check_Feeds
-#
-# Parameters: profile - testcase profile
-#             feed_list - list of feed objects
-#
-# Description:
-#
-#    This function checks a list of feed objects to see if there are
-# any non Atom feeds that don't have a matching Atom feed (e.g. an
-# RSS only feed).
-#
-#***********************************************************************
-sub Interop_Check_Feeds {
-    my ($profile, @feed_list) = @_;
-
-    return(Interop_XML_Check_Feeds($profile, @feed_list));
-}
-
-#***********************************************************************
-#
-# Name: Interop_Check_Links
-#
-# Parameters: results_list - address of hash table results
+# Parameters: tqa_results_list - address of hash table results
 #             url - URL
-#             title - document title
-#             mime_type - mime type of content
 #             profile - testcase profile
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
 #    This function performs a number of checks on links found within a
-# document.
+# document.  Checks are performed on the common menu bar, left
+# navigation and footer.
 #
 #***********************************************************************
-sub Interop_Check_Links {
-    my ($results_list, $url, $title, $mime_type, $profile, $language,
-        $link_sets) = @_;
+sub Dept_Check_Links {
+    my ($tqa_results_list, $url, $profile, $language, $link_sets,
+        $logged_in) = @_;
 
     #
-    # Perform HTML link checks.
+    # Perform PWGSC link checks.
     #
-    print "Interop_Check_Links: profile = $profile, language = $language\n" if $debug;
-    if ( $mime_type =~ /text\/html/ ) {
-        Interop_HTML_Check_Links($results_list, $url, $title, $profile,
-                                 $language, $link_sets);
-    }
+    print "Dept_Check_Links: profile = $profile, language = $language\n" if $debug;
+    TP_PW_Check_Links($tqa_results_list, $url, $profile, $language,
+                      $link_sets, $logged_in);
 }
-
 
 #***********************************************************************
 #
@@ -389,8 +368,8 @@ sub Interop_Check_Links {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("tqa_result_object", "interop_html_check",
-                          "interop_xml_check", "interop_testcases");
+    my (@package_list) = ("tqa_result_object", "url_check", "tp_pw_check",
+                          "content_check");
 
     #
     # Import packages, we don't use a 'use' statement as these packages

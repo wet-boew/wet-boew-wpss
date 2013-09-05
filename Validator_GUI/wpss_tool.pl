@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6060 $
+# $Revision: 6377 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2012-10-22 14:57:46 -0400 (Mon, 22 Oct 2012) $
+# $Date: 2013-08-28 09:49:36 -0400 (Wed, 28 Aug 2013) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -content ]
 #                        [ -eng ] [ -no_val ] [ -no_link ] [ -no_meta ]
@@ -92,12 +92,15 @@ use strict;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($site_dir_e, $site_dir_f, $site_entry_e, $site_entry_f);
 my ($url, $report_fails_only, %crawler_config_vars, $save_content);
-my ($user_agent, $date_stamp, $this_tab, $lang, %is_valid_markup);
+my ($date_stamp, $this_tab, $lang, %is_valid_markup, $process_pdf);
 my (%login_form_values, $performed_login, %link_config_vars);
 my (@crawler_link_ignore_patterns, %document_count, %error_count);
 my (%fault_count, $user_agent_hostname, %url_list, $version);
 my (@links, @ui_args, %image_alt_text_table, @web_feed_list);
 my (%all_link_sets, %domain_prod_dev_map);
+my (%all_link_sets, %domain_prod_dev_map, $logged_in);
+my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
+my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
 my ($ui_pm_dir) = "GUI";
 
 #
@@ -127,7 +130,7 @@ my ($display_metadata_check) = 1;
 my ($display_tqa_check) = 1;
 my ($display_clf_check) = 1;
 my ($display_interop_check) = 1;
-my ($display_content_check) = 1;
+my ($display_dept_check) = 1;
 my ($display_doc_features) = 1;
 my ($display_document_list) = 1;
 
@@ -152,7 +155,7 @@ my ($max_redirects) = 10;
 
 my (%report_options, %results_file_suffixes, %report_options_labels);
 my ($crawled_urls_tab, $validation_tab, $metadata_tab, $doc_list_tab,
-    $acc_tab, $link_tab, $content_tab, $doc_features_tab,
+    $acc_tab, $link_tab, $dept_tab, $doc_features_tab,
     $clf_tab, $interop_tab, $crawllimit);
 
 #
@@ -195,13 +198,13 @@ my (%metadata_error_url_count, %metadata_error_instance_count);
 my (%metadata_help_url, %metadata_results);
 
 #
-# Content Check variables
+# Department testcases Check variables
 #
-my (%content_check_profile_map, $content_check_profile);
-my (@content_check_profiles, $content_check_profile_label);
+my (%dept_check_profile_map, $dept_check_profile);
+my (@dept_check_profiles, $dept_check_profile_label);
 my (%html_titles, %pdf_titles, %title_html_url);
-my (%content_error_url_count, %content_error_instance_count);
-my ($content_testcase_url_help_file_name);
+my (%dept_error_url_count, %dept_error_instance_count);
+my ($dept_testcase_url_help_file_name);
 my (%headings_table, %content_section_markers);
 
 #
@@ -243,9 +246,9 @@ my (%link_error_url_count, %link_error_instance_count);
 #
 # Document Features variables
 #
-my (%doc_features_profile_map, %docl_feature_list);
+my (%doc_features_profile_map, %doc_feature_list);
 my (@doc_features_profiles, $doc_profile_label, $current_doc_features_profile);
-my (%doc_features_metadata_profile_map);
+my (%doc_features_metadata_profile_map, @doc_directory_paths);
 
 #
 # Other configuration items.
@@ -317,54 +320,6 @@ sub Set_Language {
             }
         }
     }
-}
-
-#***********************************************************************
-#
-# Name: Create_User_Agent
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function creates a user agent object to be used in http
-# requests.
-#
-#***********************************************************************
-sub Create_User_Agent {
-
-    #
-    # Local variables
-    #
-    my ( $ua, $cookie_jar, $host );
-
-    #
-    # Get hostname if one has not been given in configuration
-    #
-    if ( ! defined($user_agent_hostname) ) {
-        $host = hostname;
-    }
-    else {
-        $host = $user_agent_hostname;
-    }
-
-    #
-    # Setup user agent to handle HTTP requests
-    #
-    $ua = LWP::RobotUA->new("$user_agent_name", "$user_agent_name\@$host");
-    $ua->timeout("60");
-    $ua->delay(1/60);
-
-    #
-    # Create a temporary cookie jar for the user agent.
-    #
-    $cookie_jar = HTTP::Cookies->new;
-    $ua->cookie_jar( $cookie_jar );
-
-    #
-    # Return the user agent
-    #
-    return $ua;
 }
 
 #***********************************************************************
@@ -496,6 +451,15 @@ sub Read_HTML_Features_Config_File {
            $feature_id = $fields[1];
            $$metadata_feature_list{$feature_id} = $fields[2];
         }
+        elsif ( $config_type =~ /doc_directory_path/i ) {
+           #
+           # Alternate format documents directory path
+           #
+           @fields = split(/\s+/, $_, 2);
+           $feature_id = $fields[1];
+           push(@doc_directory_paths, $feature_id);
+        }
+
     }
     close(CONFIG_FILE);
 }
@@ -984,6 +948,7 @@ sub Read_TQA_Check_Config_File {
             # id as a single field
             #
             ($config_type, $testcase_id, $value) = split(/\s+/, $_, 3);
+            $value =~ s/\s+$//g;
 
             #
             # Testcase specific data, get testcase id and data to
@@ -1138,7 +1103,8 @@ sub Read_CLF_Check_Config_File {
             # Testcase specific data
             #
             if ( defined($clf_check_profile_name) && defined($value) ) {
-                Set_CLF_Check_Testcase_Data($testcase_id, $value);
+                $value =~ s/\s+$//g;
+                Set_CLF_Check_Testcase_Data($clf_check_profile_name, $testcase_id, $value);
             }
         }
         elsif ( $config_type =~ /Testcase_URL_Help_File/i ) {
@@ -1410,6 +1376,7 @@ sub Read_Interop_Check_Config_File {
             # Testcase specific data
             #
             if ( defined($interop_check_profile_name) && defined($value) ) {
+                $value =~ s/\s+$//g;
                 Set_Interop_Check_Testcase_Data($testcase_id, $value);
             }
         }
@@ -1425,18 +1392,18 @@ sub Read_Interop_Check_Config_File {
 
 #***********************************************************************
 #
-# Name: New_Content_Check_Profile_Hash_Tables
+# Name: New_Dept_Check_Profile_Hash_Tables
 #
 # Parameters: profile_name - name of profile
 #
 # Description:
 #
-#   This function create a hash tables for Content Check test cases
+#   This function create a hash tables for department Check test cases
 # and saves the address in the global test case profile
 # table.
 #
 #***********************************************************************
-sub New_Content_Check_Profile_Hash_Tables {
+sub New_Dept_Check_Profile_Hash_Tables {
     my ($profile_name) = @_;
 
     my (%testcases);
@@ -1444,13 +1411,110 @@ sub New_Content_Check_Profile_Hash_Tables {
     #
     # Save address of hash tables
     #
-    push(@content_check_profiles, $profile_name);
-    $content_check_profile_map{$profile_name} = \%testcases;
+    push(@dept_check_profiles, $profile_name);
+    $dept_check_profile_map{$profile_name} = \%testcases;
 
     #
     # Return addresses
     #
     return(\%testcases);
+}
+
+#***********************************************************************
+#
+# Name: Read_Dept_Check_Config_File
+#
+# Parameters: path - the path to configuration file
+#
+# Description:
+#
+#   This function reads a Department Check configuration file.
+#
+#***********************************************************************
+sub Read_Dept_Check_Config_File {
+    my ($config_file) = $_[0];
+
+    my (@fields, $config_type, $testcase_id, $testcases);
+    my ($dept_check_profile_name, $value);
+
+    #
+    # Open configuration file at specified path
+    #
+    print "Opening configuration file $config_file\n" if $debug;
+    open( CONFIG_FILE, "$config_file" )
+      || die
+      "Failed to open configuration file, errno is $!\n  --> $config_file\n";
+
+    #
+    # Read file looking for values for config parameters.
+    #
+    while (<CONFIG_FILE>) {
+
+        #
+        # Ignore comment and blank lines.
+        #
+        chop;
+        if ( /^#/ ) {
+            next;
+        }
+        elsif ( /^$/ ) {
+            next;
+        }
+
+        #
+        # Split the line into fields.
+        #
+        @fields = split;
+        $config_type = $fields[0];
+
+        #
+        # Start of a new Content testcase profile. Get hash tables to
+        # store deprtment Check attributes
+        #
+        if ( $config_type eq "Dept_Check_Profile_" . $lang ) {
+            #
+            # Start of a new Content testcase profile. Get hash tables to
+            # store department Check attributes
+            #
+            @fields = split(/\s+/, $_, 2);
+            $dept_check_profile_name = $fields[1];
+            ($testcases) =
+                New_Dept_Check_Profile_Hash_Tables($dept_check_profile_name);
+        }
+        elsif ( $config_type =~ /tcid/i ) {
+           #
+           # Department testcase, get testcase id and store
+           # in hash table.
+           #
+           $testcase_id = $fields[1];
+           if ( defined($testcase_id) ) {
+               $$testcases{$testcase_id} = 1;
+           }
+        }
+        elsif ( $config_type =~ /Testcase_URL_Help_File/i ) {
+            #
+            # Name of testcase & help URL file
+            #
+            $dept_testcase_url_help_file_name = $fields[1];
+        }
+        elsif ( $config_type =~ /testcase_data/i ) {
+            #
+            # Split line again to get everything after the testcase
+            # id as a single field
+            #
+            ($config_type, $testcase_id, $value) = split(/\s+/, $_, 3);
+
+            #
+            # Testcase specific data
+            #
+            if ( defined($dept_check_profile_name) && defined($value) ) {
+                $value =~ s/\s+$//g;
+                Set_Dept_Check_Testcase_Data($dept_check_profile_name,
+                                             $testcase_id, $value);
+            }
+        }
+    }
+    close(CONFIG_FILE);
 }
 
 #***********************************************************************
@@ -1507,8 +1571,7 @@ sub Read_Content_Section_Value {
 sub Read_Content_Check_Config_File {
     my ($config_file) = $_[0];
 
-    my (@fields, $config_type, $testcase_id, $testcases);
-    my ($content_check_profile_name, $comment, $class_name);
+    my (@fields, $config_type);
     my ($in_content_marker_section) = 0;
     
     #
@@ -1541,31 +1604,7 @@ sub Read_Content_Check_Config_File {
         @fields = split;
         $config_type = $fields[0];
 
-        #
-        # Start of a new Content testcase profile. Get hash tables to
-        # store Content Check attributes
-        #
-        if ( $config_type eq "Content_Check_Profile_" . $lang ) {
-            #
-            # Start of a new Content testcase profile. Get hash tables to
-            # store Content Check attributes
-            #
-            @fields = split(/\s+/, $_, 2);
-            $content_check_profile_name = $fields[1];
-            ($testcases) =
-                New_Content_Check_Profile_Hash_Tables($content_check_profile_name);
-        }
-        elsif ( $config_type =~ /tcid/i ) {
-           #
-           # Required Content testcase, get testcase id and store
-           # in hash table.
-           #
-           $testcase_id = $fields[1];
-           if ( defined($testcase_id) ) {
-               $$testcases{$testcase_id} = 1;
-           }
-        }
-        elsif ( $config_type =~ /CONTENT_SECTION_START/i ) {
+        if ( $config_type =~ /CONTENT_SECTION_START/i ) {
             #
             # Start of content marker section
             #
@@ -1585,12 +1624,6 @@ sub Read_Content_Check_Config_File {
             if ( @fields == 3 ) {
                 Content_Section_Markers($fields[0], $fields[1], $fields[2]);
             }
-        }
-        elsif ( $config_type =~ /Testcase_URL_Help_File/i ) {
-            #
-            # Name of testcase & help URL file
-            #
-            $content_testcase_url_help_file_name = $fields[1];
         }
     }
     close(CONFIG_FILE);
@@ -1792,6 +1825,7 @@ sub Set_Package_Debug_Flags {
     #
     Validator_GUI_Debug($debug);
     Set_Content_Check_Debug($debug);
+    Set_Dept_Check_Debug($debug);
     Set_Crawler_Debug($debug);
     Set_Metadata_Debug($debug);
     Set_TQA_Check_Debug($debug);
@@ -1805,6 +1839,7 @@ sub Set_Package_Debug_Flags {
     Validate_Markup_Debug($debug);
     PDF_Files_Debug($debug);
     Set_Interop_Check_Debug($debug);
+    HTML_Language_Debug($debug);
 }
 
 #***********************************************************************
@@ -1870,7 +1905,8 @@ sub Initialize {
                           "alt_text_check", "tqa_result_object", "url_check",
                           "tqa_testcases", "content_sections", "clf_check",
                           "metadata_result_object", "validate_markup",
-                          "interop_check", "pdf_check");
+                          "interop_check", "pdf_check", "dept_check",
+                          "html_language");
     my ($mday, $mon, $year, $key, $value, $metadata_profile);
     my ($tag_required, $content_required, $content_type, $scheme_values);
     my ($invalid_content, $pdf_profile);
@@ -1927,6 +1963,7 @@ sub Initialize {
     Read_TQA_Check_Config_File("$program_dir/conf/so_tqa_check.config");
     Read_HTML_Features_Config_File("$program_dir/conf/so_html_features.config");
     Read_Content_Check_Config_File("$program_dir/conf/so_content_check.config");
+    Read_Dept_Check_Config_File("$program_dir/conf/so_dept_check.config");
     Read_CLF_Check_Config_File("$program_dir/conf/so_clf_check.config");
     Read_Interop_Check_Config_File("$program_dir/conf/so_interop_check.config");
 
@@ -1936,8 +1973,8 @@ sub Initialize {
     if ( defined($tqa_testcase_url_help_file_name) ) {
         TQA_Testcase_Read_URL_Help_File($tqa_testcase_url_help_file_name);
     }
-    if ( defined($content_testcase_url_help_file_name) ) {
-        Content_Check_Read_URL_Help_File($content_testcase_url_help_file_name);
+    if ( defined($dept_testcase_url_help_file_name) ) {
+        Dept_Check_Read_URL_Help_File($dept_testcase_url_help_file_name);
     }
     if ( defined($clf_testcase_url_help_file_name) ) {
         CLF_Check_Read_URL_Help_File($clf_testcase_url_help_file_name);
@@ -1947,12 +1984,12 @@ sub Initialize {
     }
 
     #
-    # Set Content Check testcase profiles and other configuration
+    # Set department Check testcase profiles and other configuration
     #
-    while ( ($key,$value) =  each %content_check_profile_map) {
-        Set_Content_Check_Test_Profile($key, $value);
+    while ( ($key,$value) =  each %dept_check_profile_map) {
+        Set_Dept_Check_Test_Profile($key, $value);
     }
-
+    
     #
     # Set message language.
     #
@@ -2072,11 +2109,6 @@ sub Initialize {
     Set_Link_Checker_Domain_Alias_Map(%domain_alias_map);
     Set_Link_Checker_Redirect_Ignore_Patterns(@redirect_ignore_patterns);
     
-    #
-    # Create user agent
-    #
-    $user_agent = Create_User_Agent;
-
     #
     # Get current time
     #
@@ -2219,6 +2251,11 @@ sub Login_Callback {
         print "Set form value for $this_input to \"$this_value\"\n" if $debug;
         $form->value($this_input, $this_value);
     }
+
+    #
+    # We are now logged in
+    #
+    $logged_in = 1;
 }
 
 #***********************************************************************
@@ -2250,6 +2287,14 @@ sub HTTP_Response_Callback {
     Check_Debug_File();
 
     #
+    # Check for logout page
+    #
+    if ( ($url eq $logoutpagee) || ($url eq $logoutpagef) ) {
+        $logged_in = 0;
+        print "Found logout page\n" if $debug;
+    }
+
+    #
     # Initialize markup validity flags and other tool results
     #
     print "HTTP_Response_Callback url = $url, mime-type = $mime_type\n" if $debug;
@@ -2258,6 +2303,18 @@ sub HTTP_Response_Callback {
     %clf_other_tool_results = ();
     $is_archived = 0;
     
+    #
+    # Is this a PDF document and are we ignoring them ?
+    #
+    if ( ($mime_type =~ /application\/pdf/) && (! $process_pdf) ) {
+        $document_count{$crawled_urls_tab}++;
+        Validator_GUI_Start_URL($crawled_urls_tab, 
+                                String_Value("Not reviewed") . " $url",
+                                $referrer, $supporting_file,
+                                $document_count{$crawled_urls_tab});
+        return(0);
+    }
+
     #
     # Add URL to list of URLs
     #
@@ -2351,8 +2408,8 @@ sub HTTP_Response_Callback {
             # TQA it must be an alternate format)
             #
             $key = "alternate/autre format";
-            if ( defined($docl_feature_list{$key}) ) {
-                $list_ref = $docl_feature_list{$key};
+            if ( defined($doc_feature_list{$key}) ) {
+                $list_ref = $doc_feature_list{$key};
                 print "Add to document feature list $key, url = $url\n" if $debug;
                 $$list_ref{$url} = 1;
             }
@@ -2459,13 +2516,37 @@ sub HTTP_Response_Callback {
             #
             Perform_TQA_Check($url, $content, $language, $mime_type, $resp);
         }
+
+        #
+        # Is the file a CSV file ?
+        #
+        elsif ( ($mime_type =~ /text\/x-comma-separated-values/) ||
+                ($mime_type =~ /text\/csv/) ||
+                ($url =~ /\.csv$/i) ) {
+            #
+            # Perform TQA check of CSV content
+            #
+            Perform_TQA_Check($url, $content, $language, $mime_type, $resp);
+        }
         #
         # Is the file XML ? or does the URL end in a .xml ?
         #
         elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
                 ($mime_type =~ /application\/atom\+xml/) ||
+                ($mime_type =~ /application\/xml/) ||
+                ($mime_type =~ /application\/rss\+xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($url =~ /\.xml$/i) ) {
+            #
+            # Get document language
+            #
+            $language = XML_Document_Language($url, $content);
+
+            #
+            # Perform link check
+            #
+            Perform_Link_Check($url, $mime_type, $resp);
+
             #
             # Perform TQA check of XML content
             #
@@ -2478,9 +2559,9 @@ sub HTTP_Response_Callback {
         }
         
         #
-        # Perform content checks
+        # Perform department checks
         #
-        Perform_Content_Check($url, $mime_type, $content);
+        Perform_Department_Check($url, $language, $mime_type, $resp, $content);
 
         #
         # End this URL
@@ -2530,12 +2611,58 @@ sub HTML_Document_Language {
         #
         ($lang_code, $lang, $status) = TextCat_HTML_Language($content);
         print "HTML_Document_Language TextCat language is $lang_code\n" if $debug;
+
+       #
+       # If we still don't have a language, get the default language of the
+       # page as specified in the <html> tag.
+       #
+       if ( $lang_code eq "" ) {
+           $lang_code = HTML_Language($url, $content);
+       }
     }
 
     #
     # Return language
     #
     print "HTML_Document_Language of $url is $lang_code\n" if $debug;
+    return($lang_code);
+}
+
+#***********************************************************************
+#
+# Name: XML_Document_Language
+#
+# Parameters: url - document URL
+#             content - document content
+#
+# Description:
+#
+#   This function determines the language of a XML document.  It first
+# checks the URL to see if there is a language portion (e.g. -eng), if
+# there isn't one, it checks the content.
+#
+#***********************************************************************
+sub XML_Document_Language {
+    my ($url, $content) = @_;
+
+    my ($lang, $lang_code, $status);
+
+    #
+    # Check the URL for language specifier
+    #
+    $lang_code = URL_Check_GET_URL_Language($url);
+    if ( $lang_code eq "" ) {
+        #
+        # Cannot determine language from file name, try the content
+        #
+        ($lang_code, $lang, $status) = TextCat_XML_Language($content);
+        print "XML_Document_Language TextCat language is $lang_code\n" if $debug;
+    }
+
+    #
+    # Return language
+    #
+    print "XML_Document_Language of $url is $lang_code\n" if $debug;
     return($lang_code);
 }
 
@@ -2612,7 +2739,7 @@ sub Save_Content_To_File {
                  #
                  # Insert <base after the first tag close
                  #
-                 $lines[1] =~ s/>/>\n<base href="$url"\\>\n/;
+                 $lines[1] =~ s/>/>\n<base href="$url" \/>\n/;
 
                  #
                  # Print the rest of the content
@@ -2722,6 +2849,11 @@ sub Direct_HTML_Input_Callback {
     @links = Extract_Links("Direct Input", "", "", "text/html", $content);
 
     #
+    # Get links from all document subsections
+    #
+    %all_link_sets = Extract_Links_Subsection_Links("ALL");
+
+    #
     # Perform Metadata Check
     #
     Perform_Metadata_Check("Direct Input", $content, $Unknown_Language);
@@ -2779,27 +2911,97 @@ sub Print_Content_Results {
     #
     # Print results
     #
-    if ( $display_content_check ) {
+    if ( $display_dept_check ) {
         foreach $result_object (@content_results_list ) {
             $status = $result_object->status;
             if ( $status != 0 ) {
                 #
                 # Increment error instance count
                 #
-                if ( ! defined($content_error_instance_count{$result_object->description}) ) {
-                    $content_error_instance_count{$result_object->description} = 1;
-                    $content_error_url_count{$result_object->description} = 1;
+                if ( ! defined($dept_error_instance_count{$result_object->description}) ) {
+                    $dept_error_instance_count{$result_object->description} = 1;
+                    $dept_error_url_count{$result_object->description} = 1;
                 }
                 else {
-                   $content_error_instance_count{$result_object->description}++;
-                   $content_error_url_count{$result_object->description}++;
+                   $dept_error_instance_count{$result_object->description}++;
+                   $dept_error_url_count{$result_object->description}++;
                 }
-                $error_count{$content_tab}++;
+                $error_count{$dept_tab}++;
 
                 #
                 # Print error
                 #
-                Validator_GUI_Print_TQA_Result($content_tab, $result_object);
+                Validator_GUI_Print_TQA_Result($dept_tab, $result_object);
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_HTML_PDF_Document_Titles
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function calls the Content Check module's URL title check routines
+# to check titles of documents.
+#
+#***********************************************************************
+sub Check_For_PDF_Only_Document {
+
+    my ($url, $title, $html_url, $pattern, $found_html, $list_ref);
+
+    #
+    # Are we checking for non HTML primary format ?
+    #
+    if ( defined($doc_feature_list{"non-html primary format/format principal non-html"}) ) {
+        #
+        # Get list for this feature
+        #
+        $list_ref = $doc_feature_list{"non-html primary format/format principal non-html"};
+
+        #
+        # Look through each PDF document looking for am matching HTML
+        #
+        while (  ($url, $title) = each %pdf_titles ) {
+            #
+            # Do we have a matching HTML document title ?
+            #
+            print "Checking PDF $url, title = \"$title\"\n" if $debug;
+            $found_html = 0;
+            if ( defined($title_html_url{$title}) ) {
+                print "Found matching HTML title at " . $title_html_url{$title} .
+                      "\n" if $debug;
+                $found_html = 1;
+            }
+            else {
+                #
+                # Do we have a match on the URL ?
+                #
+                foreach $pattern (@doc_directory_paths) {
+                    $html_url = $url;
+                    $html_url =~ s/\.pdf$/.html/i;
+                    $html_url =~ s/\/$pattern\//\//g;
+                    if ( defined($html_titles{$html_url}) ) {
+                        #
+                        # Found match, go to next URL
+                        #
+                        print "Found HTML URL at $html_url\n" if $debug;
+                        $found_html = 1;
+                        last;
+                    }
+                }
+            }
+
+            #
+            # If we didn't find an HTML equivalent, this is a non-HTML
+            # format document.
+            #
+            if ( ! $found_html ) {
+                print "Add to document feature list \"non-html primary format/format principal non\", url = $url\n" if $debug;
+                $$list_ref{$url} = 1;
             }
         }
     }
@@ -2827,7 +3029,7 @@ sub Check_HTML_PDF_Document_Titles {
     #
     @content_results_list = Content_Check_HTML_PDF_Titles(\%html_titles,
                                                           \%pdf_titles,
-                                                          $content_check_profile);
+                                                          $dept_check_profile);
 
     #
     # Print results
@@ -2856,7 +3058,7 @@ sub Check_Unique_Document_Titles {
     # Check that titles of HTML are unique
     #
     @content_results_list = Content_Check_Unique_Titles($titles,
-                                                        $content_check_profile);
+                                                        $dept_check_profile);
 
     #
     # Print results
@@ -2885,7 +3087,7 @@ sub Check_Alternate_Language_Headings {
     # instances of the same document.
     #
     @content_results_list = Content_Check_Alternate_Language_Heading_Check(
-                                     $content_check_profile, %headings_table);
+                                     $dept_check_profile, %headings_table);
 
     #
     # Print results
@@ -2921,6 +3123,7 @@ sub Check_Web_Feeds {
     #
     # Check Web feeds
     #
+    print "Check_Web_Feeds\n" if $debug;
     @interop_results_list = Interop_Check_Feeds($interop_check_profile,
                                                 @web_feed_list);
 
@@ -2983,11 +3186,16 @@ sub All_Document_Checks {
     # reporting any title errors.
     #
     if ( $cgi_mode || $cli_mode ) {
-        if ( $display_content_check ) {
-            Validator_GUI_Update_Results($content_tab, 
+        if ( $display_dept_check ) {
+            Validator_GUI_Update_Results($dept_tab,
                                          String_Value("Content violations"));
         }
     }
+
+    #
+    # Check for PDF only versions of documents
+    #
+    Check_For_PDF_Only_Document();
 
     #
     # Check titles of HTML and PDF documents
@@ -3039,7 +3247,7 @@ sub All_Document_Checks {
 sub URL_List_Callback {
     my ($url_list, %report_options) = @_;
     
-    my ($this_url, @urls);
+    my ($this_url, @urls, $tab);
     my ($resp_url, $resp, $header, $content_type, $error);
 
     #
@@ -3047,6 +3255,7 @@ sub URL_List_Callback {
     #
     Initialize_Tool_Globals(%report_options);
     Set_Link_Checker_Ignore_Patterns(@link_ignore_patterns);
+    Crawler_Abort_Crawl(0);
 
     #
     # Report header
@@ -3072,6 +3281,14 @@ sub URL_List_Callback {
         #
         if ( $this_url =~ /^#/ ) {
             next;
+        }
+
+        #
+        # Are we aborting the URL analysis ? Check crawler module flag
+        # in case the abort was called from another thread (i.e. the UI layer)
+        #
+        if ( Crawler_Abort_Crawl_Status() == 1 ) {
+            last;
         }
 
         #
@@ -3110,6 +3327,22 @@ sub URL_List_Callback {
             Validator_GUI_Print_URL_Error($crawled_urls_tab, $this_url, 
                                           $document_count{$crawled_urls_tab},
                                           $error);
+        }
+    }
+
+    #
+    # Was the crawl aborted ?
+    #
+    if ( Crawler_Abort_Crawl_Status() == 1 ) {
+        #
+        # Add a note to all tabs indicating that analysis was aborted.
+        #
+        foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
+                      $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
+                      $doc_list_tab, $doc_features_tab, $interop_tab) {
+            Validator_GUI_Update_Results($tab,
+                                         String_Value("Analysis Aborted"),
+                                         0);
         }
     }
 
@@ -3319,14 +3552,14 @@ sub Results_Save_Callback {
     #
     # Save the URL, Image, Alt report.
     #
-    if ( $display_content_check ) {
+    if ( $display_dept_check ) {
         Save_URL_Image_Alt_Report($filename);
     }
 
     #
     # Save the Headings report
     #
-    if ( $display_content_check ) {
+    if ( $display_dept_check ) {
         Save_Headings_Report($filename);
     }
 }
@@ -3353,7 +3586,7 @@ sub Print_Results_Header {
     # Clear any text that may exist in the results tabs
     #
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
-                  $metadata_tab, $acc_tab, $clf_tab, $content_tab,
+                  $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
                   $doc_list_tab, $doc_features_tab, $interop_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Clear_Results($tab);
@@ -3412,9 +3645,9 @@ sub Print_Results_Header {
                                          $site_entries);
         }
         
-        if ( $display_content_check ) {
-            Validator_GUI_Update_Results($content_tab,
-                                         String_Value("Content report header") .
+        if ( $display_dept_check ) {
+            Validator_GUI_Update_Results($dept_tab,
+                                         String_Value("Department report header") .
                                          $site_entries);
         }
 
@@ -3458,11 +3691,11 @@ sub Print_Results_Header {
                                      . " " . $interop_check_profile);
         Validator_GUI_Update_Results($interop_tab, "");
     }
-    if ( $display_content_check ) {
-        Validator_GUI_Update_Results($content_tab,
-                                 String_Value("Content Check Testcase Profile")
-                                     . " " . $content_check_profile);
-        Validator_GUI_Update_Results($content_tab, "");
+    if ( $display_dept_check ) {
+        Validator_GUI_Update_Results($dept_tab,
+                                 String_Value("Department Check Testcase Profile")
+                                     . " " . $dept_check_profile);
+        Validator_GUI_Update_Results($dept_tab, "");
     }
     if ( $display_doc_features ) {
         Validator_GUI_Update_Results($doc_features_tab,
@@ -3480,7 +3713,7 @@ sub Print_Results_Header {
     $date = sprintf("%02d:%02d:%02d %4d/%02d/%02d", $hour, $min, $sec, $year,
                     $mon, $mday);
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
-                  $metadata_tab, $acc_tab, $clf_tab, $content_tab,
+                  $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
                   $doc_list_tab, $doc_features_tab, $interop_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Start_Analysis($tab, $date, 
@@ -3508,7 +3741,7 @@ sub Print_Results_Summary_Table {
     #
     # Print results table header
     #
-    foreach $tab ($link_tab, $metadata_tab, $acc_tab, $clf_tab, $content_tab,
+    foreach $tab ($link_tab, $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
                   $interop_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
@@ -3651,28 +3884,28 @@ sub Print_Results_Summary_Table {
     }
 
     #
-    # Print summary results table for Content Check
+    # Print summary results table for department Check
     #
-    if ( $display_content_check ) {
-        foreach $tcid (sort(keys %content_error_url_count)) {
-            Validator_GUI_Update_Results($content_tab, $tcid);
+    if ( $display_dept_check ) {
+        foreach $tcid (sort(keys %dept_error_url_count)) {
+            Validator_GUI_Update_Results($dept_tab, $tcid);
             $line = sprintf("  URLs %5d " . String_Value("instances") .
-                            " %5d ", $content_error_url_count{$tcid},
-                            $content_error_instance_count{$tcid});
+                            " %5d ", $dept_error_url_count{$tcid},
+                            $dept_error_instance_count{$tcid});
 
             #
             # Add help link, if there is one
             #
-            if ( defined( Content_Check_Testcase_URL($tcid) ) ) {
+            if ( defined( Dept_Check_Testcase_URL($tcid) ) ) {
                 $line .= " " . String_Value("help") .
-                         " " . Content_Check_Testcase_URL($tcid);
+                         " " . Dept_Check_Testcase_URL($tcid);
             }
 
             #
             # Print summary line
             #
-            Validator_GUI_Update_Results($content_tab, $line);
-            Validator_GUI_Update_Results($content_tab, "");
+            Validator_GUI_Update_Results($dept_tab, $line);
+            Validator_GUI_Update_Results($dept_tab, "");
         }
     }
 
@@ -3680,7 +3913,7 @@ sub Print_Results_Summary_Table {
     #
     # Print blank line after table.
     #
-    foreach $tab ($acc_tab, $content_tab) {
+    foreach $tab ($acc_tab, $dept_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
         }
@@ -3729,7 +3962,7 @@ sub Print_Results_Footer {
     # Print footer on each tab
     #
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab, 
-                  $metadata_tab, $acc_tab, $content_tab, $doc_features_tab,
+                  $metadata_tab, $acc_tab, $dept_tab, $doc_features_tab,
                   $clf_tab, $interop_tab, $doc_list_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
@@ -3781,7 +4014,7 @@ sub Print_Results_Footer {
 #
 #***********************************************************************
 sub Print_Document_Features_Report {
-    my ($feature_id, $this_docl_feature_list, $url, $count);
+    my ($feature_id, $this_doc_feature_list, $url, $count);
 
     #
     # Are we displaying document features ?
@@ -3794,21 +4027,21 @@ sub Print_Document_Features_Report {
     # Get the sorted list of document features
     #
     print "Print_Document_Features_Report\n" if $debug;
-    foreach $feature_id (sort(keys(%docl_feature_list))) {
+    foreach $feature_id (sort(keys(%doc_feature_list))) {
         #
         # Get the list of URLs for this feature
         #
         print "Get list for URL for feature $feature_id\n" if $debug;
-        $this_docl_feature_list = $docl_feature_list{$feature_id};
+        $this_doc_feature_list = $doc_feature_list{$feature_id};
 
         #
         # Do we have any URLs ?
         #
-        if ( keys(%$this_docl_feature_list) > 0 ) {
+        if ( keys(%$this_doc_feature_list) > 0 ) {
             #
             # Print list header
             #
-            $count = keys(%$this_docl_feature_list);
+            $count = keys(%$this_doc_feature_list);
             print "Print document feature list $feature_id, count = $count\n" if $debug;
             Validator_GUI_Update_Results($doc_features_tab,
                                          String_Value("List of URLs with Document Feature")
@@ -3817,8 +4050,8 @@ sub Print_Document_Features_Report {
             #
             # Print sorted list of URLs
             #
-            foreach $url (sort(keys(%$this_docl_feature_list))) {
-                $count = $$this_docl_feature_list{$url};
+            foreach $url (sort(keys(%$this_doc_feature_list))) {
+                $count = $$this_doc_feature_list{$url};
                 Validator_GUI_Print_HTML_Feature($doc_features_tab,
                                                  $feature_id, $count, $url);
             }
@@ -3945,7 +4178,8 @@ sub Check_Page_URL {
         # to detect error rather to initialize the site links structure.
         #
         CLF_Check_Links(\@tqa_results_list, $url, "",
-                        $language, \%all_link_sets, \%clf_site_links);
+                        $language, \%all_link_sets, \%clf_site_links,
+                        $logged_in);
 
     }
 
@@ -4118,6 +4352,7 @@ sub Initialize_Tool_Globals {
     #
     $report_fails_only = $options{"report_fails_only"};
     $save_content = $options{"save_content"};
+    $process_pdf = $options{"process_pdf"};
 
     #
     # Setup content saving option
@@ -4156,9 +4391,9 @@ sub Initialize_Tool_Globals {
     $interop_check_profile = $options{$interop_profile_label};
 
     #
-    # Get Content Check profile name
+    # Get department Check profile name
     #
-    $content_check_profile = $options{$content_check_profile_label};
+    $dept_check_profile = $options{$dept_check_profile_label};
 
     #
     # Get document features profile
@@ -4202,8 +4437,8 @@ sub Initialize_Tool_Globals {
     %link_error_instance_count = ();
     %tqa_error_url_count = ();
     %tqa_error_instance_count = ();
-    %content_error_url_count = ();
-    %content_error_instance_count = ();
+    %dept_error_url_count = ();
+    %dept_error_instance_count = ();
     %metadata_error_url_count = ();
     %metadata_error_instance_count = ();
     $shared_site_dir_e = "";
@@ -4217,6 +4452,7 @@ sub Initialize_Tool_Globals {
     $tqa_check_exempted = 0;
     %url_list = ();
     @web_feed_list = ();
+    $logged_in = 0;
 
     #
     # Add list of decorative & non-decorative images from tool
@@ -4231,9 +4467,9 @@ sub Initialize_Tool_Globals {
     #
     $html_profile_table = $doc_features_profile_map{$current_doc_features_profile};
     foreach $html_feature_id (keys(%$html_profile_table)) {
-        my (%new_docl_feature_list);
+        my (%new_doc_feature_list);
         print "Create document feature list $html_feature_id\n" if $debug;
-        $docl_feature_list{$html_feature_id} = \%new_docl_feature_list;
+        $doc_feature_list{$html_feature_id} = \%new_doc_feature_list;
     }
 
 }
@@ -4251,14 +4487,12 @@ sub Initialize_Tool_Globals {
 #***********************************************************************
 sub Perform_Site_Crawl {
     my (%crawl_details) = @_;
-    
+
     my ($site_dir_e, $site_dir_f, $site_entry_e, $site_entry_f);
-    my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
-    my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
     my (@url_list, @url_type, @url_last_modified, @url_size, @url_referrer);
     my ($content, $url, $resp_url, $tab, $i);
     my (@site_link_check_ignore_patterns);
-    my ($sec, $min, $hour, $mday, $mon, $year, $date);
+    my ($sec, $min, $hour, $mday, $mon, $year, $date, $rc);
 
     #
     # Copy site details into local variables for easy access
@@ -4426,11 +4660,28 @@ sub Perform_Site_Crawl {
         print "                   site_entry_f = $site_entry_f\n";
         print "                   report_fails_only = $report_fails_only\n";
         print "                   save_content = $save_content\n";
+        print "                   process_pdf = $process_pdf\n";
     }
-    Crawl_Site($site_dir_e, $site_dir_f, $site_entry_e, $site_entry_f,
-                  $max_urls_between_sleeps, $debug,
-                  \@url_list, \@url_type, \@url_last_modified,
-                  \@url_size, \@url_referrer);
+    $rc = Crawl_Site($site_dir_e, $site_dir_f, $site_entry_e, $site_entry_f,
+                     $max_urls_between_sleeps, $debug,
+                     \@url_list, \@url_type, \@url_last_modified,
+                     \@url_size, \@url_referrer);
+
+    #
+    # Was the crawl successful or was it aborted ?
+    #
+    if ( $rc ) {
+        #
+        # Add a note to all tabs indicating that analysis was aborted.
+        #
+        foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
+                      $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
+                      $doc_list_tab, $doc_features_tab, $interop_tab) {
+            Validator_GUI_Update_Results($tab,
+                                         String_Value("Analysis Aborted"),
+                                         0);
+        }
+    }
 
     #
     # Perform checks information gathered on all documents analysed.
@@ -4452,7 +4703,7 @@ sub Perform_Site_Crawl {
             $i++;
         }
     }
-    
+
     #
     # Check the number of documents crawled, is it the same as our
     # crawl limit ? If so add a note to the bottom of each report
@@ -4482,7 +4733,6 @@ sub Perform_Site_Crawl {
     $shared_image_alt_text_report = Alt_Text_Check_Generate_Report(\%image_alt_text_table);
 
     print "Return from Perform_Site_Crawl\n" if $debug;
-
 }
 
 #***********************************************************************
@@ -4689,6 +4939,13 @@ sub Perform_Metadata_Check {
         #
         print "Archived document, skip metadata check\n" if $debug;
         Increment_Counts_and_Print_URL($metadata_tab, $url, 0);
+
+        #
+        # We still extract the metadata to populate the title/url table.
+        # This is needed to detect HTML & PDF versions of the same document.
+        #
+        print "Extract_Metadata on URL\n  --> $url\n" if $debug;
+        %metadata_results = Extract_Metadata($url, $content);
     }
     else {
         #
@@ -4699,24 +4956,6 @@ sub Perform_Metadata_Check {
         @metadata_results_list = Validate_Metadata($url, $language,
                                                    $metadata_profile, $content,
                                                    \%metadata_results);
-
-        #
-        # Save URL for this document title (if we don't already have one).
-        # This is used later when checking accessibility, if a PDF
-        # document has a corresponding HTML document, only the HTML is
-        # checked for accessibility.
-        #
-        if ( defined($metadata_results{"title"}) ) {
-            $result_object = $metadata_results{"title"};
-            $title = $result_object->content;
-            if ( ($title ne "") && (! defined($title_html_url{$title})) ) {
-                $title_html_url{$title} = $url;
-            }
-        }
-        else {
-            $title = "";
-        }
-        $html_titles{$url} = $title;
 
         #
         # Determine overall URL status
@@ -4780,6 +5019,25 @@ sub Perform_Metadata_Check {
             $metadata_error_url_count{$_}++;
         }
     }
+
+    #
+    # Save URL for this document title (if we don't already have one).
+    # This is used later when checking accessibility, if a PDF
+    # document has a corresponding HTML document, only the HTML is
+    # checked for accessibility.
+    #
+    if ( defined($metadata_results{"title"}) ) {
+        $result_object = $metadata_results{"title"};
+        $title = $result_object->content;
+        if ( ($title ne "") && (! defined($title_html_url{$title})) ) {
+            $title_html_url{$title} = $url;
+        }
+    }
+    else {
+        $title = "";
+    }
+    $html_titles{$url} = $title;
+
 }
 
 #***********************************************************************
@@ -4820,6 +5078,13 @@ sub Perform_PDF_Properties_Check {
         #
         print "Archived document, skip pdf properties check\n" if $debug;
         Increment_Counts_and_Print_URL($metadata_tab, $url, 0);
+
+        #
+        # We still extract the properties to populate the title/url table.
+        # This is needed to detect HTML & PDF versions of the same document.
+        #
+        print "PDF_Files_Get_Properties_From_Content on URL\n  --> $url\n" if $debug;
+        %pdf_property_results = PDF_Files_Get_Properties_From_Content($content);
     }
     else {
         #
@@ -4830,14 +5095,6 @@ sub Perform_PDF_Properties_Check {
                                                         $pdf_property_profile,
                                                         $content,
                                                         \%pdf_property_results);
-
-        #
-        # Do we have a title for this URL ?
-        #
-        if ( defined($pdf_property_results{"Title"}) ) {
-            $result_object = $pdf_property_results{"Title"};
-            $pdf_titles{$url} = $result_object->content;
-        }
 
         #
         # Determine overall URL status
@@ -4902,6 +5159,17 @@ sub Perform_PDF_Properties_Check {
             $metadata_error_url_count{$_}++;
         }
     }
+
+    #
+    # Do we have a title for this URL ?
+    #
+    if ( defined($pdf_property_results{"Title"}) ) {
+        $result_object = $pdf_property_results{"Title"};
+        $pdf_titles{$url} = $result_object->content;
+    }
+    else {
+        $pdf_titles{$url} = "";
+    }
 }
 
 #***********************************************************************
@@ -4953,8 +5221,8 @@ sub Perform_TQA_Check {
                 #
                 # Record this URL as an alternate format
                 #
-                if ( defined($docl_feature_list{"alternate/autre format"}) ) {
-                    $list_ref = $docl_feature_list{"alternate/autre format"};
+                if ( defined($doc_feature_list{"alternate/autre format"}) ) {
+                    $list_ref = $doc_feature_list{"alternate/autre format"};
                     print "Add to document feature list \"alternate/autre format\", url = $url\n" if $debug;
                     $$list_ref{$url} = 1;
                 }
@@ -4976,8 +5244,8 @@ sub Perform_TQA_Check {
             #
             # Record this URL as an alternate format
             #
-            if ( defined($docl_feature_list{"alternate/autre format"}) ) {
-                $list_ref = $docl_feature_list{"alternate/autre format"};
+            if ( defined($doc_feature_list{"alternate/autre format"}) ) {
+                $list_ref = $doc_feature_list{"alternate/autre format"};
                 print "Add to document feature list \"alternate/autre format\", url = $url\n" if $debug;
                 $$list_ref{$url} = 1;
             }
@@ -5167,7 +5435,7 @@ sub Perform_CLF_Check {
         if ( $mime_type =~ /text\/html/ ) {
             CLF_Check_Links(\@clf_results_list, $url,
                             $clf_check_profile, $language,
-                            \%all_link_sets, \%clf_site_links);
+                            \%all_link_sets, \%clf_site_links, $logged_in);
         }
     }
 
@@ -5256,7 +5524,7 @@ sub Perform_Interop_Check {
     my ($url_status, $status, $message, $source_line);
     my (@interop_results_list, $result_object, $output_line, $error_message);
     my (%local_interop_error_url_count, @content_links, $pattern);
-    my ($feed_object, $result_object, $title);
+    my ($feed_object, $result_object, $title, $key, $list_ref);
 
     #
     # Are we displaying Interoperability checks ? If not we can skip them.
@@ -5314,11 +5582,24 @@ sub Perform_Interop_Check {
         # If this appears to be a Web feed, get the feed details
         #
         elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
-             ($mime_type =~ /text\/xml/) ||
-             ($url =~ /\.xml$/i) ) {
+                ($mime_type =~ /application\/atom\+xml/) ||
+                ($mime_type =~ /application\/xml/) ||
+                ($mime_type =~ /application\/rss\+xml/) ||
+                ($mime_type =~ /text\/xml/) ||
+                ($url =~ /\.xml$/i) ) {
             $feed_object = Interop_Check_Feed_Details($url, $content);
             if ( defined($feed_object) ) {
                 push(@web_feed_list, $feed_object);
+
+                #
+                # Save "Web Feed" feature
+                #
+                $key = "Web feed/fil de nouvelles";
+                if ( defined($doc_feature_list{$key}) ) {
+                    $list_ref = $doc_feature_list{$key};
+                    print "Add to document feature list $key, url = $url\n" if $debug;
+                    $$list_ref{$url} = 1;
+                }
             }
         }
 
@@ -5329,7 +5610,7 @@ sub Perform_Interop_Check {
         foreach $result_object (@interop_results_list ) {
             if ( $result_object->status != 0 ) {
                 #
-                # CLF Check error, we can stop looking for more errors
+                # Interop Check error, we can stop looking for more errors
                 #
                 $url_status = $tool_error;
                 last;
@@ -5388,29 +5669,31 @@ sub Perform_Interop_Check {
 
 #***********************************************************************
 #
-# Name: Perform_Content_Check
+# Name: Perform_Department_Check
 #
 # Parameters: url - document URL
+#             language - URL language
 #             mime_type - document mime type
+#             resp - HTTP::Response object
 #             content - document content
 #
 # Description:
 #
-#   This function performs a number of QA tests on the content.
+#   This function performs a number of QA tests departmental check points.
 #
 #***********************************************************************
-sub Perform_Content_Check {
-    my ( $url, $mime_type, $content ) = @_;
+sub Perform_Department_Check {
+    my ( $url, $language, $mime_type, $resp, $content ) = @_;
 
     my ($url_status, $key, $status, $message);
     my (@content_results_list, $result_object, $output_line, $error_message);
     my (%local_error_url_count, @headings);
 
     #
-    # Are we displaying content checks ? If not we can skip them.
+    # Are we displaying department checks ? If not we can skip them.
     #
-    if ( ! $display_content_check ) {
-        print "Not performing content checks\n" if $debug;
+    if ( ! $display_dept_check ) {
+        print "Not performing department checks\n" if $debug;
         return;
     }
 
@@ -5421,16 +5704,16 @@ sub Perform_Content_Check {
         #
         # We don't report any faults
         #
-        print "Archived document, skip content check\n" if $debug;
-        Increment_Counts_and_Print_URL($content_tab, $url, 0);
+        print "Archived document, skip department check\n" if $debug;
+        Increment_Counts_and_Print_URL($dept_tab, $url, 0);
     }
     else {
         #
         # Check the document
         #
-        print "Perform_Content_Check on URL\n  --> $url\n" if $debug;
-        @content_results_list = Content_Check($url, $content_check_profile,
-                                              $mime_type, $content);
+        print "Perform_Department_Check on URL\n  --> $url\n" if $debug;
+        @content_results_list = Dept_Check($url, $language, $dept_check_profile,
+                                           $mime_type, $resp, $content);
 
         #
         # Get list of headings from the document and save them in a
@@ -5442,13 +5725,22 @@ sub Perform_Content_Check {
         }
 
         #
+        # If the document is an HTML document, check links
+        #
+        if ( $mime_type =~ /text\/html/ ) {
+            Dept_Check_Links(\@content_results_list, $url,
+                             $dept_check_profile, $language,
+                             \%all_link_sets, $logged_in);
+        }
+
+        #
         # Determine overall URL status
         #
         $url_status = $tool_success;
         foreach $result_object (@content_results_list ) {
             if ( $result_object->status != 0 ) {
                 #
-                # Content Check error, we can stop looking for more errors
+                # Department Check error, we can stop looking for more errors
                 #
                 $url_status = $tool_error;
                 last;
@@ -5458,7 +5750,7 @@ sub Perform_Content_Check {
         #
         # Increment document & error counters
         #
-        Increment_Counts_and_Print_URL($content_tab, $url,
+        Increment_Counts_and_Print_URL($dept_tab, $url,
                                        ($url_status != $tool_success));
 
         #
@@ -5470,19 +5762,19 @@ sub Perform_Content_Check {
                     #
                     # Increment error instance count
                     #
-                    if ( ! defined($content_error_instance_count{$result_object->description}) ) {
-                        $content_error_instance_count{$result_object->description} = 1;
-                        $content_error_url_count{$result_object->description} = 1;
+                    if ( ! defined($dept_error_instance_count{$result_object->description}) ) {
+                        $dept_error_instance_count{$result_object->description} = 1;
+                        $dept_error_url_count{$result_object->description} = 1;
                     }
                     else {
-                       $content_error_instance_count{$result_object->description}++;
-                       $content_error_url_count{$result_object->description}++;
+                       $dept_error_instance_count{$result_object->description}++;
+                       $dept_error_url_count{$result_object->description}++;
                     }
 
                     #
                     # Print error
                     #
-                    Validator_GUI_Print_TQA_Result($content_tab, $result_object);
+                    Validator_GUI_Print_TQA_Result($dept_tab, $result_object);
                 }
             }
         }
@@ -5525,12 +5817,20 @@ sub Perform_Feature_Check {
     print "Perform_Feature_Check on URL\n  --> $url\n" if $debug;
     if ( $is_archived ) {
         #
-        # Save "Archived on the Web" feature
+        # Is this URL exempt from the standard on web accessibility ?
         #
-        $key = "archive";
-        if ( defined($docl_feature_list{$key}) ) {
-            $list_ref = $docl_feature_list{$key};
+        if ( $tqa_check_exempted ) {
+            $key = "archive accessibility exempt/accessibilité exonérés";
+        }
+        else {
+            #
+            # "Archived on the Web" feature
+            #
+            $key = "archive";
+        }
+        if ( defined($doc_feature_list{$key}) ) {
             print "Add to document feature list $key, url = $url\n" if $debug;
+            $list_ref = $doc_feature_list{$key};
             $$list_ref{$url} = 1;
         }
     }
@@ -5573,20 +5873,20 @@ sub Perform_Feature_Check {
             #
             # Save URL containing HTML Feature
             #
-            $list_ref = $docl_feature_list{$key};
+            $list_ref = $doc_feature_list{$key};
             if ( ! defined($list_ref) ) {
-                my (%new_docl_feature_list);
+                my (%new_doc_feature_list);
                 print "Create document feature list $key\n" if $debug;
-                $docl_feature_list{$key} = \%new_docl_feature_list;
-                $list_ref = \%new_docl_feature_list;
+                $doc_feature_list{$key} = \%new_doc_feature_list;
+                $list_ref = \%new_doc_feature_list;
             }
             print "Add to document feature list $key, url = $url\n" if $debug;
             $$list_ref{$url} = $html_feature_count{$key};
         }
         
         if ( $debug) {
-            print "docl_feature_list\n";
-            foreach $key (sort(keys(%docl_feature_list))) {
+            print "doc_feature_list\n";
+            foreach $key (sort(keys(%doc_feature_list))) {
                 print "key = $key\n";
             }
         }
@@ -5792,7 +6092,7 @@ sub Perform_Link_Check {
         # Scan the list of links for image links.  Add information such as
         # alt text and title to the list of image links.
         #
-        if ( $display_content_check ) {
+        if ( $display_dept_check ) {
             Alt_Text_Check_Record_Image_Details(\%image_alt_text_table, $url,
                                                 @links);
         }
@@ -5844,7 +6144,7 @@ while ( @ARGV > 0 ) {
         $display_clf_check = 0;
     }
     elsif ( $ARGV[0] eq "-no_cont" ) {
-        $display_content_check = 0;
+        $display_dept_check = 0;
     }
     elsif ( $ARGV[0] eq "-no_feat" ) {
         $display_doc_features = 0;
@@ -5913,7 +6213,7 @@ $pdf_property_profile_label = String_Value("PDF Property Profile");
 $tqa_profile_label = String_Value("ACC Testcase Profile");
 $clf_profile_label = String_Value("CLF Testcase Profile");
 $interop_profile_label = String_Value("Interop Testcase Profile");
-$content_check_profile_label = String_Value("Content Check Testcase Profile");
+$dept_check_profile_label = String_Value("Department Check Testcase Profile");
 $doc_profile_label = String_Value("Document Features Profile");
 $robots_label = String_Value("robots.txt handling");
 @robots_options = (String_Value("Ignore robots.txt"),
@@ -5927,16 +6227,17 @@ $status_401_label = String_Value("401 handling");
                    $tqa_profile_label, \@tqa_check_profiles,
                    $clf_profile_label, \@clf_check_profiles,
                    $interop_profile_label, \@interop_check_profiles,
-                   $content_check_profile_label, \@content_check_profiles,
+                   $dept_check_profile_label, \@dept_check_profiles,
                    $doc_profile_label, \@doc_features_profiles,
                    $robots_label, \@robots_options,
                    $status_401_label, \@status_401_options);
-%report_options_labels = ("metadata_profile", $metadata_profile_label,
+%report_options_labels = ("link_profile", $link_check_profile_label,
+                          "metadata_profile", $metadata_profile_label,
                           "pdf_profile", $pdf_property_profile_label,
                           "tqa_profile", $tqa_profile_label,
                           "clf_profile", $clf_profile_label,
                           "interop_profile", $interop_profile_label,
-                          "content_profile", $content_check_profile_label,
+                          "content_profile", $dept_check_profile_label,
                           "html_profile", $doc_profile_label,
                           "robots_handling", $robots_label,
                           "401_handling", $status_401_label);
@@ -5975,9 +6276,9 @@ if ( $display_interop_check )  {
     $interop_tab = String_Value("INT");
     $results_file_suffixes{$interop_tab} = "int";
 }
-if ( $display_content_check )  {
-    $content_tab = String_Value("Content");
-    $results_file_suffixes{$content_tab} = "cont";
+if ( $display_dept_check )  {
+    $dept_tab = String_Value("Department");
+    $results_file_suffixes{$dept_tab} = "dept";
 }
 if ( $display_doc_features )  {
     $doc_features_tab = String_Value("Document Features");
@@ -6022,8 +6323,8 @@ if ( $display_clf_check ) {
 if ( $display_interop_check ) {
     Validator_GUI_Add_Results_Tab($interop_tab);
 }
-if ( $display_content_check ) {
-    Validator_GUI_Add_Results_Tab($content_tab);
+if ( $display_dept_check ) {
+    Validator_GUI_Add_Results_Tab($dept_tab);
 }
 if ( $display_doc_features ) {
     Validator_GUI_Add_Results_Tab($doc_features_tab);

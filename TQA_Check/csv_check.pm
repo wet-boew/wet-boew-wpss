@@ -1,59 +1,60 @@
 #***********************************************************************
 #
-# Name:   javascript_check.pm
+# Name:   csv_check.pm
 #
-# $Revision: 6331 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/javascript_check.pm $
-# $Date: 2013-07-09 13:57:13 -0400 (Tue, 09 Jul 2013) $
+# $Revision: 6362 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/csv_check.pm $
+# $Date: 2013-08-16 12:29:49 -0400 (Fri, 16 Aug 2013) $
 #
 # Description:
 #
-#   This file contains routines that parse JavaScript files and check for
-# a number of technical quality assurance check points.
+#   This file contains routines that parse CSV files and check for
+# a number of acceessibility (WCAG) check points.
 #
 # Public functions:
-#     Set_JavaScript_Check_Language
-#     Set_JavaScript_Check_Debug
-#     Set_JavaScript_Check_Testcase_Data
-#     Set_JavaScript_Check_Test_Profile
-#     Set_JavaScript_Check_Valid_Markup
-#     JavaScript_Check
+#     Set_CSV_Check_Language
+#     Set_CSV_Check_Debug
+#     Set_CSV_Check_Testcase_Data
+#     Set_CSV_Check_Test_Profile
+#     Set_CSV_Check_Valid_Markup
+#     CSV_Check
 #
 # Terms and Conditions of Use
-# 
+#
 # Unless otherwise noted, this computer program source code
-# is covered under Crown Copyright, Government of Canada, and is 
+# is covered under Crown Copyright, Government of Canada, and is
 # distributed under the MIT License.
-# 
+#
 # MIT License
-# 
+#
 # Copyright (c) 2011 Government of Canada
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
 # to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-# and/or sell copies of the Software, and to permit persons to whom the 
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
 # Software is furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included
 # in all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
 # OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR 
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
 # OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR 
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
-# 
+#
 #***********************************************************************
 
-package javascript_check;
+package csv_check;
 
 use strict;
 use URI::URL;
 use File::Basename;
+use Text::CSV;
 
 #***********************************************************************
 #
@@ -65,12 +66,12 @@ BEGIN {
     use vars qw($VERSION @ISA @EXPORT);
 
     @ISA     = qw(Exporter);
-    @EXPORT  = qw(Set_JavaScript_Check_Language
-                  Set_JavaScript_Check_Debug
-                  Set_JavaScript_Check_Testcase_Data
-                  Set_JavaScript_Check_Test_Profile
-                  Set_JavaScript_Check_Valid_Markup
-                  JavaScript_Check
+    @EXPORT  = qw(Set_CSV_Check_Language
+                  Set_CSV_Check_Debug
+                  Set_CSV_Check_Testcase_Data
+                  Set_CSV_Check_Test_Profile
+                  Set_CSV_Check_Valid_Markup
+                  CSV_Check
                   );
     $VERSION = "1.0";
 }
@@ -82,43 +83,32 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (%testcase_data, @content_lines);
-my ($results_list_addr);
+my (%testcase_data, $results_list_addr);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
-
-my (%javascript_check_profile_map, $current_javascript_check_profile,
-    $current_url);
+my (%csv_check_profile_map, $current_csv_check_profile, $current_url);
 
 my ($is_valid_markup) = -1;
-
 my ($max_error_message_string)= 2048;
 
 #
 # Status values
 #
-my ($javascript_check_pass)       = 0;
-my ($javascript_check_fail)       = 1;
-
-#
-# List of content creation functions that should not be used
-#
-my (@illegal_document_creation_functions) = ("document.write", "innerHTML",
-                                             "outerHTML", "innerText",
-                                             "outerText");
+my ($csv_check_pass)       = 0;
+my ($csv_check_fail)       = 1;
 
 #
 # String table for error strings.
 #
 my %string_table_en = (
-    "Fails validation",              "Fails validation, see validation results for details.",
-    "Required testcase not executed","Required testcase not executed",
-    "Invalid DOM function called",   "Invalid DOM function called ",
+    "Parse error in line",           "Parse error in line",
+    "Inconsistent number of fields, found", "Inconsistent number of fields, found ",
+    "expecting",                      "expecting",
     );
 
 my %string_table_fr = (
-    "Fails validation",              "Échoue la validation, voir les résultats de validation pour plus de détails.",
-    "Required testcase not executed","Cas de test requis pas exécuté",
-    "Invalid DOM function called",   "Appel d'une fonction DOM invalide ",
+    "Parse error in line",           "Parse error en ligne",
+    "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté ",
+    "expecting",                      "expectant",
     );
 
 #
@@ -128,7 +118,7 @@ my ($string_table) = \%string_table_en;
 
 #***********************************************************************
 #
-# Name: Set_JavaScript_Check_Debug
+# Name: Set_CSV_Check_Debug
 #
 # Parameters: this_debug - debug flag
 #
@@ -137,7 +127,7 @@ my ($string_table) = \%string_table_en;
 #   This function sets the package global debug flag.
 #
 #***********************************************************************
-sub Set_JavaScript_Check_Debug {
+sub Set_CSV_Check_Debug {
     my ($this_debug) = @_;
 
     #
@@ -148,7 +138,7 @@ sub Set_JavaScript_Check_Debug {
 
 #**********************************************************************
 #
-# Name: Set_JavaScript_Check_Language
+# Name: Set_CSV_Check_Language
 #
 # Parameters: language
 #
@@ -158,7 +148,7 @@ sub Set_JavaScript_Check_Debug {
 # by this module.
 #
 #***********************************************************************
-sub Set_JavaScript_Check_Language {
+sub Set_CSV_Check_Language {
     my ($language) = @_;
 
     #
@@ -211,7 +201,7 @@ sub String_Value {
 
 #***********************************************************************
 #
-# Name: Set_JavaScript_Check_Testcase_Data
+# Name: Set_CSV_Check_Testcase_Data
 #
 # Parameters: testcase - testcase identifier
 #             data - string of data
@@ -222,7 +212,7 @@ sub String_Value {
 # for the specified testcase identifier.
 #
 #***********************************************************************
-sub Set_JavaScript_Check_Testcase_Data {
+sub Set_CSV_Check_Testcase_Data {
     my ($testcase, $data) = @_;
 
     #
@@ -233,35 +223,34 @@ sub Set_JavaScript_Check_Testcase_Data {
 
 #***********************************************************************
 #
-# Name: Set_JavaScript_Check_Test_Profile
+# Name: Set_CSV_Check_Test_Profile
 #
-# Parameters: profile - JavaScript check test profile
-#             javascript_checks - hash table of testcase name
+# Parameters: profile - CSV check test profile
+#             csv_checks - hash table of testcase name
 #
 # Description:
 #
 #   This function copies the passed table to unit global variables.
-# The hash table is indexed by JavaScript testcase name.
+# The hash table is indexed by CSV testcase name.
 #
 #***********************************************************************
-sub Set_JavaScript_Check_Test_Profile {
-    my ($profile, $javascript_checks ) = @_;
+sub Set_CSV_Check_Test_Profile {
+    my ($profile, $csv_checks) = @_;
 
-    my (%local_javascript_checks);
-    my ($key, $value);
+    my (%local_csv_checks);
 
     #
     # Make a local copy of the hash table as we will be storing the address
     # of the hash.
     #
-    print "Set_JavaScript_Check_Test_Profile, profile = $profile\n" if $debug;
-    %local_javascript_checks = %$javascript_checks;
-    $javascript_check_profile_map{$profile} = \%local_javascript_checks;
+    print "Set_CSV_Check_Test_Profile, profile = $profile\n" if $debug;
+    %local_csv_checks = %$csv_checks;
+    $csv_check_profile_map{$profile} = \%local_csv_checks;
 }
 
 #***********************************************************************
 #
-# Name: Set_JavaScript_Check_Valid_Markup
+# Name: Set_CSV_Check_Valid_Markup
 #
 # Parameters: valid_markup - flag
 #
@@ -275,7 +264,7 @@ sub Set_JavaScript_Check_Test_Profile {
 # This value is used when assessing WCAG technique G134
 #
 #***********************************************************************
-sub Set_JavaScript_Check_Valid_Markup {
+sub Set_CSV_Check_Valid_Markup {
     my ($valid_markup) = @_;
 
     #
@@ -287,14 +276,14 @@ sub Set_JavaScript_Check_Valid_Markup {
     else {
         $is_valid_markup = -1;
     }
-    print "Set_JavaScript_Check_Valid_Markup, validity = $is_valid_markup\n" if $debug;
+    print "Set_CSV_Check_Valid_Markup, validity = $is_valid_markup\n" if $debug;
 }
 
 #***********************************************************************
 #
 # Name: Initialize_Test_Results
 #
-# Parameters: profile - JavaScript check test profile
+# Parameters: profile - CSV check test profile
 #             local_results_list_addr - address of results list.
 #
 # Description:
@@ -305,35 +294,11 @@ sub Set_JavaScript_Check_Valid_Markup {
 sub Initialize_Test_Results {
     my ($profile, $local_results_list_addr) = @_;
 
-    my ($test_case, $tcid);
-
     #
     # Set current hash tables
     #
-    $current_javascript_check_profile = $javascript_check_profile_map{$profile};
+    $current_csv_check_profile = $csv_check_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
-
-#
-#***********************************************************************
-#
-# Do not report validation failures of supporting files (CSS, JavaScript)
-# as WCAG 2.0 failures.  Failures apply only to the validity of the
-# HTML markup.
-#
-#***********************************************************************
-#
-#    #
-#    # Check to see if we were told that this document is not
-#    # valid JavaScript
-#    #
-#    if ( $is_valid_markup == 0 ) {
-#        Record_Result("WCAG_2.0-G134", -1, 0, "",
-#                      String_Value("Fails validation"));
-#    }
-
-    #
-    # Initialize other global variables
-    #
 }
 
 #***********************************************************************
@@ -357,7 +322,7 @@ sub Print_Error {
     # Print error message if we are in debug mode
     #
     if ( $debug ) {
-        print "$line:$column $error_string\n";
+        print "$error_string\n";
     }
 }
 
@@ -377,18 +342,18 @@ sub Print_Error {
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+    my ( $testcase, $line, $column,, $text, $error_string ) = @_;
 
     my ($result_object);
 
     #
     # Is this testcase included in the profile
     #
-    if ( defined($testcase) && defined($$current_javascript_check_profile{$testcase}) ) {
+    if ( defined($testcase) && defined($$current_csv_check_profile{$testcase}) ) {
         #
         # Create result object and save details
         #
-        $result_object = tqa_result_object->new($testcase, $javascript_check_fail, 
+        $result_object = tqa_result_object->new($testcase, $csv_check_fail,
                                                 TQA_Testcase_Description($testcase),
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
@@ -399,116 +364,35 @@ sub Record_Result {
         # Print error string to stdout
         #
         Print_Error($line, $column, $text, "$testcase : $error_string");
-
     }
 }
 
 #***********************************************************************
 #
-# Name: Check_Illegal_Function_Calls
-#
-# Parameters: line_no - line number
-#             line - content line
-#
-# Description:
-#
-#   This function checks the content line for any illegal content
-# creation functions.
-#
-#***********************************************************************
-sub Check_Illegal_Function_Calls {
-    my ($line_no, $line) = @_;
-
-    my ($function, $tcid);
-    
-    #
-    # Check illegal content functions
-    #
-    foreach $function (@illegal_document_creation_functions) {
-        if ( $line =~ /$function/i ) {
-            #
-            # Check testcase profile
-            #
-            if ( defined($$current_javascript_check_profile{"WCAG_2.0-SCR21"}) ) {
-                $tcid = "WCAG_2.0-SCR21";
-
-                #
-                # Use of improper DOM update function
-                #
-                Record_Result($tcid, $line_no, -1, "",
-                              String_Value("Invalid DOM function called") .
-                              "\"$function\"");
-            }
-        }
-    }
-}
-
-#***********************************************************************
-#
-# Name: Parse_JavaScript_Content
-#
-# Parameters: content - JavaScript content
-#
-# Description:
-#
-#   This function parses the JavaScript content and checks for errors.
-#
-#***********************************************************************
-sub Parse_JavaScript_Content {
-    my ($content) = @_;
-
-    my ($line_no, $line);
-
-    #
-    # Remove any comments from the JavaScript content
-    #
-    $content =~ s/\s+i\/\/.*$//gs;
-
-    #
-    # Split content on new-line
-    #
-    @content_lines = split(/\n/, $content);
-
-    #
-    # Scan each source line
-    #
-    $line_no = 0;
-    foreach $line (@content_lines) {
-        $line_no++;
-
-        #
-        # Check for functions used to update the DOM
-        #
-        Check_Illegal_Function_Calls($line_no, $line);
-    }
-}
-
-#***********************************************************************
-#
-# Name: JavaScript_Check
+# Name: CSV_Check
 #
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - testcase profile
-#             content - JavaScript content
+#             content - CSV content
 #
 # Description:
 #
-#   This function runs a number of technical QA checks JavaScript content.
+#   This function runs a number of technical QA checks on CSV content.
 #
 #***********************************************************************
-sub JavaScript_Check {
+sub CSV_Check {
     my ( $this_url, $language, $profile, $content ) = @_;
 
-    my (@urls, $url);
-    my (@tqa_results_list, $result_object, $testcase);
+    my ($parser, $url, @tqa_results_list, $result_object, $testcase);
+    my ($line, @fields, $line_no, $status, $found_fields, $field_count);
 
     #
     # Do we have a valid profile ?
     #
-    print "JavaScript_Check: Checking URL $this_url, lanugage = $language, profile = $profile\n" if $debug;
-    if ( ! defined($javascript_check_profile_map{$profile}) ) {
-        print "JavaScript_Check: Unknown JavaScript testcase profile passed $profile\n";
+    print "CSV_Check: Checking URL $this_url, lanugage = $language, profile = $profile\n" if $debug;
+    if ( ! defined($csv_check_profile_map{$profile}) ) {
+        print "CSV_Check: Unknown CSV testcase profile passed $profile\n";
         return(@tqa_results_list);
     }
 
@@ -520,7 +404,7 @@ sub JavaScript_Check {
     }
     else {
         #
-        # Doesn't look like a URL.  Could be just a block of JavaScript
+        # Doesn't look like a URL.  Could be just a block of CSV
         # from the standalone validator which does not have a URL.
         #
         $current_url = "";
@@ -534,27 +418,69 @@ sub JavaScript_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
-        #
-        # Parse the content and check for errors
-        #
-        Parse_JavaScript_Content($content);
-    }
-    else {
-        print "No content passed to JavaScript_Check\n" if $debug;
+    if ( length($content) == 0 ) {
+        print "No content passed to CSV_Check\n" if $debug;
         return(@tqa_results_list);
     }
+    else {
+        #
+        # Create a document parser
+        #
+        $parser = Text::CSV->new ({ binary => 1, eol => $/ });
 
-    #
-    # Reset valid markup flag to unknown before we are called again
-    #
-    $is_valid_markup = -1;
+        #
+        # Parse each line of the content
+        #
+        $line_no = 0;
+        foreach $line (split(/\n/, $content)) {
+            $line_no++;
+            $status = $parser->parse($line . $/);
+
+            #
+            # Did the line parse properly ?
+            #
+            if ( ! $status ) {
+                print "CSV file error at line $line_no, line = \"$line\"\n" if $debug;
+                Record_Result("WCAG_2.0-G134", $line_no, 0, "$line",
+                              String_Value("Parse error in line"));
+            }
+            else {
+                #
+                # Get the set of fields from the parsed line
+                #
+                @fields = $parser->fields();
+                print "Have " . @fields . " fields\n" if $debug;
+
+                #
+                # Do we have the number of expected fields ?
+                #
+                if ( ! defined($field_count) ) {
+                    $field_count = @fields;
+                    print "Expected fields count = $field_count\n" if $debug;
+                }
+                #
+                # Does the field count match the expected number of fields ?
+                #
+                elsif ( $field_count != @fields ) {
+#
+# Don't report a field count mismatch as an error. This is 
+# an open data error rather than an accessibility error.
+#
+#                    $found_fields = @fields;
+#                    Record_Result("WCAG_2.0-G134", $line_no, 0, "$line",
+#                          String_Value("Inconsistent number of fields, found") .
+#                           " $found_fields " . String_Value("expecting") .
+#                           " $field_count");
+                }
+            }
+        }
+    }
 
     #
     # Print testcase information
     #
     if ( $debug ) {
-        print "JavaScript_Check results\n";
+        print "CSV_Check results\n";
         foreach $result_object (@tqa_results_list) {
             print "Testcase: " . $result_object->testcase;
             print "  status   = " . $result_object->status . "\n";
@@ -583,8 +509,7 @@ sub JavaScript_Check {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("image_details", "css_extract_links",
-                          "tqa_result_object", "tqa_testcases");
+    my (@package_list) = ("tqa_result_object", "tqa_testcases");
 
     #
     # Import packages, we don't use a 'use' statement as these packages

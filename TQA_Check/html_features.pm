@@ -2,9 +2,9 @@
 #
 # Name:   html_features.pm
 #
-# $Revision: 5921 $
+# $Revision: 6337 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_features.pm $
-# $Date: 2012-07-06 16:00:31 -0400 (Fri, 06 Jul 2012) $
+# $Date: 2013-07-17 10:11:39 -0400 (Wed, 17 Jul 2013) $
 #
 # Description:
 #
@@ -408,25 +408,18 @@ sub Start_Handler {
                                               %attr_hash);
 
     #
-    # Is this tag an HTML feature we want to record ?
+    # Found HTML feature
     #
-    if ( defined($$current_html_feature_profile{$tagname}) ) {
-        #
-        # Found HTML feature
-        #
-        Record_HTML_Feature($tagname, $line, $column);
-    }
+    Record_HTML_Feature($tagname, $line, $column);
 
     #
     # Does this tag have an attribute we want to record ?
     #
     foreach $attribute (keys %attr_hash) {
-        if ( defined($$current_html_feature_profile{$attribute}) ) {
-            #
-            # Found HTML feature
-            #
-            Record_HTML_Feature($attribute, $line, $column);
-        }
+        #
+        # Found HTML feature
+        #
+        Record_HTML_Feature($attribute, $line, $column);
     }
 
     #
@@ -439,14 +432,9 @@ sub Start_Handler {
         $attribute = "$attribute=\"". $attr_hash{$attribute} . "\"";
 
         #
-        # Do we have this attribute/value combination ?
+        # Found HTML feature
         #
-        if ( defined($$current_html_feature_profile{$attribute}) ) {
-            #
-            # Found HTML feature
-            #
-            Record_HTML_Feature($attribute, $line, $column);
-        }
+        Record_HTML_Feature($attribute, $line, $column);
     }
 
     #
@@ -466,8 +454,7 @@ sub Start_Handler {
     # Check for new windows via the target attribute
     #
     if ( defined($attr_hash{"target"}) &&
-         ($attr_hash{"target"} =~ /_blank/i) &&
-          defined($$current_html_feature_profile{"New window"}) ) {
+         ($attr_hash{"target"} =~ /_blank/i) ) {
         Record_HTML_Feature("New window", $line, $column);
     }
 }
@@ -959,7 +946,7 @@ sub HTML_Features_Check_Links {
     # Are we looking for multimedia or non HTML links ?
     #
     if ( defined($$current_html_feature_profile{"multimedia"}) ||
-         defined($$current_html_feature_profile{"non-html"})  ) {
+         defined($$current_html_feature_profile{"non-html link/lien"})  ) {
         #
         # Check all links
         #
@@ -981,15 +968,13 @@ sub HTML_Features_Check_Links {
             if ( ($link->link_type eq "a") &&
                  ($link->mime_type ne "text/html") ) {
                 #
-                # Are we recording non-HTML links ?
+                # Found non-HTML link
                 #
-                if ( defined($$current_html_feature_profile{"non-html"}) ) {
-                    print "Found non-html link, mime-type " .
-                          $link->mime_type . " href " . $link->href .
-                          "\n" if $debug;
-                    Record_HTML_Feature("non-html", $link->line_no,
-                                        $link->column_no);
-                }
+                print "Found non-html link, mime-type " .
+                      $link->mime_type . " href " . $link->href .
+                      "\n" if $debug;
+                Record_HTML_Feature("non-html link/lien", $link->line_no,
+                                    $link->column_no);
             }
             #
             # Is the link loaded within the page, e.g. an applet ?
@@ -1003,30 +988,26 @@ sub HTML_Features_Check_Links {
                 #
                 if ( $link->mime_type eq "application/x-shockwave-flash" ) {
                     #
-                    # Are we recording flash links ?
+                    # Found flash link
                     #
-                    if ( defined($$current_html_feature_profile{"flash"}) ) {
-                        print "Found flash link, mime-type " .
-                              $link->mime_type . " href " . $link->href .
-                              "\n" if $debug;
-                        Record_HTML_Feature("flash", $link->line_no,
-                                            $link->column_no);
-                    }
+                    print "Found flash link, mime-type " .
+                          $link->mime_type . " href " . $link->href .
+                          "\n" if $debug;
+                    Record_HTML_Feature("flash", $link->line_no,
+                                        $link->column_no);
                 }
                 #
                 # Does the mime-type match a multimedia mime-type ?
                 #
                 elsif ( defined($multimedia_mime_type{$link->mime_type}) ) {
                     #
-                    # Are we recording multimedia links ?
+                    # Found multimedia link
                     #
-                    if ( defined($$current_html_feature_profile{"multimedia"}) ) {
-                        print "Found multimedia link, mime-type " .
-                              $link->mime_type . " href " . $link->href .
-                              "\n" if $debug;
-                        Record_HTML_Feature("multimedia", $link->line_no,
-                                            $link->column_no);
-                    }
+                    print "Found multimedia link, mime-type " .
+                          $link->mime_type . " href " . $link->href .
+                          "\n" if $debug;
+                    Record_HTML_Feature("multimedia", $link->line_no,
+                                        $link->column_no);
                 }
             }
         }

@@ -2,9 +2,9 @@
 #
 # Name:   metadata.pm
 #
-# $Revision: 5986 $
+# $Revision: 6343 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Metadata_Check/Tools/metadata.pm $
-# $Date: 2012-09-18 17:27:00 -0400 (Tue, 18 Sep 2012) $
+# $Date: 2013-07-17 13:19:19 -0400 (Wed, 17 Jul 2013) $
 #
 # Description:
 #
@@ -98,7 +98,9 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%tag_required_profile_map, %content_required_profile_map,
     %invalid_content_profile_map, %content_type_map,
     %scheme_values_map, $metadata_result_objects, @content_lines,
-    $current_url, $results_list_addr, %last_metadata_table);
+    $current_url, $results_list_addr, %last_metadata_table,
+    $have_text_handler,
+);
 my ($last_url) = "";
 
 #
@@ -798,6 +800,11 @@ sub Initialize_Parser_Variables {
     $current_invalid_content = $invalid_content_profile_map{$profile};
     $current_content_type = $content_type_map{$profile};
     $current_scheme_values = $scheme_values_map{$profile};
+
+    #
+    # Set unit globals
+    #
+    $have_text_handler = 0;
 }
 
 #***********************************************************************
@@ -824,7 +831,7 @@ sub Check_YYYY_MM_DD_Format {
     #
     # Check for valid date format, ie dddd-dd-dd
     #
-    if ( $content =~ /\d\d\d\d-\d\d-\d\d/ ) {
+    if ( $content =~ /^\d\d\d\d-\d\d-\d\d$/ ) {
         #
         # We have the right pattern of digits and dashes, now do a
         # check on the values.
@@ -883,7 +890,7 @@ sub Check_YYYY_MM_DD_Format {
         #
         $status = $metadata_error;
         $message = String_Value("Invalid content") .
-                   String_Value("Date value") . $content .
+                   String_Value("Date value") . "\"$content\"" .
                    String_Value("not in YYYY-MM-DD format");
         print "$message\n" if $debug;
     }
@@ -933,7 +940,7 @@ sub Check_Email_Address_Format {
         #
         $status = $metadata_error;
         $message = String_Value("Invalid content") .
-                   String_Value("Email address") . $content .
+                   String_Value("Email address") . "\"$content\"" .
                    String_Value("is not valid");
         print "$message\n" if $debug;
     }
@@ -1040,7 +1047,7 @@ sub DC_Subject_Content_Check {
     #
     if ( $status != $metadata_success ) {
         $message = String_Value("Invalid content") .
-                   String_Value("Invalid term") . $invalid_term_list;
+                   String_Value("Invalid term") . "\"$invalid_term_list\"";
         print "$message\n" if $debug;
     }
 
@@ -1505,7 +1512,7 @@ sub Check_Invalid_Content {
             if ( $content eq $invalid_content ) {
                 $status = $metadata_error;
                 $message = String_Value("Invalid content") .
-                           " $content";
+                           " \"$content\"";
                 print "$message\n" if $debug;
                 last;
             }
@@ -1565,7 +1572,7 @@ sub Robots_Content_Check {
                 # Invalid metadata content value
                 #
                 $status = $metadata_error;
-                $message = String_Value("Invalid content") . " $term";
+                $message = String_Value("Invalid content") . " \"$term\"";
                 print "$message\n" if $debug;
             }
         }
@@ -1632,7 +1639,8 @@ sub Check_Scheme_Value {
             #
             $status = $metadata_error;
             $message = String_Value("Invalid content") .
-                       " $scheme " . String_Value("for attribute") . " $attr";
+                       " $scheme " . String_Value("for attribute") .
+                       " \"$attr\"";
             print "$message\n" if $debug;
         }
     }
@@ -1665,7 +1673,7 @@ sub Start_Title_Tag_Handler {
     # Add a text handler to save the text of the title.
     #
     $self->handler( text => [], '@{dtext}' );
-
+    $have_text_handler = 1;
 }
 
 #***********************************************************************
@@ -1691,10 +1699,10 @@ sub End_Title_Tag_Handler {
     my ($message) = "";
 
     #
-    # Get all the text & image paths found within the anchor tag
+    # Get all the text found within the title tag
     #
     print "End_Title_Tag_Handler: Check title tag\n" if $debug;
-    if ( ! defined(@{$self->handler("text")}) ) {
+    if ( ! $have_text_handler ) {
         print "End title tag found without corresponding open tag at line $line, column $column\n" if $debug;
         return($status, $message);
     }
@@ -1975,12 +1983,12 @@ sub HTML_Tag_Handler {
     #
     print "HTML_Tag_Handler: Checking HTML tag\n" if $debug;
     if ( defined($attr{"lang"}) ) {
-        $lang = $attr{"lang"};
-        $lang1 = $attr{"lang"};
+        $lang = lc($attr{"lang"});
+        $lang1 = lc($attr{"lang"});
     }
     elsif ( defined($attr{"xml:lang"}) ) {
-        $lang = $attr{"xml:lang"};
-        $lang1 = $attr{"xml:lang"};
+        $lang = lc($attr{"xml:lang"});
+        $lang1 = lc($attr{"xml:lang"});
     }
     else {
         $lang ="";
@@ -2021,7 +2029,7 @@ sub HTML_Tag_Handler {
         # no lang attribute, but since we want to catch a mismatch the test
         # would succeed so we don't check where the $lang value came from).
         #
-        $lang2 = $attr{"xml:lang"};
+        $lang2 = lc($attr{"xml:lang"});
         if ( $lang1 ne $lang2 ) {
             print "Mismatch in lang($lang1) and xml:lang($lang2) values\n" if $debug;
             $status = $metadata_error;
@@ -2216,12 +2224,6 @@ sub Extract_Metadata {
         print "Extract_Metadata from $url\n" if $debug;
         @metadata_results_list = Validate_Metadata($url, "","", $content,
                                                    \%metadata);
-
-        #
-        # Remember this metadata in case we want it again.
-        #
-        $last_url = $url;
-        %last_metadata_table = %metadata;
     }
 
     #

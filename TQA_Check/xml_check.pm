@@ -2,14 +2,14 @@
 #
 # Name:   xml_check.pm
 #
-# $Revision: 4486 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/XML_Check/Tools/xml_check.pm $
-# $Date: 2010-07-27 15:02:01 -0400 (Tue, 27 Jul 2010) $
+# $Revision: 6316 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/xml_check.pm $
+# $Date: 2013-06-26 13:24:10 -0400 (Wed, 26 Jun 2013) $
 #
 # Description:
 #
 #   This file contains routines that parse XML files and check for
-# a number of technical quality assurance check points.
+# a number of acceessibility (WCAG) check points.
 #
 # Public functions:
 #     Set_XML_Check_Language
@@ -54,7 +54,7 @@ package xml_check;
 use strict;
 use URI::URL;
 use File::Basename;
-use CSS;
+use XML::Parser;
 
 #***********************************************************************
 #
@@ -83,14 +83,11 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (%testcase_data);
+my (%testcase_data, $results_list_addr);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
-
 my (%xml_check_profile_map, $current_xml_check_profile, $current_url);
-my ($results_list_addr);
 
 my ($is_valid_markup) = -1;
-
 my ($max_error_message_string)= 2048;
 
 #
@@ -103,14 +100,13 @@ my ($xml_check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
-    "Fails validation",              "Fails validation, see validation results for details.",
+    "Fails validation",           "Fails validation, see validation results for details.",
+    "Incorrect use of start and end tags", "Incorrect use of start and end tags.",
     );
 
-
-
-
 my %string_table_fr = (
-    "Fails validation",             "Échoue la validation, voir les résultats de validation pour plus de détails.",
+    "Fails validation",          "Échoue la validation, voir les résultats de validation pour plus de détails.",
+    "Incorrect use of start and end tags", "Utilisation incorrecte de début et de fin balises.",
     );
 
 #
@@ -136,6 +132,11 @@ sub Set_XML_Check_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+
+    #
+    # Set other debug flags
+    #
+    Set_Feed_Check_Debug($debug);
 }
 
 #**********************************************************************
@@ -165,6 +166,11 @@ sub Set_XML_Check_Language {
         #
         $string_table = \%string_table_en;
     }
+
+    #
+    # Set language in supporting modules
+    #
+    Set_Feed_Check_Language($language);
 }
 
 #**********************************************************************
@@ -221,23 +227,28 @@ sub Set_XML_Check_Testcase_Data {
     # Copy the data into the table
     #
     $testcase_data{$testcase} = $data;
+
+    #
+    # Set testcase data in supporting modules
+    #
+    Set_Feed_Check_Testcase_Data($testcase, $data);
 }
 
 #***********************************************************************
 #
 # Name: Set_XML_Check_Test_Profile
 #
-# Parameters: profile - CSS check test profile
+# Parameters: profile - XML check test profile
 #             xml_checks - hash table of testcase name
 #
 # Description:
 #
 #   This function copies the passed table to unit global variables.
-# The hash table is indexed by CSS testcase name.
+# The hash table is indexed by XML testcase name.
 #
 #***********************************************************************
 sub Set_XML_Check_Test_Profile {
-    my ($profile, $xml_checks ) = @_;
+    my ($profile, $xml_checks) = @_;
 
     my (%local_xml_checks);
 
@@ -248,6 +259,11 @@ sub Set_XML_Check_Test_Profile {
     print "Set_XML_Check_Test_Profile, profile = $profile\n" if $debug;
     %local_xml_checks = %$xml_checks;
     $xml_check_profile_map{$profile} = \%local_xml_checks;
+    
+    #
+    # Set profile in supporting modules
+    #
+    Set_Feed_Check_Test_Profile($profile, $xml_checks);
 }
 
 #***********************************************************************
@@ -263,7 +279,7 @@ sub Set_XML_Check_Test_Profile {
 #    1 - valid markup
 #    0 - not valid markup
 #   -1 - unknown validity.
-# This value is used when assessing W3C checkpoint 3.2 or G134
+# This value is used when assessing WCAG technique G134
 #
 #***********************************************************************
 sub Set_XML_Check_Valid_Markup {
@@ -285,7 +301,7 @@ sub Set_XML_Check_Valid_Markup {
 #
 # Name: Initialize_Test_Results
 #
-# Parameters: profile - CSS check test profile
+# Parameters: profile - XML check test profile
 #             local_results_list_addr - address of results list.
 #
 # Description:
@@ -296,8 +312,6 @@ sub Set_XML_Check_Valid_Markup {
 sub Initialize_Test_Results {
     my ($profile, $local_results_list_addr) = @_;
 
-    my ($test_case, $tcid);
-
     #
     # Set current hash tables
     #
@@ -305,28 +319,13 @@ sub Initialize_Test_Results {
     $results_list_addr = $local_results_list_addr;
 
     #
-    # Set valid markup testcase result.
+    # Check to see if we were told that this document is not
+    # valid XML
     #
-    if ( defined($$current_xml_check_profile{"W3C-3.2"}) ) {
-        $tcid = "W3C-3.2";
+    if ( $is_valid_markup == 0 ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Fails validation"));
     }
-    if ( defined($$current_xml_check_profile{"WCAG_2.0-G134"}) ) {
-        $tcid = "WCAG_2.0-G134";
-    }
-    if ( defined($tcid) ) {
-        #
-        # Check to see if we were told that this document is not
-        # valid XML
-        #
-        if ( $is_valid_markup == 0 ) {
-            Record_Result($tcid, -1, 0, "",
-                          String_Value("Fails validation"));
-        }
-    }
-
-    #
-    # Initialize other global variables
-    #
 }
 
 #***********************************************************************
@@ -397,6 +396,54 @@ sub Record_Result {
 
 #***********************************************************************
 #
+# Name: Start_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function is a callback handler for XML parsing that
+# handles the start of XML tags.
+#
+#***********************************************************************
+sub Start_Handler {
+    my ($self, $tagname, %attr) = @_;
+   
+    my ($key, $value);
+
+    #
+    # Check tags.
+    #
+    print "Start_Handler tag $tagname\n" if $debug;
+}
+
+#***********************************************************************
+#
+# Name: End_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#
+# Description:
+#
+#   This function is a callback handler for XML parsing that
+# handles end tags.
+#
+#***********************************************************************
+sub End_Handler {
+    my ($self, $tagname) = @_;
+
+    #
+    # Check tag
+    #
+    print "End_Handler tag $tagname\n" if $debug;
+
+}
+
+#***********************************************************************
+#
 # Name: XML_Check
 #
 # Parameters: this_url - a URL
@@ -412,14 +459,15 @@ sub Record_Result {
 sub XML_Check {
     my ( $this_url, $language, $profile, $content ) = @_;
 
-    my ($parser, @urls, $url, @tqa_results_list, $result_object, $testcase );
+    my ($parser, @urls, $url, @tqa_results_list, $result_object, $testcase);
+    my ($eval_output, @feed_results);
 
     #
     # Do we have a valid profile ?
     #
     print "XML_Check: Checking URL $this_url, lanugage = $language, profile = $profile\n" if $debug;
     if ( ! defined($xml_check_profile_map{$profile}) ) {
-        print "XML_Check: Unknown CSS testcase profile passed $profile\n";
+        print "XML_Check: Unknown XML testcase profile passed $profile\n";
         return(@tqa_results_list);
     }
 
@@ -449,11 +497,71 @@ sub XML_Check {
         print "No content passed to XML_Check\n" if $debug;
         return(@tqa_results_list);
     }
+    else {
+        #
+        # Create a document parser
+        #
+        $parser = XML::Parser->new;
+
+        #
+        # Add handlers for some of the XML tags
+        #
+        $parser->setHandlers(Start => \&Start_Handler);
+        $parser->setHandlers(End => \&End_Handler);
+
+        #
+        # Parse the content.
+        #
+        #$eval_output = eval { $parser->parse($content, ErrorContext => 2); } ;
+        eval { $parser->parse($content, ErrorContext => 2); };
+        $eval_output = $@ if $@;
+
+        #
+        # If we don't have a validation status we should report the parser
+        # errors.  We don't have a parser for all types of XML documents
+        #
+        if ( $is_valid_markup != 0 ) {
+            #
+            # Either no validation errors have been reported or validation
+            # was not performed.  Were there any errors reported by the above
+            # parse call ?
+            #
+            if ( defined($eval_output) && ($eval_output ne "") ) {
+                $eval_output =~ s/\n at .* line \d*$//g;
+
+                #
+                # Is this a mismatched tag error
+                #
+                if ( $eval_output =~ /mismatched tag at/i ) {
+                    Record_Result("WCAG_2.0-F70", -1, 0, "$eval_output",
+                                  String_Value("Incorrect use of start and end tags"));
+                }
+                else {
+                    Record_Result("WCAG_2.0-G134", -1, 0, "$eval_output",
+                                  String_Value("Fails validation"));
+                }
+            }
+        }
+    }
 
     #
     # Reset valid markup flag to unknown before we are called again
     #
     $is_valid_markup = -1;
+    
+    #
+    # Is this a web feed ? if so perform additional checks
+    #
+    if ( Feed_Validate_Is_Web_Feed($this_url, $content) ) {
+        @feed_results = Feed_Check($this_url, $language, $profile, $content);
+        
+        #
+        # Add feed results to the XML results
+        #
+        foreach $result_object (@feed_results) {
+            push(@tqa_results_list, $result_object);
+        }
+    }
 
     #
     # Print testcase information
@@ -488,7 +596,9 @@ sub XML_Check {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("tqa_result_object", "tqa_testcases");
+    my (@package_list) = ("tqa_result_object", "tqa_testcases",
+                          "language_map", "textcat", "feed_check",
+                          "feed_validate");
 
     #
     # Import packages, we don't use a 'use' statement as these packages

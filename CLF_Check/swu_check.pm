@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 5267 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2011-05-17 12:00:03 -0400 (Tue, 17 May 2011) $
+# $Revision: 6369 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
+# $Date: 2013-08-21 08:59:39 -0400 (Wed, 21 Aug 2013) $
 #
 # Description:
 #
@@ -12,7 +12,7 @@
 # a number of Standard on Web Usability check points.
 #
 # Public functions:
-#     Set_CLF_Check_Language
+#     Set_SWU_Check_Language
 #     Set_SWU_Check_Debug
 #     Set_SWU_Check_Testcase_Data
 #     Set_SWU_Check_Test_Profile
@@ -89,7 +89,6 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (%testcase_data, %required_template_sections);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my ($current_clf_check_profile);
@@ -100,8 +99,46 @@ my ($favicon_resp, $have_text_handler, @text_handler_tag_list);
 my ($current_text_handler_tag, @text_handler_text_list);
 my ($current_url_language, $found_form, $found_search_button);
 my ($found_search_field, %subsection_text, $inside_li);
+my ($current_profile_name, %site_title_language, %subsite_title_language);
+my (%supporting_file_wet_versions, $in_site_title);
+my (%site_title_values, @lang_stack, @tag_lang_stack, $last_lang_tag);
+my ($html_lang_value, $current_lang, $current_tag, $is_archived);
+my (%navigation_links_new_window_status);
 my ($favicon_url) = "";
 
+#
+# List of testcases to report on if the URL is marked as "Archived on the Web"
+#
+my (%archived_testcase_list) = (
+        "SWU_6.1.5", 1,
+        "SWU_E2.2.6", 1,
+);
+
+#
+# HTML tags that do not have an explicit end tag
+#
+my (%html_tags_with_no_end_tag) = (
+        "area", "area",
+        "base", "base",
+        "br", "br",
+        "col", "col",
+        "command", "command",
+        "embed", "embed",
+        "frame", "frame",
+        "hr", "hr",
+        "img", "img",
+        "input", "input",
+        "keygen", "keygen",
+        "link", "link",
+        "meta", "meta",
+        "param", "param",
+        "source", "source",
+        "track", "track",
+        "wbr", "wbr",
+);
+
+#
+# Place holder profile value.
 #
 my (%initialize_testcase_profile) = (
     "SWU_TEMPLATE", 1,
@@ -112,24 +149,17 @@ my (%clf_check_profile_map) = (
 
 my ($max_error_message_string) = 2048;
 
+my (%testcase_data_objects);
+
 #
 # Document section testcase data
 #
-my (@skip_links_hrefs);
-my (%gc_nav_links, %gc_nav_link_hrefs, 
-    %gc_nav_optional_links, %gc_nav_optional_link_hrefs,
-    %gc_nav_images);
-my (%breadcrumb_links, %breadcrumb_link_hrefs, 
+my (%breadcrumb_link_hrefs, 
     %breadcrumb_optional_links, %breadcrumb_optional_link_hrefs);
-my (%site_banner_images, %search_button_values);
-my (%date_modified_labels, %date_modified_format,
-    $date_modified_metadata_tag, $date_modified_metadata_value);
+my ($date_modified_metadata_value);
 my (%terms_cond_footer_links, %terms_cond_footer_link_hrefs);
-my (%site_footer_links, %site_footer_link_hrefs, 
-    %site_footer_optional_links, %site_footer_optional_link_hrefs,
-    %site_footer_link_set);
-my (%gc_footer_links, %gc_footer_link_hrefs, 
-    %gc_footer_optional_links, %gc_footer_optional_link_hrefs);
+my (%site_footer_optional_links, %site_footer_optional_link_hrefs);
+my (%gc_footer_optional_links, %gc_footer_optional_link_hrefs);
 my (%splash_header_images, %splash_lang_images,
     %splash_lang_links, %splash_lang_hrefs,
     %splash_footer_links, %splash_footer_hrefs);
@@ -178,6 +208,7 @@ my %string_table_en = (
     "First breadcrumb URL",            "First breadcrumb URL",
     "does not match site banner URL",  "does not match site banner URL",
     "Missing link in site title",      "Missing link in site title",
+    "Missing link in subsite title",   "Missing link in subsite title",
     "Site footer",                     "Site footer",
     "Multiple Date Modified found",    "Multiple \"Date Modified\" found",
     "Date Modified not found",         "Date Modified not found. ",
@@ -222,6 +253,12 @@ my %string_table_en = (
     "does not match",                  "does not match",
     "not found",                       "not found",
     "Missing skip links",              "Missing skip links",
+    "Breadcrumb links found on home page",  "Breadcrumb links found on home page",
+    "Incorrect site title found",      "Incorrect site title found",
+    "Incorrect subsite title found",   "Incorrect subsite title found",
+    "Mismatch in WET version, found",  "Mismatch in WET version, found",
+    "Missing target=_blank when expected", "Missing target=\"_blank\" in link when expected",
+    "Have target=_blank when not expected", "Have target=\"_blank\" in link when not expected",
     );
 
 #
@@ -259,13 +296,14 @@ my %string_table_fr = (
     "First breadcrumb URL",            "Première URL du pistes de navigation",
     "does not match site banner URL",  "ne correspond pas à URL bannière du site",
     "Missing link in site title",      "Manquantes lien dans le titre du site",
+    "Missing link in subsite title",   "Manquantes lien dans le titre du sous-site",
     "Site footer",                     "Pied de page du site",
     "Multiple Date Modified found",    "Trouvés multiples \"Date de modification\"",
     "Date Modified not found",         "Ne pas trouvée Date de modification. ",
     "Expecting one of",                "Expectant une de",
     "Missing content for date modified",     "Contenu manquant pour \"Date Modified\"",
     "Year",                            "Année ",
-    "out of range 1900-2100",          " hors de portée 1900-2000",
+    "out of range 1900-2100",          " hors de portée 1900-2100",
     "Month",                           "Mois ",
     "out of range 1-12",               " hors de portée 1-12",
     "Date",                            "Date ",
@@ -303,6 +341,12 @@ my %string_table_fr = (
     "does not match",                  "ne correspondent pas",
     "not found",                       "ne pas trouvée",
     "Missing skip links",              "skip links manquant",
+    "Breadcrumb links found on home page", "Trouvé piste de navigation dans un page d'accueil",
+    "Incorrect site title found",      "Titre de site incorrecte trouve",
+    "Incorrect subsite title found",   "Titre de sous-site incorrecte trouve",
+    "Mismatch in WET version, found",  "Erreur de correspondance des versions BOEW version, a trouvé",
+    "Missing target=_blank when expected", "Manquante target=\"_blank\" en lien moment prévu",
+    "Have target=_blank when not expected", "Avez target=\"_blank\" en lien quand il n'est pas prévu",
     );
 
 #
@@ -625,6 +669,7 @@ sub String_Value {
 #
 # Parameters: testcase - testcase identifier
 #             data - string of data
+#             object - testcase_data_object pointer
 #
 # Description:
 #
@@ -633,10 +678,10 @@ sub String_Value {
 #
 #***********************************************************************
 sub Header_Section_Testcase_Data {
-    my ($testcase, $data) = @_;
+    my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
-    my (@href_list);
+    my (@href_list, $hash);
 
     #
     # Extract the language, subsection type and text from the data
@@ -652,10 +697,18 @@ sub Header_Section_Testcase_Data {
         #
         if ( $subsection eq "GC_NAV" ) {
             #
+            # Get hash table of GC Navigation link href values
+            #
+            if ( ! ($object->has_field("gc_nav_link_hrefs")) ) {
+                $object->add_field("gc_nav_link_hrefs", "hash");
+            }
+            $hash = $object->get_field("gc_nav_link_hrefs");
+
+            #
             # Do we have a list of hrefs yet ?
             #
-            if ( ! defined($gc_nav_link_hrefs{$lang}) ) {
-                $gc_nav_link_hrefs{$lang} = \@empty_list;
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
@@ -666,7 +719,7 @@ sub Header_Section_Testcase_Data {
             #
             # Save link text details
             #
-            $list_addr = $gc_nav_link_hrefs{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, \@href_list);
         }
     }
@@ -678,28 +731,50 @@ sub Header_Section_Testcase_Data {
         # Is this the GC Navigation subsection
         #
         if ( $subsection eq "GC_NAV" ) {
-            if ( ! defined($gc_nav_links{$lang}) ) {
-                $gc_nav_links{$lang} = \@empty_list;
+            #
+            # Get hash table of GC Navigation link href values
+            #
+            if ( ! ($object->has_field("gc_nav_links")) ) {
+                $object->add_field("gc_nav_links", "hash");
+            }
+            $hash = $object->get_field("gc_nav_links");
+
+            #
+            # Do we have a list of hrefs yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $gc_nav_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
         #
         # Breadcrumb links
         #
         elsif ( $subsection eq "BREADCRUMB" ) {
-            if ( ! defined($breadcrumb_links{$lang}) ) {
-                $breadcrumb_links{$lang} = \@empty_list;
+            #
+            # Get hash table of breadcrumb link values
+            #
+            if ( ! ($object->has_field("breadcrumb_links")) ) {
+                $object->add_field("breadcrumb_links", "hash");
+            }
+            $hash = $object->get_field("breadcrumb_links");
+
+            #
+            # Do we have a list of link text details yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $breadcrumb_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
     }
@@ -711,14 +786,25 @@ sub Header_Section_Testcase_Data {
         # Is this the GC Navigation subsection
         #
         if ( $subsection eq "GC_NAV" ) {
-            if ( ! defined($gc_nav_optional_links{$lang}) ) {
-                $gc_nav_optional_links{$lang} = \@empty_list;
+            #
+            # Get hash table of optional GC Navigation link values
+            #
+            if ( ! ($object->has_field("gc_nav_optional_links")) ) {
+                $object->add_field("gc_nav_optional_links", "hash");
+            }
+            $hash = $object->get_field("gc_nav_optional_links");
+
+            #
+            # Do we have a list of link text details yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $gc_nav_optional_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
     }
@@ -730,28 +816,50 @@ sub Header_Section_Testcase_Data {
         # Is this the GC Navigation subsection
         #
         if ( $subsection eq "GC_NAV" ) {
-            if ( ! defined($gc_nav_images{$lang}) ) {
-                $gc_nav_images{$lang} = \@empty_list;
+            #
+            # Get hash table of optional GC Navigation link values
+            #
+            if ( ! ($object->has_field("gc_nav_images")) ) {
+                $object->add_field("gc_nav_images", "hash");
+            }
+            $hash = $object->get_field("gc_nav_images");
+
+            #
+            # Do we have a list of image alt text details yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save image alt text details
             #
-            $list_addr = $gc_nav_images{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
         #
         # Site Banner images
         #
         elsif ( $subsection eq "SITE_BANNER" ) {
-            if ( ! defined($site_banner_images{$lang}) ) {
-                $site_banner_images{$lang} = \@empty_list;
+            #
+            # Get hash table of site banner images
+            #
+            if ( ! ($object->has_field("site_banner_images")) ) {
+                $object->add_field("site_banner_images", "hash");
+            }
+            $hash = $object->get_field("site_banner_images");
+
+            #
+            # Do we have a list of image alt text details yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save image alt text details
             #
-            $list_addr = $site_banner_images{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
     }
@@ -763,14 +871,25 @@ sub Header_Section_Testcase_Data {
         # Is this the Site Banner subsection
         #
         if ( $subsection eq "SITE_BANNER" ) {
-            if ( ! defined($search_button_values{$lang}) ) {
-                $search_button_values{$lang} = \@empty_list;
+            #
+            # Get hash table of site banner images
+            #
+            if ( ! ($object->has_field("search_button_values")) ) {
+                $object->add_field("search_button_values", "hash");
+            }
+            $hash = $object->get_field("search_button_values");
+
+            #
+            # Do we have a list of hrefs yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save image search button label details
             #
-            $list_addr = $search_button_values{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
     }
@@ -782,6 +901,7 @@ sub Header_Section_Testcase_Data {
 #
 # Parameters: testcase - testcase identifier
 #             data - string of data
+#             object - testcase_data_object pointer
 #
 # Description:
 #
@@ -790,9 +910,10 @@ sub Header_Section_Testcase_Data {
 #
 #***********************************************************************
 sub Content_Section_Testcase_Data {
-    my ($testcase, $data) = @_;
+    my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $format, $list_addr, $subsection, $text);
+    my ($hash, $hash1, $scalar);
 
     #
     # Extract the language, subsection format and text from the data
@@ -807,25 +928,47 @@ sub Content_Section_Testcase_Data {
     #
     if ( defined($format) && ($lang eq "DATE_MODIFIED") &&
          ($subsection eq "METADATA") ) {
-        $date_modified_metadata_tag = $format;
-        print "Date modified metadata tag = $date_modified_metadata_tag\n" if $debug;
+        #
+        # Get hash table of metadat formats
+        #
+        if ( ! ($object->has_field("date_modified_metadata_tag")) ) {
+            $object->add_field("date_modified_metadata_tag", "scalar");
+        }
+        $object->set_scalar_field("date_modified_metadata_tag", $format);
+        print "Date modified metadata tag = $format\n" if $debug;
     }
     #
     # Do we have a label for the Date Modified subsection ?
     #
     elsif ( defined($text) && ($subsection eq "DATE_MODIFIED") ) {
         #
+        # Get hash table of Date Modified subsection labels
+        #
+        if ( ! ($object->has_field("date_modified_labels")) ) {
+            $object->add_field("date_modified_labels", "hash");
+        }
+        $hash = $object->get_field("date_modified_labels");
+
+        #
         # Do we have a language specific list already ?
         #
-        if ( ! defined($date_modified_labels{$lang}) ) {
-            $date_modified_labels{$lang} = \@empty_list;
+        if ( ! defined($$hash{$lang}) ) {
+            $$hash{$lang} = \@empty_list;
         }
+
+        #
+        # Get hash table of Date Modified formats
+        #
+        if ( ! ($object->has_field("date_modified_format")) ) {
+            $object->add_field("date_modified_format", "hash");
+        }
+        $hash1 = $object->get_field("date_modified_format");
 
         #
         # Save format and label
         #
-        $date_modified_format{$text} = $format;
-        $list_addr = $date_modified_labels{$lang};
+        $$hash1{$text} = $format;
+        $list_addr = $$hash{$lang};
         push(@$list_addr, $text);
     }
 }
@@ -836,6 +979,7 @@ sub Content_Section_Testcase_Data {
 #
 # Parameters: testcase - testcase identifier
 #             data - string of data
+#             object - testcase_data_object pointer
 #
 # Description:
 #
@@ -844,10 +988,10 @@ sub Content_Section_Testcase_Data {
 #
 #***********************************************************************
 sub Footer_Section_Testcase_Data {
-    my ($testcase, $data) = @_;
+    my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
-    my (@href_list);
+    my (@href_list, $hash);
 
     #
     # Extract the language, subsection type and text from the data
@@ -862,8 +1006,19 @@ sub Footer_Section_Testcase_Data {
         # Is this the GC footer subsection
         #
         if ( $subsection eq "GC_FOOTER" ) {
-            if ( ! defined($gc_footer_link_hrefs{$lang}) ) {
-                $gc_footer_link_hrefs{$lang} = \@empty_list;
+            #
+            # Get hash table of GC footer subsection labels
+            #
+            if ( ! ($object->has_field("gc_footer_link_hrefs")) ) {
+                $object->add_field("gc_footer_link_hrefs", "hash");
+            }
+            $hash = $object->get_field("gc_footer_link_hrefs");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
@@ -874,7 +1029,7 @@ sub Footer_Section_Testcase_Data {
             #
             # Save link text details
             #
-            $list_addr = $gc_footer_link_hrefs{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, \@href_list);
         }
     }
@@ -886,42 +1041,75 @@ sub Footer_Section_Testcase_Data {
         # Is this the terms and conditions subsection
         #
         if ( $subsection eq "TERMS_CONDITIONS_FOOTER" ) {
-            if ( ! defined($terms_cond_footer_links{$lang}) ) {
-                $terms_cond_footer_links{$lang} = \@empty_list;
+            #
+            # Get hash table of terms and conditions subsection labels
+            #
+            if ( ! ($object->has_field("terms_cond_footer_links")) ) {
+                $object->add_field("terms_cond_footer_links", "hash");
+            }
+            $hash = $object->get_field("terms_cond_footer_links");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $terms_cond_footer_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
         #
         # Is this the Site footer subsection
         #
         elsif ( $subsection eq "SITE_FOOTER" ) {
-            if ( ! defined($site_footer_links{$lang}) ) {
-                $site_footer_links{$lang} = \@empty_list;
+            #
+            # Get hash table of site footer subsection labels
+            #
+            if ( ! ($object->has_field("site_footer_links")) ) {
+                $object->add_field("site_footer_links", "hash");
+            }
+            $hash = $object->get_field("site_footer_links");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $site_footer_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
         #
         # GC Footer links
         #
         elsif ( $subsection eq "GC_FOOTER" ) {
-            if ( ! defined($gc_footer_links{$lang}) ) {
-                $gc_footer_links{$lang} = \@empty_list;
+            #
+            # Get hash table of GC footer subsection labels
+            #
+            if ( ! ($object->has_field("gc_footer_links")) ) {
+                $object->add_field("gc_footer_links", "hash");
+            }
+            $hash = $object->get_field("gc_footer_links");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $gc_footer_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
     }
@@ -934,14 +1122,25 @@ sub Footer_Section_Testcase_Data {
         # Is this the Site footer subsection
         #
         if ( $subsection eq "SITE_FOOTER" ) {
-            if ( ! defined($site_footer_link_set{$lang}) ) {
-                $site_footer_link_set{$lang} = \@empty_list;
+            #
+            # Get hash table of site footer subsection labels
+            #
+            if ( ! ($object->has_field("site_footer_link_set")) ) {
+                $object->add_field("site_footer_link_set", "hash");
+            }
+            $hash = $object->get_field("site_footer_link_set");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $site_footer_link_set{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
     }
@@ -953,6 +1152,7 @@ sub Footer_Section_Testcase_Data {
 #
 # Parameters: testcase - testcase identifier
 #             data - string of data
+#             object - testcase_data_object pointer
 #
 # Description:
 #
@@ -961,7 +1161,7 @@ sub Footer_Section_Testcase_Data {
 #
 #***********************************************************************
 sub Splash_Page_Testcase_Data {
-    my ($testcase, $data) = @_;
+    my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
     my (@href_list);
@@ -1088,6 +1288,7 @@ sub Splash_Page_Testcase_Data {
 #
 # Parameters: testcase - testcase identifier
 #             data - string of data
+#             object - testcase_data_object pointer
 #
 # Description:
 #
@@ -1096,7 +1297,7 @@ sub Splash_Page_Testcase_Data {
 #
 #***********************************************************************
 sub Server_Page_Testcase_Data {
-    my ($testcase, $data) = @_;
+    my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
     my (@href_list);
@@ -1209,6 +1410,7 @@ sub Server_Page_Testcase_Data {
 #
 # Parameters: testcase - testcase identifier
 #             data - string of data
+#             object - testcase_data_object pointer
 #
 # Description:
 #
@@ -1217,9 +1419,9 @@ sub Server_Page_Testcase_Data {
 #
 #***********************************************************************
 sub Template_Testcase_Data {
-    my ($testcase, $data) = @_;
+    my ($testcase, $data, $object) = @_;
 
-    my (@subsection_list, $type, $text);
+    my (@subsection_list, $type, $text, $hash, $array);
 
     #
     # Extract the type and text from the data
@@ -1233,12 +1435,21 @@ sub Template_Testcase_Data {
     if ( defined($text) && (($type eq "CONTENT_PAGE") ||
                             ($type eq "SPLASH_PAGE") ||
                             ($type eq "SERVER_PAGE")) ) {
+
+        #
+        # Get required template sections field.
+        #
+        if ( ! ($object->has_field("required_template_sections")) ) {
+            $object->add_field("required_template_sections", "hash");
+        }
+        $hash = $object->get_field("required_template_sections");
+
         #
         # Get the subsection list
         #
         @subsection_list = split(/\s+/, $text);
         if ( @subsection_list > 0 ) {
-            $required_template_sections{$type} = \@subsection_list;
+            $$hash{$type} = \@subsection_list;
         }
     }
     #
@@ -1246,9 +1457,17 @@ sub Template_Testcase_Data {
     #
     elsif ( defined($text) && ($type eq "SKIP_LINKS") ) {
         #
+        # Get skip links field.
+        #
+        if ( ! ($object->has_field("skip_links_hrefs")) ) {
+            $object->add_field("skip_links_hrefs", "array");
+        }
+        $array = $object->get_field("skip_links_hrefs");
+
+        #
         # Save link text details
         #
-        push(@skip_links_hrefs, $text);
+        push(@$array, $text);
         print "Add $text to skip link href values\n" if $debug;
     }
 }
@@ -1257,7 +1476,8 @@ sub Template_Testcase_Data {
 #
 # Name: Set_SWU_Check_Testcase_Data
 #
-# Parameters: testcase - testcase identifier
+# Parameters: profile - testcase profile
+#             testcase - testcase identifier
 #             data - string of data
 #
 # Description:
@@ -1267,14 +1487,23 @@ sub Template_Testcase_Data {
 #
 #***********************************************************************
 sub Set_SWU_Check_Testcase_Data {
-    my ($testcase, $data) = @_;
+    my ($profile, $testcase, $data) = @_;
 
-    my ($page_type, @subsection_list);
+    my ($page_type, @subsection_list, $object, $array, $hash);
 
     #
-    # Copy the data into the table
+    # Do we have a testcase data object for this profile ?
     #
-    $testcase_data{$testcase} = $data;
+    if ( defined($testcase_data_objects{$profile}) ) {
+        $object = $testcase_data_objects{$profile};
+    }
+    else {
+        #
+        # No testcase data object, create one
+        #
+        $object = testcase_data_object->new;
+        $testcase_data_objects{$profile} = $object;
+    }
 
     #
     # Break out specific testcase data
@@ -1283,7 +1512,7 @@ sub Set_SWU_Check_Testcase_Data {
         #
         # Save template testcase data
         #
-        Template_Testcase_Data($testcase, $data);
+        Template_Testcase_Data($testcase, $data, $object);
     }
     #
     # Content Page Header
@@ -1295,7 +1524,7 @@ sub Set_SWU_Check_Testcase_Data {
         #
         # Save Header section testcase data
         #
-        Header_Section_Testcase_Data($testcase, $data);
+        Header_Section_Testcase_Data($testcase, $data, $object);
     }
     #
     # Content page content section
@@ -1304,7 +1533,7 @@ sub Set_SWU_Check_Testcase_Data {
         #
         # Save Content section testcase data
         #
-        Content_Section_Testcase_Data($testcase, $data);
+        Content_Section_Testcase_Data($testcase, $data, $object);
     }
     #
     # Content Page Footer
@@ -1313,7 +1542,7 @@ sub Set_SWU_Check_Testcase_Data {
         #
         # Save Footer section testcase data
         #
-        Footer_Section_Testcase_Data($testcase, $data);
+        Footer_Section_Testcase_Data($testcase, $data, $object);
     }
     #
     # Splash Page
@@ -1322,7 +1551,7 @@ sub Set_SWU_Check_Testcase_Data {
         #
         # Save splash page testcase data
         #
-        Splash_Page_Testcase_Data($testcase, $data);
+        Splash_Page_Testcase_Data($testcase, $data, $object);
     }
     #
     # Server Message Page
@@ -1331,7 +1560,7 @@ sub Set_SWU_Check_Testcase_Data {
         #
         # Save server message page testcase data
         #
-        Server_Page_Testcase_Data($testcase, $data);
+        Server_Page_Testcase_Data($testcase, $data, $object);
     }
 }
 
@@ -1351,8 +1580,7 @@ sub Set_SWU_Check_Testcase_Data {
 sub Set_SWU_Check_Test_Profile {
     my ($profile, $clf_checks ) = @_;
 
-    my (%local_clf_checks);
-    my ($key, $value);
+    my (%local_clf_checks, $key, $value, $object);
 
     #
     # Make a local copy of the hash table as we will be storing the address
@@ -1361,6 +1589,14 @@ sub Set_SWU_Check_Test_Profile {
     print "Set_SWU_Check_Test_Profile, profile = $profile\n" if $debug;
     %local_clf_checks = %$clf_checks;
     $clf_check_profile_map{$profile} = \%local_clf_checks;
+
+    #
+    # Create a testcase data object for this profile if we don't have one
+    #
+    if ( ! defined($testcase_data_objects{$profile}) ) {
+        $object = testcase_data_object->new;
+        $testcase_data_objects{$profile} = $object;
+    }
 }
 
 #**********************************************************************
@@ -1416,6 +1652,7 @@ sub Initialize_Test_Results {
     # Set current hash tables
     #
     $current_clf_check_profile = $clf_check_profile_map{$profile};
+    $current_profile_name = $profile;
     $results_list_addr = $local_results_list_addr;
     
     #
@@ -1432,7 +1669,15 @@ sub Initialize_Test_Results {
     $found_form = 0;
     $found_search_button = 0;
     $inside_li = 0;
+    $in_site_title = 0;
     undef $date_modified_metadata_value;
+    $current_lang = "eng";
+    $html_lang_value = "eng";
+    push(@lang_stack, $current_lang);
+    push(@tag_lang_stack, "top");
+    $current_tag = "";
+    $last_lang_tag = "top";
+    $is_archived = 0;
 }
 
 #***********************************************************************
@@ -1484,19 +1729,27 @@ sub Record_Result {
     # Is this testcase included in the profile
     #
     if ( defined($testcase) && defined($$current_clf_check_profile{$testcase}) ) {
-        #
-        # Create result object and save details
-        #
-        $result_object = tqa_result_object->new($testcase, $clf_check_fail,
-                                                Testcase_Description($testcase),
-                                                $line, $column, $text,
-                                                $error_string, $current_url);
-        push (@$results_list_addr, $result_object);
 
         #
-        # Print error string to stdout
+        # If this an "Archived on the Web" document, the testcase must
+        # be valid for archived documents ?
         #
-        Print_Error($line, $column, $text, "$testcase : $error_string");
+        if ( (! $is_archived ) || 
+             (defined($archived_testcase_list{$testcase})) ) {
+            #
+            # Create result object and save details
+            #
+            $result_object = tqa_result_object->new($testcase, $clf_check_fail,
+                                                    Testcase_Description($testcase),
+                                                    $line, $column, $text,
+                                                    $error_string, $current_url);
+            push (@$results_list_addr, $result_object);
+
+            #
+            # Print error string to stdout
+            #
+            Print_Error($line, $column, $text, "$testcase : $error_string");
+        }
     }
 }
 
@@ -1775,7 +2028,13 @@ sub End_Dt_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
     my ($clean_text, $list_addr, $found_label, $label, $message);
-    my ($found_this_label);
+    my ($found_this_label, $object, $date_modified_labels);
+
+    #
+    # Get date modified metadata labels
+    #
+    $object = $testcase_data_objects{$current_profile_name};
+    $date_modified_labels = $object->get_field("date_modified_labels");
 
     #
     # Get all the text found within the dt tag
@@ -1798,8 +2057,9 @@ sub End_Dt_Tag_Handler {
         #
         # Do we have date modified labels for this language ?
         #
-        if ( defined($date_modified_labels{$current_url_language}) ) {
-            $list_addr = $date_modified_labels{$current_url_language};
+        if ( defined($date_modified_labels) &&
+             defined($$date_modified_labels{$current_url_language}) ) {
+            $list_addr = $$date_modified_labels{$current_url_language};
             
             #
             # Check the <dt> text against each possible label
@@ -1996,7 +2256,8 @@ sub End_Dd_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
     my ($clean_text, $format, $found_label, $label, $yyyy, $mm, $dd);
-    my ($status, $message);
+    my ($status, $message, $object, $date_modified_metadata_tag);
+    my ($date_modified_format);
 
     #
     # Get all the text found within the dt tag
@@ -2041,11 +2302,19 @@ sub End_Dd_Tag_Handler {
             $found_date_modified_value = 1;
 
             #
+            # Get date modified metadata tag name
+            #
+            $object = $testcase_data_objects{$current_profile_name};
+            $date_modified_metadata_tag = $object->get_field("date_modified_metadata_tag");
+            $date_modified_format = $object->get_field("date_modified_format");
+
+            #
             # Do we have date modified format for the date modified label ?
             #
-            if ( ($found_date_modified_label ne "") &&
-                  defined($date_modified_format{$found_date_modified_label}) ) {
-                $format = $date_modified_format{$found_date_modified_label};
+            if ( defined($date_modified_format) &&
+                 ($found_date_modified_label ne "") &&
+                  defined($$date_modified_format{$found_date_modified_label}) ) {
+                $format = $$date_modified_format{$found_date_modified_label};
 
                 #
                 # Check format of date modified value
@@ -2186,7 +2455,8 @@ sub Link_Tag_Handler {
                     $header = $favicon_resp->headers;
                     if ( !($header->content_type =~ /^image/i) ) {
                         Record_Result("SWU_E2.1", $line, $column, $text,
-                                      String_Value("favicon is not an image"));
+                                      String_Value("favicon is not an image") .
+                                      " mime-type = " . $header->content_type);
                     }
                 }
             }
@@ -2211,12 +2481,21 @@ sub Link_Tag_Handler {
 sub Meta_Tag_Handler {
     my ( $line, $column, $text, %attr ) = @_;
 
+    my ($object, $date_modified_metadata_tag);
+
+    #
+    # Get date modified metadata tag name
+    #
+    $object = $testcase_data_objects{$current_profile_name};
+    $date_modified_metadata_tag = $object->get_field("date_modified_metadata_tag");
+
     #
     # Do we have a metadata tag for the date modified value,
     # do we have a name attribute in the meta tag and
     # does that name match the one we are looking for ?
     #
-    if ( $date_modified_metadata_tag ne "" && defined($attr{"name"}) &&
+    if ( defined($date_modified_metadata_tag) &&
+         $date_modified_metadata_tag ne "" && defined($attr{"name"}) &&
           ($date_modified_metadata_tag eq $attr{"name"}) ) {
         print "Meta_Tag_Handler: Found metadata tag ". $attr{"name"} . "\n" if $debug;
         
@@ -2259,6 +2538,7 @@ sub Input_Tag_Handler {
 
     my ($input_type, $value, $input_tag_type, $expected_value);
     my ($list_addr, $found_a_matching_button, $expected_value_list);
+    my ($object, $search_button_values);
 
     #
     # Are we in the Site Banner subsection and inside a form ?
@@ -2339,10 +2619,17 @@ sub Input_Tag_Handler {
             }
 
             #
+            # Get search button label
+            #
+            $object = $testcase_data_objects{$current_profile_name};
+            $search_button_values = $object->get_field("search_button_values");
+
+            #
             # Do we have an expected value for this language ?
             #
-            if ( defined($search_button_values{$current_url_language}) ) {
-                $list_addr = $search_button_values{$current_url_language};
+            if ( defined($search_button_values) &&
+                 defined($$search_button_values{$current_url_language}) ) {
+                $list_addr = $$search_button_values{$current_url_language};
                 
                 #
                 # Check each possible expected button value
@@ -2579,6 +2866,127 @@ sub Anchor_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Start_Site_Title
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             subsection - subsection name
+#
+# Description:
+#
+#   This function checks to see if this is the start of a site title
+# subsection.
+#
+#***********************************************************************
+sub Start_Site_Title {
+    my ($self, $tagname, $subsection) = @_;
+
+   #
+   # Is this the beginning of the left or right site title (found
+   # on a splash or server message page) ?
+   #
+   if ( (! $in_site_title) &&
+        (($subsection eq "SITE_TITLE_LEFT") ||
+         ($subsection eq "SITE_TITLE_RIGHT")) ) {
+       #
+       # Start a text handler to collect the title value
+       #
+       print "Start text handler for site title for $subsection\n" if $debug;
+       Start_Text_Handler($self, $tagname);
+       $in_site_title = 1;
+   }
+}
+
+#***********************************************************************
+#
+# Name: Lang_Attribute_Handler
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             attr_hash - hash table of attributes
+#
+# Description:
+#
+#   This function handles a possible lang or xml:lang attribute on
+# a tag.
+#
+#***********************************************************************
+sub Lang_Attribute_Handler {
+    my ( $tagname, $line, $column, %attr_hash ) = @_;
+
+    my ($lang);
+
+    #
+    # Check for xml:lang (ignore the possibility that there is both
+    # a lang and xml:lang and that they could be different).
+    #
+    if ( defined($attr_hash{"xml:lang"})) {
+        $lang = lc($attr_hash{"xml:lang"});
+
+        #
+        # Remove any language dialect
+        #
+        $lang =~ s/-.*$//g;
+        #print "Found xml:lang $lang in $tagname at $line:$column\n" if $debug;
+    }
+    #
+    # Check for a lang attribute
+    #
+    elsif ( defined($attr_hash{"lang"}) ) {
+        $lang = lc($attr_hash{"lang"});
+
+        #
+        # Remove any language dialect
+        #
+        $lang =~ s/-.*$//g;
+        #print "Found lang $lang in $tagname at $line:$column\n" if $debug;
+    }
+
+    #
+    # Did we find a language attribute ?
+    #
+    if ( defined($lang) ) {
+        #
+        # Convert possible 2 character code into a 3 character code.
+        #
+        if ( defined($language_map::iso_639_1_iso_639_2T_map{$lang}) ) {
+            $lang = $language_map::iso_639_1_iso_639_2T_map{$lang};
+        }
+
+        #
+        # Does this tag have a matching end tag ?
+        # 
+        if ( ! defined ($html_tags_with_no_end_tag{$tagname}) ) {
+            #
+            # Update the current language and push this one on the language
+            # stack. Save the current tag name also.
+            #
+            push(@lang_stack, $current_lang);
+            push(@tag_lang_stack, $last_lang_tag);
+            $last_lang_tag = $tagname;
+            print "Push language $current_lang on language stack for $tagname at $line:$column\n" if $debug;
+            $current_lang = $lang;
+            print "Current language = $lang\n" if $debug;
+        }
+    }
+    else {
+        #
+        # No language.  If this tagname is the same as the last one with a
+        # language, pretend this one has a language also.  This avoids
+        # premature ending of a language span when the end tag is reached
+        # (and the language is popped off the stack).
+        #
+        if ( $tagname eq $last_lang_tag ) {
+            push(@lang_stack, $current_lang);
+            push(@tag_lang_stack, $tagname);
+            print "Push copy of language  $current_lang on language stack for $tagname at $line:$column\n" if $debug;
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -2602,6 +3010,12 @@ sub Start_Handler {
          $attrseq, @attr ) = @_;
 
     my (%attr_hash) = @attr;
+    my ($subsection);
+
+    #
+    # Check for possible xml:lang or lang attribute on this tag
+    #
+    Lang_Attribute_Handler($tagname, $line, $column, %attr_hash);
 
     #
     # Check for start of content section
@@ -2612,8 +3026,14 @@ sub Start_Handler {
     #
     # See which content subsection we are in
     #
-    if ( $content_section_handler->current_content_subsection() ne "" ) {
-        $content_subsection_found{$content_section_handler->current_content_subsection()} = 1;
+    $subsection = $content_section_handler->current_content_subsection();
+    if ( $subsection ne "" ) {
+        $content_subsection_found{$subsection} = 1;
+
+        #
+        # Is this the start of a site title section ?
+        #
+        Start_Site_Title($self, $tagname, $subsection);
     }
 
     #
@@ -2684,6 +3104,70 @@ sub Start_Handler {
 
 #***********************************************************************
 #
+# Name: End_Site_Title
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function checks to see if this is the end of a site title
+# subsection.
+#
+#***********************************************************************
+sub End_Site_Title {
+    my ($self) = @_;
+
+    my ($subsection, $clean_text);
+
+    #
+    # See which content subsection we are in
+    #
+    $subsection = $content_section_handler->current_content_subsection();
+
+    #
+    # Were we in the site title section and now is the subsection no
+    # longer the site title ?
+    #
+    if ( $in_site_title &&
+         (($subsection ne "SITE_TITLE_LEFT") &&
+          ($subsection ne "SITE_TITLE_RIGHT")) ) {
+        #
+        # End of site title value
+        #
+        print "End of site title for $subsection\n" if $debug;
+        $clean_text = Clean_Text(Get_Text_Handler_Content($self, ""));
+
+        #
+        # Do we have a site title for the current language ?
+        #
+        if ( ! defined($site_title_language{$current_lang}) ) {
+            #
+            # Save this site title
+            #
+            $site_title_language{$current_lang} = $clean_text;
+        }
+        #
+        # Do the site titles match ?
+        #
+        elsif ( $clean_text ne $site_title_language{$current_lang} ) {
+            print "Mismatch on site title value, expecting \"" .
+                   $site_title_language{$current_lang} . "\"\n" if $debug;
+            Record_Result("SWU_E2.2.5", -1, -1, "",
+                         String_Value("Incorrect site title found") .
+                         " \"$clean_text\" " .
+                         String_Value("expecting") . " \"" .
+                         $site_title_language{$current_lang} . "\"");
+        }
+
+        #
+        # No longer in a site title section
+        #
+        $in_site_title = 0;
+    }
+}
+
+#***********************************************************************
+#
 # Name: End_Handler
 #
 # Parameters: self - reference to this parser
@@ -2703,6 +3187,7 @@ sub End_Handler {
     my ( $self, $tagname, $line, $column, $text, @attr ) = @_;
 
     my (%attr_hash) = @attr;
+    my ($subsection, $clean_text);
 
     #
     # Check dd tag
@@ -2740,6 +3225,22 @@ sub End_Handler {
     # Is this the end of a content area ?
     #
     $content_section_handler->check_end_tag($tagname, $line, $column);
+    End_Site_Title($self);
+
+    #
+    # Is this tag the last one that had a language ?
+    #
+    if ( $tagname eq $last_lang_tag ) {
+        #
+        # Pop the last language and tag name from the stacks
+        #
+        $current_lang = pop(@lang_stack);
+        $last_lang_tag = pop(@tag_lang_stack);
+        if ( ! defined($last_lang_tag) ) {
+            print "last_lang_tag not defined\n" if $debug;
+        }
+        print "Pop language $current_lang from language stack for $tagname at $line:$column\n" if $debug;
+    }
 }
 
 #***********************************************************************
@@ -2756,6 +3257,9 @@ sub End_Handler {
 # exists in the subsection text data structure.  If is required and is
 # either not present or empty, a failure is generated.  If it is not
 # required, but present and empty, a failure is generated.
+#
+# Returns:
+#  title - site title content
 #
 #***********************************************************************
 sub Check_Site_Title_Subsections {
@@ -2776,34 +3280,27 @@ sub Check_Site_Title_Subsections {
         $text = Trim_Whitespace($text);
     }
     else {
+        #
+        # Set it to an empty string, it will generate a
+        # failure on the subsequent check if it is actually required.
+        #
         print "No $subsection subsection content\n" if $debug;
-        
-        #
-        # Is this a required subsection ?
-        #
-        if ( $required ) {
-            #
-            # Set it to an empty string, it will generate a
-            # failure on the subsequest check.
-            #
-            $text = "";
-        }
-        else {
-            #
-            # An optional subsection, no failure is generated
-            #
-            return();
-        }
+        $text = "";
     }
     
     #
     # Did we get content for the site title ?
     #
     print "$subsection subsection content = $text\n" if $debug;
-    if ( $text eq "" ) {
+    if ( $required && ($text eq "") ) {
         Record_Result($tcid, -1, -1, "",
                       String_Value("Missing site title"));
     }
+
+    #
+    # Return the site title text
+    #
+    return($text);
 }
 
 #***********************************************************************
@@ -2858,7 +3355,7 @@ sub Check_Server_Message_Page_Content {
 #
 # Name: Check_Document_Errors
 #
-# Parameters: none
+# Parameters: profile - testcase profile
 #
 # Description:
 #
@@ -2866,10 +3363,18 @@ sub Check_Server_Message_Page_Content {
 #
 #***********************************************************************
 sub Check_Document_Errors {
+    my ($profile) = @_;
 
-    my ($name, $page_type, $subsection_list_addr);
+    my ($name, $page_type, $subsection_list_addr, $object);
+    my ($required_template_sections);
     my ($all_content_sections_found) = 1;
     my ($missing_content_sections) = "";
+
+    #
+    # Get required template markers
+    #
+    $object = $testcase_data_objects{$profile};
+    $required_template_sections = $object->get_field("required_template_sections");
 
     #
     # Determine the testcase ID
@@ -2905,8 +3410,9 @@ sub Check_Document_Errors {
     #
     # Do we have required template sections for this page type ?
     #
-    if ( defined($required_template_sections{$page_type}) ) {
-        $subsection_list_addr = $required_template_sections{$page_type};
+    if ( defined($required_template_sections) &&
+         defined($$required_template_sections{$page_type}) ) {
+        $subsection_list_addr = $$required_template_sections{$page_type};
     }
 
     #
@@ -2973,7 +3479,7 @@ sub Check_Document_Errors {
 
 #***********************************************************************
 #
-# Name: SWU_Check
+# Name: Perform_SWU_Checks
 #
 # Parameters: this_url - a URL
 #             language - URL language
@@ -2987,41 +3493,10 @@ sub Check_Document_Errors {
 #   This function runs a number of technical QA checks the content.
 #
 #***********************************************************************
-sub SWU_Check {
+sub Perform_SWU_Checks {
     my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
 
-    my (@tqa_results_list, $parser, $result_object, @other_tqa_results_list);
-    my ($content_subsection, $tcid, $do_tests);
-
-    #
-    # Call the appropriate TQA check function based on the mime type
-    #
-    print "SWU_Check: URL $this_url, mime-type = $mime_type, lanugage = $language, profile = $profile\n" if $debug;
-
-    #
-    # Initialize the test case pass/fail table.
-    #
-    Initialize_Test_Results($profile, \@tqa_results_list);
-
-    #
-    # Are any of the testcases defined in this module
-    # in the testcase profile ?
-    #
-    $do_tests = 0;
-    foreach $tcid (keys(%testcase_description_en)) {
-        if ( defined($$current_clf_check_profile{$tcid}) ) {
-            $do_tests = 1;
-            print "Testcase $tcid found in current testcase profile\n" if $debug;
-            last;
-        }
-    }
-    if ( ! $do_tests ) {
-        #
-        # No tests handled by this module
-        #
-        print "No tests handled by this module\n" if $debug;
-        return(@tqa_results_list);
-    }
+    my ($parser, $content_subsection);
 
     #
     # Save URL in global variable
@@ -3075,8 +3550,8 @@ sub SWU_Check {
         $parser->parse($content);
     }
     else {
-        print "No content passed to SWU_Check\n" if $debug;
-        return(@tqa_results_list);
+        print "No content passed to Perform_SWU_Checks\n" if $debug;
+        return;
     }
 
     #
@@ -3088,7 +3563,61 @@ sub SWU_Check {
     #
     # Check for errors that are detected one we analyse the entire document.
     #
-    Check_Document_Errors();
+    Check_Document_Errors($profile);
+}
+
+#***********************************************************************
+#
+# Name: SWU_Check
+#
+# Parameters: this_url - a URL
+#             language - URL language
+#             profile - testcase profile
+#             mime_type - mime type of content
+#             resp - HTTP::Response object
+#             content - content
+#
+# Description:
+#
+#   This function runs a number of technical QA checks the content.
+#
+#***********************************************************************
+sub SWU_Check {
+    my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
+
+    my (@tqa_results_list, $tcid, $do_tests);
+
+    #
+    # Initialize the test case pass/fail table.
+    #
+    print "SWU_Check: URL $this_url, mime-type = $mime_type, lanugage = $language, profile = $profile\n" if $debug;
+    Initialize_Test_Results($profile, \@tqa_results_list);
+
+    #
+    # Are any of the testcases defined in this module
+    # in the testcase profile ?
+    #
+    $do_tests = 0;
+    foreach $tcid (keys(%testcase_description_en)) {
+        if ( defined($$current_clf_check_profile{$tcid}) ) {
+            $do_tests = 1;
+            print "Testcase $tcid found in current testcase profile\n" if $debug;
+            last;
+        }
+    }
+    if ( ! $do_tests ) {
+        #
+        # No tests handled by this module
+        #
+        print "No tests handled by this module\n" if $debug;
+        return(@tqa_results_list);
+    }
+
+    #
+    # Perform the actual checks.
+    #
+    Perform_SWU_Checks($this_url, $language, $profile, $mime_type, $resp,
+                       $content);
 
     #
     # Return list of results
@@ -3183,14 +3712,22 @@ sub Check_Link_Anchor_and_Href {
     # Does the href text match what is expected ?
     #
     $href = $link->abs_url;
-    $href_match = 0;
-    foreach $href_value (@$expected_href) {
-        print "Check link href \"" . $href .
-              "\" versus \"$href_value\"\n" if $debug;
-        if ( defined($href) && ($href eq $href_value) ) {
-            $href_match = 1;
-            print "Match href value\n" if $debug;
-            last;
+    if ( defined($href) ) {
+        $href_match = 0;
+        foreach $href_value (@$expected_href) {
+            print "Check link href \"" . $href .
+                  "\" versus \"$href_value\"\n" if $debug;
+
+            #
+            # Check for exact match on href value or match on 
+            # expected value with an additional trailing '/'
+            # ( e.g. travel.gc.ca equals travel.gc.ca/)
+            #
+            if ( ($href eq $href_value) || ($href eq ($href_value . "/")) ) {
+                $href_match = 1;
+                print "Match href value\n" if $debug;
+                last;
+            }
         }
     }
 
@@ -3800,12 +4337,88 @@ sub Compare_Link_Lists {
 
 #***********************************************************************
 #
+# Name: Check_New_Window_Attribute
+#
+# Parameters: logged_in - flag to indicate if we are logged into an
+#               application
+#             new_window_status - pointer to table of new window
+#                status
+#             link - link object
+#             tcid - testcase id
+#
+# Description:
+#
+#    This function checks to see if the supplied link opens a new
+# window using the target attribute.  It then checks to see if the
+# behaviour matches the expected behaviour for the current logged in status.
+#
+#***********************************************************************
+sub Check_New_Window_Attribute {
+    my ($logged_in, $new_window_status, $link, $tcid) = @_;
+
+    my (%attr, $have_new_window);
+
+    #
+    # Get attributes of the anchor tag
+    #
+    %attr = $link->attr;
+
+    #
+    # Does the link open in a new window ? i.e. target="_blank"
+    #
+    if ( defined($attr{"target"}) && ($attr{"target"} =~ /_blank/i) ) {
+        print "Have target=\"_blank\"\n" if $debug;
+        $have_new_window = 1;
+    }
+    else {
+        print "Do not have target=\"_blank\"\n" if $debug;
+        $have_new_window = 0;
+    }
+
+    #
+    # Do we have a setting for new windows for the logged in state ?
+    #
+    if ( defined($$new_window_status{$logged_in}) ) {
+        #
+        # Do we expect a new window and not have one ? 
+        #
+        if ( $$new_window_status{$logged_in} && (! $have_new_window) ) {
+            print "Missing target=\"_blank\" when expected\n" if $debug;
+            Record_Result($tcid, $link->line_no, $link->column_no, 
+                          $link->source_line,
+                          String_Value("Missing target=_blank when expected"));
+        }
+        #
+        # Do we not expect a new window but do have one ?
+        #
+        elsif ( ( ! $$new_window_status{$logged_in}) && $have_new_window ) {
+            print "Have target=\"_blank\" when not expected\n" if $debug;
+            Record_Result($tcid, $link->line_no, $link->column_no, 
+                          $link->source_line,
+                          String_Value("Have target=_blank when not expected"));
+
+        }
+    }
+    else {
+        #
+        # Use new window state from this link for future states for
+        # this logged in state.
+        #
+        $$new_window_status{$logged_in} = $have_new_window;
+    }
+}
+
+#***********************************************************************
+#
 # Name: Check_GC_Navigation_Links
 #
 # Parameters: url - URL
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             profile - testcase profile
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -3814,11 +4427,23 @@ sub Compare_Link_Lists {
 # are present.
 #***********************************************************************
 sub Check_GC_Navigation_Links {
-    my ($url, $language, $link_sets) = @_;
+    my ($url, $language, $link_sets, $profile, $logged_in) = @_;
 
     my ($list_addr, $expected_link_list_addr, @empty_list);
     my ($expected_href_list_addr, $optional_link_list_addr);
-    my ($optional_href_list_addr);
+    my ($optional_href_list_addr, $object, $gc_nav_link_hrefs);
+    my ($gc_nav_links, $gc_nav_optional_links, $gc_nav_optional_link_hrefs);
+    my ($gc_nav_images, $link, $i, $link_count);
+
+    #
+    # Get GC Navigation links
+    #
+    $object = $testcase_data_objects{$profile};
+    $gc_nav_link_hrefs = $object->get_field("gc_nav_link_hrefs");
+    $gc_nav_links = $object->get_field("gc_nav_links");
+    $gc_nav_optional_links = $object->get_field("gc_nav_optional_links");
+    $gc_nav_optional_link_hrefs = $object->get_field("gc_nav_optional_link_hrefs");
+    $gc_nav_images = $object->get_field("gc_nav_images");
 
     #
     # Do we have GC Navigation links ?
@@ -3826,6 +4451,34 @@ sub Check_GC_Navigation_Links {
     print "Check GC Navigation links\n" if $debug;
     if ( defined($$link_sets{"GC_NAV"}) ) {
         $list_addr = $$link_sets{"GC_NAV"};
+        $link_count = @$list_addr;
+
+        #
+        # Check each link to see that they have the expected 
+        # "Open in new window" status.
+        #
+        $i = 0;
+        foreach $link (@$list_addr) {
+            #
+            # Check anchor links only
+            #
+            $i++;
+            if ( $link->link_type eq "a" ) {
+                #
+                # Exclude the last link as it may be the language link.
+                # it may not have the same new window attribute as the
+                # rest of the GC navigation links.
+                #
+                if ( $i < $link_count ) {
+                    #
+                    # Check for consistent new window attribute
+                    #
+                    Check_New_Window_Attribute($logged_in, 
+                                           \%navigation_links_new_window_status,
+                                               $link, "SWU_E2.2.5");
+                }
+            }
+        }
     }
     else {
         print "No GC_NAV section links\n" if $debug;
@@ -3835,35 +4488,38 @@ sub Check_GC_Navigation_Links {
     #
     # Get list of expected links
     #
-    if ( defined($gc_nav_links{$language}) ) {
-        $expected_link_list_addr = $gc_nav_links{$language};
+    if ( defined($gc_nav_links) && defined($$gc_nav_links{$language}) ) {
+        $expected_link_list_addr = $$gc_nav_links{$language};
     }
 
     #
     # Get list of expected link href values
     #
-    if ( defined($gc_nav_link_hrefs{$language}) ) {
-        $expected_href_list_addr = $gc_nav_link_hrefs{$language};
+    if ( defined($gc_nav_link_hrefs) && 
+         defined($$gc_nav_link_hrefs{$language}) ) {
+        $expected_href_list_addr = $$gc_nav_link_hrefs{$language};
     }
 
     #
     # Get list of optional links (i.e. language link)
     #
-    if ( defined($gc_nav_optional_links{$language}) ) {
-        $optional_link_list_addr = $gc_nav_optional_links{$language};
+    if ( defined($gc_nav_optional_links) &&
+         defined($$gc_nav_optional_links{$language}) ) {
+        $optional_link_list_addr = $$gc_nav_optional_links{$language};
     }
 
     #
     # Get list of optional link href values (i.e. language link)
     #
-    if ( defined($gc_nav_optional_link_hrefs{$language}) ) {
-        $optional_href_list_addr = $gc_nav_optional_link_hrefs{$language};
+    if ( defined($gc_nav_optional_link_hrefs) && 
+         defined($$gc_nav_optional_link_hrefs{$language}) ) {
+        $optional_href_list_addr = $$gc_nav_optional_link_hrefs{$language};
     }
 
     #
     # Check GC Navigation links if we have a set of expected links
     #
-    if ( defined($gc_nav_links{$language}) ) {
+    if ( defined($gc_nav_links) && defined($$gc_nav_links{$language}) ) {
         #
         # Check for expected and optional links
         #
@@ -3884,8 +4540,9 @@ sub Check_GC_Navigation_Links {
     #
     # Check GC Navigation images if we have a set of expected images
     #
-    if ( defined($gc_nav_images{$language}) ) {
-        $expected_link_list_addr = $gc_nav_images{$language};
+    if ( defined($gc_nav_images) &&
+         defined($$gc_nav_images{$language}) ) {
+        $expected_link_list_addr = $$gc_nav_images{$language};
         Check_Expected_Images($url, $list_addr, $expected_link_list_addr,
                               "SWU_E2.2.2", String_Value("GC navigation bar"));
     }
@@ -3902,6 +4559,9 @@ sub Check_GC_Navigation_Links {
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             profile - testcase profile
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -3910,10 +4570,16 @@ sub Check_GC_Navigation_Links {
 # are present.
 #***********************************************************************
 sub Check_Site_Banner_Links {
-    my ($url, $language, $link_sets) = @_;
+    my ($url, $language, $link_sets, $profile, $logged_in) = @_;
 
     my ($list_addr, $expected_link_list_addr, @empty_list);
-    my ($site_title_link, $link, $link_count);
+    my ($site_title_link, $link, $link_count, $object, $site_banner_images);
+
+    #
+    # Get Site banner images
+    #
+    $object = $testcase_data_objects{$profile};
+    $site_banner_images = $object->get_field("site_banner_images");
 
     #
     # Check Site Banner links
@@ -3936,7 +4602,7 @@ sub Check_Site_Banner_Links {
                 $link_count++;
             }
         }
-        
+
         #
         # Does the actual link count exceed the expected one site title
         # link ?
@@ -3952,7 +4618,7 @@ sub Check_Site_Banner_Links {
     else {
         print "No SITE_BANNER section links\n" if $debug;
     }
-    
+
     #
     # Did we find a site title URL ?
     #
@@ -3960,17 +4626,129 @@ sub Check_Site_Banner_Links {
         Record_Result("SWU_E2.2.5", -1, -1, "",
                       String_Value("Missing link in site title"));
     }
+    else {
+        #
+        # Check site title link to see that they have the expected
+        # "Open in new window" status.
+        #
+        Check_New_Window_Attribute($logged_in,
+                                   \%navigation_links_new_window_status,
+                                   $site_title_link, "SWU_E2.2.5");
+
+        #
+        # Do we have a value for this language for the site title ?
+        #
+        if ( ! defined($site_title_language{$language}) ) {
+            $site_title_language{$language} = $site_title_link->anchor;
+            print "New site_title_language entry for language $language\n" if $debug;
+        }
+        elsif ( $site_title_language{$language} ne $site_title_link->anchor ) {
+            print "Mismatch on site title value, expecting \"" .
+                  $site_title_language{$language} . "\"\n" if $debug;
+            Record_Result("SWU_E2.2.5", -1, -1, "",
+                          String_Value("Incorrect site title found") .
+                          " \"" . $site_title_link->anchor . "\" " .
+                          String_Value("expecting") . " \"" .
+                          $site_title_language{$language} . "\"");
+        }
+    }
 
     #
     # Check Site Banner images if we have a set of expected images
     #
-    if ( defined($site_banner_images{$language}) ) {
-        $expected_link_list_addr = $site_banner_images{$language};
+    if ( defined($site_banner_images) &&
+         defined($$site_banner_images{$language}) ) {
+        $expected_link_list_addr = $$site_banner_images{$language};
         Check_Expected_Images($url, $list_addr, $expected_link_list_addr,
                               "SWU_E2.2.3", String_Value("Site banner"));
     }
     else {
         print "No expected SITE_BANNER section images\n" if $debug;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_SubSite_Banner_Links
+#
+# Parameters: url - URL
+#             language - URL language
+#             link_sets - table of lists of link objects (1 list per
+#               document section)
+#             profile - testcase profile
+#             logged_in - flag to indicate if we are logged into an
+#               application
+#
+# Description:
+#
+#    This function performs a number of checks on the subsite banner
+# section links.  It checks to see if expected links
+# are present.
+#***********************************************************************
+sub Check_SubSite_Banner_Links {
+    my ($url, $language, $link_sets, $profile, $logged_in) = @_;
+
+    my ($list_addr, $expected_link_list_addr, @empty_list);
+    my ($subsite_title_link, $link, $link_count, $object, $site_banner_images);
+
+    #
+    # Check Subsite Banner links
+    #
+    print "Check subsite banner links\n" if $debug;
+    if ( defined($$link_sets{"SUBSITE_BANNER"}) ) {
+        $list_addr = $$link_sets{"SUBSITE_BANNER"};
+
+        #
+        # Go through the subsite banner link list to find the first anchor
+        # link (i.e. skip over images). This is the Subsite Title link.
+        #
+        $link_count = 0;
+        foreach $link (@$list_addr) {
+            if ( $link->link_type eq "a" ) {
+                if ( ! defined($subsite_title_link) ) {
+                    $subsite_title_link = $link;
+                }
+                $link_count++;
+            }
+        }
+
+        #
+        # Did we find a site title URL ?
+        #
+        if ( ! defined($subsite_title_link) ) {
+            Record_Result("SWU_E2.2.5", -1, -1, "",
+                          String_Value("Missing link in subsite title"));
+        }
+        else {
+            #
+            # Check site title link to see that they have the expected
+            # "Open in new window" status.
+            #
+            Check_New_Window_Attribute($logged_in,
+                                       \%navigation_links_new_window_status,
+                                       $subsite_title_link, "SWU_E2.2.5");
+
+            #
+            # Do we have a value for this language for the subsite title ?
+            #
+            if ( ! defined($subsite_title_language{$language}) ) {
+                $subsite_title_language{$language} = $subsite_title_link->anchor;
+                print "New subsite_title_language entry for language $language\n" if $debug;
+            }
+            elsif ( $subsite_title_language{$language} ne $subsite_title_link->anchor ) {
+                print "Mismatch on subsite title value, expecting \"" .
+                      $subsite_title_language{$language} . "\"\n" if $debug;
+                Record_Result("SWU_E2.2.5", -1, -1, "",
+                              String_Value("Incorrect subsite title found") .
+                              " \"" . $subsite_title_link->anchor . "\" " .
+                              String_Value("expecting") . " \"" .
+                              $subsite_title_language{$language} . "\"");
+
+            }
+        }
+    }
+    else {
+        print "No SUBSITE_BANNER section links\n" if $debug;
     }
 }
 
@@ -3983,6 +4761,9 @@ sub Check_Site_Banner_Links {
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
 #             site_links - hash table of site links
+#             profile - testcase profile
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -3991,10 +4772,10 @@ sub Check_Site_Banner_Links {
 # are present.
 #***********************************************************************
 sub Check_Site_Navigation_Links {
-    my ($url, $language, $link_sets, $site_links) = @_;
+    my ($url, $language, $link_sets, $site_links, $profile, $logged_in) = @_;
 
     my ($list_addr, %empty_section_hash, @empty_list);
-    my ($section_hash, $lang_list_addr, $link);
+    my ($section_hash, $lang_list_addr, $link, $object);
 
     #
     # Check Site Navigation links
@@ -4002,7 +4783,22 @@ sub Check_Site_Navigation_Links {
     print "Check Site Navigation links\n" if $debug;
     if ( defined($$link_sets{"SITE_NAV"}) ) {
         $list_addr = $$link_sets{"SITE_NAV"};
-        
+
+        #
+        # Check each link to see that they have the expected
+        # "Open in new window" status.
+        #
+        foreach $link (@$list_addr) {
+            #
+            # Check anchor links only
+            #
+            if ( $link->link_type eq "a" ) {
+                Check_New_Window_Attribute($logged_in,
+                                           \%navigation_links_new_window_status,
+                                           $link, "SWU_E2.2.5");
+            }
+        }
+
         #
         # Site navigation links are text only links, check for
         # any image links.
@@ -4068,6 +4864,7 @@ sub Check_Site_Navigation_Links {
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             profile - testcase profile
 #
 # Description:
 #
@@ -4076,26 +4873,42 @@ sub Check_Site_Navigation_Links {
 # are present.
 #***********************************************************************
 sub Check_Breadcrumb_Links {
-    my ($url, $language, $link_sets) = @_;
+    my ($url, $language, $link_sets, $profile) = @_;
 
     my ($site_title_link, $first_breadcrumb, $link);
     my ($site_title_url, $first_breadcrumb_url, $message);
     my ($list_addr, $expected_link_list_addr, @empty_list);
     my ($expected_href_list_addr, $optional_link_list_addr);
-    my ($optional_href_list_addr);
+    my ($optional_href_list_addr, $object, $breadcrumb_links);
 
     #
-    # Check Breadcrumb links
+    # Get breadcrumb links
+    #
+    $object = $testcase_data_objects{$profile};
+    $breadcrumb_links = $object->get_field("breadcrumb_links");
+
+    #
+    # Get the list of breadcrumb links
     #
     print "Check breadcrumb links\n" if $debug;
     if ( defined($$link_sets{"BREADCRUMB"}) ) {
         $list_addr = $$link_sets{"BREADCRUMB"};
+    }
+    else {
+        print "No BREADCRUMB section links\n" if $debug;
+        $list_addr = \@empty_list;
+    }
 
+    #
+    # Check the list of breadcrumb links
+    #
+    if ( defined($breadcrumb_links) && 
+         defined($$breadcrumb_links{$language}) ) {
         #
         # Get list of expected links
         #
-        if ( defined($breadcrumb_links{$language}) ) {
-            $expected_link_list_addr = $breadcrumb_links{$language};
+        if ( defined($$breadcrumb_links{$language}) ) {
+            $expected_link_list_addr = $$breadcrumb_links{$language};
         }
 
         #
@@ -4122,8 +4935,8 @@ sub Check_Breadcrumb_Links {
         #
         # Do we have a set of expected links ?
         #
-        if ( defined($breadcrumb_links{$language}) ) {
-            $expected_link_list_addr = $breadcrumb_links{$language};
+        if ( defined($$breadcrumb_links{$language}) ) {
+            $expected_link_list_addr = $$breadcrumb_links{$language};
             Check_Expected_Links($url, $list_addr, $expected_link_list_addr,
                                  $expected_href_list_addr, 
                                  $optional_link_list_addr,
@@ -4190,9 +5003,6 @@ sub Check_Breadcrumb_Links {
             }
         }
     }
-    else {
-        print "No BREADCRUMB section links\n" if $debug;
-    }
 }
 
 #***********************************************************************
@@ -4204,6 +5014,9 @@ sub Check_Breadcrumb_Links {
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
 #             site_links - hash table of site links
+#             profile - testcase profile
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -4211,18 +5024,41 @@ sub Check_Breadcrumb_Links {
 # section links.  It checks to see if expected links are present.
 #***********************************************************************
 sub Check_Terms_and_Conditions_Links {
-    my ($url, $language, $link_sets, $site_links) = @_;
+    my ($url, $language, $link_sets, $site_links, $profile, $logged_in) = @_;
 
-    my ($list_addr, $expected_link_list_addr, @empty_list);
+    my ($list_addr, $expected_link_list_addr, @empty_list, $link);
     my ($expected_href_list_addr, $optional_link_list_addr);
-    my ($optional_href_list_addr, $link_set_list_addr);
+    my ($optional_href_list_addr, $link_set_list_addr, $object);
+    my ($terms_cond_footer_links, $terms_cond_footer_link_hrefs);
 
+    #
+    # Get terms and conditions links
+    #
+    $object = $testcase_data_objects{$profile};
+    $terms_cond_footer_links = $object->get_field("terms_cond_footer_links");
+    $terms_cond_footer_link_hrefs = $object->get_field("terms_cond_footer_link_hrefs");
+    
     #
     # Do we have Terms and Conditions Footer links ?
     #
     print "Check Terms and Conditions Footer links\n" if $debug;
     if ( defined($$link_sets{"TERMS_CONDITIONS_FOOTER"}) ) {
         $list_addr = $$link_sets{"TERMS_CONDITIONS_FOOTER"};
+
+        #
+        # Check each link to see that they have the expected
+        # "Open in new window" status.
+        #
+        foreach $link (@$list_addr) {
+            #
+            # Check anchor links only
+            #
+            if ( $link->link_type eq "a" ) {
+                Check_New_Window_Attribute($logged_in,
+                                           \%navigation_links_new_window_status,
+                                           $link, "SWU_E2.2.7");
+            }
+        }
 
         #
         # Site footer links are text only links, check for
@@ -4239,15 +5075,17 @@ sub Check_Terms_and_Conditions_Links {
     #
     # Get list of expected footer links
     #
-    if ( defined($terms_cond_footer_links{$language}) ) {
-        $expected_link_list_addr = $terms_cond_footer_links{$language};
+    if ( defined($terms_cond_footer_links) &&
+         defined($$terms_cond_footer_links{$language}) ) {
+        $expected_link_list_addr = $$terms_cond_footer_links{$language};
     }
 
     #
     # Get list of expected footer link href values
     #
-    if ( defined($terms_cond_footer_link_hrefs{$language}) ) {
-        $expected_href_list_addr = $terms_cond_footer_link_hrefs{$language};
+    if ( defined($terms_cond_footer_link_hrefs) &&
+         defined($$terms_cond_footer_link_hrefs{$language}) ) {
+        $expected_href_list_addr = $$terms_cond_footer_link_hrefs{$language};
     }
 
     #
@@ -4280,6 +5118,9 @@ sub Check_Terms_and_Conditions_Links {
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
 #             site_links - hash table of site links
+#             profile - testcase profile
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -4288,18 +5129,43 @@ sub Check_Terms_and_Conditions_Links {
 # are present.
 #***********************************************************************
 sub Check_Site_Footer_Links {
-    my ($url, $language, $link_sets, $site_links) = @_;
+    my ($url, $language, $link_sets, $site_links, $profile, $logged_in) = @_;
 
     my ($list_addr, $expected_link_list_addr, @empty_list);
     my ($expected_href_list_addr, $optional_link_list_addr);
     my ($optional_href_list_addr, $link_set_list_addr);
+    my ($object, $site_footer_links, $site_footer_link_hrefs);
+    my ($site_footer_link_set, $link);
 
+    #
+    # Get site footer links
+    #
+    $object = $testcase_data_objects{$profile};
+    $site_footer_links = $object->get_field("site_footer_links");
+    $site_footer_link_hrefs  = $object->get_field("site_footer_link_hrefs");
+    $site_footer_link_set  = $object->get_field("site_footer_link_set");
+    
     #
     # Do we have Site Footer links ?
     #
     print "Check Site Footer links\n" if $debug;
     if ( defined($$link_sets{"SITE_FOOTER"}) ) {
         $list_addr = $$link_sets{"SITE_FOOTER"};
+
+        #
+        # Check each link to see that they have the expected
+        # "Open in new window" status.
+        #
+        foreach $link (@$list_addr) {
+            #
+            # Check anchor links only
+            #
+            if ( $link->link_type eq "a" ) {
+                Check_New_Window_Attribute($logged_in,
+                                           \%navigation_links_new_window_status,
+                                           $link, "SWU_E2.2.7");
+            }
+        }
 
         #
         # Site footer links are text only links, check for
@@ -4316,15 +5182,17 @@ sub Check_Site_Footer_Links {
     #
     # Get list of expected footer links
     #
-    if ( defined($site_footer_links{$language}) ) {
-        $expected_link_list_addr = $site_footer_links{$language};
+    if ( defined($site_footer_links) &&
+         defined($$site_footer_links{$language}) ) {
+        $expected_link_list_addr = $$site_footer_links{$language};
     }
 
     #
     # Get list of expected footer link href values
     #
-    if ( defined($site_footer_link_hrefs{$language}) ) {
-        $expected_href_list_addr = $site_footer_link_hrefs{$language};
+    if ( defined($site_footer_link_hrefs) &&
+         defined($$site_footer_link_hrefs{$language}) ) {
+        $expected_href_list_addr = $$site_footer_link_hrefs{$language};
     }
 
     #
@@ -4344,7 +5212,8 @@ sub Check_Site_Footer_Links {
     #
     # Check Site Footer links if we have a set of expected links
     #
-    if ( defined($site_footer_links{$language}) ) {
+    if ( defined($site_footer_links) &&
+         defined($$site_footer_links{$language}) ) {
         Check_Expected_Links($url, $list_addr, $expected_link_list_addr,
                              $expected_href_list_addr, $optional_link_list_addr,
                              $optional_href_list_addr, "SWU_E2.2.7",
@@ -4355,8 +5224,9 @@ sub Check_Site_Footer_Links {
     # Get list of required footer links that don't have any particular
     # ordering.
     #
-    if ( defined($site_footer_link_set{$language}) ) {
-        $link_set_list_addr = $site_footer_link_set{$language};
+    if ( defined($site_footer_link_set) &&
+         defined($$site_footer_link_set{$language}) ) {
+        $link_set_list_addr = $$site_footer_link_set{$language};
     }
 
     #
@@ -4376,6 +5246,9 @@ sub Check_Site_Footer_Links {
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             profile - testcase profile
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -4384,18 +5257,42 @@ sub Check_Site_Footer_Links {
 # are present.
 #***********************************************************************
 sub Check_GC_Footer_Links {
-    my ($url, $language, $link_sets) = @_;
+    my ($url, $language, $link_sets, $profile, $logged_in) = @_;
 
     my ($list_addr, $expected_link_list_addr, @empty_list);
     my ($expected_href_list_addr, $optional_link_list_addr);
-    my ($optional_href_list_addr);
+    my ($optional_href_list_addr, $gc_footer_links);
+    my ($gc_footer_link_hrefs, $object, $link);
 
+    #
+    # Get GC footer links
+    #
+    print "Check_GC_Footer_Links, profile = $profile\n" if $debug;
+    $object = $testcase_data_objects{$profile};
+    $gc_footer_links = $object->get_field("gc_footer_links");
+    $gc_footer_link_hrefs = $object->get_field("gc_footer_link_hrefs");
+    
     #
     # Do we have GC Footer links ?
     #
     print "Check GC Footer links\n" if $debug;
     if ( defined($$link_sets{"GC_FOOTER"}) ) {
         $list_addr = $$link_sets{"GC_FOOTER"};
+
+        #
+        # Check each link to see that they have the expected
+        # "Open in new window" status.
+        #
+        foreach $link (@$list_addr) {
+            #
+            # Check anchor links only
+            #
+            if ( $link->link_type eq "a" ) {
+                Check_New_Window_Attribute($logged_in,
+                                           \%navigation_links_new_window_status,
+                                           $link, "SWU_E2.2.7");
+            }
+        }
     }
     else {
         print "No GC_FOOTER section links\n" if $debug;
@@ -4405,15 +5302,17 @@ sub Check_GC_Footer_Links {
     #
     # Get list of expected footer links
     #
-    if ( defined($gc_footer_links{$language}) ) {
-        $expected_link_list_addr = $gc_footer_links{$language};
+    if ( defined($gc_footer_links) &&
+         defined($$gc_footer_links{$language}) ) {
+        $expected_link_list_addr = $$gc_footer_links{$language};
     }
 
     #
     # Get list of expected footer link href values
     #
-    if ( defined($gc_footer_link_hrefs{$language}) ) {
-        $expected_href_list_addr = $gc_footer_link_hrefs{$language};
+    if ( defined($gc_footer_link_hrefs) &&
+         defined($$gc_footer_link_hrefs{$language}) ) {
+        $expected_href_list_addr = $$gc_footer_link_hrefs{$language};
     }
 
     #
@@ -4433,7 +5332,8 @@ sub Check_GC_Footer_Links {
     #
     # Check GC Footer links if we have a set of expected links
     #
-    if ( defined($gc_footer_links{$language}) ) {
+    if ( defined($gc_footer_link_hrefs) &&
+         defined($$gc_footer_link_hrefs{$language}) ) {
         Check_Expected_Links($url, $list_addr, $expected_link_list_addr,
                              $expected_href_list_addr, $optional_link_list_addr,
                              $optional_href_list_addr, "SWU_E2.2.7",
@@ -4954,11 +5854,12 @@ sub Check_Server_Page_Links {
     }
 
     #
-    # Check server page footer links
+    # Check server page content links
     #
-    Check_Expected_Links($url, $list_addr, \@links, \@hrefs,
-                         \@empty_list, \@empty_list, "SWU_E2.5",
-                         "SWU_E2.5", String_Value("Body links"));
+    if ( @links > 0 ) {
+        Check_Required_Link_Set($url, $list_addr, \@links, "SWU_E2.5",
+                             "SWU_E2.5", String_Value("Body links"));
+    }
 
     #
     # Do we have footer links ?
@@ -5013,85 +5914,176 @@ sub Check_Server_Page_Links {
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
 #             site_links - hash table of site links
+#             profile - testcase profile
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
 #    This function performs checks on content page links.
-# document.  Checks are performed on the GC navigation bar, left
-# navigation and footer.
+# document.  Checks are performed on the GC navigation bar, site banner,
+# subsite banner, site navigation (mega menu), breadcrumb, terms &
+# conditions, site footer and gc footer links.
 #
 #***********************************************************************
 sub Check_Content_Page_Links {
-    my ($url, $language, $link_sets, $site_links) = @_;
+    my ($url, $language, $link_sets, $site_links, $profile,
+        $logged_in) = @_;
 
     #
     # Check GC Navigation Links
     #
-    print "Check content page links\n" if $debug;
-    Check_GC_Navigation_Links($url, $language, $link_sets);
+    print "Check content page links, profile = $profile\n" if $debug;
+    Check_GC_Navigation_Links($url, $language, $link_sets, $profile, $logged_in);
 
     #
     # Check Site Banner Links
     #
-    Check_Site_Banner_Links($url, $language, $link_sets);
+    Check_Site_Banner_Links($url, $language, $link_sets, $profile, $logged_in);
+
+    #
+    # Check Subsite Banner Links
+    #
+    Check_SubSite_Banner_Links($url, $language, $link_sets, $profile,
+                               $logged_in);
 
     #
     # Check Site Navigation Links
     #
-    Check_Site_Navigation_Links($url, $language, $link_sets, $site_links);
+    Check_Site_Navigation_Links($url, $language, $link_sets, $site_links,
+                                $profile, $logged_in);
     
     #
     # Check Breadcrumb Links
     #
-    Check_Breadcrumb_Links($url, $language, $link_sets);
+    Check_Breadcrumb_Links($url, $language, $link_sets, $profile);
 
     #
     # Check Terms and Conditions Links
     #
-    Check_Terms_and_Conditions_Links($url, $language, $link_sets, $site_links);
+    Check_Terms_and_Conditions_Links($url, $language, $link_sets, $site_links,
+                                     $profile, $logged_in);
 
     #
     # Check Site Footer Links
     #
-    Check_Site_Footer_Links($url, $language, $link_sets, $site_links);
+    Check_Site_Footer_Links($url, $language, $link_sets, $site_links, $profile,
+                            $logged_in);
 
     #
     # Check GC Footer Links
     #
-    Check_GC_Footer_Links($url, $language, $link_sets);
+    Check_GC_Footer_Links($url, $language, $link_sets, $profile, $logged_in);
 }
 
 #***********************************************************************
 #
-# Name: Check_Common_Page_Links
+# Name: Check_Home_Page_Links
 #
 # Parameters: url - URL
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             site_links - hash table of site links
+#             profile - testcase profile
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
-#    This function performs checks on links that are common to all pages.
+#    This function performs checks on home page links.
+# document.  Checks are performed on the GC navigation bar, left
+# navigation and footer.
 #
 #***********************************************************************
-sub Check_Common_Page_Links {
-    my ($url, $language, $link_sets) = @_;
+sub Check_Home_Page_Links {
+    my ($url, $language, $link_sets, $site_links, $profile, $logged_in) = @_;
+
+    #
+    # Check GC Navigation Links
+    #
+    print "Check home page links, profile = $profile\n" if $debug;
+    Check_GC_Navigation_Links($url, $language, $link_sets, $profile,
+                              $logged_in);
+
+    #
+    # Check Site Banner Links
+    #
+    Check_Site_Banner_Links($url, $language, $link_sets, $profile, $logged_in);
+
+    #
+    # Check Site Navigation Links
+    #
+    Check_Site_Navigation_Links($url, $language, $link_sets, $site_links,
+                                $profile, $logged_in);
+
+    #
+    # Check that there are no breadcrumb links
+    #
+    print "Check for breadcrumb links in home page\n" if $debug;
+    if ( defined($$link_sets{"BREADCRUMB"}) ) {
+        print "Breadcrumb links found on home page\n" if $debug;
+        Record_Result("SWU_E2.2.5", -1, -1, "",
+                      String_Value("Breadcrumb links found on home page"));
+    }
+
+    #
+    # Check Terms and Conditions Links
+    #
+    Check_Terms_and_Conditions_Links($url, $language, $link_sets, $site_links,
+                                     $profile, $logged_in);
+
+    #
+    # Check Site Footer Links
+    #
+    Check_Site_Footer_Links($url, $language, $link_sets, $site_links, $profile,
+                            $logged_in);
+
+    #
+    # Check GC Footer Links
+    #
+    Check_GC_Footer_Links($url, $language, $link_sets, $profile, $logged_in);
+}
+
+#***********************************************************************
+#
+# Name: Check_Skip_Links
+#
+# Parameters: url - URL
+#             language - URL language
+#             link_sets - table of lists of link objects (1 list per
+#               document section)
+#             profile - testcase profile
+#
+# Description:
+#
+#    This function checks the skip links section of the page.
+#
+#***********************************************************************
+sub Check_Skip_Links {
+    my ($url, $language, $link_sets, $profile) = @_;
 
     my ($list_addr, $href, $link, @links, $link_count, $href_count, $i);
     my ($message, $this_href, $match_href);
+    my ($object, $skip_links_hrefs);
+
+    #
+    # Get Skip links links
+    #
+    $object = $testcase_data_objects{$profile};
+    $skip_links_hrefs = $object->get_field("skip_links_hrefs");
 
     #
     # Do we have links in the SKIP_LINKS section ? This is mandatory.
     #
     print "Check common page links\n" if $debug;
-    if ( defined($$link_sets{"SKIP_LINKS"}) ) {
+    if ( defined($skip_links_hrefs) && defined($$link_sets{"SKIP_LINKS"}) ) {
         $list_addr = $$link_sets{"SKIP_LINKS"};
 
         #
         # Get the number of expected links
         #
-        $href_count = @skip_links_hrefs;
+        $href_count = @$skip_links_hrefs;
 
         #
         # Get a list of all the anchor links in this section (i.e. skip
@@ -5123,7 +6115,7 @@ sub Check_Common_Page_Links {
             #
             $i = 0;
             foreach $link (@links) {
-                $href = $skip_links_hrefs[$i];
+                $href = $$skip_links_hrefs[$i];
 
                 #
                 # Split href value on white space in case there are several
@@ -5175,6 +6167,166 @@ sub Check_Common_Page_Links {
 
 #***********************************************************************
 #
+# Name: Get_WET_Version
+#
+# Parameters: url - URL
+#
+# Description:
+#
+#    This function attepmts to extract a WET version number from
+# the supplied supporting file.  It uses a global hash table to cache
+# previously seen URLs and their version number.
+#
+#***********************************************************************
+sub Get_WET_Version {
+    my ($url) = @_;
+
+    my ($version, $resp_url, $resp, $line, $lead, $tail, $content);
+
+    #
+    # Do we already have the version number ?
+    #
+    if ( defined($supporting_file_wet_versions{$url}) ) {
+        $version = $supporting_file_wet_versions{$url};
+    }
+    else {
+        #
+        # Get the URL's content
+        #
+        ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
+
+        #
+        # Did we get the content ?
+        #
+        if ( $resp->is_success ) {
+            #
+            # Get the revision number from the content (if there is one)
+            #
+            $content = $resp->content;
+            foreach $line (split(/\n/, $content)) {
+                #
+                # Look for Version: ... Build line
+                #
+                ($lead, $version) = $line =~ /^([\s\*]*)Version:\s+(\S+)\s+Build.*$/io;
+
+                #
+                # If we didn't find a version, look for Version: ...
+                # (i.e. no Build string, pre 3.0.2 release)
+                #
+                if ( ! defined($version) ) {
+                    ($lead, $version) = $line =~ /^([\s\*]*)Version:\s+(\S+)\s*$/io;
+                }
+
+                #
+                # Did we find a version ?
+                #
+                if ( defined($version) ) {
+                    print "Found version $version in $url\n" if $debug;
+                    $supporting_file_wet_versions{$url} = $version;
+                    last;
+                }
+            }
+
+            #
+            # Did we not find a version ?
+            #
+            if ( ! defined($version) ) {
+                print "Did not find version in $url\n" if $debug;
+                $supporting_file_wet_versions{$url} = "";
+            }
+        }
+    }
+
+    #
+    # Return the version number
+    #
+    return($version);
+}
+
+#***********************************************************************
+#
+# Name: Check_Template_Link_Version
+#
+# Parameters: url - URL
+#             link_sets - table of lists of link objects (1 list per
+#               document section)
+#             profile - testcase profile
+#
+# Description:
+#
+#    This function checks all the template links to see that they are
+# from the same WET release.
+#
+#***********************************************************************
+sub Check_Template_Link_Version {
+    my ($url, $link_sets, $profile) = @_;
+
+    my ($section, $list_addr, $link, $link_url, $protocol, $domain);
+    my ($file_path, $query, $version, $current_wet_version);
+
+    #
+    # Check each document section's list of links
+    #
+    while ( ($section, $list_addr) = each %$link_sets ) {
+        print "Check template links in section $section\n" if $debug;
+
+        #
+        # Check each link in the section
+        #
+        foreach $link (@$list_addr) {
+            $link_url = $link->abs_url;
+            print "Check link $link_url\n" if $debug;
+
+            #
+            # Break URL into components
+            #
+            ($protocol, $domain, $file_path, $query) = URL_Check_Parse_URL($link_url);
+
+            #
+            # Is this a supporting file (e.g. CSS or JavaScript ?)
+            #
+            if ( ($file_path =~ /\.css$/i) || ($file_path =~ /\.js$/i) ) {
+                #
+                # Get possible WET revision number in the supporting file.
+                #
+                $version = Get_WET_Version($link_url);
+
+                #
+                # Do we have a current WET version ?
+                #
+                if ( defined($current_wet_version) ) {
+                    #
+                    # If we got a version from the supporting file, does
+                    # it match the current WET version ?
+                    # A supporting file may not contain a version as it may be
+                    # a custom file (not part of WET). This is not an error.
+                    #
+                    if ( ($version ne "") && 
+                         ($version ne $current_wet_version) ) {
+                        print "Supporting file version \"$version\" does not match current WET version \"$current_wet_version\"\n" if $debug;
+                        Record_Result("SWU_TEMPLATE", $link->line_no,
+                                      $link->column_no, $link->source_line,
+                       String_Value("Mismatch in WET version, found") .
+                                      " \"$version\" " .
+                                      String_Value("expecting") .
+                                      "\"$current_wet_version\"");
+                    }
+                }
+                elsif ( $version ne "" ) {
+                    #
+                    # Use current file's version (if it has one) as
+                    # the WET version.
+                    #
+                    print "WET version = $version\n" if $debug;
+                    $current_wet_version = $version;
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: SWU_Check_Links
 #
 # Parameters: tqa_results_list - address of hash table results
@@ -5184,6 +6336,8 @@ sub Check_Common_Page_Links {
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
 #             site_links - hash table of site links
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -5196,11 +6350,13 @@ sub Check_Common_Page_Links {
 #***********************************************************************
 sub SWU_Check_Links {
     my ($tqa_results_list, $url, $profile, $language, $link_sets,
-        $site_links) = @_;
+        $site_links, $logged_in) = @_;
 
     my ($result_object, @local_tqa_results_list, $list_addr);
     my ($expected_link_list_addr, @empty_list, $tcid, $do_tests);
-    my (@local_archive_tqa_results_list);
+    my (@local_archive_tqa_results_list, $page_type, $object);
+    my ($subsection_list_addr, $require_skip_links);
+    my ($required_template_sections, $name);
 
     #
     # Do we have a valid profile ?
@@ -5259,24 +6415,77 @@ sub SWU_Check_Links {
         # Check splash page links
         #
         Check_Splash_Page_Links($url, $language, $link_sets);
+        $page_type = "SPLASH_PAGE";
     }
     elsif ( defined($content_subsection_found{"SERVER_DECORATION"}) ) {
         #
         # Check server page links
         #
         Check_Server_Page_Links($url, $language, $link_sets);
+        $page_type = "SERVER_PAGE";
+    }
+    elsif ( defined($content_subsection_found{"PRIORITIES"}) ) {
+        #
+        # Check home page links
+        #
+        Check_Home_Page_Links($url, $language, $link_sets, $site_links,
+                                 $profile, $logged_in);
+        $page_type = "HOME_PAGE";
     }
     else {
         #
         # Check content page links.
         #
-        Check_Content_Page_Links($url, $language, $link_sets, $site_links);
+        Check_Content_Page_Links($url, $language, $link_sets, $site_links,
+                                 $profile, $logged_in);
+        $page_type = "CONTENT_PAGE";
     }
-    
+
     #
-    # Check for links common to all pages
+    # Get required template markers
     #
-    Check_Common_Page_Links($url, $language, $link_sets);
+    $object = $testcase_data_objects{$profile};
+    $required_template_sections = $object->get_field("required_template_sections");
+
+    #
+    # Do we have required template sections for this page type ?
+    #
+    if ( defined($required_template_sections) &&
+         defined($$required_template_sections{$page_type}) ) {
+        $subsection_list_addr = $$required_template_sections{$page_type};
+
+        #
+        # Does this page type require skip links ?
+        #
+        $require_skip_links = 0;
+        if ( defined($subsection_list_addr) ) {
+            foreach $name (@$subsection_list_addr) {
+                if ( $name eq "SKIP_LINKS" ) {
+                    $require_skip_links = 1;
+                    last;
+                }
+            }
+        }
+
+        #
+        # Does this page have skip links, whether they are required or not ?
+        #
+        if ( defined($$link_sets{"SKIP_LINKS"}) ) {
+            $require_skip_links = 1;
+        }
+
+        #
+        # Check skip links
+        #
+        if ( $require_skip_links ) {
+            Check_Skip_Links($url, $language, $link_sets, $profile);
+        }
+    }
+
+    #
+    # Check template files version
+    #
+    Check_Template_Link_Version($url, $link_sets, $profile);
 
     #
     # Add our results to previous results
@@ -5332,6 +6541,11 @@ sub SWU_Check_Archive_Check {
     Initialize_Test_Results($profile, \@tqa_results_list);
 
     #
+    # Set global flag to indicate this URL is "Archived on the Web"
+    #
+    $is_archived = 1;
+
+    #
     # Are we doing archived on the web checking ?
     #
     if ( defined($$current_clf_check_profile{"SWU_6.1.5"}) ) {
@@ -5346,6 +6560,13 @@ sub SWU_Check_Archive_Check {
         if ( $message ne "" ) {
             Record_Result("SWU_6.1.5", -1, -1, "", $message);
         }
+
+        #
+        # Check for other SWU testcase failures that apply to archived
+        # documents.
+        #
+        Perform_SWU_Checks($this_url, $language, $profile, $mime_type, $resp,
+                           $content);
     }
 
     #
@@ -5370,7 +6591,8 @@ sub Import_Packages {
 
     my ($package);
     my (@package_list) = ("tqa_result_object", "url_check", "crawler",
-                          "clf_archive", "content_check");
+                          "clf_archive", "content_check",
+                          "testcase_data_object");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
@@ -5385,6 +6607,11 @@ sub Import_Packages {
         }
         $package->import();
     }
+
+    #
+    # Create a testcase data object for the empty testcase profile.
+    #
+    $testcase_data_objects{""} = testcase_data_object->new;;
 }
 
 #***********************************************************************

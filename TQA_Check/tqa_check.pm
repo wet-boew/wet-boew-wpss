@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6010 $
+# $Revision: 6375 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2012-10-04 12:57:35 -0400 (Thu, 04 Oct 2012) $
+# $Date: 2013-08-28 09:18:33 -0400 (Wed, 28 Aug 2013) $
 #
 # Description:
 #
@@ -203,6 +203,7 @@ sub Set_TQA_Check_Debug {
     TQA_Testcase_Debug($this_debug);
     Set_HTML_Check_Debug($this_debug);
     Set_XML_Check_Debug($this_debug);
+    Set_CSV_Check_Debug($this_debug);
 
     #
     # Copy debug value to global variable
@@ -255,6 +256,7 @@ sub Set_TQA_Check_Language {
     Set_HTML_Check_Language($language);
     TQA_Testcase_Language($language);
     Set_XML_Check_Language($language);
+    Set_CSV_Check_Language($language);
 
     #
     # Check for French language
@@ -330,6 +332,7 @@ sub Set_TQA_Check_Testcase_Data {
     Set_PDF_Check_Testcase_Data($testcase, $data);
     Set_HTML_Check_Testcase_Data($testcase, $data);
     Set_XML_Check_Testcase_Data($testcase, $data);
+    Set_CSV_Check_Testcase_Data($testcase, $data);
 
     #
     # Copy the data into the table
@@ -364,6 +367,7 @@ sub Set_TQA_Check_Test_Profile {
     Set_PDF_Check_Test_Profile($profile, $tqa_checks);
     Set_HTML_Check_Test_Profile($profile, $tqa_checks);
     Set_XML_Check_Test_Profile($profile, $tqa_checks);
+    Set_CSV_Check_Test_Profile($profile, $tqa_checks);
 
     #
     # Make a local copy of the hash table as we will be storing the address
@@ -423,6 +427,7 @@ sub Set_TQA_Check_Valid_Markup {
         }
         elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
                 ($mime_type =~ /application\/atom\+xml/) ||
+                ($mime_type =~ /application\/rss\+xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($this_url =~ /\.xml$/i) ) {
             Set_XML_Check_Valid_Markup($validity);
@@ -725,9 +730,19 @@ sub TQA_Check {
     #
     elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
             ($mime_type =~ /application\/atom\+xml/) ||
+            ($mime_type =~ /application\/rss\+xml/) ||
             ($mime_type =~ /text\/xml/) ||
             ($this_url =~ /\.xml$/i) ) {
         @tqa_results_list = XML_Check($this_url, $language, $profile,
+                                      $content);
+    }
+    #
+    # Is it CSV content?
+    #
+    elsif ( ($mime_type =~ /text\/x-comma-separated-values/) ||
+            ($mime_type =~ /text\/csv/) ||
+            ($this_url =~ /\.csv$/i) ) {
+        @tqa_results_list = CSV_Check($this_url, $language, $profile,
                                       $content);
     }
 
@@ -818,6 +833,52 @@ sub Prepare_String_For_Comparison {
 
 #***********************************************************************
 #
+# Name: Clean_Text
+#
+# Parameters: text - text string
+#
+# Description:
+#
+#   This function eliminates leading and trailing white space from text.
+# It also compresses multiple white space characters into a single space.
+#
+#***********************************************************************
+sub Clean_Text {
+    my ($text) = @_;
+    
+    #
+    # Encode entities.
+    #
+    $text = encode_entities($text);
+
+    #
+    # Convert &nbsp; into a single space.
+    # Convert newline into a space.
+    # Convert return into a space.
+    #
+    $text =~ s/\&nbsp;/ /g;
+    $text =~ s/\n/ /g;
+    $text =~ s/\r/ /g;
+    
+    #
+    # Convert multiple spaces into a single space
+    #
+    $text =~ s/\s\s+/ /g;
+    
+    #
+    # Trim leading and trailing white space
+    #
+    $text =~ s/^\s*//g;
+    $text =~ s/\s*$//g;
+    
+    #
+    # Return cleaned text
+    #
+    return($text);
+}
+
+#***********************************************************************
+#
 # Name: Check_Link_Anchor_Alt_Title_Check
 #
 # Parameters: url - URL
@@ -839,7 +900,7 @@ sub Check_Link_Anchor_Alt_Title_Check {
     my ($url_link_object_table, $previous_link, $different);
     my ($difference, $line_no, $column_no, $link_type);
     my ($url_lang_link_object_table, %lang_url_link_object_table);
-    my ($in_list, $list_heading);
+    my ($in_list, $list_heading, $ignored_link_text, $ignore_link);
 
     #
     # Are we checking labels, names and text alternatives ?
@@ -865,6 +926,28 @@ sub Check_Link_Anchor_Alt_Title_Check {
             $in_list = $link->in_list;
             $list_heading = $link->list_heading;
             print "Check link anchor = $anchor, lang = $lang, url = $link_url at $line_no:$column_no\n" if $debug;
+
+            #
+            # Does the link text match any of those we should ignore
+            # (e.g. Next, Previous)
+            #
+            if ( defined($testcase_data{"WCAG_2.0-G197"}) ) {
+                $ignore_link = 0;
+                foreach $ignored_link_text (split(/\n/, $testcase_data{"WCAG_2.0-G197"})) {
+                    if ( lc($ignored_link_text) eq lc(Clean_Text($anchor)) ) {
+                        print "Ignore link text \'$anchor\'\n" if $debug;
+                        $ignore_link = 1;
+                        last;
+                    }
+                }
+
+                #
+                # Do we ignore this link ?
+                #
+                if ( $ignore_link ) {
+                    next;
+                }
+            }
 
             #
             # Get the URL table for this language ?
@@ -1678,7 +1761,7 @@ sub TQA_Check_Images {
 
     my ($result_object, @local_tqa_results_list, $link);
     my ($is_decorative, $is_image, $href, $other_image);
-    my ($message);
+    my ($message, $resp);
 
     #
     # Do we have a valid profile ?
@@ -1728,7 +1811,7 @@ sub TQA_Check_Images {
                 #
                 # Get link status
                 #
-                $link = Link_Checker_Get_Link_Status($url, $link);
+                ($link, $resp) = Link_Checker_Get_Link_Status($url, $link);
             }
             
             #
@@ -1756,7 +1839,7 @@ sub TQA_Check_Images {
                 #
                 # Get link status
                 #
-                $link = Link_Checker_Get_Link_Status($url, $link);
+                ($link, $resp) = Link_Checker_Get_Link_Status($url, $link);
             }
 
             #
@@ -2327,7 +2410,8 @@ sub Import_Packages {
                           "tqa_result_object", "url_check",
                           "pdf_check", "html_check", "link_object",
                           "metadata", "metadata_result_object",
-                          "content_sections", "xml_check");
+                          "content_sections", "xml_check",
+                          "csv_check");
 
     #
     # Import packages, we don't use a 'use' statement as these packages

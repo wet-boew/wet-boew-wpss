@@ -2,9 +2,9 @@
 #
 # Name: metadata_result_object.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 6313 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Metadata_Check/Tools/metadata_result_object.pm $
+# $Date: 2013-06-26 11:40:27 -0400 (Wed, 26 Jun 2013) $
 #
 # Description:
 #

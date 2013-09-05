@@ -2,9 +2,9 @@
 #
 # Name: content_sections.pm
 #
-# $Revision: 5201 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/content_sections.pm $
-# $Date: 2011-04-14 16:31:45 -0400 (Thu, 14 Apr 2011) $
+# $Revision: 6303 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/content_sections.pm $
+# $Date: 2013-06-25 14:14:21 -0400 (Tue, 25 Jun 2013) $
 #
 # Description:
 #
@@ -353,7 +353,8 @@ sub check_start_tag {
         if ( defined($subsection_markers{$marker_value}) ) {
             $section_object = $subsection_markers{$marker_value};
             $subsection = $section_object->subsection;
-            print "Found subsection marker $marker_value, subsection = $subsection tag = $tag\n" if $debug;
+            $section = $section_object->section;
+            print "Found subsection marker $marker_value, subsection = $subsection section = $section tag = $tag\n" if $debug;
 
             #
             # If we are not already inside this subsection, set current
@@ -363,20 +364,26 @@ sub check_start_tag {
                 $$inside_subsection{$subsection} = 1;
                 $$subsection_tag_count{$subsection} = 0;
                 $$subsection_tag_name{$subsection} = $tag;
-                if ( $self->{"current_content_subsection"} ne "" ) {
-                    push(@$content_subsection_stack,
-                         $self->{"current_content_subsection"});
-                }
-                $self->{"current_content_subsection"} = $subsection;
-                print "Start of subsection $subsection at $line:$column\n" if $debug;
 
                 #
-                # Set the section marker for this subsection
+                # Save existing section/subsection values so we can
+                # resume them after this new section/subsection
                 #
-                $section = $section_object->section;
+                push(@$content_subsection_stack,
+                     $self->{"current_content_section"} . ":" .
+                     $self->{"current_content_subsection"});
+                print "Push " .
+                      $self->{"current_content_section"} . ":" .
+                      $self->{"current_content_subsection"} .
+                      " onto content_subsection_stack stack\n" if $debug;
+
+                #
+                # Set the section and subsection values
+                #
                 $$inside_section{$section} = 1;
                 $self->{"current_content_section"} = $section;
-                print "In section $section at $line:$column\n" if $debug;
+                $self->{"current_content_subsection"} = $subsection;
+                print "Start of subsection $subsection in section $section at $line:$column\n" if $debug;
             }
 
             #
@@ -392,7 +399,7 @@ sub check_start_tag {
     # increment the tag count to get the right close
     # tag to end the section.
     #
-    $subsection =  $self->{"current_content_subsection"};
+    $subsection = $self->{"current_content_subsection"};
     if ( defined($subsection) && ($subsection ne "") &&
          ($tag eq $$subsection_tag_name{$subsection}) ) {
         $$subsection_tag_count{$subsection}++;
@@ -421,7 +428,7 @@ sub check_end_tag {
 
     my ($content_subsection_stack, $inside_subsection, $subsection);
     my ($subsection_tag_name, $subsection_tag_count, $section_object);
-    my ($new_subsection, $inside_section, $section);
+    my ($new_subsection, $inside_section, $section, $new_section);
 
     #
     # Get address of section stacks and tables.
@@ -467,19 +474,13 @@ sub check_end_tag {
             # (if there is one).
             #
             if ( @$content_subsection_stack > 0 ) {
-                $self->{"current_content_subsection"} = pop(@$content_subsection_stack);
+                ($new_section, $new_subsection) = split(/:/, pop(@$content_subsection_stack));
+                print "Pop $new_section:$new_subsection from content_subsection_stack\n" if $debug;
+                $self->{"current_content_subsection"} = $new_subsection;
+                $self->{"current_content_section"} = $new_section;
 
-                #
-                # Set new section marker for this subsection
-                #
-                $new_subsection = $self->{"current_content_subsection"};
-                if ( defined($subsection_markers{$new_subsection}) ) {
-                    print "Previous section $new_subsection restarted\n" if $debug;
-                    $section_object = $subsection_markers{$new_subsection};
-                    $section = $section_object->section;
-                    $self->{"current_content_section"} = $section;
-                    $$inside_section{$section} = 1;
-                }
+                print "Restart subsection $new_subsection in section $new_section\n" if $debug;
+                $$inside_section{$new_section} = 1;
             }
         }
     }

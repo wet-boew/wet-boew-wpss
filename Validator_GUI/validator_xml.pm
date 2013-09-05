@@ -2,9 +2,9 @@
 #
 # Name: validator_xml.pm
 #
-# $Revision: 5255 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_XML/Tools/validator_xml.pm $
-# $Date: 2011-05-13 15:44:21 -0400 (Fri, 13 May 2011) $
+# $Revision: 6321 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_xml.pm $
+# $Date: 2013-06-26 15:53:16 -0400 (Wed, 26 Jun 2013) $
 #
 # Description:
 #

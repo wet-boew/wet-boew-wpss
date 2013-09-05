@@ -2,9 +2,9 @@
 #
 # Name: wpss_strings.pm
 #
-# $Revision: 6061 $
+# $Revision: 6378 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_strings.pm $
-# $Date: 2012-10-22 14:58:08 -0400 (Mon, 22 Oct 2012) $
+# $Date: 2013-08-28 09:50:14 -0400 (Wed, 28 Aug 2013) $
 #
 # Description:
 #
@@ -94,7 +94,7 @@ Site:
 
 Site:
 ",
-    "Content report header", "The following is a list of web documents from your site that contain Content Check violations.
+    "Department report header", "The following is a list of web documents from your site that contain Department Check violations.
 
 Site:
 ",
@@ -123,12 +123,12 @@ Site:
     "ACC Testcase Profile",	"ACC Testcase Profile",
     "CLF Testcase Profile",	"CLF Testcase Profile",
     "Interop Testcase Profile",	"Interoperability Testcase Profile",
-    "Content Check Testcase Profile",	"Content Check Testcase Profile",
+    "Department Check Testcase Profile",	"Department Check Testcase Profile",
     "ACC",  			"ACC",
     "CLF",        "CLF",
     "INT",        "Interop",
     "Link", 			"Link",
-    "Content", 			"Content",
+    "Department", 			"Department",
     "Document Features",		"Document Features",
     "Document Features Profile",	"Document Features Profile",
     "pass", 			"pass",
@@ -173,6 +173,8 @@ Site:
     "Ignore",                           "Ignore",
     "HTTP Error",                       "HTTP Error",
     "Malformed URL",                    "Malformed URL",
+    "Analysis Aborted",                 "**** Analysis Aborted ****",
+    "Not reviewed",                     "**** Not reviewed ****",
     );
 
 my %string_table_fr = (
@@ -204,7 +206,7 @@ Site:
 
 Site:
 ",
-    "Content report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de contenu.
+    "Department report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de department.
 
 Site:
 ",
@@ -233,7 +235,7 @@ Site :
     "ACC Testcase Profile",	"Profil des cas de test de ACC",
     "CLF Testcase Profile",	"Profil des cas de test de NSI",
     "Interop Testcase Profile",	"Profil des cas de test de Interoperability",
-    "Content Check Testcase Profile",	"Profil des cas de test de contenu ",
+    "Department Check Testcase Profile",	"Profil des cas de test de department ",
     "Yes",			"Oui",
     "No",			"Non",
     "Report testcases that pass","Rapporter les cas de test qui passent",
@@ -286,6 +288,8 @@ Site :
     "Ignore",                           "Ignorer",
     "HTTP Error",                       "Erreur HTTP",
     "Malformed URL",                    "URL incorrecte",
+    "Analysis Aborted",	                "**** Analyse abandonné ****",
+    "Not reviewed",                     "**** Non révisé ****",
 );
 
 #

@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6058 $
+# $Revision: 6229 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2012-10-22 14:54:12 -0400 (Mon, 22 Oct 2012) $
+# $Date: 2013-03-20 11:27:59 -0400 (Wed, 20 Mar 2013) $
 #
 # Description:
 #
@@ -130,7 +130,8 @@ my ($content_callback, $site_crawl_callback, $stop_on_errors);
 my ($url_list_callback, $version, %default_report_options);
 my (%report_options_labels, $results_file_name);
 my (%results_file_suffixes, $first_results_tab);
-my (%login_credentials);
+my (%login_credentials, $results_save_callback);
+my (%url_401_user, %url_401_password);
 
 my ($debug) = 0;
 my ($xml_output_mode) = 0;
@@ -150,6 +151,7 @@ my (%site_configuration_fields) = (
     "logoutinterstitialcount", "",
     "logoutinterstitialcount", "",
     "httpproxy", "",
+    "report_fails_only", "",
    );
 
 my ($language) = "eng";
@@ -311,7 +313,7 @@ sub Validator_GUI_Set_Results_File_Suffixes {
 sub Validator_GUI_Set_Results_Save_Callback {
     my ($callback_fn) = @_;
 
-    return;
+    $results_save_callback = $callback_fn;
 }
 
 #***********************************************************************
@@ -1008,7 +1010,17 @@ sub Validator_GUI_End_Analysis {
         print "Validator_GUI_End_Analysis tab = $tab_label\n" if $debug;
         Update_Results_Tab($tab_label, "$message $date\n\n");
     }
+
+    #
+    # Do we have a Save Results call back function ?
+    #
+    if ( defined($results_save_callback) && defined($results_file_name) ) {
+        print "Call Results_Save_As callback function\n" if $debug;
+        &$results_save_callback($results_file_name);
+    }
+
 }
+
 #***********************************************************************
 #
 # Name: Run_Direct_HTML_Input_Callback
@@ -1115,10 +1127,25 @@ sub Run_Site_Crawl {
 sub Validator_GUI_401_Login {
     my ($url, $realm) = @_;
 
+    my ($user, $password);
+
+    #
+    # Do we already have credentials (e.g. through configuration) ?
+    #
+    if ( defined($url_401_user{$url}) && defined($url_401_password{$url}) ) {
+        print "Use 401 credentials from profile configuration\n" if $debug;
+        $user = $url_401_user{$url};
+        $password = $url_401_password{$url};
+    }
+    else {
+        $user = "";
+        $password = "";
+    }
+
     #
     # Return login values
     #
-    return("", "");
+    return($user, $password);
 }
 
 #***********************************************************************
@@ -1452,7 +1479,7 @@ sub Read_Crawl_File {
     my ($crawl_file) = @_;
     
     my (%crawl_details, $line, $key, $value, $site_dir, $site_entry);
-    my ($label, $tab, $suffix);
+    my ($label, $tab, $suffix, $type, $url);
 
     #
     # Initialize crawl details table to empty string values
@@ -1460,6 +1487,11 @@ sub Read_Crawl_File {
     foreach $key (keys(%site_configuration_fields)) {
         $crawl_details{$key} = "";
     }
+
+    #
+    # Report failures only
+    #
+    $crawl_details{"report_fails_only"} = 1;
 
     #
     # Copy in default report options
@@ -1507,7 +1539,7 @@ sub Read_Crawl_File {
         ($key, $value) = split(/\s+/, $line, 2);
 
         #
-        # If er don't have a value, set it to an empty string
+        # If we don't have a value, set it to an empty string
         #
         if ( ! defined($value) ) {
             $value = "";
@@ -1574,6 +1606,22 @@ sub Read_Crawl_File {
                 $results_file_name = $value;
             }
         }
+        elsif ( $key eq "HTTP_401" ) {
+            #
+            # Have HTTP 401 credentials
+            #
+            ($key, $url, $type, $value) = split(/\s+/, $line);
+
+            #
+            # Is this a username or password ?
+            #
+            if ( defined($value) && ($type eq "user") ) {
+                $url_401_user{$url} = $value;
+            }
+            elsif ( defined($value) && ($type eq "password") ) {
+                $url_401_password{$url} = $value;
+            }
+        }
     }
 
     #
@@ -1617,11 +1665,6 @@ sub Read_Crawl_File {
     }
 
     #
-    # Report failures only
-    #
-    $crawl_details{"report_fails_only"} = 1;
-
-    #
     # Do we have values for all fields
     #
     if ( $crawl_details{"sitedire"} eq "" ) {
@@ -1658,7 +1701,7 @@ sub Read_URL_File {
     my ($url_file) = @_;
     
     my (%report_options, $line, $key, $value);
-    my ($label, $tab, $suffix);
+    my ($label, $tab, $suffix, $url, $type);
     my ($urls) = "";
 
     #
@@ -1667,6 +1710,11 @@ sub Read_URL_File {
     foreach $key (keys(%default_report_options)) {
         $report_options{$key} = $default_report_options{$key};
     }
+
+    #
+    # Report failures only
+    #
+    $report_options{"report_fails_only"} = 1;
 
     #
     # Open the url file
@@ -1707,9 +1755,18 @@ sub Read_URL_File {
         ($key, $value) = split(/\s+/, $line, 2);
 
         #
+        # Did we get a known site configuration key value ?
+        #
+        if ( defined($site_configuration_fields{$key})) {
+            print "Report option $key, value = $value\n" if $debug;
+            if ( defined($value) ) {
+                $report_options{$key} = $value;
+            }
+        }
+        #
         # Did we get a known key value ?
         #
-        if ( defined($default_report_options{$key})) {
+        elsif ( defined($default_report_options{$key})) {
             print "Report option $key, value = $value\n" if $debug;
             if ( defined($value) ) {
                 $report_options{$key} = $value;
@@ -1743,6 +1800,22 @@ sub Read_URL_File {
                 $results_file_name = $value;
             }
         }
+        elsif ( $key eq "HTTP_401" ) {
+            #
+            # Have HTTP 401 credentials
+            #
+            ($key, $url, $type, $value) = split(/\s+/, $line);
+
+            #
+            # Is this a username or password ?
+            #
+            if ( defined($value) && ($type eq "user") ) {
+                $url_401_user{$url} = $value;
+            }
+            elsif ( defined($value) && ($type eq "password") ) {
+                $url_401_password{$url} = $value;
+            }
+        }
         else {
             #
             # Assume this is a URL
@@ -1763,11 +1836,6 @@ sub Read_URL_File {
     # Close the urls file
     #
     close(URL_FILE);
-
-    #
-    # Report failures only
-    #
-    $report_options{"report_fails_only"} = 1;
 
     #
     # Return the url list and report options
@@ -1800,6 +1868,11 @@ sub Read_HTML_File {
     foreach $key (keys(%default_report_options)) {
         $report_options{$key} = $default_report_options{$key};
     }
+
+    #
+    # Report failures only
+    #
+    $report_options{"report_fails_only"} = 1;
 
     #
     # Open the HTML file
@@ -1895,11 +1968,6 @@ sub Read_HTML_File {
     # Close the content file
     #
     close(HTML_FILE);
-
-    #
-    # Report failures only
-    #
-    $report_options{"report_fails_only"} = 1;
 
     #
     # Return the content and report options

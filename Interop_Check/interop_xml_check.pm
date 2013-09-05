@@ -2,9 +2,9 @@
 #
 # Name:   interop_xml_check.pm
 #
-# $Revision: 6024 $
+# $Revision: 6266 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_xml_check.pm $
-# $Date: 2012-10-11 15:15:30 -0400 (Thu, 11 Oct 2012) $
+# $Date: 2013-05-22 09:36:14 -0400 (Wed, 22 May 2013) $
 #
 # Description:
 #
@@ -88,11 +88,14 @@ my (%testcase_data);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my ($current_interop_check_profile, $current_url);
-my ($results_list_addr, @content_lines);
-my ($charset, $charset_text);
-my ($feed_type, $in_entry, $saved_text, $save_text_between_tags);
-my (%news_feed_found_tags, %news_entry_found_tags, $in_feed);
-my ($feed_title, $entry_title);
+my ($results_list_addr);
+my ($charset, $charset_text, %entry_id_values, %feed_id_values);
+my ($feed_type, $in_entry, $in_item, $saved_text, $save_text_between_tags);
+my (%news_feed_found_tags, %news_entry_found_tags, $in_feed, $in_rss);
+my ($feed_title, $entry_title, $feed_lang, $entry_html_link);
+my ($entry_updated, $entry_published, $entry_uri, $entry_id, $entry_author);
+my ($feed_updated, $feed_uri, $feed_id, $feed_self_link);
+my ($in_author, $feed_html_link, $feed_author, $entry_count);
 
 #
 # Create an empty profile that is used when we only want to extract
@@ -155,6 +158,27 @@ my %string_table_en = (
     "Missing href attribute for", "Missing 'href' attribute for",
     "href does not match URL in", "'href' does not match URL in",
     "Missing xml:lang attribute for", "Missing 'xml:lang' attribute for",
+    "Invalid URL in uri",         "Invalid URL in <uri>",
+    "for",                        "for",
+    "in",                         "in",
+    "and",                        "and",
+    "Missing text in",            "Missing text in",
+    "Invalid content",            "Invalid content: ",
+    "Year",                       "Year ",
+    "out of range 1900-2100",     " out of range 1900-2100",
+    "Month",                      "Month ",
+    "out of range 1-12",          " out of range 1-12",
+    "Date",                       "Date ",
+    "out of range 1-31",          " out of range 1-31",
+    "Date value",                 "Date value ",
+    "not in YYYY-MM-DD format",   " not in YYYY-MM-DD format",
+    "Missing href content for",   "Missing 'href' content for ",
+    "Duplicate entry id",         "Duplicate <entry> <id>",
+    "Duplicate feed id",          "Duplicate <feed> <id>",
+    "previously found in",        "previously found in",
+    "found in",                   "found in",
+    "Values do not match for",    "Values do not match for",
+    "uri values do not match for", "<uri> values do not match for"
 );
 
 #
@@ -169,6 +193,27 @@ my %string_table_fr = (
     "Missing href attribute for", "Attribut 'href' manquant pour",
     "href does not match URL in", "'href' ne correspond pas à l'adresse URL dans",
     "Missing xml:lang attribute for", "Attribut 'xml:lang' manquant pour",
+    "Invalid URL in uri",         "URL non valide dans <uri>",
+    "for",                        "pour",
+    "in",                         "dans",
+    "and",                        "et",
+    "Missing text in",            "Texte manquant dans",
+    "Invalid content",            "Contenu non valide: ",
+    "Year",                       "Année ",
+    "out of range 1900-2100",     " hors de portée 1900-2000",
+    "Month",                      "Mois ",
+    "out of range 1-12",          " hors de portée 1-12",
+    "Date",                       "Date ",
+    "out of range 1-31",          " hors de portée 1-31",
+    "Date value",                 "Valeur à la date ",
+    "not in YYYY-MM-DD format",   " pas au format AAAA-MM-DD",
+    "Missing href content for",   "Le contenu de 'href' est manquant pour ",
+    "Duplicate entry id",         "Doublon <id> dans <entry>",
+    "Duplicate feed id",          "Doublon <id> dans <feed>",
+    "previously found in",        "trouvé avant dans",
+    "found in",                   "trouvé dans",
+    "Values do not match for",    "Valeurs ne correspondent pas pour",
+    "uri values do not match for", "Valeurs ne correspondent pas pour <uri>",
 );
 
 #
@@ -338,13 +383,21 @@ sub Initialize_Test_Results {
     #
     $charset = "";
     $feed_type = "";
+    $feed_lang = "";
     $in_feed = 0;
+    $in_rss = 0;
     $in_entry = 0;
+    $in_item = 0;
     $save_text_between_tags = 0;
     $saved_text = "";
     %news_feed_found_tags = %news_feed_required_tags;
-    $feed_title = "";
-    $entry_title = "";
+    undef($feed_uri);
+    undef($feed_title);
+    undef($feed_id);
+    undef($feed_self_link);
+    undef($feed_author);
+    %entry_id_values = ();
+    $entry_count = 0;
 }
 
 #***********************************************************************
@@ -448,7 +501,7 @@ sub Check_Required_Feed_Tags {
     if ( $tag_list ne "" ) {
         Record_Result("SWI_B", -1, 0, "",
                       String_Value("Missing tags in") .
-                      "  <feed> \"$tag_list\"");
+                      "  <feed> " . String_Value("tags") . " \"$tag_list\"");
 
     }
 }
@@ -457,7 +510,7 @@ sub Check_Required_Feed_Tags {
 #
 # Name: Check_Required_Entry_Tags
 #
-# Parameters: none
+# Parameters: title_text - entry title for error recording
 #
 # Description:
 #
@@ -466,6 +519,7 @@ sub Check_Required_Feed_Tags {
 #
 #***********************************************************************
 sub Check_Required_Entry_Tags {
+    my ($title_text) = @_;
 
     my ($tag);
     my ($tag_list) = "";
@@ -488,11 +542,32 @@ sub Check_Required_Entry_Tags {
     #
     if ( $tag_list ne "" ) {
         Record_Result("SWI_B", -1, 0, "",
-                      String_Value("Missing tags in") .
-                      " <entry> " . String_Value("title") . " \"$entry_title\" " .
-                      String_Value("tags") . " \"$tag_list\"");
+                      String_Value("Missing tags in") . " <entry> " .
+                      $title_text . String_Value("tags") . " \"$tag_list\"");
 
     }
+}
+
+#***********************************************************************
+#
+# Name: Author_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the <author> tag.
+#
+#***********************************************************************
+sub Author_Tag_Handler {
+    my ($self, $tagname, %attr) = @_;
+
+    #
+    # Inside <author> and </author>
+    #
+    $in_author = 1;
 }
 
 #***********************************************************************
@@ -512,30 +587,97 @@ sub Check_Required_Entry_Tags {
 sub Link_Tag_Handler {
     my ($self, $tagname, %attr) = @_;
 
+    my ($possible_html_link);
+
     #
-    # Do we have a rel attribute with the value 'self' ?
+    # Are we inside an entry ? This could be a link to the
+    # HTML version of the content.
     #
-    if ( defined($attr{"rel"}) && ($attr{"rel"} eq "self") ) {
+    if ( $in_entry && defined($attr{"href"}) ) {
         #
-        # Check for href attribute
+        # Do we have an hreflang attribute and does it match the feed
+        # language ?
         #
-        if ( defined($attr{"href"}) ) {
+        $possible_html_link = 1;
+        if ( defined($attr{"hreflang"}) &&
+            ($attr{"hreflang"} ne $feed_lang) ) {
             #
-            # Does it match the feed's URL ?
+            # This is not the HTML version of the entry.
             #
-            if ( $attr{"href"} ne $current_url ) {
-                Record_Result("SWI_B", -1, 0, "",
-                              String_Value("href does not match URL in") .
-                              " <link rel=\"self\"");
+            $possible_html_link = 0;
+        }
+
+        #
+        # Do we have a type attribute and is it "text/html" ?
+        #
+        if ( $possible_html_link && defined($attr{"type"}) &&
+             ($attr{"type"} ne "text/html") ) {
+            #
+            # This is not the HTML version of the entry.
+            #
+            $possible_html_link = 0;
+        }
+
+        #
+        # If this is a possible entry link, save the href value
+        #
+        if ( $possible_html_link ) {
+            $entry_html_link = $attr{"href"};     
+            print "Entry HTML link = $entry_html_link\n" if $debug;
+        }
+    }
+    #
+    # Are we inside a feed, but not in an entry ?
+    #
+    if ( $in_feed && (! $in_entry) ) {
+        #
+        #
+        # Do we have a rel attribute with the value 'self' ?
+        #
+        if ( defined($attr{"rel"}) && ($attr{"rel"} eq "self") ) {
+            if ( defined($attr{"href"}) ) {
+                $feed_self_link = $attr{"href"};
+            }
+            else {
+                $feed_self_link = "";
             }
         }
+        #
+        # Not a self link, see if it is an HTML alternate for the
+        # feed.
+        #
         else {
             #
-            # Missing href attribute
+            # Do we have an hreflang attribute and does it match the feed
+            # language ?
             #
-            Record_Result("SWI_B", -1, 0, "",
-                          String_Value("Missing href attribute for") .
-                          " <link>");
+            $possible_html_link = 1;
+            if ( defined($attr{"hreflang"}) &&
+                ($attr{"hreflang"} ne $feed_lang) ) {
+                #
+                # This is not the HTML version of the feed.
+                #
+                $possible_html_link = 0;
+            }
+
+            #
+            # Do we have a type attribute and is it "text/html" ?
+            #
+            if ( $possible_html_link && defined($attr{"type"}) &&
+                 ($attr{"type"} ne "text/html") ) {
+                #
+                # This is not the HTML version of the feed.
+                #
+                $possible_html_link = 0;
+            }
+
+            #
+            # If this is a possible feed link, save the href value
+            #
+            if ( $possible_html_link && defined($attr{"href"}) ) {
+                $feed_html_link = $attr{"href"};
+                print "Feed HTML link = $feed_html_link\n" if $debug;
+            }
         }
     }
 }
@@ -576,7 +718,10 @@ sub Feed_Tag_Handler {
     #
     # Check for xml:lang attribute
     #
-    if ( ! defined($attr{"xml:lang"}) ) {
+    if ( defined($attr{"xml:lang"}) ) {
+        $feed_lang = $attr{"xml:lang"};
+    }
+    else {
         Record_Result("SWI_B", -1, 0, "",
                       String_Value("Missing xml:lang attribute for") .
                       " <feed>");
@@ -605,13 +750,101 @@ sub Entry_Tag_Handler {
     #
     if ( (! $in_entry) && $in_feed ) {
         $in_entry = 1;
-            #
-            # Get a blank copy of the required news entry required
-            # tags table.
-            #
-            %news_entry_found_tags = %news_entry_required_tags;
-            $entry_title = "";
+
+        #
+        # Get a blank copy of the required news entry required
+        # tags table.
+        #
+        %news_entry_found_tags = %news_entry_required_tags;
+        
+        #
+        # Initialize entry attribute variables
+        #
+        undef($entry_title);
+        undef($entry_html_link);
+        undef($entry_uri);
+        undef($entry_updated);
+        undef($entry_published);
+        undef($entry_id);
+        undef($entry_author);
+        $in_author = 0;
     }
+
+    #
+    # Increment entry counter
+    #
+    $entry_count++;
+}
+
+#***********************************************************************
+#
+# Name: ID_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the <id> tag.
+#
+#***********************************************************************
+sub ID_Tag_Handler {
+    my ($self, $tagname, %attr) = @_;
+
+    #
+    # Save the text between <id> and </id>
+    #
+    $save_text_between_tags = 1;
+    $saved_text = "";
+}
+
+#***********************************************************************
+#
+# Name: Name_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the <name> tag.
+#
+#***********************************************************************
+sub Name_Tag_Handler {
+    my ($self, $tagname, %attr) = @_;
+
+    #
+    # Save the text between <name> and </name>
+    #
+    if ( $in_author ) {
+        $save_text_between_tags = 1;
+        $saved_text = "";
+    }
+}
+
+#***********************************************************************
+#
+# Name: Published_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the <published> tag.
+#
+#***********************************************************************
+sub Published_Tag_Handler {
+    my ($self, $tagname, %attr) = @_;
+
+    #
+    # Save the text between <published> and </published>
+    #
+    $save_text_between_tags = 1;
+    $saved_text = "";
 }
 
 #***********************************************************************
@@ -635,6 +868,7 @@ sub RSS_Tag_Handler {
     #
     print "RSS feed\n" if $debug;
     $feed_type = "rss";
+    $in_rss = 1;
 }
 
 #***********************************************************************
@@ -662,6 +896,52 @@ sub Title_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Updated_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the <updated> tag.
+#
+#***********************************************************************
+sub Updated_Tag_Handler {
+    my ($self, $tagname, %attr) = @_;
+
+    #
+    # Save the text between <updated> and </updated>
+    #
+    $save_text_between_tags = 1;
+    $saved_text = "";
+}
+
+#***********************************************************************
+#
+# Name: URI_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the <uri> tag.
+#
+#***********************************************************************
+sub URI_Tag_Handler {
+    my ($self, $tagname, %attr) = @_;
+
+    #
+    # Save the text between <uri> and </uri>
+    #
+    $save_text_between_tags = 1;
+    $saved_text = "";
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -680,10 +960,16 @@ sub Start_Handler {
     my ($key, $value);
 
     #
-    # Check for entry tag.
+    # Check for author tag.
     #
     print "Start_Handler tag $tagname\n" if $debug;
-    if ( $tagname eq "entry" ) {
+    if ( $tagname eq "author" ) {
+        Author_Tag_Handler($self, $tagname, %attr);
+    }
+    #
+    # Check for entry tag.
+    #
+    elsif ( $tagname eq "entry" ) {
         Entry_Tag_Handler($self, $tagname, %attr);
     }
     #
@@ -693,10 +979,39 @@ sub Start_Handler {
         Feed_Tag_Handler($self, $tagname, %attr);
     }
     #
+    # Check for item tag (RSS feeds)
+    #
+    elsif ( $tagname eq "item" ) {
+        if ( ! $in_item ) {
+            #
+            # We are inside an <item>
+            #
+            $in_item = 1;
+        }
+    }
+    #
+    # Check for id tag
+    #
+    elsif ( $tagname eq "id" ) {
+        ID_Tag_Handler($self, $tagname, %attr);
+    }
+    #
     # Check for link tag
     #
     elsif ( $tagname eq "link" ) {
         Link_Tag_Handler($self, $tagname, %attr);
+    }
+    #
+    # Check for name tag
+    #
+    elsif ( $tagname eq "name" ) {
+        Name_Tag_Handler($self, $tagname, %attr);
+    }
+    #
+    # Check for published tag
+    #
+    elsif ( $tagname eq "published" ) {
+        Published_Tag_Handler($self, $tagname, %attr);
     }
     #
     # Check for rss tag, indicating this is an RSS feed.
@@ -709,6 +1024,18 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "title" ) {
         Title_Tag_Handler($self, $tagname, %attr);
+    }
+    #
+    # Check for updated tag
+    #
+    elsif ( $tagname eq "updated" ) {
+        Updated_Tag_Handler($self, $tagname, %attr);
+    }
+    #
+    # Check for uri tag
+    #
+    elsif ( $tagname eq "uri" ) {
+        URI_Tag_Handler($self, $tagname, %attr);
     }
     
     #
@@ -740,14 +1067,982 @@ sub Start_Handler {
 #
 #***********************************************************************
 sub Char_Handler {
-   my ($self, $string) = @_;
+    my ($self, $string) = @_;
 
-   #
-   # Are we saving text ?
-   #
-   if ( $save_text_between_tags ) {
-      $saved_text .= $string;
-  }
+    #
+    # Are we saving text ?
+    #
+    if ( $save_text_between_tags ) {
+        $saved_text .= $string;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_YYYY_MM_DD_Format
+#
+# Parameters: content - content to check
+#
+# Description:
+#
+#   This function checks the validity of a date value.  It checks specifically
+# for a YYYY-MM-DD format.
+#
+# Returns:
+#    status - status value
+#    message - error message (if applicable)
+#
+#***********************************************************************
+sub Check_YYYY_MM_DD_Format {
+    my ($content) = @_;
+
+    my ($status, @fields, $message);
+
+    #
+    # Strip off any time specification, we only care about the date portion
+    #
+    $content =~ s/T.*$//g;
+
+    #
+    # Check for valid date format, ie dddd-dd-dd
+    #
+    if ( $content =~ /\d\d\d\d-\d\d-\d\d/ ) {
+        #
+        # We have the right pattern of digits and dashes, now do a
+        # check on the values.
+        #
+        @fields = split(/-/, $content);
+
+        #
+        # Check that the year portion is in a reasonable range.
+        # 1900 to 2100.  I am making the assumption that this
+        # code wont still be running in 95 years and that we
+        # aren't still writing HTML documents.
+        #
+        if ( ( $fields[0] < 1900 ) || ( $fields[0] > 2100 ) ) {
+            $status = 1;
+            $message = String_Value("Invalid content") .
+                       String_Value("Year") . $fields[0] .
+                       String_Value("out of range 1900-2100");
+            print "$message\n" if $debug;
+        }
+
+        #
+        # Check that the month is in the 01 to 12 range
+        #
+        elsif ( ( $fields[1] < 1 ) || ( $fields[1] > 12 ) ) {
+            $status = 1;
+            $message = String_Value("Invalid content") .
+                       String_Value("Month") . $fields[1] .
+                       String_Value("out of range 1-12");
+            print "$message\n" if $debug;
+
+        }
+
+        #
+        # Check that the date is in the 01 to 31 range.  We won't
+        # bother checking the month to further limit the date.
+        #
+        elsif ( ( $fields[2] < 1 ) || ( $fields[2] > 31 ) ) {
+            $status = 1;
+            $message = String_Value("Invalid content") .
+                       String_Value("Date") . $fields[0] .
+                       String_Value("out of range 1-31");
+            print "$message\n" if $debug;
+        }
+
+        #
+        # Must have a well formed date.
+        #
+        else {
+            $status = 0;
+            $message= "";
+        }
+    }
+    else {
+        #
+        # Invalid format
+        #
+        $status = 1;
+        $message = String_Value("Invalid content") .
+                   String_Value("Date value") . "\"$content\"" .
+                   String_Value("not in YYYY-MM-DD format");
+        print "$message\n" if $debug;
+    }
+
+    #
+    # Return status and message
+    #
+    return($status, $message);
+}
+
+#***********************************************************************
+#
+# Name: Check_Entry_Date_Value
+#
+# Parameters: tagname - name of tag
+#             content - content of tag
+#             title_text - title text for error
+#
+# Description:
+#
+#   This function checks the format of a date value for an entry
+#
+#***********************************************************************
+sub Check_Entry_Date_Value {
+    my ($tagname, $content, $title_text) = @_;
+
+    my ($status, $message);
+
+    #
+    # Do we have content to check ?
+    #
+    if ( defined($content) ) {
+        #
+        # Remove leading whitespace from content
+        #
+        $content =~ s/^\s*//g;
+
+        #
+        # Do we have any content ?
+        #
+        if ( $content eq "" ) {
+            #
+            # No date provided
+            #
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Missing text in") .
+                          " <$tagname> " .
+                          String_Value("for") . " <entry> " . $title_text);
+        }
+        #
+        # Does the text look like a date (YYYY-MM-DD) ?
+        #
+        else {
+            ($status, $message) = Check_YYYY_MM_DD_Format($content);
+            if ( $status == 1 ) {
+                Record_Result("SWI_B", -1, 0, "",
+                              "$message " . String_Value("in") .
+                              " <$tagname> " .
+                              String_Value("for") . " <entry> " . $title_text);
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Entry_Author_Value
+#
+# Parameters: author_text - author value
+#             title_text - title of entry
+#
+# Description:
+#
+#   This function checks the value of the author attribute for entries.
+#
+#***********************************************************************
+sub Check_Entry_Author_Value {
+    my ($author_text, $title_text) = @_;
+
+    #
+    # Do we have an author value ?
+    #
+    if ( defined($author_text) ) {
+        #
+        # Is the value missing ?
+        #
+        if ( $author_text eq "" ) {
+            print "Missing entry author value\n" if $debug;
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Missing text in") .
+                          " <author> " . String_Value("in") .
+                          " <entry> $title_text");
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Entry_ID_Value
+#
+# Parameters: id_text - id value
+#             title_text - title of entry
+#
+# Description:
+#
+#   This function checks the value of the ID attribute for entries.
+#
+#***********************************************************************
+sub Check_Entry_ID_Value {
+    my ($id_text, $title_text) = @_;
+
+    #
+    # Do we have an id value ?
+    #
+    if ( defined($id_text) ) {
+        #
+        # Is the value missing ?
+        #
+        if ( $id_text eq "" ) {
+            print "Missing entry id value\n" if $debug;
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Missing text in") .
+                          " <id> " . String_Value("in") .
+                          " <entry> $title_text");
+        }
+        #
+        # Have we seen this ID before ?
+        #
+        elsif ( defined($entry_id_values{$id_text}) &&
+                ($title_text ne $entry_id_values{$id_text}) ) {
+            print "Duplicate entry id $id_text\n" if $debug;
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Duplicate entry id") .
+                          " \"$id_text\" " . String_Value("found in") .
+                          " $title_text " . String_Value("and") . " " .
+                          $entry_id_values{$id_text});
+        }
+        #
+        # New id value, save it
+        #
+        else {
+            $entry_id_values{$id_text} = $title_text;
+            print "Entry id = $id_text\n" if $debug;
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Compare_Entry_Strings
+#
+# Parameters: string1 - string value
+#             string2 - string value
+#             tagname - name of tag
+#             metadata - name of metadata tag
+#             title_text - title of entry
+#
+# Description:
+#
+#   This function compares the value of 2 strings for an entry.
+#
+#***********************************************************************
+sub Compare_Entry_Strings {
+    my ($string1, $string2, $tagname, $metadata, $title_text) = @_;
+
+    #
+    # Are the strings not equal ?
+    #
+    if ( $string1 ne $string2 ) {
+        Record_Result("SWI_B", -1, 0, "",
+                      String_Value("Values do not match for") .
+                      " <$tagname> \"$string1\" " . String_Value("and") .
+                      " $metadata \"$string2\" " .
+                      String_Value("in") . " <entry> \"$title_text\"");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Entry_Link_Value
+#
+# Parameters: link_text - link value
+#             title_text - title of entry for error messages
+#             published - published value of entry
+#             updated - updated value of entry
+#             author - author value of entry
+#             title - title value of entry
+#
+# Description:
+#
+#   This function checks the value of the link attribute for entries.
+#
+#***********************************************************************
+sub Check_Entry_Link_Value {
+    my ($link_text, $title_text, $published, $updated, $author, $title) = @_;
+    
+    my ($resp, $content, $resp_url, %metadata, $metadata_object);
+
+    #
+    # Do we have an link value ?
+    #
+    if ( defined($link_text) ) {
+        #
+        # Do we have  href content ?
+        #
+        if ( $link_text eq "" ) {
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Missing href content for") .
+                          "<link> " . String_Value("in") .
+                          " <entry> \"$title_text\"");
+        }
+        #
+        # Does the href look like a URL ?
+        #
+        elsif ( $link_text =~ /^http[s]?:/i ) {
+            #
+            # Get the URL content
+            #
+            print "GET entry link href\n" if $debug;
+            ($resp_url, $resp) = Crawler_Get_HTTP_Response($link_text, "");
+            
+            #
+            # Was the GET successful ?
+            #
+            if ( $resp->is_success ) {
+                #
+                # Decode possible UTF-8 content
+                #
+                $content = Crawler_Decode_Content($resp);
+                
+                #
+                # Extract metadata from content
+                #
+                %metadata = Extract_Metadata($link_text, $content);
+                
+                #
+                # If we have an author and dcterms.creator, check that they
+                # match.
+                #
+                if ( defined($author) && defined($metadata{"dcterms.creator"}) ) {
+                    $metadata_object = $metadata{"dcterms.creator"};
+                    Compare_Entry_Strings($author, $metadata_object->content,
+                                          "author", "dcterms.creator",
+                                          $title_text);
+                }
+                
+                #
+                # If we have a published value and dcterms.issued, check
+                # that they match.
+                #
+                if ( defined($published) && defined($metadata{"dcterms.issued"}) ) {
+                    $published =~ s/T.*$//g;
+                    $metadata_object = $metadata{"dcterms.issued"};
+                    Compare_Entry_Strings($published, $metadata_object->content,
+                                          "published", "dcterms.issued",
+                                          $title_text);
+                }
+
+                #
+                # If we have an updated value and dcterms.modified, check
+                # that they match.
+                #
+                if ( defined($updated) && defined($metadata{"dcterms.modified"}) ) {
+                    $updated =~ s/T.*$//g;
+                    $metadata_object = $metadata{"dcterms.modified"};
+                    Compare_Entry_Strings($updated, $metadata_object->content,
+                                          "updated", "dcterms.modified",
+                                          $title_text);
+                }
+                
+                #
+                # If we have a title and dcterms.title, check that they
+                # match.
+                #
+                if ( defined($title) && defined($metadata{"dcterms.title"}) ) {
+                    $metadata_object = $metadata{"dcterms.title"};
+                    Compare_Entry_Strings($title, $metadata_object->content,
+                                          "title", "dcterms.title",
+                                          $title_text);
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_URI_Value
+#
+# Parameters: tagname - name of tag
+#             uri_text - uri content
+#             feed_uri_text - feed uri content
+#             title_text - title of tagname
+#
+# Description:
+#
+#   This function checks the value of the URI attribute.
+#
+#***********************************************************************
+sub Check_URI_Value {
+    my ($tagname, $uri_text, $feed_uri, $title_text) = @_;
+
+    my ($protocol, $domain, $file_path, $query, $url);
+
+    #
+    # Does the text look like a URL ?
+    #
+    if ( defined($uri_text) ) {
+        ($protocol, $domain, $file_path, $query, $url) = URL_Check_Parse_URL($uri_text);
+        if ( $url eq "" ) {
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Invalid URL in uri") .
+                          " \"$uri_text\" " .
+                          String_Value("for") . " <$tagname> " . $title_text);
+        }
+        else {
+            #
+            # Does the uri value match the feed uri value ?
+            # If we are checking the actual feed uri, then uri_text
+            # will match the feed_uri value.
+            #
+            if ( defined($feed_uri) && ($feed_uri ne "" ) &&
+                 ($uri_text ne $feed_uri) ) {
+                Record_Result("SWI_B", -1, 0, "",
+                              String_Value("uri values do not match for") .
+                              " <feed> \"$feed_uri\" " . String_Value("and") .
+                              " <entry> \"$uri_text\" " .
+                              String_Value("for") . " <entry> " . $title_text);
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: End_Entry_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the end <entry> tag.
+#
+#***********************************************************************
+sub End_Entry_Tag_Handler {
+    my ($self) = @_;
+    
+    my ($title_text);
+
+    #
+    # Are we inside an entry ?
+    #
+    if ( $in_entry ) {
+        #
+        # We are no longer inside an <entry>
+        #
+        $in_entry = 0;
+
+        #
+        # Check entry title
+        #
+        if ( defined($entry_title) && ($entry_title eq "") ) {
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Missing text in") .
+                          " <entry> #$entry_count <title>");
+            $title_text = " #$entry_count";
+        }
+        else {
+            $title_text = " #$entry_count \"$entry_title\" ";
+        }
+
+        #
+        # Check that all required tags were found in the entry.
+        #
+        Check_Required_Entry_Tags($title_text);
+
+        #
+        # Check author value
+        #
+        Check_Entry_Author_Value($entry_id, $title_text);
+        
+        #
+        # Check ID value
+        #
+        Check_Entry_ID_Value($entry_id, $title_text);
+
+        #
+        # Check link value
+        #
+        Check_Entry_Link_Value($entry_html_link, $title_text, $entry_published,
+                               $entry_updated, $entry_author, $entry_title);
+
+        #
+        # Check entry published value
+        #
+        Check_Entry_Date_Value("published", $entry_published, $title_text);
+        
+        #
+        # Check entry updated value
+        #
+        Check_Entry_Date_Value("updated", $entry_updated, $title_text);
+        
+        #
+        # Check uri value
+        #
+        Check_URI_Value("entry", $entry_uri, $feed_uri, $title_text);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Feed_Date_Value
+#
+# Parameters: tagname - name of tag
+#             content - content of tag
+#             title_text - title text for error
+#
+# Description:
+#
+#   This function checks the format of a date value for a feed
+#
+#***********************************************************************
+sub Check_Feed_Date_Value {
+    my ($tagname, $content, $title_text) = @_;
+
+    my ($status, $message);
+
+    #
+    # Remove leading whitespace from content
+    #
+    $content =~ s/^\s*//g;
+
+    #
+    # Do we have any content ?
+    #
+    if ( $content eq "" ) {
+        #
+        # No date provided
+        #
+        Record_Result("SWI_B", -1, 0, "",
+                      String_Value("Missing text in") .
+                      " <$tagname> " .
+                      String_Value("for") . " <feed> " . $title_text);
+    }
+    #
+    # Does the text look like a date (YYYY-MM-DD) ?
+    #
+    else {
+        ($status, $message) = Check_YYYY_MM_DD_Format($content);
+        if ( $status == 1 ) {
+            Record_Result("SWI_B", -1, 0, "",
+                          "$message " . String_Value("in") . " <$tagname> " .
+                          String_Value("for") . " <feed>");
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Feed_ID_Value
+#
+# Parameters: id_text - id value
+#
+# Description:
+#
+#   This function checks the value of the ID attribute for feeds.
+#
+#***********************************************************************
+sub Check_Feed_ID_Value {
+    my ($id_text) = @_;
+
+    #
+    # Do we have an id value ?
+    #
+    if ( defined($id_text) ) {
+        #
+        # Is the value missing ?
+        #
+        if ( $id_text eq "" ) {
+            print "Missing feed id value\n" if $debug;
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Missing text in") .
+                          " <feed> <id>");
+        }
+        #
+        # Have we seen this ID before ?
+        #
+        elsif ( defined($feed_id_values{$id_text}) ) {
+            print "Duplicate feed id $id_text\n" if $debug;
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Duplicate feed id") .
+                          " \"$id_text\" " .
+                          String_Value("previously found in") .
+                          " \"" . $feed_id_values{$id_text} . "\"");
+        }
+        #
+        # New id value, save it
+        #
+        else {
+            $feed_id_values{$id_text} = $current_url;
+            print "Feed id = $id_text\n" if $debug;
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Feed_Self_Link_Value
+#
+# Parameters: link_text - link value
+#
+# Description:
+#
+#   This function checks the value of the self link attribute for feeds.
+#
+#***********************************************************************
+sub Check_Feed_Self_Link_Value {
+    my ($link_text) = @_;
+
+    #
+    # Do we have a self link value ?
+    #
+    if ( defined($link_text) ) {
+        #
+        # Do we have  href content ?
+        #
+        if ( $link_text eq "" ) {
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Missing href content for") .
+                          "<link rel=\"self\"> " . String_Value("in") .
+                          " <feed>");
+        }
+        
+        #
+        # Does the href match the feed URL ?
+        #
+        elsif ( $link_text ne $current_url ) {
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("href does not match URL in") .
+                          " <link rel=\"self\" href=\"$link_text\" " .
+                          String_Value("for") . " <feed>");
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Compare_Feed_Strings
+#
+# Parameters: string1 - string value
+#             string2 - string value
+#             tagname - name of tag
+#             metadata - name of metadata tag
+#
+# Description:
+#
+#   This function compares the value of 2 strings for a feed.
+#
+#***********************************************************************
+sub Compare_Feed_Strings {
+    my ($string1, $string2, $tagname, $metadata) = @_;
+
+    #
+    # Are the strings not equal ?
+    #
+    if ( $string1 ne $string2 ) {
+        Record_Result("SWI_B", -1, 0, "",
+                      String_Value("Values do not match for") .
+                      " <$tagname> \"$string1\" " . String_Value("and") .
+                      " $metadata \"$string2\" " .
+                      String_Value("in") . " <feed>");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Feed_HTML_Link_Value
+#
+# Parameters: link_text - link value
+#             updated - updated value of feed
+#             author - author value of feed
+#             title - title value of feed
+#
+# Description:
+#
+#   This function checks the value of the HTML link for feeds.
+#
+#***********************************************************************
+sub Check_Feed_HTML_Link_Value {
+    my ($link_text, $updated, $author, $title) = @_;
+
+    my ($resp, $content, $resp_url, %metadata, $metadata_object);
+
+    #
+    # Do we have an link value ?
+    #
+    if ( defined($link_text) ) {
+        #
+        # Do we have  href content ?
+        #
+        if ( $link_text eq "" ) {
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Missing href content for") .
+                          "<link> " . String_Value("in") .
+                          " <feed>");
+        }
+        #
+        # Does the href look like a URL ?
+        #
+        elsif ( $link_text =~ /^http[s]?:/i ) {
+            #
+            # Get the URL content
+            #
+            print "GET feed link href\n" if $debug;
+            ($resp_url, $resp) = Crawler_Get_HTTP_Response($link_text, "");
+
+            #
+            # Was the GET successful ?
+            #
+            if ( $resp->is_success ) {
+                #
+                # Decode possible UTF-8 content
+                #
+                $content = Crawler_Decode_Content($resp);
+
+                #
+                # Extract metadata from content
+                #
+                %metadata = Extract_Metadata($link_text, $content);
+
+                #
+                # If we have an author and dcterms.creator, check that they
+                # match.
+                #
+                if ( defined($author) && defined($metadata{"dcterms.creator"}) ) {
+                    $metadata_object = $metadata{"dcterms.creator"};
+                    Compare_Feed_Strings($author, $metadata_object->content,
+                                          "author", "dcterms.creator");
+                }
+
+                #
+                # If we have an updated value and dcterms.modified, check
+                # that they match.
+                #
+                if ( defined($updated) && defined($metadata{"dcterms.modified"}) ) {
+                    $updated =~ s/T.*$//g;
+                    $metadata_object = $metadata{"dcterms.modified"};
+                    Compare_Feed_Strings($updated, $metadata_object->content,
+                                          "updated", "dcterms.modified");
+                }
+
+                #
+                # If we have a title and dcterms.title, check that they
+                # match.
+                #
+                if ( defined($title) && defined($metadata{"dcterms.title"}) ) {
+                    $metadata_object = $metadata{"dcterms.title"};
+                    Compare_Feed_Strings($title, $metadata_object->content,
+                                          "title", "dcterms.title");
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: End_Feed_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the end <feed> tag.
+#
+#***********************************************************************
+sub End_Feed_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Are we inside a feed ?
+    #
+    if ( $in_feed ) {
+        #
+        # We are no longer inside an <feed>
+        #
+        $in_feed = 0;
+
+        #
+        # Check feed title
+        #
+        if ( defined($feed_title) && ($feed_title eq "") ) {
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Missing text in") .
+                          " <feed> <title>");
+        }
+        
+        #
+        # Check that all required tags were found in the feed.
+        #
+        Check_Required_Feed_Tags();
+
+        #
+        # Check ID value
+        #
+        Check_Feed_ID_Value($feed_id);
+
+        #
+        # Check self link value
+        #
+        Check_Feed_Self_Link_Value($feed_self_link);
+
+        #
+        # Check html alternate link value
+        #
+        Check_Feed_HTML_Link_Value($feed_html_link, $feed_updated,
+                                   $feed_author, $feed_title);
+
+        #
+        # Check feed updated value
+        #
+        Check_Feed_Date_Value("updated", $feed_updated);
+
+        #
+        # Check uri value
+        #
+        Check_URI_Value("feed", $feed_uri, $feed_uri, "");
+    }
+}
+
+#***********************************************************************
+#
+# Name: End_Author_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </author> tag.
+#
+#***********************************************************************
+sub End_Author_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # No longer  inside an author ?
+    #
+    $in_author = 0;
+}
+
+#***********************************************************************
+#
+# Name: End_ID_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </id> tag.
+#
+#***********************************************************************
+sub End_ID_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Check the id text, it should be unique within the feed
+    #
+    print "ID text = $saved_text\n" if $debug;
+
+    #
+    # Are we inside an entry ?
+    #
+    if ( $in_entry ) {
+        #
+        # Do we have an ID ?
+        #
+        $saved_text =~ s/^\s*//g;
+        $saved_text =~ s/\s*$//g;
+        $entry_id = $saved_text;
+    }
+    #
+    # Are we inside a feed ?
+    #
+    elsif ( $in_feed ) {
+        #
+        # Do we have an ID ?
+        #
+        $saved_text =~ s/^\s*//g;
+        $saved_text =~ s/\s*$//g;
+        $feed_id = $saved_text;
+    }
+
+    #
+    # Turn off text saving
+    #
+    $save_text_between_tags = 0;
+    $saved_text = "";
+}
+
+#***********************************************************************
+#
+# Name: End_Name_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </name> tag.
+#
+#***********************************************************************
+sub End_Name_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Are we inside an anthor inside an entry ?
+    #
+    if ( $in_author && $in_entry ) {
+        print "Entry name text = $saved_text\n" if $debug;
+        #
+        # Do we have an author ?
+        #
+        $saved_text =~ s/^\s*//g;
+        $saved_text =~ s/\s*$//g;
+        $entry_author = $saved_text;
+    }
+    #
+    # Are we inside an anthor inside a feed ?
+    #
+    elsif ( $in_author && $in_feed ) {
+        print "Feed name text = $saved_text\n" if $debug;
+        #
+        # Do we have an author ?
+        #
+        $saved_text =~ s/^\s*//g;
+        $saved_text =~ s/\s*$//g;
+        $feed_author = $saved_text;
+    }
+
+    #
+    # Turn off text saving
+    #
+    $save_text_between_tags = 0;
+    $saved_text = "";
+}
+
+#***********************************************************************
+#
+# Name: End_Published_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </published> tag.
+#
+#***********************************************************************
+sub End_Published_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Check the published text.
+    #
+    print "Published text = $saved_text\n" if $debug;
+
+    #
+    # Are we inside an entry ?
+    #
+    if ( $in_entry ) {
+        $saved_text =~ s/^\s*//g;
+        $entry_published = $saved_text;
+    }
+
+    #
+    # Turn off text saving
+    #
+    $save_text_between_tags = 0;
+    $saved_text = "";
 }
 
 #***********************************************************************
@@ -755,7 +2050,6 @@ sub Char_Handler {
 # Name: End_Title_Tag_Handler
 #
 # Parameters: self - reference to this parser
-#             tagname - name of tag
 #
 # Description:
 #
@@ -763,7 +2057,13 @@ sub Char_Handler {
 #
 #***********************************************************************
 sub End_Title_Tag_Handler {
-    my ($self, $tagname) = @_;
+    my ($self) = @_;
+
+    #
+    # Remoev leading and trailing whitespace from any saved text
+    #
+    $saved_text =~ s/^\s*//g;
+    $saved_text =~ s/\s*$//g;
 
     #
     # Is this an entry title ?
@@ -772,12 +2072,111 @@ sub End_Title_Tag_Handler {
         print "Entry title = $saved_text\n" if $debug;
         $entry_title = $saved_text;
     }
-    else {
+    #
+    # Is this an item title ?
+    #
+    elsif ( $in_item ) {
         #
-        # Must be feed title
+        # Ignore item title, this applies to RSS type feeds only.
         #
+    }
+    #
+    # Are we inside a feed ?
+    #
+    elsif ( $in_feed ) {
         print "Feed title = $saved_text\n" if $debug;
         $feed_title = $saved_text;
+    }
+    #
+    # Are we inside a RSS type feed ?
+    #
+    elsif ( $in_rss ) {
+        print "RSS feed title = $saved_text\n" if $debug;
+        $feed_title = $saved_text;
+    }
+
+    #
+    # Turn off text saving
+    #
+    $save_text_between_tags = 0;
+    $saved_text = "";
+}
+
+#***********************************************************************
+#
+# Name: End_Updated_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </updated> tag.
+#
+#***********************************************************************
+sub End_Updated_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Check the updated text.
+    #
+    print "Published text = $saved_text\n" if $debug;
+    
+    #
+    # Are we inside an entry ?
+    #
+    if ( $in_entry ) {
+        $saved_text =~ s/^\s*//g;
+        $entry_updated = $saved_text;
+    }
+    #
+    # Are we inside a feed ?
+    #
+    elsif ( $in_feed ) {
+        $saved_text =~ s/^\s*//g;
+        $feed_updated = $saved_text;
+    }
+
+    #
+    # Turn off text saving
+    #
+    $save_text_between_tags = 0;
+    $saved_text = "";
+}
+
+#***********************************************************************
+#
+# Name: End_URI_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </uri> tag.
+#
+#***********************************************************************
+sub End_URI_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Get the uri text
+    #
+    print "URI text = $saved_text\n" if $debug;
+
+    #
+    # Are we inside an entry ?
+    #
+    if ( $in_entry ) {
+        $saved_text =~ s/^\s*//g;
+        $entry_uri = $saved_text;
+        $entry_uri =~ s/\/$//g;
+    }
+    #
+    # Are we inside a feed ?
+    #
+    elsif ( $in_feed ) {
+        $saved_text =~ s/^\s*//g;
+        $feed_uri = $saved_text;
+        $feed_uri =~ s/\/$//g;
     }
 
     #
@@ -804,40 +2203,70 @@ sub End_Handler {
     my ($self, $tagname) = @_;
 
     #
-    # Check for entry tag
+    # Check for author tag
     #
     print "End_Handler tag $tagname\n" if $debug;
-    if ( $tagname eq "entry" ) {
-        if ( $in_entry ) {
+    if ( $tagname eq "author" ) {
+        End_Author_Tag_Handler($self);
+    }
+    #
+    # Check for entry tag
+    #
+    elsif ( $tagname eq "entry" ) {
+        End_Entry_Tag_Handler($self);
+    }
+    #
+    # Check for feed tag
+    #
+    elsif ( $tagname eq "feed" ) {
+        End_Feed_Tag_Handler($self);
+    }
+    #
+    # Check for id tag
+    #
+    elsif ( $tagname eq "id" ) {
+        End_ID_Tag_Handler($self);
+    }
+    #
+    # Check for item tag (RSS feeds)
+    #
+    elsif ( $tagname eq "item" ) {
+        if ( $in_item ) {
             #
-            # We are no longer inside an <entry>
+            # We are no longer inside an <item>
             #
-            $in_entry = 0;
-
-            #
-            # Check that all required tags were found in the entry.
-            #
-            Check_Required_Entry_Tags();
+            $in_item = 0;
         }
     }
-    elsif ( $tagname eq "feed" ) {
-        if ( $in_feed ) {
-            #
-            # We are no longer inside an <feed>
-            #
-            $in_feed = 0;
-        
-            #
-            # Check that all required tags were found in the feed.
-            #
-            Check_Required_Feed_Tags();
-        }
+    #
+    # Check for name tag
+    #
+    elsif ( $tagname eq "name" ) {
+        End_Name_Tag_Handler($self);
+    }
+    #
+    # Check for published tag
+    #
+    elsif ( $tagname eq "published" ) {
+        End_Published_Tag_Handler($self);
     }
     #
     # Check for title tag
     #
     elsif ( $tagname eq "title" ) {
-        End_Title_Tag_Handler($self, $tagname);
+        End_Title_Tag_Handler($self);
+    }
+    #
+    # Check for updated tag
+    #
+    elsif ( $tagname eq "updated" ) {
+        End_Updated_Tag_Handler($self);
+    }
+    #
+    # Check for uri tag
+    #
+    elsif ( $tagname eq "uri" ) {
+        End_URI_Tag_Handler($self);
     }
 }
 
@@ -975,11 +2404,6 @@ sub Interop_XML_Check {
     # Did we get any content ?
     #
     if ( length($content) > 0 ) {
-        #
-        # Split the content into lines
-        #
-        @content_lines = split( /\n/, $content );
-
         #
         # Create a document parser
         #
@@ -1159,7 +2583,8 @@ sub Import_Packages {
 
     my ($package);
     my (@package_list) = ("tqa_result_object", "content_check", 
-                          "xml_feed_object", "interop_testcases");
+                          "xml_feed_object", "interop_testcases",
+                          "url_check", "crawler", "metadata");
 
     #
     # Import packages, we don't use a 'use' statement as these packages

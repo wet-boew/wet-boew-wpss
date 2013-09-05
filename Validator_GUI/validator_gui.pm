@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6059 $
+# $Revision: 6386 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2012-10-22 14:54:58 -0400 (Mon, 22 Oct 2012) $
+# $Date: 2013-09-05 11:47:29 -0400 (Thu, 05 Sep 2013) $
 #
 # Description:
 #
@@ -165,7 +165,9 @@ my (%results_window_tab_labels, $config_tabid, %option_combobox_map);
 my (%results_file_suffixes, $main_window_menu, $url_list_callback);
 my ($site_login_logout_config_tabid, $version, $ignore_401_code);
 my ($results_save_callback, %report_options_labels, $ie, $browser_close_window);
-my ($browser_close_window_open);
+my ($browser_close_window_open, %report_options_field_names);
+my (%report_options_config_options, %url_401_user, %url_401_password);
+my ($process_pdf);
 
 my ($xml_output_mode) = 0;
 my ($xml_tab_label) = "";
@@ -261,7 +263,6 @@ my %string_table_en = (
     "Password",			"Password",
     "Crawl Limit",		"Crawl Limit",
     "The maximum number of URLs",	"The maximum number of URLs to crawl from the site (0 = unlimited)",
-    "Site Analysis Aborted",	"Site Analysis Aborted",
     "URL List",			"URL List",
     "Check URL List",		"Check URL List",
     "No URLs supplied",		"No URLs supplied",
@@ -295,6 +296,8 @@ my %string_table_en = (
     "referrer",                 "referrer",
     "Close Browser",            "Close Browser",
     "Press Ok to close browser", "Press Ok to close browser",
+    "Ignore PDF pages",          "Ignore PDF pages",
+    "Process PDF pages",         "Process PDF pages",
 );
 
 my %string_table_fr = (
@@ -349,7 +352,6 @@ my %string_table_fr = (
     "Password",			"Mot de passe",
     "Crawl Limit",		"Limite de l'exploration",
     "The maximum number of URLs",	"Le nombre maximal d'adresses URL",
-    "Site Analysis Aborted",	"Analyse du site abandonné",
     "URL List",			"Liste d'adresses URL",
     "No URLs supplied",		"Aucune de URL fournie",
     "Check URL List",		"Vérifier la liste d'adresses URL",
@@ -383,11 +385,13 @@ my %string_table_fr = (
     "referrer",                 "recommandataire",
     "Close Browser",            "Fermer Navigateur",
     "Press Ok to close browser", "Appuyez sur OK pour fermer navigateur",
+    "Ignore PDF pages",          "Ignorer les pages PDF",
+    "Process PDF pages",         "Traiter les pages PDF",
 );
 
 my ($string_table) = \%string_table_en;
 
-my (@package_list) = ("tqa_result_object", "validator_xml");
+my (@package_list) = ("tqa_result_object", "validator_xml", "crawler");
 
 #***********************************************************************
 #
@@ -1342,6 +1346,7 @@ sub GUI_Do_HTML_Click {
         #
         $report_options{"report_fails_only"} = $report_fails_only;
         $report_options{"save_content"} = $save_content;
+        $report_options{"process_pdf"} = $process_pdf;
 
         #
         # Show the results window.
@@ -1509,6 +1514,7 @@ sub GUI_Do_URL_List_Click {
         #
         $report_options{"report_fails_only"} = $report_fails_only;
         $report_options{"save_content"} = $save_content;
+        $report_options{"process_pdf"} = $process_pdf;
 
         #
         # Show the results window.
@@ -1715,6 +1721,7 @@ sub Validator_GUI_DoSite_Click {
         #
         $crawl_details{"report_fails_only"} = $report_fails_only;
         $crawl_details{"save_content"} = $save_content;
+        $crawl_details{"process_pdf"} = $process_pdf;
 
         #
         # Show the results window and clear any text.
@@ -1791,22 +1798,16 @@ sub Kill_Child_Thread {
 #
 #***********************************************************************
 sub Stop_Site_Crawl {
-        my ($tab_label);
+    my ($tab_label);
 
     #
-    # Kill child if we have one.
+    # Are we running a crawl ?
     #
     if ( defined($child_thread) ) {
-        Kill_Child_Thread();
-
         #
-        # Add a note to all tabs indicating that analysis was aborted.
+        # Abort the crawler
         #
-        foreach $tab_label (keys %results_window_tab_labels) {
-            Validator_GUI_Update_Results($tab_label, 
-                                         String_Value("Site Analysis Aborted"),
-                                         0);
-        }
+        Crawler_Abort_Crawl(1);
     }
     return 0;
 }
@@ -2355,40 +2356,51 @@ sub Validator_GUI_401_Login {
     my ($user, $password);
 
     #
-    # Create a dialog window for the authorization fields
+    # Do we already have credentials (e.g. through configuration) ?
     #
-    $authorization_401_window = Create_401_Authorization_Window($url, $realm);
-    $login_window_open = 1;
-
-    #
-    # Loop until the dialog window is closed
-    #
-    while ( $login_window_open ) {
-        Win32::GUI::DoEvents();
-        sleep(1);
+    if ( defined($url_401_user{$url}) && defined($url_401_password{$url}) ) {
+        print "Use 401 credentials from profile configuration\n" if $debug;
+        $user = $url_401_user{$url};
+        $password = $url_401_password{$url};
     }
-
-    #
-    # Get user name & password and trim off leading & trailing white space
-    #
-    $user = $authorization_401_window->User->Text();
-    if ( ! defined($user) || $user eq "" ) {
+    else {
         #
-        # If user is undefined or blank, set it to unknown.
-        # This avoids a problem with the GUI which will prematurely exit
-        # if there is no user set.  There is no obvious reason why the
-        # GUI should exit in this case, but it does.
+        # Create a dialog window for the authorization fields
         #
-        $user = "unknown";
+        $authorization_401_window = Create_401_Authorization_Window($url,
+                                                                    $realm);
+        $login_window_open = 1;
+
+        #
+        # Loop until the dialog window is closed
+        #
+        while ( $login_window_open ) {
+            Win32::GUI::DoEvents();
+            sleep(1);
+        }
+
+        #
+        # Get user name & password and trim off leading & trailing white space
+        #
+        $user = $authorization_401_window->User->Text();
+        if ( ! defined($user) || $user eq "" ) {
+            #
+            # If user is undefined or blank, set it to unknown.
+            # This avoids a problem with the GUI which will prematurely exit
+            # if there is no user set.  There is no obvious reason why the
+            # GUI should exit in this case, but it does.
+            #
+            $user = "unknown";
+        }
+        $password = $authorization_401_window->Password->Text();
+        if ( ! defined($password) ) {
+            $password = "";
+        }
+        $user =~ s/^\s+//g;
+        $user =~ s/\s+$//g;
+        $password =~ s/^\s+//g;
+        $user =~ s/\s+$//g;
     }
-    $password = $authorization_401_window->Password->Text();
-    if ( ! defined($password) ) {
-        $password = "";
-    }
-    $user =~ s/^\s+//g;
-    $user =~ s/\s+$//g;
-    $password =~ s/^\s+//g;
-    $user =~ s/\s+$//g;
 
     #
     # Return login values
@@ -2791,7 +2803,7 @@ sub Add_Direct_Input_Fields {
 sub GUI_Do_Load_URL_List_from_File_Click {
     my ($self) = @_;
 
-    my ($filename, $line, $url_list, $name);
+    my ($filename, $line, $url_list, $name, $field_name, $value, $type, $url);
 
     #
     # Get name of file to read configuration from
@@ -2812,6 +2824,13 @@ sub GUI_Do_Load_URL_List_from_File_Click {
     # Was a file name specified ?
     #
     if ( defined($filename) ) {
+
+        #
+        # Empty the HTTP 401 credentials set
+        #
+        %url_401_user = ();
+        %url_401_password = ();
+
         #
         # Open the URL list file
         #
@@ -2822,7 +2841,69 @@ sub GUI_Do_Load_URL_List_from_File_Click {
             $url_list = "";
             while ( <FILE> ) {
                 chop;
-                $url_list .= "\r\n" . $_;
+                if ( /^#/ ) {
+                    #
+                    # Comment line
+                    #
+                    $url_list .= "\r\n" . $_;
+                    next;
+                }
+                elsif ( /^$/ ) {
+                    next;
+                }
+
+                #
+                # Split line into 2 parts, configuration parameter, value
+                #
+                ($field_name, $value) = split(/\s+/, $_, 2);
+
+                #
+                # Is this line a configuration option line ?
+                #
+                if ( defined($site_configuration_fields{$field_name}) ) {
+                    #
+                    # Load value into main dialog
+                    #
+                    $name = $site_configuration_fields{$field_name};
+                    print "Set configuration item $name to $value\n" if $debug;
+                    $main_window->ConfigTabs->$name->Text("$value");
+                }
+                elsif ( defined($report_options_field_names{$field_name}) ) {
+                    #
+                    # Load value into main dialog
+                    #
+                    $name = $report_options_field_names{$field_name};
+                    print "Set configuration selector $name to $value\n" if $debug;
+                    $main_window->ConfigTabs->$name->SelectString("$value");
+                }
+                elsif ( $field_name eq "HTTP_401" ) {
+                    #
+                    # Have HTTP 401 credentials
+                    #
+                    ($field_name, $url, $type, $value) = split(/\s+/, $line);
+
+                    #
+                    # Is this a username or password ?
+                    #
+                    if ( defined($value) && ($type eq "user") ) {
+                        $url_401_user{$url} = $value;
+                    }
+                    elsif ( defined($value) && ($type eq "password") ) {
+                        $url_401_password{$url} = $value;
+                    }
+                }
+                elsif ( $field_name eq "output_file" ) {
+                    #
+                    # Skip over the output file setting, it is used in
+                    # command line mode.
+                    #
+                }
+                else {
+                    #
+                    # Must be a URL, add it to the list
+                    #
+                    $url_list .= "\r\n" . $_;
+                }
             }
             close(FILE);
 
@@ -3288,7 +3369,7 @@ sub Add_Report_Option_Selector {
     my ($tab_strip, $tabid, $current_pos, $option_label,
         $option_list_addr) = @_;
 
-    my ($num_options, $name);
+    my ($num_options, $name, $config_option);
 
     #
     # Create combobox name and store it in a hash table
@@ -3312,6 +3393,15 @@ sub Add_Report_Option_Selector {
     );
     $tab_strip->$name->Add(@$option_list_addr);
     $tab_strip->$name->SetCurSel(0);
+
+    #
+    # Save field name
+    #
+    if ( defined($report_options_config_options{$option_label}) ) {
+        $config_option = $report_options_config_options{$option_label};
+        $report_options_field_names{$config_option} = $name;
+        print "Add configuration type $config_option fieldname $name to report_options_field_names\n" if $debug;
+    }
 
     #
     # Add label
@@ -3347,7 +3437,7 @@ sub Add_Report_Option_Selector {
 sub Load_Site_Config {
     my ($self) = @_;
 
-    my ($filename, $line, $field_name, $value, $name);
+    my ($filename, $line, $field_name, $value, $name, $type, $url);
 
     #
     # Get name of file to read configuration from
@@ -3368,6 +3458,12 @@ sub Load_Site_Config {
     # Was a file name specified ?
     #
     if ( defined($filename) ) {
+        #
+        # Empty the HTTP 401 credentials set
+        #
+        %url_401_user = ();
+        %url_401_password = ();
+
         #
         # Open the configuration file
         #
@@ -3395,6 +3491,13 @@ sub Load_Site_Config {
                 ($field_name, $value) = split(/\s+/, $line, 2);
 
                 #
+                # Do we have a value ?
+                #
+                if ( ! defined($value) ) {
+                    next;
+                }
+
+                #
                 # Check configuration field name
                 #
                 if ( defined($site_configuration_fields{$field_name}) ) {
@@ -3402,12 +3505,42 @@ sub Load_Site_Config {
                     # Load value into main dialog
                     #
                     $name = $site_configuration_fields{$field_name};
+                    print "Set configuration item $name to $value\n" if $debug;
                     $main_window->ConfigTabs->$name->Text("$value"); 
 
                     #
                     # Update the results page
                     #
                     Win32::GUI::DoEvents();
+                }
+                elsif ( defined($report_options_field_names{$field_name}) ) {
+                    #
+                    # Load value into main dialog
+                    #
+                    $name = $report_options_field_names{$field_name};
+                    print "Set configuration selector $name to $value\n" if $debug;
+                    $main_window->ConfigTabs->$name->SelectString("$value"); 
+
+                    #
+                    # Update the results page
+                    #
+                    Win32::GUI::DoEvents();
+                }
+                elsif ( $field_name eq "HTTP_401" ) {
+                    #
+                    # Have HTTP 401 credentials
+                    #
+                    ($field_name, $url, $type, $value) = split(/\s+/, $line);
+
+                    #
+                    # Is this a username or password ?
+                    #
+                    if ( defined($value) && ($type eq "user") ) {
+                        $url_401_user{$url} = $value;
+                    }
+                    elsif ( defined($value) && ($type eq "password") ) {
+                        $url_401_password{$url} = $value;
+                    }
                 }
             }
             close(FILE);
@@ -3433,6 +3566,7 @@ sub Save_Site_Config {
     my ($self) = @_;
 
     my ($filename, $line, $field_name, $value, $tab_field_name);
+    my ($url, $user, $password);
 
     #
     # Get name of file to save configuration in
@@ -3465,6 +3599,17 @@ sub Save_Site_Config {
                 $tab_field_name = $site_configuration_fields{$field_name};
                 $value = $main_window->ConfigTabs->$tab_field_name->Text();
                 print FILE "$field_name $value\n";
+            }
+            foreach $field_name (sort keys %report_options_field_names) {
+                $tab_field_name = $report_options_field_names{$field_name};
+                $value = $main_window->ConfigTabs->$tab_field_name->Text();
+                print FILE "$field_name $value\n";
+            }
+            foreach $url (sort keys %url_401_user) {
+                $user = $url_401_user{$url};
+                $password = $url_401_password{$url};
+                print FILE "HTTP_401 $url user $user\n";
+                print FILE "HTTP_401 $url password $password\n";
             }
             close(FILE);
         }
@@ -3704,6 +3849,25 @@ sub Create_Main_Window {
                                    $main_window_menu->{SaveContentOff}->Enabled(0);
                                   }
             },
+    " > " . String_Value("Ignore PDF pages")  => 
+            { 
+                 -name => "IgnorePDF", 
+                 -onClick => sub { 
+                                   $process_pdf = 0;
+                                   $main_window_menu->{IgnorePDF}->Enabled(0);
+                                   $main_window_menu->{ProcessPDF}->Enabled(1);
+                                  }
+            },
+
+    " > " . String_Value("Process PDF pages")  => 
+            { 
+                 -name => "ProcessPDF", 
+                 -onClick => sub { 
+                                   $process_pdf = 1;
+                                   $main_window_menu->{IgnorePDF}->Enabled(1);
+                                   $main_window_menu->{ProcessPDF}->Enabled(0);
+                                  }
+            },
 
     #
     # Help menu
@@ -3725,6 +3889,8 @@ sub Create_Main_Window {
     $main_window_menu->{XMLOutput}->Enabled(1);
     $main_window_menu->{SaveContentOn}->Enabled(1);
     $main_window_menu->{SaveContentOff}->Enabled(0);
+    $main_window_menu->{IgnorePDF}->Enabled(1);
+    $main_window_menu->{ProcessPDF}->Enabled(0);
 
     #
     # Create main window
@@ -3797,6 +3963,7 @@ sub Create_Main_Window {
     $stop_on_errors = 0;
     $report_fails_only = 1;
     $save_content = 0;
+    $process_pdf = 1;
 
     #
     # Return window handle
@@ -3852,7 +4019,7 @@ sub Display_Content_In_Browser {
              #
              # Insert <base after the first tag close
              #
-             $lines[1] =~ s/>/>\n<base href="$url"\\>\n/;
+             $lines[1] =~ s/>/>\n<base href="$url" \/>\n/;
 
              #
              # Print the rest of the content
@@ -4333,6 +4500,7 @@ sub Validator_GUI_Report_Option_Labels {
     # Copy content to global variable
     #
     %report_options_labels = %option_labels;
+    %report_options_config_options = reverse %option_labels;
 }
 
 #***********************************************************************

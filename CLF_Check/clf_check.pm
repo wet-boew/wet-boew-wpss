@@ -2,9 +2,9 @@
 #
 # Name:   clf_check.pm
 #
-# $Revision: 5267 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2011-05-17 12:00:03 -0400 (Tue, 17 May 2011) $
+# $Revision: 6350 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf_check.pm $
+# $Date: 2013-07-22 08:55:06 -0400 (Mon, 22 Jul 2013) $
 #
 # Description:
 #
@@ -118,7 +118,6 @@ sub Set_CLF_Check_Debug {
     CLF_Archive_Debug($this_debug);
     Set_CLF20_Check_Debug($this_debug);
     Set_SWU_Check_Debug($this_debug);
-    Set_TP_PW_Check_Debug($this_debug);
 
     #
     # Copy debug value to global variable
@@ -171,7 +170,6 @@ sub Set_CLF_Check_Language {
     Set_CLF20_Check_Language($language);
     Set_SWU_Check_Language($language);
     Set_Archive_Check_Language($language);
-    Set_TP_PW_Check_Language($language);
 }
 
 #**********************************************************************
@@ -200,11 +198,6 @@ sub CLF_Check_Read_URL_Help_File {
     # Read in Standard on Web Usability URL help
     #
     SWU_Check_Read_URL_Help_File($filename);
-
-    #
-    # Read in PWGSC checks URL help
-    #
-    TP_PW_Check_Read_URL_Help_File($filename);
 }
 
 #**********************************************************************
@@ -237,13 +230,6 @@ sub CLF_Check_Testcase_URL {
     }
 
     #
-    # Get PWGSC check URL information
-    #
-    if ( ! defined($help_url) ) {
-        $help_url = TP_PW_Check_Testcase_URL($key);
-    }
-    
-    #
     # Return URL value
     #
     return($help_url);
@@ -275,7 +261,8 @@ sub CLF_Check_Other_Tool_Results {
 #
 # Name: Set_CLF_Check_Testcase_Data
 #
-# Parameters: testcase - testcase identifier
+# Parameters: profile - testcase profile
+#             testcase - testcase identifier
 #             data - string of data
 #
 # Description:
@@ -285,15 +272,14 @@ sub CLF_Check_Other_Tool_Results {
 #
 #***********************************************************************
 sub Set_CLF_Check_Testcase_Data {
-    my ($testcase, $data) = @_;
+    my ($profile, $testcase, $data) = @_;
 
     #
     # Set other module testcase data
     #
     Set_URL_Check_Testcase_Data($testcase, $data);
     Set_CLF20_Check_Testcase_Data($testcase, $data);
-    Set_SWU_Check_Testcase_Data($testcase, $data);
-    Set_TP_PW_Check_Testcase_Data($testcase, $data);
+    Set_SWU_Check_Testcase_Data($profile, $testcase, $data);
 }
 
 #***********************************************************************
@@ -318,7 +304,6 @@ sub Set_CLF_Check_Test_Profile {
     Set_URL_Check_Test_Profile($profile, $clf_checks);
     Set_CLF20_Check_Test_Profile($profile, $clf_checks);
     Set_SWU_Check_Test_Profile($profile, $clf_checks);
-    Set_TP_PW_Check_Test_Profile($profile, $clf_checks);
 }
 
 #***********************************************************************
@@ -366,22 +351,6 @@ sub CLF_Check {
         foreach $result_object (@other_tqa_results_list) {
             push(@tqa_results_list, $result_object);
         }
-
-        #
-        # Perform PWGSC checks.
-        #
-        @other_tqa_results_list = TP_PW_Check($this_url, $language, $profile,
-                                        $mime_type, $resp, $content);
-
-        #
-        # Add results from PWGSC check into those from the CLF2.0 and
-        # Standard on Web Usability check to get results for the entire
-        # document.
-        #
-        foreach $result_object (@other_tqa_results_list) {
-            push(@tqa_results_list, $result_object);
-        }
-
     }
     else {
         print "No content passed to CLF_Check\n" if $debug;
@@ -417,6 +386,8 @@ sub CLF_Check {
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
 #             site_links - hash table of site links
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -427,7 +398,7 @@ sub CLF_Check {
 #***********************************************************************
 sub CLF_Check_Links {
     my ($tqa_results_list, $url, $profile, $language, $link_sets,
-        $site_links) = @_;
+        $site_links, $logged_in) = @_;
 
     my ($result_object, @local_tqa_results_list, $list_addr);
 
@@ -441,12 +412,7 @@ sub CLF_Check_Links {
     # Perform Standard on Web Usability link checks.
     #
     SWU_Check_Links($tqa_results_list, $url, $profile, $language, $link_sets,
-                    $site_links);
-    
-    #
-    # Perform PWGSC link checks.
-    #
-    TP_PW_Check_Links($tqa_results_list, $url, $profile, $language, $link_sets);
+                    $site_links, $logged_in);
 }
 
 #***********************************************************************
@@ -548,7 +514,7 @@ sub Import_Packages {
 
     my ($package);
     my (@package_list) = ("tqa_result_object", "url_check", "clf_archive",
-                          "clf20_check", "swu_check", "tp_pw_check");
+                          "clf20_check", "swu_check");
 
     #
     # Import packages, we don't use a 'use' statement as these packages

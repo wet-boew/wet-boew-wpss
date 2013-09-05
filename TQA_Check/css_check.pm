@@ -2,9 +2,9 @@
 #
 # Name:   css_check.pm
 #
-# $Revision: 4486 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/CSS_Check/Tools/css_check.pm $
-# $Date: 2010-07-27 15:02:01 -0400 (Tue, 27 Jul 2010) $
+# $Revision: 6331 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/css_check.pm $
+# $Date: 2013-07-09 13:57:13 -0400 (Tue, 09 Jul 2013) $
 #
 # Description:
 #
@@ -323,7 +323,7 @@ sub Set_CSS_Check_Test_Profile {
 #    1 - valid markup
 #    0 - not valid markup
 #   -1 - unknown validity.
-# This value is used when assessing W3C checkpoint 3.2 or G134
+# This value is used when assessing WCAG 2.0 technique G134
 #
 #***********************************************************************
 sub Set_CSS_Check_Valid_Markup {
@@ -374,24 +374,14 @@ sub Initialize_Test_Results {
 #***********************************************************************
 #
 #    #
-#    # Set valid markup testcase result.
+#    # Check to see if we were told that this document is not
+#    # valid CSS
 #    #
-#    if ( defined($$current_css_check_profile{"W3C-3.2"}) ) {
-#        $tcid = "W3C-3.2";
+#    if ( $is_valid_markup == 0 ) {
+#        Record_Result("WCAG_2.0-G134", -1, 0, "",
+#                      String_Value("Fails validation"));
 #    }
-#    if ( defined($$current_css_check_profile{"WCAG_2.0-G134"}) ) {
-#        $tcid = "WCAG_2.0-G134";
-#    }
-#    if ( defined($tcid) ) {
-#        #
-#        # Check to see if we were told that this document is not
-#        # valid CSS
-#        #
-#        if ( $is_valid_markup == 0 ) {
-#            Record_Result($tcid, -1, 0, "",
-#                          String_Value("Fails validation"));
-#        }
-#    }
+
 
     #
     # Initialize other global variables
@@ -776,80 +766,6 @@ sub Compute_Color_Differences {
 
 #***********************************************************************
 #
-# Name: Color_Brightness_and_Contrast_Check
-#
-# Parameters: name - selector (class) name
-#             color1 - a color value
-#             color2 - a color value
-#
-# Description:
-#
-#   This function performs a color brightness and contrast check
-# on the specified colour values.  The algorithm is defined in 
-# WCAG 1.0 as follows
-#
-# Algorithm taken from http://www.w3.org/TR/AERT#color-contrast
-# Color brightness is determined by the following formula:
-# ((Red value X 299) + (Green value X 587) + (Blue value X 114)) / 1000
-# Note: This algorithm is taken from a formula for converting RGB
-# values to YIQ values. This brightness value gives a perceived
-# brightness for a color.
-#
-# See http://snook.ca/technical/colour_contrast/colour.html for
-# an online implementation of this algorithm.
-#
-#***********************************************************************
-sub Color_Brightness_and_Contrast_Check {
-    my ($name, $color1, $color2) = @_;
-
-    my ($color_diff, $bright_diff);
-
-    #
-    # Get color contrast difference and the brightness difference
-    #
-    print "Color_Brightness_and_Contrast_Check: check on style $name, foreground $color1, background $color2\n" if $debug;
-    ($color_diff, $bright_diff) = Compute_Color_Differences($color1, $color2);
-
-    #
-    # Is the brightness difference acceptable ?
-    # The difference between the background brightness, and the
-    # foreground brightness should be greater than 125.
-    #
-    if ( $bright_diff < 125 ) {
-        #
-        # Brightness not different enough
-        #
-        print "Color brightness difference too low, $bright_diff\n"
-          if $debug;
-        $bright_diff = sprintf("%4.2f", $bright_diff);
-        Record_Result("W3C-2.2", -1, 0, "",
-                      String_Value("The color brightness") .
-                      " ($bright_diff) " .
-                      String_Value("is too low for") .
-                      " (#$color1, #$color2) " .
-                      String_Value("for styles") ." $name");
-    }
-    
-    #
-    # Is the color contrast difference acceptable ?
-    #
-    elsif ( $color_diff < 500 ) {
-        #
-        # Contrast not great enough
-        #
-        print "Color contrast difference too low, $color_diff\n" if $debug;
-        $color_diff = sprintf("%4.2f", $color_diff);
-        Record_Result("W3C-2.2", -1, 0, "",
-                      String_Value("The color contrast") .
-                      " ($color_diff) " .
-                      String_Value("is too low for") .
-                      " (#$color1, #$color2) " .
-                      String_Value("for styles") ." $name");
-    }
-}
-
-#***********************************************************************
-#
 # Name: Relative_Luminance
 #
 # Parameters: color - color value
@@ -1040,13 +956,6 @@ sub Check_Color_Contrast {
          defined($$current_css_check_profile{"WCAG_2.0-G145"}) ) {
         Luminosity_Color_Contrast_Ratio_Check($name, $color1, $color2);
     }
-    
-    #
-    # Check if WCAG 1.0 algorithm is to be used.
-    #
-    if ( defined($$current_css_check_profile{"W3C-2.2"}) ) {
-        Color_Brightness_and_Contrast_Check($name, $color1, $color2);
-    }
 }
 
 #***********************************************************************
@@ -1110,17 +1019,7 @@ sub Background_Color_Property {
 sub Font_Size_Property {
     my ($name, $value) = @_;
 
-    my ($tcid, @fields);
-
-    #
-    # Set executed flag if testcase is part of the profile
-    #
-    if ( defined($$current_css_check_profile{"WCAG_2.0-G142"}) ) {
-        $tcid = "WCAG_2.0-G142";
-    }
-    elsif ( defined($$current_css_check_profile{"W3C-3.4"}) ) {
-        $tcid = "W3C-3.4";
-    }
+    my (@fields);
 
     #
     # Is the font-size 0 ? if so, skip the rest of the checks.
@@ -1163,7 +1062,7 @@ sub Font_Size_Property {
     # Looks like we do not have a scalable font size
     #
     else {
-        Record_Result($tcid, -1, 0, 
+        Record_Result("WCAG_2.0-G142", -1, 0,
                       "", String_Value("No scalable font") . 
                       "$name : $value");
     }
@@ -1184,24 +1083,12 @@ sub Font_Size_Property {
 sub Text_Decoration_Property {
     my ($name, $value) = @_;
 
-    my ($tcid);
-
-    #
-    # Set executed flag if testcase is part of the profile
-    #
-    if ( defined($$current_css_check_profile{"WCAG_2.0-F4"}) ) {
-        $tcid = "WCAG_2.0-F4";
-    }
-    elsif ( defined($$current_css_check_profile{"W3C-7.2"}) ) {
-        $tcid = "W3C-7.2";
-    }
-
     #
     # Does the value include blink ?
     #
     print "Class $name, text-decoration value $value\n" if $debug;
     if ( $value =~ /blink/i ) {
-        Record_Result($tcid, -1, 0, 
+        Record_Result("WCAG_2.0-F4", -1, 0,
                       "", String_Value("blink text decoration in class") . 
                       $name);
     }
@@ -1478,18 +1365,7 @@ sub Parse_CSS_Content {
 sub Check_Flickering_Image {
     my ($url) = @_;
 
-    my ($resp, %image_details, $abs_url, $tcid);
-
-    #
-    # Check testcase profile or WCAG 1.0 or 2.0 testcases
-    #
-    print "Check_Flickering_Image, url = $url\n" if $debug;
-    if ( defined($$current_css_check_profile{"WCAG_2.0-G19"}) ) {
-        $tcid = "WCAG_2.0-G19";
-    }
-    if ( defined($$current_css_check_profile{"W3C-7.1"}) ) {
-        $tcid = "W3C-7.1";
-    }
+    my ($resp, %image_details, $abs_url);
 
     #
     # Convert possible relative URL into a absolute URL
@@ -1528,7 +1404,7 @@ sub Check_Flickering_Image {
             #
             # Animated image that flashes more than 3 times in 1 second
             #
-            Record_Result($tcid, -1, 0, "",
+            Record_Result("WCAG_2.0-G19", -1, 0, "",
                         String_Value("GIF flashes more than 3 times in 1 second")
                         . " $url");
         }

@@ -2,9 +2,9 @@
 #
 # Name:   css_extract_links.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 6360 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/CSS_Validate/Tools/css_extract_links.pm $
+# $Date: 2013-08-13 13:01:43 -0400 (Tue, 13 Aug 2013) $
 #
 # Description:
 #
@@ -124,11 +124,21 @@ sub CSS_Extract_Links {
     my ($selector, $name, @urls, $link, $abs_url);
 
     #
-    # Remove any comments from the CSS content
+    # Do we have any url strings in the content ?
+    #
+    if ( ! ($content =~ /url\s*\(/i) ) {
+        print "No url() in content\n" if $debug;
+        return(@urls);
+    }
+
+    #
+    # Remove any comments from the CSS content and compress white space
     #
     print "CSS_Extract_Links from $url\n" if $debug;
     $content =~ s/<!--.+?-->//gs;
     $content =~ s!/\*.+?\*/!!gs;
+    $content =~ s/\r\n|\r|\n/ /g;
+    $content =~ s/\s\s+/ /g;
 
     #
     # Create a CSS parser object and set the output adaptor.
@@ -202,7 +212,7 @@ sub CSS_Extract_Links {
                     #
                     if ( $value ne "" ) {
                         print "Extracted URL $value from CSS\n" if $debug;
-                        $abs_url = url( $value, $url )->abs;
+                        $abs_url = URL_Check_Make_URL_Absolute($value, $url);
                         $link = link_object->new($value, $abs_url, "", "url",
                                                  "", -1, -1, "");
                         push (@urls, $link);
@@ -233,7 +243,7 @@ sub CSS_Extract_Links {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("link_object");
+    my (@package_list) = ("link_object", "url_check");
 
     #
     # Import packages, we don't use a 'use' statement as these packages

@@ -2,9 +2,9 @@
 #
 # Name:   clf_archive.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 6302 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf_archive.pm $
+# $Date: 2013-06-25 14:08:36 -0400 (Tue, 25 Jun 2013) $
 #
 # Description:
 #

@@ -2,9 +2,9 @@
 #
 # Name:   url_check.pm
 #
-# $Revision: 6062 $
+# $Revision: 6361 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/url_check.pm $
-# $Date: 2012-10-22 17:06:17 -0400 (Mon, 22 Oct 2012) $
+# $Date: 2013-08-16 12:27:22 -0400 (Fri, 16 Aug 2013) $
 #
 # Description:
 #
@@ -17,6 +17,7 @@
 #     URL_Check_Get_English_URL
 #     URL_Check_Is_URL
 #     URL_Check_Parse_URL
+#     URL_Check_Make_URL_Absolute
 #     Set_URL_Check_Language
 #     Set_URL_Check_Test_Profile
 #     Set_URL_Check_Testcase_Data
@@ -54,6 +55,7 @@
 package url_check;
 
 use strict;
+use URI::URL;
 use File::Basename;
 
 #***********************************************************************
@@ -72,6 +74,7 @@ BEGIN {
                   URL_Check_Get_English_URL
                   URL_Check_Is_URL
                   URL_Check_Parse_URL
+                  URL_Check_Make_URL_Absolute
                   Set_URL_Check_Language
                   Set_URL_Check_Test_Profile
                   Set_URL_Check_Testcase_Data
@@ -700,6 +703,113 @@ sub URL_Check_Get_English_URL {
     # Return English URL
     #
     return($english_url);
+}
+
+#***********************************************************************
+#
+# Name: URL_Check_Make_URL_Absolute
+#
+# Parameters: url - extracted url
+#             base - base to convert relative to absolute URLs
+#
+# Description:
+#
+#   This function converts a relative URL into absolute, domain
+# qualified URL.
+#
+# Returns:
+#   url
+#
+#***********************************************************************
+sub URL_Check_Make_URL_Absolute {
+    my ($url, $base) = @_;
+
+    my ($protocol, $domain, $dir, $query);
+
+    #
+    # Check for mailto:, javascript:, or ftp: links.  These are cannot be
+    # made absolute using the base.
+    #
+    if ( ($url =~ /^\s*mailto:/i) ||
+         ($url =~ /^\s*javascript:/i) ||
+         ($url =~ /^\s*ftp:/i) ) {
+        #
+        # return original URL unchanged.
+        #
+        print "Cannot generate absolute URL from $url\n" if $debug;
+        return($url);
+    }
+
+    #
+    # Extract the domain & directory portion from the URL
+    #
+    print "URL_Check_Make_URL_Absolute:\n" if $debug;
+    print "  url  = $url\n" if $debug;
+    print "  base = $base\n" if $debug;
+    ($protocol, $domain, $dir, $query) = $base =~ /^(http[s]?:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+    print "Protocol = $protocol, domain = $domain, dir = $dir, query = $query\n" if $debug;
+
+    #
+    # Convert domain portion to lowercase
+    #
+    $domain =~ tr/A-Z/a-z/;
+
+    #
+    # Make sure protocol is in lowercase
+    #
+    $protocol =~ tr/A-Z/a-z/;
+
+    #
+    # Clean up the directory portion
+    #
+    $dir =~ s/\/*$//g;
+
+    #
+    # If the original base had a trailing /, it was just a directory.
+    # We have to replace the slash that was removed by the above
+    # substitution.
+    #
+    if ( ($base =~ /\/$/) && ($dir ne "") ) {
+        $dir .= "/";
+    }
+
+    #
+    # Rebuild the base URL
+    #
+    $base = "$protocol//$domain/$dir$query";
+
+    #
+    # Convert relative URL into absolute
+    #
+    $url = url($url, $base)->abs;
+
+    #
+    # Parse the absolute URL
+    #
+    ($protocol, $domain, $dir, $query, $url) = URL_Check_Parse_URL($url);
+
+    #
+    # Remove any leading ../ from the directory portion
+    #
+    while ( $dir =~ /^\.\.\// ) {
+        $dir =~ s/^\.\.\///g;
+    }
+
+    #
+    # Reconstruct URL
+    #
+    if ( $dir ne "/" ) {
+        $url = "$protocol//$domain/$dir$query";
+    }
+    else {
+        $url = "$protocol//$domain/$query";
+    }
+
+    #
+    # Return absolute URL
+    #
+    print "New absolute url = $url\n" if $debug;
+    return($url);
 }
 
 #***********************************************************************

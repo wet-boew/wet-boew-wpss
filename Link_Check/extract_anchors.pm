@@ -2,9 +2,9 @@
 #
 # Name: extract_anchors.pm	
 #
-# $Revision: 4894 $
+# $Revision: 6312 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_anchors.pm $
-# $Date: 2010-10-12 09:17:46 -0400 (Tue, 12 Oct 2010) $
+# $Date: 2013-06-26 11:07:55 -0400 (Wed, 26 Jun 2013) $
 #
 # Description:
 #

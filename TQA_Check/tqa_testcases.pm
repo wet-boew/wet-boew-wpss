@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 6012 $
+# $Revision: 6331 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2012-10-04 13:31:17 -0400 (Thu, 04 Oct 2012) $
+# $Date: 2013-07-09 13:57:13 -0400 (Tue, 09 Jul 2013) $
 #
 # Description:
 #
@@ -86,33 +86,6 @@ my ($debug) = 0;
 # String tables for testcase ID to testcase descriptions
 #
 my (%testcase_description_en) = (
-#
-# WCAG 1.0
-#
-"W3C-1.1", "W3C 1.1: Provide a text equivalent for every non-text element",
-"W3C-2.2", "W3C 2.2: Ensure that foreground and background color combinations provide sufficient contrast",
-"W3C-3.2", "W3C 3.2: Create documents that validate to published formal grammars",
-"W3C-3.4", "W3C 3.4: Use relative rather than absolute units in markup language attribute values and style sheet property values",
-"W3C-3.5", "W3C 3.5: Use header elements to convey document structure",
-"W3C-4.1", "W3C 4.1: Clearly identify changes in the natural language of a document's text and any text equivalents",
-"W3C-4.3", "W3C 4.3: Identify the primary natural language of a document",
-"W3C-5.1", "W3C 5.1: For data tables, identify row and column headers",
-"W3C-5.2", "W3C 5.2: For data tables that have two or more logical levels of row or column headers, use markup to associate data cells and header cells",
-"W3C-5.5", "W3C 5.5: Provide summaries for tables",
-"W3C-6.4", "W3C-6.4: For scripts and applets, ensure that event handlers are input device-independent",
-"W3C-6.5", "W3C 6.5: Ensure that dynamic content is accessible or provide an alternative presentation or page",
-"W3C-7.1", "W3C 7.1: Until user agents allow users to control flickering, avoid causing the screen to flicker",
-"W3C-7.2", "W3C 7.2: Until user agents allow users to control blinking, avoid causing content to blink",
-"W3C-7.3", "W3C 7.3: Until user agents allow users to freeze moving content, avoid movement in pages",
-"W3C-7.4", "W3C 7.4: Until user agents provide the ability to stop the refresh, do not create periodically auto-refreshing pages",
-"W3C-7.5", "W3C 7.5: Until user agents provide the ability to stop auto-redirect, do not use markup to redirect pages automatically",
-"W3C-11.2", "W3C 11.2: Avoid deprecated features of W3C technologies",
-"W3C-12.1", "W3C 12.1: Title each frame to facilitate frame identification and navigation",
-"W3C-12.3", "W3C 12.3: Divide large blocks of information into more manageable groups where natural and appropriate",
-"W3C-12.4", "W3C 12.4: Associate labels explicitly with their controls",
-"W3C-13.1", "W3C 13.1: Clearly identify the target of each link",
-"W3C-13.2", "W3C 13.2: Provide metadata to add semantic information to pages and sites",
-
 #
 # WCAG 2.0
 #
@@ -244,6 +217,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-PDF12", "1.3.1, 4.1.2 PDF12: Providing name, role, value information for form fields in PDF documents",
 "WCAG_2.0-PDF16", "3.1.1 PDF16: Setting the default language using the /Lang entry in the document catalog of a PDF document",
 "WCAG_2.0-PDF18", "2.4.2 PDF18: Specifying the document title using the Title entry in the document information dictionary of a PDF document",
+"WCAG_2.0-SC3.1.1", "3.1.1 SC3.1.1: Language of Page",
 #
 # SCR2: Using redundant keyboard and mouse event handlers
 #       Failures of this technique are reported under technique SCR20
@@ -253,33 +227,6 @@ my (%testcase_description_en) = (
 );
 
 my (%testcase_description_fr) = (
-#
-# WCAG 1.0
-#
-"W3C-1.1", "W3C 1.1: Fournir un équivalent textuel à chaque élément non-textuel",
-"W3C-2.2", "W3C 2.2: S'assurer que la combinaison de couleurs entre le premier plan et l'arrière-plan utilise suffisamment de contraste",
-"W3C-3.2", "W3C 3.2: Créer des documents qui sont validés par des grammaires formelles publiées",
-"W3C-3.4", "W3C 3.4: Utiliser des unités relatives plutôt qu'absolues dans les valeurs d'attributs du langage et les valeurs de propriétés des feuilles de style",
-"W3C-3.5", "W3C 3.5: Utiliser les éléments d'en-tête pour convoyer la structure du document, et les utiliser en conformité avec les spécifications",
-"W3C-4.1", "W3C 4.1: Identifiez clairement les changements de langue du texte d'un document et de tous les équivalents textuels",
-"W3C-4.3", "W3C 4.3: Identifier le langage naturel principal du document",
-"W3C-5.1", "W3C 5.1: Pour les tableaux de données, identifier les en-têtes de lignes et de colonnes",
-"W3C-5.2", "W3C 5.2: Pour les tableaux de données qui ont deux niveaux logiques d'en-tête de colonne ou de ligne ou plus , utiliser des balises pour associer les cellules de données et les cellules d'en-tête",
-"W3C-5.5", "W3C 5.5: Créer des sommaires pour les tableaux",
-"W3C-6.4", "W3C-6.4: Pour les scripts et les applets, faites en sorte que les gestionnaires d'événements soient indépendants du dispositif d'entrée",
-"W3C-6.5", "W3C 6.5: S'assurer que le contenu dynamique reste accessible, ou fournir une présentation alternative de la page",
-"W3C-7.1", "W3C 7.1: Tant que les agents utilisateurs (navigateurs) n'autorisent pas les utilisateurs à contrôler le scintillement, évitez de faire scintiller l'écran (clignotements, animations)",
-"W3C-7.2", "W3C 7.2: Jusqu'à ce que les agents-utilisateurs permettent de désactiver le clignotement, éviter de faire clignoter le contenu",
-"W3C-7.3", "W3C 7.3: Jusqu'à ce que les agents utilisateurs permettent aux utilisateurs de figer le contenu mobile, évitez le mouvement dans les pages",
-"W3C-7.4", "W3C 7.4: Tant que les agents utilisateurs ne fournissent pas la possibilité d'arrêter le raffraîchissement, ne créez pas de pages se raffraîchissant toutes seules périodiquement",
-"W3C-7.5", "W3C 7.5: Jusqu'à ce que les agents-utilisateurs permettent de désactiver la fonction de redirection automatique, ne pas utiliser de commandes pour rediriger automatiquement les pages",
-"W3C-11.2", "W3C 11.2: Eviter d'utiliser les options des technologies du W3C qui ne sont plus supportées",
-"W3C-12.1", "W3C 12.1: Donner un titre à chaque cadre pour faciliter l'identification et la navigation entre cadres",
-"W3C-12.3", "W3C 12.3: Lorsque c'est approprié, diviser les grands blocs d'information en groupes plus petits et plus facilement manipulables",
-"W3C-12.4", "W3C 12.4: Associer les étiquettes avec leurs éléments de contrôle de manière explicite",
-"W3C-13.1", "W3C 13.1: Identifier clairement la cible de chaque lien",
-"W3C-13.2", "W3C 13.2: Prévoyez des meta-données pour ajouter des informations d'ordre sémantique aux pages et aux sites",
-
 #
 # WCAG 2.0
 #  Text taken from http://www.braillenet.org/accessibilite/comprendre-wcag20/CAT20110222/Overview.html
@@ -406,12 +353,13 @@ my (%testcase_description_fr) = (
 #      Failures of this technique are reported under technique F77
 #
 "WCAG_2.0-H94", "4.1.1 H94: S'assurer que les éléments ne contiennent pas d'attributs dupliqués",
-"WCAG_2.0-PDF1", "1.1.1 PDF1: Applying text alternatives to images with the Alt entry in PDF documents",
-"WCAG_2.0-PDF2", "2.4.5 PDF2: Creating bookmarks in PDF documents",
-"WCAG_2.0-PDF6", "1.3.1 PDF6: Using table elements for table markup in PDF Documents",
-"WCAG_2.0-PDF12", "1.3.1, 4.1.2 PDF12: Providing name, role, value information for form fields in PDF documents",
-"WCAG_2.0-PDF16", "3.1.1 PDF16: Setting the default language using the /Lang entry in the document catalog of a PDF document",
-"WCAG_2.0-PDF18", "2.4.2 PDF18: Specifying the document title using the Title entry in the document information dictionary of a PDF document",
+"WCAG_2.0-PDF1", "1.1.1 PDF1 : Application d’équivalents textuels aux images au moyen de l’entrée Alt dans les documents PDF",
+"WCAG_2.0-PDF2", "2.4.5 PDF2 : Création de signets dans les documents PDF",
+"WCAG_2.0-PDF6", "1.3.1 PDF6 : Utilisation d’éléments de table pour le balisage des tables dans les documents PDF",
+"WCAG_2.0-PDF12", "1.3.1, 4.1.2 PDF12 : Fourni le nom, le rôle, la valeur des renseignements des champs de formulaire des documents PDF",
+"WCAG_2.0-PDF16", "3.1.1 PDF16 : Règle la langue par défaut au moyen de l’entrée /Lang dans le catalogue de document d’un document PDF",
+"WCAG_2.0-PDF18", "2.4.2 PDF18 : Précise le titre du document au moyen de l’entrée du dictionnaire d’informations du document d’un document PDF",
+"WCAG_2.0-SC3.1.1", "3.1.1 SC3.1.1: Langue de la page",
 #
 # SCR2: Using redundant keyboard and mouse event handlers
 #       Failures of this technique are reported under technique SCR20
@@ -500,6 +448,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-PDF12", "1.3.1, 4.1.2",
 "WCAG_2.0-PDF16", "3.1.1",
 "WCAG_2.0-PDF18", "2.4.2",
+"WCAG_2.0-SC3.1.1", "3.1.1",
 "WCAG_2.0-SCR20", "2.1.1",
 "WCAG_2.0-SCR21", "1.3.1",
 );

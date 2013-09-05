@@ -2,9 +2,9 @@
 #
 # Name: content_section_object.pm
 #
-# $Revision: 5664 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/content_section_object.pm $
-# $Date: 2012-01-30 10:58:51 -0500 (Mon, 30 Jan 2012) $
+# $Revision: 6303 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/content_section_object.pm $
+# $Date: 2013-06-25 14:14:21 -0400 (Tue, 25 Jun 2013) $
 #
 # Description:
 #

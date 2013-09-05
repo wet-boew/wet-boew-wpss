@@ -2,9 +2,9 @@
 #
 # Name:   interop_html_check.pm
 #
-# $Revision: 6056 $
+# $Revision: 6215 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_html_check.pm $
-# $Date: 2012-10-22 14:12:45 -0400 (Mon, 22 Oct 2012) $
+# $Date: 2013-03-13 09:47:46 -0400 (Wed, 13 Mar 2013) $
 #
 # Description:
 #
@@ -104,12 +104,22 @@ my ($max_error_message_string) = 2048;
 #  Source: http://www.w3.org/TR/2011/WD-html5-20110525/links.html#linkTypes
 #  Value "shortcut" is not listed in the above page but is a valid value
 #  for <link> tags.
+#  Date: 2012-11-09
 #
 my %valid_rel_values = (
    "a",    " alternate author bookmark external help license next nofollow noreferrer prefetch prev search sidebar tag ",
    "area", " alternate author bookmark external help license next nofollow noreferrer prefetch prev search sidebar tag ",
    "link", " alternate author help icon license next pingback prefetch prev search shortcut sidebar stylesheet tag ",
 );
+
+#
+# Values for the rel attribute of tags
+#  Source: http://microformats.org/wiki/existing-rel-values#HTML5_link_type_extensions
+#  Date: 2012-11-09
+#
+$valid_rel_values{"a"} .= "attachment category disclosure entry-content external home index profile publisher rendition sidebar widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
+$valid_rel_values{"area"} .= "attachment category disclosure entry-content external home index profile publisher rendition sidebar widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
+$valid_rel_values{"link"} .= "apple-touch-icon apple-touch-icon-precomposed apple-touch-startup-image attachment canonical category dns-prefetch EditURI home index meta openid.delegate openid.server openid2.local_id openid2.provider p3pv1 pgpkey pingback prerender profile publisher rendition servive shortlink sidebar sitemap timesheet widget wlwmanifest image_src  http://docs.oasis-open.org/ns/cmis/link/200908/acl stylesheet/less ";
 
 #
 # Status values
@@ -856,6 +866,49 @@ sub Check_Rel_Value {
 
 #***********************************************************************
 #
+# Name: Check_Invalid_Rel_Value
+#
+# Parameters: link - link object
+#             rel - rel attribute value
+#             value - invalid value
+#
+# Description:
+#
+#    This function checks the rel attribute value to see it does
+# not contain the specified value.
+#
+#***********************************************************************
+sub Check_Invalid_Rel_Value {
+    my ($link, $rel, $value) = @_;
+
+    my ($found, $rel_value);
+
+    #
+    # Check each word in the rel value for the invalid value
+    #
+    print "Check rel value $rel for $value\n" if $debug;
+    $found = 0;
+    foreach $rel_value (split(/\s+/, $rel)) {
+        if ( $rel_value eq $value ) {
+            $found = 1;
+            last;
+        }
+    }
+
+    #
+    # Did we find the invalid value ?
+    #
+    if ( $found ) {
+        print "Invalid rel value\n" if $debug;
+        Record_Result("SWI_D", $link->line_no, $link->column_no,
+                      $link->source_line,
+                      String_Value("Invalid rel value") .
+                      " \"$value\"");
+    }
+}
+
+#***********************************************************************
+#
 # Name: Check_Rel_Attribute
 #
 # Parameters: link - link object
@@ -972,6 +1025,14 @@ sub Anchor_or_Area_Tag {
     my ($domain_minus_www);
 
     #
+    # Is this a javascript: or mailto: link ?
+    #
+    if ( ($link->href =~ /^javascript:/) || ($link->href =~ /^mailto:/) ) {
+        print "javascript or mailto link, skip rel attribute check\n" if $debug;
+        return;
+    }
+
+    #
     # Check for and get any attributes of the link
     #
     $rel = Check_Rel_Attribute($link, $link->link_type, 0);
@@ -998,14 +1059,13 @@ sub Anchor_or_Area_Tag {
 
         #
         # Do the domains differ ? If so check the site title.
-        # there should be "external" in the rel attribute.
-        # Also check to see if the destination domain is to be ignored.
+        # there should be "external" in the rel attribute if the
+        # links are to different sites.
         #
-        if ( ($dest_domain ne $source_domain) &&
-             (! defined($ignore_rel_domains{$dest_domain})) &&
-             (! defined($ignore_rel_domains{$domain_minus_www})) ) {
-            print "Domains differ, $source_domain != $dest_domain\n" if $debug;
-            
+        #
+        if ( $dest_domain ne $source_domain ) {
+            print "Domains differ $source_domain != $dest_domain\n" if $debug;
+
             #
             # Get the source and destination site title vlues.
             #
@@ -1035,18 +1095,26 @@ sub Anchor_or_Area_Tag {
             }
 
             #
-            # Did we not match site title ? If so we expect to find a
+            # Did we match site title ? If so we do not expect to find a
             # rel="external" attribute.
             #
-            if ( ! $title_found ) {
-                Check_Rel_Value($link, $rel, "external");
+            if ( $title_found ) {
+                Check_Invalid_Rel_Value($link, $rel, "external");
             }
+        }
+
+        #
+        # If the domains match we should not have a rel="external" attribute.
+        #
+        if ( $dest_domain eq $source_domain ) {
+            print "Domains match\n" if $debug;
+            Check_Invalid_Rel_Value($link, $rel, "external");
         }
     }
 
     #
     # Check mime-type of target document, if it is not text/html it
-    # may be an alternate format of this URL>  Check to see that
+    # may be an alternate format of this URL. Check to see that
     # both documents are from the same domain, it is unlikely that
     # an alternate format of a document resides on another domain.
     # are the same

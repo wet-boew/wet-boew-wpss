@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 5231 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2011-05-03 16:20:49 -0400 (Tue, 03 May 2011) $
+# $Revision: 6380 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
+# $Date: 2013-08-30 14:11:51 -0400 (Fri, 30 Aug 2013) $
 #
 # Description:
 #
@@ -121,12 +121,14 @@ my (@color_stack,  $current_a_href,
     %abbr_acronym_title_text_lang_location, @list_item_count, 
     $current_list_level, $number_of_writable_inputs, %form_label_value,
     %form_legend_value, %form_title_value, %legend_text_value,
-    @inside_list_item, $last_heading_text,
+    @inside_list_item, $last_heading_text, $have_figcaption, 
+    $image_in_figure_with_no_alt, $fig_image_line, $fig_image_column,
+    $fig_image_text, $in_figure,
 );
 
 my ($is_valid_html) = -1;
 
-my ($tags_allowed_events) = " a area input select ";
+my ($tags_allowed_events) = " a area form input select ";
 my ($tags_with_color_attribute) = " BODY TABLE TD TH HR ";
 my ($input_types_requiring_label_before)  = " file password text ";
 my ($input_types_requiring_label_after)  = " checkbox radio ";
@@ -150,10 +152,13 @@ my (%html_tags_with_no_end_tag) = (
         "hr", "hr",
         "img", "img",
         "input", "input",
+        "keygen", "keygen",
         "link", "link",
         "meta", "meta",
         "param", "param",
         "source", "source",
+        "track", "track",
+        "wbr", "wbr",
 );
 my ($mouse_only_event_handlers) = " onmousedown onmouseup onmouseover onmouseout ";
 my ($keyboard_only_event_handlers) = " onkeydown onkeyup onfocus onblur ";
@@ -163,6 +168,7 @@ my (%html_tags_cannot_nest) = (
         "acronym", "acronym",
         "b", "b",
         "em", "em",
+        "figure", "figure",
         "h1", "h1",
         "h2", "h2",
         "h3", "h3",
@@ -259,6 +265,7 @@ my (%deprecated_html5_tags) = (
     "font",   "",
     "frame",   "",
     "frameset",   "",
+    "hgroup",   "",
     "isindex",   "",
     "layer",      "", # XHTML
     "menu",       "", # XHTML
@@ -356,7 +363,8 @@ my (%deprecated_html5_attributes) = (
     "longdesc",   " iframe img ",
     "marginheight", " iframe ", 
     "marginwidth", " iframe ", 
-    "name",       " applet img ",
+    "media",      " a area ",
+    "name",       " a applet img ",
     "nohref",     " area ",
     "noshade",    " hr ", # XHTML
     "nowrap",     " td th ", # XHTML
@@ -501,16 +509,30 @@ my (%html_tags_allowed_only_once) = (
 
 #
 # Valid values for the rel attribute of tags
+#
+my %valid_xhtml_rel_values = ();
+
+#
+# Valid values for the rel attribute of tags
 #  Source: http://www.w3.org/TR/2011/WD-html5-20110525/links.html#linkTypes
 #  Value "shortcut" is not listed in the above page but is a valid value
 #  for <link> tags.
+#  Date: 2012-11-09
 #
-my %valid_xhtml_rel_values = ();
 my %valid_html5_rel_values = (
    "a",    " alternate author bookmark external help license next nofollow noreferrer prefetch prev search sidebar tag ",
    "area", " alternate author bookmark external help license next nofollow noreferrer prefetch prev search sidebar tag ",
    "link", " alternate author help icon license next pingback prefetch prev search shortcut sidebar stylesheet tag ",
 );
+
+#
+# Values for the rel attribute of tags
+#  Source: http://microformats.org/wiki/existing-rel-values#HTML5_link_type_extensions
+#  Date: 2012-11-09
+#
+$valid_html5_rel_values{"a"} .= "attachment category disclosure entry-content external home index profile publisher rendition sidebar widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
+$valid_html5_rel_values{"area"} .= "attachment category disclosure entry-content external home index profile publisher rendition sidebar widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
+$valid_html5_rel_values{"link"} .= "apple-touch-icon apple-touch-icon-precomposed apple-touch-startup-image attachment canonical category dns-prefetch EditURI home index meta openid.delegate openid.server openid2.local_id openid2.provider p3pv1 pgpkey pingback prerender profile publisher rendition servive shortlink sidebar sitemap timesheet widget wlwmanifest image_src  http://docs.oasis-open.org/ns/cmis/link/200908/acl stylesheet/less ";
 
 my ($valid_rel_values);
 
@@ -645,6 +667,8 @@ my %string_table_en = (
     "Missing rel value in",           "Missing 'rel' value in ",
     "Invalid rel value",              "Invalid 'rel' value",
     "Missing rel value",              "Missing 'rel' value",
+    "Content does not contain letters for", "Content does not contain letters for ",
+    "Invalid attribute combination found", "Invalid attribute combination found",
 );
 
 
@@ -741,7 +765,7 @@ my %string_table_fr = (
     "No links found",                   "Pas des liens qui se trouvent",
     "Missing fieldset",                 "Élément <fieldset> manquant",
     "HTML language attribute",          "L'attribut du langage HTML",
-    "does not match content language",  "ne correspond pas à la langue di contenu",
+    "does not match content language",  "ne correspond pas à la langue de contenu",
     "Label not explicitly associated to", "Étiquette pas explicitement associée à la ",
     "Previous label not explicitly associated to", "Étiquette précédente pas explicitement associée à la ",
     "Text",                            "Texte",
@@ -779,6 +803,8 @@ my %string_table_fr = (
     "Missing rel value in",           "Valeur manquante dans 'rel' ",
     "Invalid rel value",              "Valeur de texte 'rel' est invalide",
     "Missing rel value",              "Valeur manquante pour 'rel'",
+    "Content does not contain letters for", "Contenu ne contient pas des lettres pour ",
+    "Invalid attribute combination found", "Combinaison d'attribut non valide trouvé",
 );
 
 #
@@ -934,7 +960,7 @@ sub Set_HTML_Check_Test_Profile {
 #    1 - valid HTML
 #    0 - not valid HTML
 #   -1 - unknown validity.
-# This value is used when assessing W3C checkpoint 3.2
+# This value is used when assessing WCAG 2.0-G134
 #
 #***********************************************************************
 sub Set_HTML_Check_Valid_Markup {
@@ -977,23 +1003,12 @@ sub Initialize_Test_Results {
     $results_list_addr = $local_results_list_addr;
 
     #
-    # Set valid markup testcase result.
+    # Check to see if we were told that this document is not
+    # valid HTML
     #
-    if ( defined($$current_tqa_check_profile{"W3C-3.2"}) ) {
-        $tcid = "W3C-3.2";
-    }
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-G134"}) ) {
-        $tcid = "WCAG_2.0-G134";
-    }
-    if ( defined($tcid) ) {
-        #
-        # Check to see if we were told that this document is not
-        # valid HTML
-        #
-        if ( $is_valid_html == 0 ) {
-            Record_Result($tcid, -1, 0, "",
-                          String_Value("Fails validation"));
-        }
+    if ( $is_valid_html == 0 ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Fails validation"));
     }
 
     #
@@ -1497,263 +1512,6 @@ sub Check_Alt_Content {
 
 #***********************************************************************
 #
-# Name: min
-#
-# Parameters: value1 - value
-#             value2 - value
-#
-# Description:
-#
-#   This function returns the minimum of values 1 & 2.
-#
-# Returns:
-#   min
-#
-#***********************************************************************
-sub min {
-    my ( $value1, $value2 ) = @_;
-
-    if ( $value1 < $value2 ) {
-        return ($value1);
-    }
-    return ($value2);
-}
-
-#***********************************************************************
-#
-# Name: max
-#
-# Parameters: value1 - value
-#             value2 - value
-#
-# Description:
-#
-#   This function returns the maximum of values 1 & 2.
-#
-# Returns:
-#   min
-#
-#***********************************************************************
-sub max {
-    my ( $value1, $value2 ) = @_;
-
-    if ( $value1 > $value2 ) {
-        return ($value1);
-    }
-    return ($value2);
-}
-
-#***********************************************************************
-#
-# Name: Check_Color_Contrast
-#
-# Parameters: color1 - color value
-#             color2 - color value
-#
-# Description:
-#
-#   This function checks the 2 colors to ensure there is adequate contrast
-# between them.
-#
-# Returns:
-#   1 - colors are ok
-#   0 - colors do not have sufficient contrast
-#
-#***********************************************************************
-sub Check_Color_Contrast {
-    my ( $color1, $color2 ) = @_;
-
-    my ( $brightness1, $brightness2, $difference );
-    my ( $diff, $r1, $r2, $g1, $g2, $b1, $b2 );
-    my ($rc) = 1;
-
-    #
-    # If either color is an empty string, return success
-    #
-    if ( ( $color1 eq "" ) || ( $color2 eq "" ) ) {
-        return (1);
-    }
-
-    #
-    # Convert color1 hex string into decimal rgb values
-    #
-    if ( $color1 =~ /^(..)(..)(..)$/ ) {
-        $r1 = hex($1);
-        $g1 = hex($2);
-        $b1 = hex($3);
-    }
-
-    #
-    # Convert color2 hex string into decimal rgb values
-    #
-    if ( $color2 =~ /^(..)(..)(..)$/ ) {
-        $r2 = hex($1);
-        $g2 = hex($2);
-        $b2 = hex($3);
-    }
-
-    #
-    # Compute color brightness.
-    # Algorithm taken from http://www.w3.org/TR/AERT#color-contrast
-    # Color brightness is determined by the following formula:
-    # ((Red value X 299) + (Green value X 587) + (Blue value X 114)) / 1000
-    # Note: This algorithm is taken from a formula for converting RGB
-    # values to YIQ values. This brightness value gives a perceived
-    # brightness for a color.
-    #
-    $brightness1 = ( ( $r1 * 299 ) + ( $g1 * 587 ) + ( $b1 * 114 ) ) / 1000;
-    $brightness2 = ( ( $r2 * 299 ) + ( $g2 * 587 ) + ( $b2 * 114 ) ) / 1000;
-
-    #
-    # Is the brightness difference acceptable ?
-    # The range for color brightness difference is 125.
-    #
-    $diff = $brightness1 - $brightness2;
-    if ( ( $diff < -125 ) || ( $diff < 125 ) ) {
-
-        #
-        # Brightness not different enough
-        #
-        print "Color brightness too close, $brightness1, $brightness2\n"
-          if $debug;
-        $rc = 0;
-    }
-
-    #
-    # Compute color difference.
-    # Algorithm taken from http://www.w3.org/TR/AERT#color-contrast
-    # Color difference is determined by the following formula:
-    #    (maximum (Red value 1, Red value 2) -
-    #     minimum (Red value 1, Red value 2)) +
-    #    (maximum (Green value 1, Green value 2) -
-    #     minimum (Green value 1, Green value 2)) +
-    #    (maximum (Blue value 1, Blue value 2) -
-    #     minimum (Blue value 1, Blue value 2))
-    #
-    $difference =
-      ( max( $r1, $r2 ) - min( $r1, $r2 ) ) +
-      ( max( $g1, $g2 ) - min( $g1, $g2 ) ) +
-      ( max( $b1, $b2 ) - min( $b1, $b2 ) );
-
-    #
-    # Is the color difference acceptable ?
-    # The range for color difference is 500.
-    #
-    if ( $difference < 500 ) {
-
-        #
-        # Difference not different enough
-        #
-        print "Color difference too close, $difference\n" if $debug;
-        $rc = 0;
-    }
-
-    #
-    # Return color contrast
-    #
-    return ($rc);
-}
-
-#***********************************************************************
-#
-# Name: Color_Attribute_Handler
-#
-# Parameters: tagname - name of tag
-#             line - line number
-#             column - column number
-#             text - text from tag
-#             attribute - attribute name
-#             value - attribute value
-#
-# Description:
-#
-#   This function checks that color attributes are web safe colors.
-#
-# Returns:
-#   color - 6 hex digit color code.
-#
-#***********************************************************************
-sub Color_Attribute_Handler {
-    my ( $tagname, $line, $column, $text, $attribute, $value ) = @_;
-
-    my ( $c1, $c2, $c3, $upper_value, $color );
-
-    #
-    # Check for long pattern #xxxxxx
-    #
-    print "Check color $value for attribute $attribute of tag $tagname\n"
-      if $debug;
-
-    #
-    # Convert color value to uppercase for ease of use then break it
-    # off into hex digit pairs.
-    #
-    $upper_value = $value;
-    $upper_value =~ tr /a-z/A-Z/;
-    if ( $upper_value =~ /^#(..)(..)(..)$/ ) {
-        $c1 = $1;
-        $c2 = $2;
-        $c3 = $3;
-    }
-
-    #
-    # Check for short pattern #xxx
-    #
-    elsif ( $upper_value =~ /^#(.)(.)(.)$/ ) {
-        $c1 = $1;
-        $c2 = $2;
-        $c3 = $3;
-
-        #
-        # Convert single hex digits into double digits.
-        #
-        $c1 .= $c1;
-        $c2 .= $c2;
-        $c3 .= $c3;
-    }
-    else {
-        #
-        # Set return color to empty string and c1 to empty string (to skip
-        # the next checks)
-        #
-        $color = "";
-        $c1    = "";
-    }
-
-    #
-    # Do we have a color ?
-    #
-    if ( $c1 ne "" ) {
-
-        #
-        # Set return color
-        #
-        $color = "$c1$c2$c3";
-
-        #
-        # Check color contrast
-        #
-        if ( Check_Color_Contrast( $current_color, $color ) != 1 ) {
-            Record_Result("W3C-2.2", $line, $column, $text,
-                          String_Value("Insufficient color contrast for tag") .
-                          "<$tagname>" . String_Value("color is") . "'$value'");
-        }
-    }
-    else {
-        #
-        # No colour found
-        #
-        $color = "";
-    }
-
-    #
-    # Return color
-    #
-    return ($color);
-}
-
-#***********************************************************************
-#
 # Name: Tag_Not_Allowed_Here
 #
 # Parameters: tagname - name of tag
@@ -1780,59 +1538,6 @@ sub Tag_Not_Allowed_Here {
 
 #***********************************************************************
 #
-# Name: Body_Tag_Handler
-#
-# Parameters: line - line number
-#             column - column number
-#             text - text from tag
-#             attr - hash table of attributes
-#
-# Description:
-#
-#   This function handles the body tag, it looks at any color attribute
-# to see that it has an appropriate value.
-#
-#***********************************************************************
-sub Body_Tag_Handler {
-    my ( $line, $column, $text, %attr ) = @_;
-
-    #
-    # Check for color attributes to check for color contrast
-    #
-    if ( defined( $attr{"bgcolor"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "body", $line, $column, $text, "bgcolor",
-            $attr{"bgcolor"} );
-    }
-    elsif ( defined( $attr{"background"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "body", $line, $column, $text, "background",
-            $attr{"background"} );
-    }
-    elsif ( defined( $attr{"link"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "body", $line, $column, $text, "link",
-            $attr{"link"} );
-    }
-    elsif ( defined( $attr{"alink"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "body", $line, $column, $text, "alink",
-            $attr{"alink"} );
-    }
-    elsif ( defined( $attr{"vlink"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "body", $line, $column, $text, "vlink",
-            $attr{"vlink"} );
-    }
-    elsif ( defined( $attr{"text"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "body", $line, $column, $text, "text",
-            $attr{"text"} );
-    }
-}
-
-#***********************************************************************
-#
 # Name: Frame_Tag_Handler
 #
 # Parameters: tag - tag name
@@ -1850,7 +1555,7 @@ sub Body_Tag_Handler {
 sub Frame_Tag_Handler {
     my ( $tag, $line, $column, $text, %attr ) = @_;
 
-    my ($tcid, $title);
+    my ($title);
 
     #
     # Found a Frame tag, set flag so we can verify that the doctype
@@ -1859,20 +1564,10 @@ sub Frame_Tag_Handler {
     $found_frame_tag = 1;
 
     #
-    # Is testcase part of this profile ?
-    #
-    if ( defined($$current_tqa_check_profile{"W3C-12.1"}) ) {
-        $tcid = "W3C-12.1";
-    }
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H64"}) ) {
-        $tcid = "WCAG_2.0-H64";
-    }
-
-    #
     # Look for a title attribute
     #
     if ( !defined( $attr{"title"} ) ) {
-        Record_Result($tcid, $line, $column, $text,
+        Record_Result("WCAG_2.0-H64", $line, $column, $text,
                       String_Value("Missing title attribute for") . "<$tag>");
     }
     else {
@@ -1882,7 +1577,7 @@ sub Frame_Tag_Handler {
         $title = $attr{"title"};
         $title =~ s/\s*//g;
         if ( $title eq "" ) {
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-H64", $line, $column, $text,
                           String_Value("Missing title content for") . "<$tag>");
         }
     }
@@ -1894,7 +1589,6 @@ sub Frame_Tag_Handler {
         Check_Longdesc_Attribute("WCAG_2.0-H88", "<frame>", $line, $column,
                                  $text, %attr);
     }
-
 }
 
 #***********************************************************************
@@ -1915,7 +1609,7 @@ sub Frame_Tag_Handler {
 sub Table_Tag_Handler {
     my ( $line, $column, $text, %attr ) = @_;
 
-    my ( $summary, $tcid );
+    my ($summary);
 
     #
     # Increment table nesting index and initialise the table
@@ -1929,20 +1623,6 @@ sub Table_Tag_Handler {
     $inside_thead[$table_nesting_index] = 0;
 
     #
-    # Check for color attributes to check for color contrast
-    #
-    if ( defined( $attr{"bordercolor"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "table", $line, $column, $text,
-            "bordercolor", $attr{"bordercolor"} );
-    }
-    elsif ( defined( $attr{"bgcolor"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "table", $line, $column, $text, "bgcolor",
-            $attr{"bgcolor"} );
-    }
-
-    #
     # Do we have a summary attribute ?
     #
     if ( defined( $attr{"summary"} ) ) {
@@ -1954,20 +1634,10 @@ sub Table_Tag_Handler {
         $table_summary[$table_nesting_index] = lc($summary);
 
         #
-        # Are we checking table summaries (summaries are optional in WCAG 2.0)
-        #
-        if ( defined($$current_tqa_check_profile{"W3C-5.5"}) ) {
-            $tcid = "W3C-5.5";
-        }
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-H73"}) ) {
-            $tcid = "WCAG_2.0-H73";
-        }
-
-        #
         # Are we missing a summary ?
         #
         if ( $summary eq "" ) {
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-H73", $line, $column, $text,
                           String_Value("Missing table summary"));
         }
     }
@@ -2003,9 +1673,6 @@ sub End_Fieldset_Tag_Handler {
             #
             # Determine testcase
             #
-            if ( defined($$current_tqa_check_profile{"W3C-12.3"}) ) {
-                push(@tcids, "W3C-12.3");
-            }
             if ( defined($$current_tqa_check_profile{"WCAG_2.0-H71"}) ) {
                 push(@tcids, "WCAG_2.0-H71");
             }
@@ -2066,23 +1733,6 @@ sub End_Table_Tag_Handler {
     # Check to see if table headers were used in this table.
     #
     if ( $table_nesting_index >= 0 ) {
-
-        #
-        # Is testcase part of this profile ?
-        #
-        if ( defined($$current_tqa_check_profile{"W3C-5.1"}) ) {
-            #
-            # Are we missing headers ?
-            #
-            if ( ! $table_headers_present[$table_nesting_index] ) {
-                $start_line = $table_start_line[$table_nesting_index];
-                $start_column = $table_start_column[$table_nesting_index];
-                Record_Result("W3C-5.1", $start_line,
-                              $start_column, $text,
-                              String_Value("No table header tags found"));
-            }
-        }
-
         #
         # Decrement global table nesting value
         #
@@ -2109,15 +1759,6 @@ sub HR_Tag_Handler {
     my ( $line, $column, $text, %attr ) = @_;
 
     my ($used_for_decoration);
-
-    #
-    # Check for color attributes to check for color contrast
-    #
-    if ( defined( $attr{"color"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "hr", $line, $column, $text, "color",
-            $attr{"color"} );
-    }
 
     #
     # Does this HR appear to be used for decoration only ?
@@ -2166,22 +1807,10 @@ sub HR_Tag_Handler {
 sub Blink_Tag_Handler {
     my ( $line, $column, $text, %attr ) = @_;
 
-    my ($tcid);
-
-    #
-    # Is testcase part of this profile ?
-    #
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-F47"}) ) {
-        $tcid = "WCAG_2.0-F47";
-    }
-    elsif ( defined($$current_tqa_check_profile{"W3C-7.2"}) ) {
-        $tcid = "W3C-7.2";
-    }
-
     #
     # Have blinking that the user cannot control.
     #
-    Record_Result($tcid, $line, $column, $text,
+    Record_Result("WCAG_2.0-F47", $line, $column, $text,
                   String_Value("Blinking text in") . "<blink>");
 }
 
@@ -2209,6 +1838,7 @@ sub Check_Label_and_Title {
     my ( $self, $tag, $label_required, $line, $column, $text, %attr ) = @_;
 
     my ($id, $title, $label, $tcid, $last_seen_text);
+    my ($found_label) = 0;
 
     #
     # Get possible title attribute
@@ -2241,56 +1871,27 @@ sub Check_Label_and_Title {
     }
 
     #
-    # Check for missing id attribute to associate input to a label
+    # Check for the use of technique H65, using a title attribute
+    # to identify form controls where the label element cannot
+    # be used.
     #
-    if ( defined($$current_tqa_check_profile{"W3C-12.4"}) ) {
-        $tcid = "W3C-12.4";
-
+    if ( (! $found_label) && defined($title) ) {
         #
-        # Do we have an id attribute ?
+        # Do we have a title value ?
         #
-        if ( ! defined($id) ) {
-            Record_Result($tcid, $line, $column, $text,
-                          String_Value("Missing id attribute for") . $tag);
-        }
-        elsif ( $id eq "" ) {
-            Record_Result($tcid, $line, $column, $text,
-                          String_Value("Missing id content for") . $tag);
-        }
-    }
-
-    #
-    # Do we have no id attribute or is it empty ?
-    #
-    if ( (! defined($id)) || ($id eq "") ) {
-        #
-        # See if there is any text handler active, we may have text preceeding 
-        # this input.
-        #
-        if ( $have_text_handler ) {
-            $last_seen_text = Get_Text_Handler_Content($self, "");
-        }
-
-        #
-        # Is this input inside a label and is the label not
-        # explicitly associated with the label (i.e. no id attribute).
-        #
-        print "inside_label = $inside_label, last_tag = $last_tag, text_between_tags = \"$text_between_tags\"\n" if $debug;
-        if ( $inside_label ) {
-            Record_Result("WCAG_2.0-F68", $line, $column, $text,
-                          String_Value("Found tag") . $tag . 
-                          String_Value("in") . "<label>");
-        }
-        #
-        # Check for the use of technique H65, using a title attribute
-        # to identify form controls where the label element cannot
-        # be used.
-        #
-        elsif ( defined($title) && ($title ne "") ) {
+        if ( $title eq "" ) {
             #
-            # Has title
+            # Missing title value
+            #
+            Record_Result("WCAG_2.0-H65", $line, $column, $text,
+                          String_Value("Missing title content for") . $tag);
+        }
+        else {
+            #
+            # Title acts as a label
             #
             print "Found 'title' to act as a label\n" if $debug;
+            $found_label = 1;
 
             #
             # Have we seen this title before ?
@@ -2310,85 +1911,147 @@ sub Check_Label_and_Title {
                 $form_title_value{lc($title)} = "$line:$column"
             }
         }
+    }
+
+    #
+    # Check for an id attribute that may be used to match a label tag.
+    #
+    if ( (! $found_label) && defined($id) ) {
         #
-        # If the last tag was a <label>, and we don't have an id attribute,
-        # check the last label for a "for" attribute.
+        # Do we have content for the id attribute ?
+        #
+        $found_label = 1;
+        if ( $id eq "" ) {
+            #
+            # Missing id value
+            #
+            Record_Result("WCAG_2.0-H65", $line, $column, $text,
+                          String_Value("Missing id content for") . $tag);
+        }
+        else {
+            #
+            # Do we have a label and are we expect one ?
+            # If we are not expecting one (e.g. may follow this tag),
+            # we will catch a missing label once we complete this document.
+            #
+            if ( (! defined($label)) && $label_required ) {
+                #
+                # If we are inside a fieldset, it (and it's legend) can
+                # act as a label (WCAG 2.0 H71).
+                #
+                if ( $fieldset_tag_index > 0 ) {
+                    #
+                    # Inside a fieldset, the legend acts as a label.
+                    # Do we have a title attribute and value for the input ?
+                    #
+                    print "Inside a fieldset, label is optional\n" if $debug;
+                    if ( defined($title) && ($title eq "") ) {
+                        Record_Result("WCAG_2.0-H65", $line, $column, $text,
+                                   String_Value("Missing title content for") .
+                                      $tag);
+                    }
+                    elsif ( ! defined($title) ) {
+                        #
+                        # Is this input inside a label and is the label not
+                        # explicitly associated with the label ?
+                        #
+                        print "inside_label = $inside_label, last_tag = $last_tag, text_between_tags = \"$text_between_tags\"\n" if $debug;
+                        if ( $inside_label ) {
+                            Record_Result("WCAG_2.0-F68", $line, $column, $text,
+                                          String_Value("Found tag") . $tag .
+                                          String_Value("in") . "<label>");
+                        }
+                        #
+                        # If the last tag was a <label>, check the last label
+                        # for a "for" attribute.
+                        #
+                        elsif ( ($last_tag eq "label")  &&
+                                (! defined($last_label_attributes{"for"})) ) {
+                            Record_Result("WCAG_2.0-F68", $line, $column, $text,
+                                   String_Value("Previous label not explicitly associated to") .
+                                          $tag);
+                        }
+                        #
+                        # No title attribute to act as label
+                        #
+                        else {
+                            Record_Result("WCAG_2.0-H65", $line, $column, $text,
+                                   String_Value("Missing title attribute for") .
+                                          $tag);
+                        }
+                    }
+                }
+                else {
+                    #
+                    # Missing label and no fieldset
+                    #
+                    Record_Result("WCAG_2.0-F68", $line, $column,
+                                  $text,
+                                  String_Value("Missing label before") . $tag);
+                }
+            }
+        }
+    }
+
+    #
+    # Check for no id attribute, we may have an implicit label
+    #
+    if ( ! defined($id) ) {
+        #
+        # Is this input inside a label and is the label not
+        # explicitly associated with the label ?
+        #
+        print "inside_label = $inside_label, last_tag = $last_tag, text_between_tags = \"$text_between_tags\"\n" if $debug;
+        if ( $inside_label ) {
+            $found_label = 1;
+            Record_Result("WCAG_2.0-F68", $line, $column, $text,
+                          String_Value("Found tag") . $tag .
+                          String_Value("in") . "<label>");
+        }
+        #
+        # If the last tag was a <label>, check the last label for a "for" attribute.
         #
         elsif ( ($last_tag eq "label")  &&
                 (! defined($last_label_attributes{"for"})) ) {
+            $found_label = 1;
             Record_Result("WCAG_2.0-F68", $line, $column, $text,
-                          String_Value("Previous label not explicitly associated to") .
+                   String_Value("Previous label not explicitly associated to") .
                           $tag);
         }
+    }
+
+    #
+    # Check for no id attribute, we may have an implicit label
+    #
+    if ( (! $found_label) && ( ! defined($id)) ) {
         #
-        # If we are not inside a label was there some text 
-        # preceeding this input that may be acting as a label
+        # See if there is any text handler active, we may have text preceeding
+        # this input.
         #
-        elsif ( defined($last_seen_text) && ($last_seen_text ne "") ) {
+        if ( $have_text_handler ) {
+            $last_seen_text = Get_Text_Handler_Content($self, "");
+        }
+
+        #
+        # Is there some text preceeding this input that may be
+        # acting as a label
+        #
+        if ( defined($last_seen_text) && ($last_seen_text ne "") ) {
+            $found_label = 1;
             Record_Result("WCAG_2.0-F68", $line, $column, $text,
                           String_Value("Text") . " \"$last_seen_text\" " .
                           String_Value("not marked up as a <label>"));
         }
-        #
-        # Catch all case, no id and no title, so we don't have an
-        # explicit label association.
-        #
-        else {
-            Record_Result("WCAG_2.0-F68", $line, $column, $text,
-                          String_Value("Label not explicitly associated to") .
-                          $tag);
-        }
     }
+
     #
-    # Do we have an id value ? If so check for matching label
+    # Catch all case, no id and no title, so we don't have an
+    # explicit label association.
     #
-    elsif ( defined($id) && ($id ne "") ) {
-        #
-        # Do we have a label and are we expect one ?
-        # If we are not expecting one (e.g. may follow this tag),
-        # we will catch a missing label once we complete this document.
-        #
-        if ( (! defined($label)) && $label_required ) {
-            #
-            # If we are inside a fieldset, it (and it's legend) can
-            # act as a label (WCAG 2.0 H71).
-            #
-            if ( $fieldset_tag_index > 0 ) {
-                #
-                # Inside a fieldset, the legend acts as a label.
-                # Do we have a title attribute and value for the input ?
-                #
-                print "Inside a fieldset, label is optional\n" if $debug;
-                if ( defined($title) && ($title eq "") ) {
-                    Record_Result("WCAG_2.0-H65", $line, $column, $text,
-                                  String_Value("Missing title content for") .
-                                  $tag);
-                }
-                elsif ( ! defined($title) ) {
-                    Record_Result("WCAG_2.0-H65", $line, $column, $text,
-                                  String_Value("Missing title attribute for") .
-                                  $tag);
-                }
-            }
-            else {
-                #
-                # Missing label and no fieldset
-                #
-                Record_Result("WCAG_2.0-F68", $line, $column,
-                              $text,
-                              String_Value("Missing label before") . $tag);
-            }
-        }
-    }
-    #
-    # Do we have a title attribute but no title value ?
-    #
-    elsif ( defined($title) && ($title eq "") ) {
-        #
-        # Missing title value
-        #
-        Record_Result("WCAG_2.0-H65", $line, $column, $text,
-                      String_Value("Missing title content for") . $tag);
+    if ( ! $found_label )  {
+        Record_Result("WCAG_2.0-F68", $line, $column, $text,
+                      String_Value("Label not explicitly associated to") .
+                      $tag);
     }
 }
 
@@ -2471,7 +2134,7 @@ sub Hidden_Input_Tag_Handler {
 sub Input_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my ($input_type, $id, $tcid, $value, $input_tag_type);
+    my ($input_type, $id, $value, $input_tag_type);
 
     #
     # Is this a read only or disabled input ?
@@ -2514,59 +2177,31 @@ sub Input_Tag_Handler {
     #
     if ( $input_type eq "image" ) {
         #
-        # Check for testcase in profile
-        #
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-F65"}) ) {
-            $tcid = "WCAG_2.0-F65";
-        } elsif ( defined($$current_tqa_check_profile{"W3C-1.1"}) ) {
-            $tcid = "W3C-1.1";
-        }
-
-        #
         # Check alt attributes ?
         #
-        Check_For_Alt_Attribute($tcid, $input_tag_type, $line,
+        Check_For_Alt_Attribute("WCAG_2.0-F65", $input_tag_type, $line,
                                 $column, $text, %attr);
-
-        #
-        # Check for testcase in profile
-        #
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-H36"}) ) {
-            $tcid = "WCAG_2.0-H36";
-        } elsif ( defined($$current_tqa_check_profile{"W3C-1.1"}) ) {
-            $tcid = "W3C-1.1";
-        }
-        else {
-            undef $tcid;
-        }
 
         #
         # Check for alt text content
         #
-        Check_Alt_Content($tcid, $input_tag_type, $self, $line,
+        Check_Alt_Content("WCAG_2.0-H36", $input_tag_type, $self, $line,
                           $column, $text, %attr);
 
         #
-        # Is testcase part of this profile ?
+        # Do we have alt text or title ?
         #
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-H91"}) ) {
-            $tcid = "WCAG_2.0-H91";
-
+        if ( (defined($attr{"alt"}) && $attr{"alt"} ne "") ||
+             (defined($attr{"title"}) && $attr{"title"} ne "") ) {
             #
-            # Do we have alt text or title ?
+            # Have either alt text or a title
             #
-            if ( (defined($attr{"alt"}) && $attr{"alt"} ne "") ||
-                 (defined($attr{"title"}) && $attr{"title"} ne "") ) {
-                #
-                # Have either alt text or a title
-                #
-                print "Image has alt or title\n" if $debug;
-            }
-            else {
-                Record_Result($tcid, $line, $column, $text,
-                              String_Value("Missing alt or title in") .
-                              "$input_tag_type");
-            }
+            print "Image has alt or title\n" if $debug;
+        }
+        else {
+            Record_Result("WCAG_2.0-H91", $line, $column, $text,
+                          String_Value("Missing alt or title in") .
+                          "$input_tag_type");
         }
     }
     #
@@ -2600,30 +2235,23 @@ sub Input_Tag_Handler {
     #
     elsif ( index($input_types_requiring_value, " $input_type ") != -1 ) {
         #
-        # Is testcase part of this profile ?
+        # Do we have a value attribute
         #
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-H91"}) ) {
-            $tcid = "WCAG_2.0-H91";
-
+        if ( ! defined($attr{"value"}) ) {
+            Record_Result("WCAG_2.0-H91", $line, $column, $text,
+                          String_Value("Missing value attribute in") .
+                          "$input_tag_type");
+        }
+        else {
             #
-            # Do we have a value attribute
+            # Do we have non-whitespace value ?
             #
-            if ( ! defined($attr{"value"}) ) {
-                Record_Result($tcid, $line, $column, $text,
-                              String_Value("Missing value attribute in") .
+            $value = $attr{"value"};
+            $value =~ s/\s//g;
+            if ( $value eq "" ) {
+                Record_Result("WCAG_2.0-H91", $line, $column, $text,
+                              String_Value("Missing value in") .
                               "$input_tag_type");
-            }
-            else {
-                #
-                # Do we have non-whitespace value ?
-                #
-                $value = $attr{"value"};
-                $value =~ s/\s//g;
-                if ( $value eq "" ) {
-                    Record_Result($tcid, $line, $column, $text,
-                                  String_Value("Missing value in") .
-                                  "$input_tag_type");
-                }
             }
         }
     }
@@ -2678,6 +2306,15 @@ sub Input_Tag_Handler {
         }
         else {
             print "Found image or submit outside of form\n" if $debug;
+        }
+
+        #
+        # Do we have a value ? if so add it to the text handler
+        # so we can check it's value when we get to the end of the block tag.
+        #
+        if ( $have_text_handler && 
+             defined($attr{"value"}) && ($attr{"value"} ne "") ) {
+            push(@{ $self->handler("text")}, $attr{"value"});
         }
     }
 
@@ -2859,23 +2496,13 @@ sub Check_Accesskey_Attribute {
 sub Label_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my ($label_for, $tcid);
+    my ($label_for);
 
     #
     # We are inside a label
     #
     $inside_label = 1;
     %last_label_attributes = %attr;
-
-    #
-    # Are we looking for label references ?
-    #
-    if ( defined($$current_tqa_check_profile{"W3C-12.4"}) ) {
-        $tcid = "W3C-12.4";
-    }
-    elsif ( defined($$current_tqa_check_profile{"WCAG_2.0-H44"}) ) {
-        $tcid = "WCAG_2.0-H44";
-    }
 
     #
     # Check for "for" attribute
@@ -2892,20 +2519,10 @@ sub Label_Tag_Handler {
         #
         if ( $label_for ne "" ) {
             #
-            # Are we looking for label references ?
-            #
-            if ( defined($$current_tqa_check_profile{"WCAG_2.0-F17"}) ) {
-                $tcid = "WCAG_2.0-F17";
-            }
-            elsif ( defined($$current_tqa_check_profile{"W3C-12.4"}) ) {
-                $tcid = "W3C-12.4";
-            }
-
-            #
             # Have we seen this label id before ?
             #
             if ( defined($label_for_location{"$label_for"}) ) {
-                Record_Result($tcid, $line, $column,
+                Record_Result("WCAG_2.0-F17", $line, $column,
                               $text, String_Value("Duplicate label id") .
                               "'$label_for'" .  " " .
                               String_Value("Previous instance found at") .
@@ -2949,7 +2566,7 @@ sub Label_Tag_Handler {
 sub End_Label_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $last_line, $last_column, $tcid, $clean_text);
+    my ($this_text, $last_line, $last_column, $clean_text);
     my ($complete_label);
 
     #
@@ -2972,20 +2589,10 @@ sub End_Label_Tag_Handler {
     Check_Character_Spacing("<label>", $line, $column, $clean_text);
 
     #
-    # Are we looking for label references ?
-    #
-    if ( defined($$current_tqa_check_profile{"W3C-12.4"}) ) {
-        $tcid = "W3C-12.4";
-    }
-    elsif ( defined($$current_tqa_check_profile{"WCAG_2.0-H44"}) ) {
-        $tcid = "WCAG_2.0-H44";
-    }
-
-    #
     # Are we missing label text ?
     #
     if ( $clean_text eq "" ) {
-        Record_Result($tcid, $line, $column,
+        Record_Result("WCAG_2.0-H44", $line, $column,
                       $text, String_Value("Missing text in") . "<label>");
     }
     else {
@@ -3007,7 +2614,7 @@ sub End_Label_Tag_Handler {
         # Have we seen this label before ?
         #
         if ( defined($form_label_value{lc($complete_label)}) ) {
-            Record_Result($tcid, $line, $column,
+            Record_Result("WCAG_2.0-H44", $line, $column,
                           $text, String_Value("Duplicate") .
                           " <label> \"$clean_text\" " .
                           String_Value("Previous instance found at") .
@@ -3051,7 +2658,7 @@ sub End_Label_Tag_Handler {
 sub Textarea_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my ($tcid, $id_value);
+    my ($id_value);
 
     #
     # Is this a read only or hidden input ?
@@ -3069,21 +2676,11 @@ sub Textarea_Tag_Handler {
     $number_of_writable_inputs++;
 
     #
-    # Are we looking for label references ?
-    #
-    if ( defined($$current_tqa_check_profile{"W3C-12.4"}) ) {
-        $tcid = "W3C-12.4";
-    }
-    elsif ( defined($$current_tqa_check_profile{"WCAG_2.0-H44"}) ) {
-        $tcid = "WCAG_2.0-H44";
-    }
-
-    #
     # Do we have an ID field or are we inside a <fieldset> ?
     #
     if ( $fieldset_tag_index == 0 ) {
         if ( ! defined( $attr{"id"} ) ) {
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-H44", $line, $column, $text,
                           String_Value("Missing id attribute for") .
                           "<textarea>");
         }
@@ -3099,18 +2696,13 @@ sub Textarea_Tag_Handler {
             #
             # Check for label matching this ID
             #
-            if ( $tcid eq "WCAG_2.0-H44" ) {
+            if ( ! defined($label_for_location{$id_value}) ) {
                 #
-                # Do we have a label ? We expect one.
+                # Missing label
                 #
-                if ( ! defined($label_for_location{$id_value}) ) {
-                    #
-                    # Missing label
-                    #
-                    Record_Result($tcid, $line, $column,
-                                  $text, String_Value("Missing label before") .
-                                  "<textarea>");
-                }
+                Record_Result("WCAG_2.0-H44", $line, $column,
+                              $text, String_Value("Missing label before") .
+                              "<textarea>");
             }
         }
     }
@@ -3143,28 +2735,11 @@ sub Textarea_Tag_Handler {
 sub Marquee_Tag_Handler {
     my ( $line, $column, $text, %attr ) = @_;
 
-    my ($tcid);
-
     #
-    # Check testcase profile
+    # Found marquee tag which generates moving text.
     #
-    if ( defined($$current_tqa_check_profile{"W3C-7.3"}) ) {
-        $tcid = "W3C-7.3";
-    }
-    elsif ( defined($$current_tqa_check_profile{"WCAG_2.0-F16"}) ) {
-        $tcid = "WCAG_2.0-F16";
-    }
-
-    #
-    # Are we checking for marquee tags ?
-    #
-    if ( defined($tcid) ) {
-        #
-        # Found marquee tag which generates moving text.
-        #
-        Record_Result($tcid, $line, $column,
-                      $text, String_Value("Found tag") . "<marquee>");
-    }
+    Record_Result("WCAG_2.0-F16", $line, $column,
+                  $text, String_Value("Found tag") . "<marquee>");
 }
 
 
@@ -3250,7 +2825,7 @@ sub Legend_Tag_Handler {
 sub End_Legend_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $last_line, $last_column, $tcid, $clean_text);
+    my ($this_text, $last_line, $last_column, $clean_text);
 
     #
     # Get all the text found within the legend tag
@@ -3272,20 +2847,10 @@ sub End_Legend_Tag_Handler {
     Check_Character_Spacing("<legend>", $line, $column, $clean_text);
 
     #
-    # Is testcase part of this profile ?
-    #
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H71"}) ) {
-        $tcid = "WCAG_2.0-H71";
-    }
-    elsif ( defined($$current_tqa_check_profile{"W3C-12.3"}) ) {
-        $tcid = "W3C-12.3";
-    }
-
-    #
     # Are we missing legend text ?
     #
     if ( $clean_text eq "" ) {
-        Record_Result($tcid, $line, $column,
+        Record_Result("WCAG_2.0-H71", $line, $column,
                       $text, String_Value("Missing text in") . "<legend>");
     }
     #
@@ -3303,7 +2868,7 @@ sub End_Legend_Tag_Handler {
         # Have we seen this legend before in this for ?
         #
         if ( defined($form_legend_value{lc($clean_text)}) ) {
-            Record_Result($tcid, $line, $column,
+            Record_Result("WCAG_2.0-H71", $line, $column,
                           $text, String_Value("Duplicate") .
                           " <legend> \"$clean_text\" " .
                           String_Value("Previous instance found at") .
@@ -3435,15 +3000,6 @@ sub TH_Tag_Handler {
         # Found <th> outside of a table.
         #
         Tag_Not_Allowed_Here("th", $line, $column, $text);
-    }
-
-    #
-    # Check for color attributes to check for color contrast
-    #
-    if ( defined( $attr{"bgcolor"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "th", $line, $column, $text, "bgcolor",
-            $attr{"bgcolor"} );
     }
 
     #
@@ -3590,15 +3146,6 @@ sub TD_Tag_Handler {
     # Add a text handler to save the text portion of the table cell.
     #
     Start_Text_Handler($self, "td");
-
-    #
-    # Check for color attributes to check for color contrast
-    #
-    if ( defined( $attr{"bgcolor"} ) ) {
-        $current_color =
-          Color_Attribute_Handler( "td", $line, $column, $text, "bgcolor",
-            $attr{"bgcolor"} );
-    }
 }
 
 #***********************************************************************
@@ -3619,7 +3166,7 @@ sub TD_Tag_Handler {
 sub End_TD_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($attr, $tcid, $clean_text);
+    my ($attr, $clean_text);
 
     #
     # Are we not inside a table ?
@@ -3664,17 +3211,7 @@ sub End_TD_Tag_Handler {
             # and does not need a header reference).
             #
             if ( ($clean_text ne "") || ($inside_thead[$table_nesting_index]) ) {
-
-                #
-                # Is testcase part of this profile ?
-                #
-                if ( defined($$current_tqa_check_profile{"WCAG_2.0-H43"}) ) {
-                    $tcid = "WCAG_2.0-H43";
-                }
-                elsif ( defined($$current_tqa_check_profile{"W3C-5.2"}) ) {
-                    $tcid = "W3C-5.2";
-                }
-                Record_Result($tcid, $line, $column, $text,
+                Record_Result("WCAG_2.0-H43", $line, $column, $text,
                               String_Value("No table header reference"));
             }
         }
@@ -3721,43 +3258,20 @@ sub End_TD_Tag_Handler {
 sub Area_Tag_Handler {
     my ( $self, $language, $line, $column, $text, %attr ) = @_;
 
-    my ($tcid);
-
     #
     # Check for rel attribute of the tag
     #
     Check_Rel_Attribute("area", $line, $column, $text, 0, %attr);
 
     #
-    # Check for testcase in profile
-    #
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-F65"}) ) {
-        $tcid = "WCAG_2.0-F65";
-    } elsif ( defined($$current_tqa_check_profile{"W3C-1.1"}) ) {
-        $tcid = "W3C-1.1";
-    }
-
-    #
     # Check alt attribute
     #
-    Check_For_Alt_Attribute($tcid, "<area>", $line, $column, $text, %attr);
-
-    #
-    # Check for testcase in profile
-    #
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H24"}) ) {
-        $tcid = "WCAG_2.0-H24";
-    } elsif ( defined($$current_tqa_check_profile{"W3C-1.1"}) ) {
-        $tcid = "W3C-1.1";
-    }
-    else {
-        undef $tcid;
-    }
+    Check_For_Alt_Attribute("WCAG_2.0-F65", "<area>", $line, $column, $text, %attr);
 
     #
     # Check for alt text content
     #
-    Check_Alt_Content($tcid, "<area>", $self, $line, $column, $text, %attr);
+    Check_Alt_Content("WCAG_2.0-H24", "<area>", $self, $line, $column, $text, %attr);
 
     #
     # Check for accesskey attribute
@@ -3874,23 +3388,13 @@ sub Check_Longdesc_Attribute {
 sub Check_Flickering_Image {
     my ($tag, $href, $line, $column, $text, %attr) = @_;
 
-    my ($resp, %image_details, $tcid);
-
-    #
-    # Check testcase profile for WCAG 1.0 or 2.0 testcases
-    #
-    print "Check_Flickering_Image in $tag, href = $href\n" if $debug;
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-G19"}) ) {
-        $tcid = "WCAG_2.0-G19";
-    }
-    if ( defined($$current_tqa_check_profile{"W3C-7.1"}) ) {
-        $tcid = "W3C-7.1";
-    }
+    my ($resp, %image_details);
 
     #
     # Convert possible relative URL into a absolute URL
     # for the image.
     #
+    print "Check_Flickering_Image in $tag, href = $href\n" if $debug;
     $href = url($href)->abs($current_url);
 
     #
@@ -3923,7 +3427,7 @@ sub Check_Flickering_Image {
             #
             # Animated image that flashes more than 3 times in 1 second
             #
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-G19", $line, $column, $text,
                      String_Value("GIF flashes more than 3 times in 1 second"));
         }
     }
@@ -3947,7 +3451,7 @@ sub Check_Flickering_Image {
 sub Image_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my ($tcid, $alt, $invalid_alt);
+    my ($alt, $invalid_alt);
 
     #
     # Are we inside an anchor tag ?
@@ -3963,14 +3467,45 @@ sub Image_Tag_Handler {
     #
     # Check alt attributes ? We can't check for alt content as this
     # may be just a decorative image.
+    # 1) If this image is inside a <figure> the alt is optional as a
+    #   <figcaption> can provide the alt text.
+    # 2) If the image tag as an empty generator-unable-to-provide-required-alt
+    #    attribute it may omit the alt attribute.  This does not make the page
+    #    a conforming page but does tell the conformance checking tool (this
+    #    tool) that the process that generated the page was unable to
+    #    provide accurate alt text.
+    #  reference http://www.w3.org/html/wg/drafts/html/master/embedded-content-0.html#guidance-for-conformance-checkers
     #
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-F65"}) ) {
-        $tcid = "WCAG_2.0-F65";
-    } elsif ( defined($$current_tqa_check_profile{"W3C-1.1"}) ) {
-        $tcid = "W3C-1.1";
+    if ( ! $in_figure ) {
+        Check_For_Alt_Attribute("WCAG_2.0-F65", "<img>", $line,
+                                $column, $text, %attr);
     }
-    Check_For_Alt_Attribute($tcid, "<img>", $line,
-                            $column, $text, %attr);
+    #
+    # Check for possible empty "generator-unable-to-provide-required-alt"
+    # attribute
+    #
+    elsif ( defined($attr{"generator-unable-to-provide-required-alt"}) &&
+            ($attr{"generator-unable-to-provide-required-alt"} eq "") ) {
+        #
+        # Found empty "generator-unable-to-provide-required-alt", do we NOT
+        # have an alt attribute ?
+        #
+        if ( ! defined($attr{"alt"}) ) {
+            #
+            # Alt is omitted
+            #
+            print "Have generator-unable-to-provide-required-alt and no alt\n" if $debug;
+        }
+        else {
+            #
+            # We have an alt as well as generator-unable-to-provide-required-alt,
+            # this is not allowed.
+            #
+            Record_Result("WCAG_2.0-H88", $line, $column, $text,
+                          String_Value("Invalid attribute combination found") .
+                          " <img generator-unable-to-provide-required-alt=\"\" alt= >");
+        }
+    }
 
     #
     # Save value of alt text
@@ -3993,6 +3528,16 @@ sub Image_Tag_Handler {
     }
     else {
         $last_image_alt_text = "";
+
+        #
+        # No alt, are we inside a <figure> ?
+        #
+        if ( $in_figure ) {
+            $image_in_figure_with_no_alt = 1;
+            $fig_image_line = $line;
+            $fig_image_column = $column;
+            $fig_image_text = $text;
+        }
     }
 
     #
@@ -4009,24 +3554,14 @@ sub Image_Tag_Handler {
     if ( defined($attr{"alt"}) && defined($attr{"src"}) ) {
         print "Have alt = " . $attr{"alt"} . " and src = " . $attr{"src"} .
               " in image\n" if $debug;
+
         #
-        # Is testcase in the profile ?
+        # Check for duplicate alt and src (using a URL for the alt text)
         #
-        $tcid = undef;
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-F30"}) ) {
-            $tcid = "WCAG_2.0-F30";
-        } elsif ( defined($$current_tqa_check_profile{"W3C-1.1"}) ) {
-            $tcid = "W3C-1.1";
-        }
-        if ( defined($tcid) ) {
-            #
-            # Check for duplicate alt and src (using a URL for the alt text)
-            #
-            if ( $attr{"alt"} eq $attr{"src"} ) {
-                print "src eq alt\n" if $debug;
-                Record_Result($tcid, $line, $column, $text,
-                              String_Value("Image alt same as src"));
-            }
+        if ( $attr{"alt"} eq $attr{"src"} ) {
+            print "src eq alt\n" if $debug;
+            Record_Result("WCAG_2.0-F30", $line, $column, $text,
+                          String_Value("Image alt same as src"));
         }
     }
 
@@ -4036,29 +3571,18 @@ sub Image_Tag_Handler {
     #
     if ( defined($attr{"alt"}) && ($attr{"alt"} ne "") ) {
         #
-        # Is testcase in the profile ?
+        # Do we have invalid alt text phrases defined ?
         #
-        $tcid = undef;
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-F30"}) ) {
-            $tcid = "WCAG_2.0-F30";
-        } elsif ( defined($$current_tqa_check_profile{"W3C-1.1"}) ) {
-            $tcid = "W3C-1.1";
-        }
-        if ( defined($tcid) ) {
-            #
-            # Do we have invalid alt text phrases defined ?
-            #
-            if ( defined($testcase_data{$tcid}) ) {
-                $alt = lc($attr{"alt"});
-                foreach $invalid_alt (split(/\n/, $testcase_data{$tcid})) {
-                    #
-                    # Do we have a match on the invalid alt text ?
-                    #
-                    if ( $alt =~ /^$invalid_alt$/i ) {
-                        Record_Result($tcid, $line, $column, $text,
-                                      String_Value("Invalid alt text value") .
-                                      " '" . $attr{"alt"} . "'");
-                    }
+        if ( defined($testcase_data{"WCAG_2.0-F30"}) ) {
+            $alt = lc($attr{"alt"});
+            foreach $invalid_alt (split(/\n/, $testcase_data{"WCAG_2.0-F30"})) {
+                #
+                # Do we have a match on the invalid alt text ?
+                #
+                if ( $alt =~ /^$invalid_alt$/i ) {
+                    Record_Result("WCAG_2.0-F30", $line, $column, $text,
+                                  String_Value("Invalid alt text value") .
+                                  " '" . $attr{"alt"} . "'");
                 }
             }
         }
@@ -4092,18 +3616,7 @@ sub Image_Tag_Handler {
 sub HTML_Tag_Handler {
     my ( $line, $column, $text, %attr ) = @_;
 
-    my ($tcid);
     my ($lang) = "unknown";
-
-    #
-    # Is testcase part of this profile ?
-    #
-    if ( defined($$current_tqa_check_profile{"W3C-4.3"}) ) {
-        $tcid = "W3C-4.3";
-    }
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H57"}) ) {
-        $tcid = "WCAG_2.0-H57";
-    }
 
     #
     # If this is not XHTML 2.0, we must have a 'lang' attribute
@@ -4116,7 +3629,7 @@ sub HTML_Tag_Handler {
             #
             # Missing language attribute
             #
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-H57", $line, $column, $text,
                           String_Value("Missing html language attribute") .
                           " 'lang'");
         }
@@ -4124,7 +3637,7 @@ sub HTML_Tag_Handler {
             #
             # Save language code, but strip off any dialect value
             #
-            $lang = $attr{"lang"};
+            $lang = lc($attr{"lang"});
             $lang =~ s/-.*$//g;
         }
     }
@@ -4140,7 +3653,7 @@ sub HTML_Tag_Handler {
             #
             # Missing language attribute
             #
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-H57", $line, $column, $text,
                           String_Value("Missing html language attribute") .
                           " 'xml:lang'");
         }
@@ -4148,7 +3661,7 @@ sub HTML_Tag_Handler {
             #
             # Save language code, but strip off any dialect value
             #
-            $lang = $attr{"xml:lang"};
+            $lang = lc($attr{"xml:lang"});
             $lang =~ s/-.*$//g;
         }
     }
@@ -4160,8 +3673,8 @@ sub HTML_Tag_Handler {
         #
         # Do the values match ?
         #
-        if ( $attr{"lang"} ne $attr{"xml:lang"} ) {
-            Record_Result($tcid, $line, $column, $text,
+        if ( lc($attr{"lang"}) ne lc($attr{"xml:lang"}) ) {
+            Record_Result("WCAG_2.0-H57", $line, $column, $text,
                           String_Value("Mismatching lang and xml:lang attributes") .
                           String_Value("for tag") . "<html>");
         }
@@ -4172,17 +3685,15 @@ sub HTML_Tag_Handler {
     #
     if ( $current_content_lang_code ne "" ) {
         #
-        # Convert possible 2 character language code into a 3 character code.
+        # Convert language code into a 3 character code.
         #
-        if ( defined($language_map::iso_639_1_iso_639_2T_map{$lang}) ) {
-            $lang = $language_map::iso_639_1_iso_639_2T_map{$lang};
-        }
+        $lang = ISO_639_2_Language_Code($lang);
 
         #
         # Does the lang attribute match the content language ?
         #
         if ( $lang ne $current_content_lang_code ) {
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-H57", $line, $column, $text,
                           String_Value("HTML language attribute") .
                           " '$lang' " .
                           String_Value("does not match content language") .
@@ -4223,28 +3734,6 @@ sub Meta_Tag_Handler {
     # Do we have a http-equiv attribute ?
     #
     if ( defined($attr{"http-equiv"}) && ($attr{"http-equiv"} =~ /refresh/i) ) {
-        #
-        # Check for content, if it looks like we have a URL then
-        # we are doing a redirect.  If there is no URL we are doing a refresh
-        #
-        if ( defined($attr{"content"}) &&
-             ( ($attr{"content"} =~ /http/) || ($attr{"content"} =~ /url=/) ) ) {
-            #
-            # Page redirect.
-            # WCAG 1.0 checkpoint, record failure if it is part of our profile.
-            #
-            Record_Result("W3C-7.5", $line, $column, $text,
-                          String_Value("Page redirect not allowed"));
-        }
-        else {
-            #
-            # Page refresh.
-            # WCAG 1.0 checkpoint, record failure if it is part of our profile.
-            #
-            Record_Result("W3C-7.4", $line, $column, $text,
-                          String_Value("Page refresh not allowed"));
-        }
-
         #
         # WCAG 2.0, check if there is a content attribute with a numeric
         # timeout value.  We don't check both F40 and F41 as the test
@@ -4322,23 +3811,11 @@ sub Meta_Tag_Handler {
 sub Check_Deprecated_Tags {
     my ( $tagname, $line, $column, $text, %attr ) = @_;
 
-    my ($tcid);
-
-    #
-    # Is testcase part of this profile ?
-    #
-    if ( defined($$current_tqa_check_profile{"W3C-11.2"}) ) {
-        $tcid = "W3C-11.2";
-    }
-    elsif ( defined($$current_tqa_check_profile{"WCAG_2.0-H88"}) ) {
-        $tcid = "WCAG_2.0-H88";
-    }
-
     #
     # Check tag name
     #
     if ( defined( $$deprecated_tags{$tagname} ) ) {
-        Record_Result($tcid, $line, $column, $text,
+        Record_Result("WCAG_2.0-H88", $line, $column, $text,
                       String_Value("Deprecated tag found") . "<$tagname>");
     }
 }
@@ -4362,17 +3839,7 @@ sub Check_Deprecated_Tags {
 sub Check_Deprecated_Attributes {
     my ( $tagname, $line, $column, $text, %attr ) = @_;
 
-    my ($attribute, $tag_list, $tcid);
-
-    #
-    # Is testcase part of this profile ?
-    #
-    if ( defined($$current_tqa_check_profile{"W3C-11.2"}) ) {
-        $tcid = "W3C-11.2";
-    }
-    elsif ( defined($$current_tqa_check_profile{"WCAG_2.0-H88"}) ) {
-        $tcid = "WCAG_2.0-H88";
-    }
+    my ($attribute, $tag_list);
 
     #
     # Check all attributes
@@ -4385,7 +3852,7 @@ sub Check_Deprecated_Attributes {
             # Is this tag in the tag list for the deprecated attribute ?
             #
             if ( index( $tag_list, " $tagname " ) != -1 ) {
-                Record_Result($tcid, $line, $column, $text,
+                Record_Result("WCAG_2.0-H88", $line, $column, $text,
                               String_Value("Deprecated attribute found") .
                               "<$tagname $attribute= >");
             }
@@ -4512,7 +3979,7 @@ sub Link_Tag_Handler {
 sub Anchor_Tag_Handler {
     my ( $self, $language, $line, $column, $text, %attr ) = @_;
 
-    my ($href, $name, $tcid, $title);
+    my ($href, $name, $title);
 
     #
     # Add a text handler to save the text portion of the anchor
@@ -4588,14 +4055,6 @@ sub Anchor_Tag_Handler {
                               "<a>");
             }
         }
-
-        #
-        # Does the link contain javascript ?
-        #
-        if ( $href =~ /^javascript:/i ) {
-            Record_Result("W3C-6.5", $line, $column, $text,
-                          String_Value("Link contains JavaScript"));
-        }
     }
     #
     # Is this a named anchor ?
@@ -4607,17 +4066,6 @@ sub Anchor_Tag_Handler {
         print "Anchor_Tag_Handler, name = \"$name\"\n" if $debug;
 
         #
-        # Is testcase part of this profile ?
-        #
-        undef($tcid);
-        if ( defined($$current_tqa_check_profile{"W3C-13.1"}) ) {
-            $tcid = "W3C-13.1";
-        }
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-F77"}) ) {
-            $tcid = "WCAG_2.0-F77";
-        }
-
-        #
         # Check for missing value, we don't have to report it here
         # as the validator will catch it.
         #
@@ -4626,7 +4074,7 @@ sub Anchor_Tag_Handler {
             # Have we seen an anchor with this name before ?
             #
             if ( defined($anchor_name{$name}) ) {
-                Record_Result($tcid, $line, $column,
+                Record_Result("WCAG_2.0-F77", $line, $column,
                               $text, String_Value("Duplicate anchor name") .
                               "'$name'" .  " " .
                               String_Value("Previous instance found at") .
@@ -4794,34 +4242,6 @@ sub Start_H_Tag_Handler {
     # set
     #
     $inside_h_tag_set = 1;
-
-    #
-    # Do we have a previous heading level ?
-    #
-    if ( $current_heading_level != 0 ) {
-        #
-        # Is testcase part of this profile ?
-        #
-        if ( defined($$current_tqa_check_profile{"W3C-3.5"}) ) {
-            $tcid = "W3C-3.5";
-        }
-
-        #
-        # Check heading number against current level, if it is
-        # larger, it must be 1 larger.
-        #
-        if ( $level > $current_heading_level ) {
-            if ( $level != ( $current_heading_level + 1 ) ) {
-                #
-                # New heading level is not equal to last one plus 1
-                #
-                Record_Result($tcid, $line, $column, $text,
-                              String_Value("New heading level") . "'$level'" .
-                              String_Value("is not equal to last level") .
-                              "($current_heading_level) + 1");
-            }
-        }
-    }
 
     #
     # Save new heading level and line number
@@ -5000,9 +4420,6 @@ sub End_Object_Tag_Handler {
     if ( defined($$current_tqa_check_profile{"WCAG_2.0-H53"}) ) {
         push(@tcids, "WCAG_2.0-H53");
     }
-    if ( defined($$current_tqa_check_profile{"W3C-1.1"}) ) {
-        push(@tcids, "W3C-1.1");
-    }
 
     #
     # Are we missing object text ?
@@ -5081,7 +4498,7 @@ sub Applet_Tag_Handler {
 sub End_Applet_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $last_line, $last_column, $tcid, $clean_text);
+    my ($this_text, $last_line, $last_column, $clean_text);
 
     #
     # Get all the text found within the applet tag
@@ -5098,19 +4515,10 @@ sub End_Applet_Tag_Handler {
     print "End_Applet_Tag_Handler: text = \"$clean_text\"\n" if $debug;
 
     #
-    # Check for testcase in profile
-    #
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H35"}) ) {
-        $tcid = "WCAG_2.0-H35";
-    } elsif ( defined($$current_tqa_check_profile{"W3C-1.1"}) ) {
-        $tcid = "W3C-1.1";
-    }
-
-    #
     # Are we missing applet text ?
     #
     if ( $clean_text eq "" ) {
-        Record_Result($tcid, $line, $column,
+        Record_Result("WCAG_2.0-H35", $line, $column,
                       $text, String_Value("Missing text in") . "<applet>");
     }
 
@@ -5461,6 +4869,173 @@ sub End_Caption_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Figcaption_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles figcaption tags.
+#
+#***********************************************************************
+sub Figcaption_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Add a text handler to save the text portion of the figcaption
+    # tag.
+    #
+    Start_Text_Handler($self, "figcaption");
+}
+
+#***********************************************************************
+#
+# Name: End_Figcaption_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end figcaption tag.
+#
+#***********************************************************************
+sub End_Figcaption_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    my ($clean_text);
+
+    #
+    # Get all the text found within the figcaption tag
+    #
+    if ( ! $have_text_handler ) {
+        print "End figcaption tag found without corresponding open tag at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Get the figcaption text as a string, remove all excess white space.
+    #
+    $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
+    print "End_Figcaption_Tag_Handler: text = \"$clean_text\"\n" if $debug;
+
+    #
+    # Check for using white space characters to control spacing within a word
+    #
+    Check_Character_Spacing("<figcaption>", $line, $column, $clean_text);
+
+    #
+    # Are we missing figcaption text ?
+    #
+    if ( $clean_text eq "" ) {
+        Record_Result("WCAG_2.0-G115", $line, $column,
+                      $text, String_Value("Missing text in") . "<figcaption>");
+    }
+    #
+    # We have a figure caption
+    #
+    else {
+        $have_figcaption = 1;
+    }
+
+    #
+    # Destroy the text handler that was used to save the text
+    # portion of the figcaption tag.
+    #
+    Destroy_Text_Handler($self, "figcaption");
+}
+
+#***********************************************************************
+#
+# Name: Figure_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles figure tags.
+#
+#***********************************************************************
+sub Figure_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Set flag to indicate we do not have a figcaption or an image
+    # inside the figure.
+    #
+    $have_figcaption = 0;
+    $image_in_figure_with_no_alt = 0;
+    $fig_image_line = 0;
+    $fig_image_column = 0;
+    $fig_image_text = "";
+    $in_figure = 1;
+}
+
+#***********************************************************************
+#
+# Name: End_Figure_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end figure tag.
+#
+#***********************************************************************
+sub End_Figure_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    #
+    # Are we inside a figure ?
+    #
+    if ( ! $in_figure ) {
+        print "End figure tag found without corresponding open tag at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Did we find an image in this figure that did not have an alt
+    # attribute ?
+    #
+    if ( $image_in_figure_with_no_alt ) {
+        #
+        # Was there a figcaption ? The figcaption can act as the alt
+        # text for the image.
+        #  Reference: http://www.w3.org/html/wg/drafts/html/master/embedded-content-0.html#guidance-for-conformance-checkers
+        #
+        if ( ! $have_figcaption ) {
+            #
+            # No figcaption and no alt attribute on image.
+            #
+            Record_Result("WCAG_2.0-F65", $fig_image_line, $fig_image_column,
+                          $fig_image_text,
+                          String_Value("Missing alt attribute for") . "<img>");
+        }
+    }
+
+    #
+    # End of figure tag
+    #
+    $in_figure = 0;
+}
+
+#***********************************************************************
+#
 # Name: Check_Event_Handlers
 #
 # Parameters: tagname - tag name
@@ -5477,7 +5052,7 @@ sub End_Caption_Tag_Handler {
 sub Check_Event_Handlers {
     my ( $tagname, $line, $column, $text, %attr ) = @_;
 
-    my ($tcid, $error, $attribute);
+    my ($error, $attribute);
     my ($mouse_only) = 0;
     my ($keyboard_only) = 0;
 
@@ -5500,16 +5075,6 @@ sub Check_Event_Handlers {
                       String_Value("Mouse only event handlers found"));
     }
     else {
-        #
-        # Check for missing event handler pairings for mouse & keyboard.
-        #
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-SCR20"}) ) {
-            $tcid = "WCAG_2.0-SCR20";
-        }
-        if ( defined($$current_tqa_check_profile{"W3C-6.4"}) ) {
-            $tcid = "W3C-6.4";
-        }
-
         #
         # Check for event handler pairings for mouse & keyboard.
         # Do we have a mouse event handler with no corresponding keyboard
@@ -5558,18 +5123,10 @@ sub Check_Event_Handlers {
         # Did we find a missing pairing ?
         #
         if ( $error ne "" ) {
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-SCR20", $line, $column, $text,
                           String_Value("Missing event handler from pair") .
                           "'$error'" . String_Value("for tag") . "<$tagname>");
         }
-    }
-
-    #
-    # Is testcase part of this profile ?
-    #
-    undef($tcid);
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-F42"}) ) {
-        $tcid = "WCAG_2.0-F42";
     }
 
     #
@@ -5579,7 +5136,7 @@ sub Check_Event_Handlers {
     #
     if ( defined($attr{"onclick"}) or defined($attr{"onkeypress"}) ) {
         if ( index( $tags_allowed_events, " $tagname " ) == -1 ) {
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-F42", $line, $column, $text,
                           String_Value("onclick or onkeypress found in tag") .
                           "<$tagname>");
         }
@@ -5838,6 +5395,11 @@ sub Check_Acronym_Abbr_Consistency {
     $title = lc($title);
 
     #
+    # Convert &#39; style quote to an &rsquo; before comparison.
+    #
+    $title =~ s/\&#39;/\&rsquo;/g;
+
+    #
     # Do we have any abbreviations or acronyms for the current
     # language ?
     #
@@ -5933,7 +5495,7 @@ sub Check_Acronym_Abbr_Consistency {
             #
             Record_Result("WCAG_2.0-G197", $line, $column, $text,
               String_Value("Content values do not match for") .
-              " <$tag> " . 
+              " <$tag title=\"$title\" > " . 
               String_Value("Found") . " \"$content\" " .
               String_Value("previously found") .
               " \"$prev_text\" ".
@@ -6018,6 +5580,21 @@ sub End_Abbr_Acronym_Tag_handler {
         # within a word
         #
         Check_Character_Spacing("<$tag>", $line, $column, $clean_text);
+
+        #
+        # Did we find any letters in the acronym ? An acronym cannot consist
+        # of all digits or punctuation.
+        #  http://www.w3.org/TR/html-markup/abbr.html
+        #
+#
+# Ignore this check.  WCAG uses <abbr> with no letters in some examples.
+# http://www.w3.org/TR/2012/NOTE-WCAG20-TECHS-20120103/H90
+#
+#        if ( ! ($clean_text =~ /[a-z]/i) ) {
+#            Record_Result("WCAG_2.0-G115", $line, $column, $text,
+#                          String_Value("Content does not contain letters for") .
+#                          " <$tag>");
+#        }
 
         #
         # Did we get a title in the start tag ? (if it is missing it was
@@ -6503,7 +6080,7 @@ sub End_Li_Tag_Handler {
     #
     # Are we missing li content or text ?
     #
-    if ( ($clean_text eq "") && ($last_tag eq "li") ) {
+    if ( $clean_text eq "" ) {
         Record_Result("WCAG_2.0-G115", $line, $column,
                       $text, String_Value("Missing content in") . "<li>");
     }
@@ -6664,7 +6241,7 @@ sub Dt_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
     #
-    # Increment count of <li> tags in this list
+    # Increment count of <dt> tags in this list
     #
     if ( $current_list_level > -1 ) {
         $list_item_count[$current_list_level]++;
@@ -6677,7 +6254,7 @@ sub Dt_Tag_Handler {
     }
 
     #
-    # Add a text handler to save the text portion of the li
+    # Add a text handler to save the text portion of the dt
     # tag.
     #
     Start_Text_Handler($self, "dt");
@@ -6725,7 +6302,7 @@ sub End_Dt_Tag_Handler {
     #
     # Are we missing dt content or text ?
     #
-    if ( ($clean_text eq "") && ($last_tag eq "dt") ) {
+    if ( $clean_text eq "" ) {
         Record_Result("WCAG_2.0-G115", $line, $column,
                       $text, String_Value("Missing content in") . "<dt>");
     }
@@ -6939,20 +6516,20 @@ sub Check_Duplicate_Attributes {
 sub Check_Lang_Attribute {
     my ( $tagname, $line, $column, $text, $attrseq, %attr ) = @_;
 
-    my ($tcid, $lang, $xml_lang);
+    my ($lang, $xml_lang);
 
     #
     # Do we have a lang attribute ?
     #
     if ( defined($attr{"lang"}) ) {
-        $lang = $attr{"lang"};
+        $lang = lc($attr{"lang"});
     }
 
     #
     # Do we have a xml:lang attribute ?
     #
     if ( defined($attr{"xml:lang"}) ) {
-        $xml_lang = $attr{"xml:lang"};
+        $xml_lang = lc($attr{"xml:lang"});
     }
 
     #
@@ -6963,17 +6540,6 @@ sub Check_Lang_Attribute {
     print "Check_Lang_Attribute\n" if $debug;
     if ( ($tagname ne "html") && ($doctype_label =~ /xhtml/i) && 
          ($doctype_version == 1.0) ) {
-
-        #
-        # Is testcase part of this profile ?
-        #
-        if ( defined($$current_tqa_check_profile{"W3C-4.1"}) ) {
-            $tcid = "W3C-4.1";
-        }
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-H58"}) ) {
-            $tcid = "WCAG_2.0-H58";
-        }
-
         #
         # Do we have a lang attribute ?
         #
@@ -6987,7 +6553,7 @@ sub Check_Lang_Attribute {
                 # Missing xml:lang attribute
                 #
                 print "Have lang but not xml:lang attribute\n" if $debug;
-                Record_Result($tcid, $line, $column, $text,
+                Record_Result("WCAG_2.0-H58", $line, $column, $text,
                               String_Value("Missing xml:lang attribute") .
                               String_Value("for tag") . "<$tagname>");
 
@@ -7006,7 +6572,7 @@ sub Check_Lang_Attribute {
                 # Missing lang attribute
                 #
                 print "Have xml:lang but not lang attribute\n" if $debug;
-                Record_Result($tcid, $line, $column,
+                Record_Result("WCAG_2.0-H58", $line, $column,
                               $text, String_Value("Missing lang attribute") .
                               String_Value("for tag") . "<$tagname>");
 
@@ -7021,7 +6587,7 @@ sub Check_Lang_Attribute {
             # Do the values match ?
             #
             if ( $lang ne $xml_lang ) {
-                Record_Result($tcid, $line, $column, $text,
+                Record_Result("WCAG_2.0-H58", $line, $column, $text,
                               String_Value("Mismatching lang and xml:lang attributes") .
                               String_Value("for tag") . "<$tagname>");
             }
@@ -7258,12 +6824,7 @@ sub Check_For_Change_In_Language {
     #
     print "Check_For_Change_In_Language in tag $tagname\n" if $debug;
     if ( defined($attr{"lang"}) ) {
-        $lang = $attr{"lang"};
-
-        #
-        # Remove any language dialect
-        #
-        $lang =~ s/-.*$//g;
+        $lang = lc($attr{"lang"});
         print "Found lang $lang in $tagname\n" if $debug;
     }
     #
@@ -7271,12 +6832,7 @@ sub Check_For_Change_In_Language {
     # a lang and xml:lang and that they could be different).
     #
     elsif ( defined($attr{"xml:lang"})) {
-        $lang = $attr{"xml:lang"};
-
-        #
-        # Remove any language dialect
-        #
-        $lang =~ s/-.*$//g;
+        $lang = lc($attr{"xml:lang"});
         print "Found xml:lang $lang in $tagname\n" if $debug;
     }
 
@@ -7285,11 +6841,9 @@ sub Check_For_Change_In_Language {
     #
     if ( defined($lang) ) {
         #
-        # Convert possible 2 character code into a 3 character code.
+        # Convert language code into a 3 character code.
         #
-        if ( defined($language_map::iso_639_1_iso_639_2T_map{$lang}) ) {
-            $lang = $language_map::iso_639_1_iso_639_2T_map{$lang};
-        }
+        $lang = ISO_639_2_Language_Code($lang);
 
         #
         # Does this tag have a matching end tag ?
@@ -7549,13 +7103,6 @@ sub Start_Handler {
     }
 
     #
-    # Check body tag
-    #
-    elsif ( $tagname eq "body" ) {
-        Body_Tag_Handler( $line, $column, $text, %attr_hash );
-    }
-
-    #
     # Check button
     #
     elsif ( $tagname eq "button" ) {
@@ -7595,6 +7142,20 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "fieldset" ) {
         Fieldset_Tag_Handler( $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check figcaption
+    #
+    elsif ( $tagname eq "figcaption" ) {
+        Figcaption_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check figure
+    #
+    elsif ( $tagname eq "figure" ) {
+        Figure_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
 
     #
@@ -7880,28 +7441,16 @@ sub Start_Handler {
 sub Check_Click_Here_Link {
     my ( $line, $column, $text, $link_text ) = @_;
 
-    my ($tcid);
-
-    #
-    # Is testcase part of this profile ?
-    #
-    print "Check_Click_Here_Link, text = \"$link_text\"\n" if $debug;
-    if ( defined($$current_tqa_check_profile{"W3C-13.1"}) ) {
-        $tcid = "W3C-13.1";
-    }
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H30"}) ) {
-        $tcid = "WCAG_2.0-H30";
-    }
-
     #
     # Is the value of the link text 'here' or 'click here' ?
     #
+    print "Check_Click_Here_Link, text = \"$link_text\"\n" if $debug;
     $link_text = lc($link_text);
     $link_text =~ s/^\s*//g;
     $link_text =~ s/\s*$//g;
     $link_text =~ s/\.*$//g;
     if ( index($click_here_patterns, " $link_text ") != -1 ) {
-        Record_Result($tcid, $line, $column, $text,
+        Record_Result("WCAG_2.0-H30", $line, $column, $text,
                       String_Value("click here link found"));
     }
 }
@@ -7974,8 +7523,8 @@ sub Production_Development_URL_Match {
 sub End_Anchor_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, @anchor_text_list, $last_line, $last_column, $tcid);
-    my (@tc_list, $anchor_text, $n, $link_text);
+    my ($this_text, @anchor_text_list, $last_line, $last_column);
+    my (@tc_list, $anchor_text, $n, $link_text, $tcid);
     my ($all_anchor_text) = "";
     my ($image_alt_in_anchor) = "";
 
@@ -8113,9 +7662,6 @@ sub End_Anchor_Tag_Handler {
             if ( defined($$current_tqa_check_profile{"WCAG_2.0-H91"}) ) {
                 push(@tc_list, "WCAG_2.0-H91");
             }
-            if ( defined($$current_tqa_check_profile{"W3C-13.1"}) ) {
-                push(@tc_list, "W3C-13.1");
-            }
 
             foreach $tcid (@tc_list) {
                 Record_Result($tcid, $line, $column,
@@ -8140,34 +7686,22 @@ sub End_Anchor_Tag_Handler {
     #
     # Check to see if the anchor text appears to be a URL
     #
-    undef($tcid);
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H30"}) ) {
-        $tcid = "WCAG_2.0-H30";
-    }
-    if ( defined($$current_tqa_check_profile{"W3C-13.1"}) ) {
-        $tcid = "W3C-13.1";
-    }
-    if ( defined($tcid) ) {
+    $n = @anchor_text_list;
+    if ( $n > 0 ) {
+        $anchor_text = $anchor_text_list[$n - 1];
+        $anchor_text =~ s/^\s*//g;
+        $anchor_text =~ s/\s*$//g;
+        if ( URL_Check_Is_URL($anchor_text) ) {
+            Record_Result("WCAG_2.0-H30", $line, $column, $text,
+                          String_Value("Anchor text is a URL"));
+        }
         #
-        # Check to see if anchor text looks like a URL
+        # Check href and anchor values (if they are non-null)
         #
-        $n = @anchor_text_list;
-        if ( $n > 0 ) {
-            $anchor_text = $anchor_text_list[$n - 1];
-            $anchor_text =~ s/^\s*//g;
-            $anchor_text =~ s/\s*$//g;
-            if ( URL_Check_Is_URL($anchor_text) ) {
-                Record_Result($tcid, $line, $column, $text,
-                              String_Value("Anchor text is a URL"));
-            }
-            #
-            # Check href and anchor values (if they are non-null)
-            #
-            elsif ( ($current_a_href ne "") &&
-                 (lc($all_anchor_text) eq lc($current_a_href)) ) {
-                Record_Result($tcid, $line, $column,
-                              $text, String_Value("Anchor text same as href"));
-            }
+        elsif ( ($current_a_href ne "") &&
+             (lc($all_anchor_text) eq lc($current_a_href)) ) {
+            Record_Result("WCAG_2.0-H30", $line, $column,
+                          $text, String_Value("Anchor text same as href"));
         }
     }
 
@@ -8186,16 +7720,6 @@ sub End_Anchor_Tag_Handler {
     # Do we have anchor text and a URL ?
     #
     if ( ($all_anchor_text ne "") && ($current_a_href ne "") ) {
-        #
-        # Is testcase part of this profile ?
-        #
-        if ( defined($$current_tqa_check_profile{"W3C-13.1"}) ) {
-            $tcid = "W3C-13.1";
-        }
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-H30"}) ) {
-            $tcid = "WCAG_2.0-H30";
-        }
-
         #
         # Have we seen this anchor text before in the same heading context ?
         # We include heading text if the link appears in a list.
@@ -8228,7 +7752,7 @@ sub End_Anchor_Tag_Handler {
                     ($last_line, $last_column) =
                             split(/:/, $anchor_location{$link_text});
 
-                    Record_Result($tcid, $line, $column, $text,
+                    Record_Result("WCAG_2.0-H30", $line, $column, $text,
                           String_Value("Multiple links with same anchor text") .
                           "\"$all_anchor_text\" href $current_a_href \n" .
                           String_Value("Previous instance found at") .
@@ -8605,6 +8129,20 @@ sub End_Handler {
     }
 
     #
+    # Check figcaption tag
+    #
+    elsif ( $tagname eq "figcaption" ) {
+        End_Figcaption_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    # Check figure tag
+    #
+    elsif ( $tagname eq "figure" ) {
+        End_Figure_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
     # Check form tag
     #
     elsif ( $tagname eq "form" ) {
@@ -8771,23 +8309,14 @@ sub End_Handler {
 #***********************************************************************
 sub Check_Baseline_Technologies {
 
-    my ($tcid);
-
     #
     # Did we not find a DOCTYPE line ?
     #
     if ( $doctype_line == -1 ) {
-        if ( defined($$current_tqa_check_profile{"W3C-3.2"}) ) {
-            $tcid = "W3C-3.2";
-        }
-        elsif ( defined($$current_tqa_check_profile{"WCAG_2.0-G134"}) ) {
-            $tcid = "WCAG_2.0-G134";
-        }
-
         #
         # Missing DOCTYPE
         #
-        Record_Result($tcid, -1, 0, "",
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
                       String_Value("DOCTYPE missing"));
     }
 }
@@ -8806,23 +8335,12 @@ sub Check_Baseline_Technologies {
 #***********************************************************************
 sub Check_Missing_And_Extra_Labels {
 
-    my ($label_id, $line, $column, $comment, $found, $tcid);
-    my ($label_for);
+    my ($label_id, $line, $column, $comment, $found, $label_for);
 
     #
     # Are we checking for missing labels ?
     #
-    if ( defined($$current_tqa_check_profile{"W3C-12.4"}) ) {
-        $tcid = "W3C-12.4";
-    }
-    elsif ( defined($$current_tqa_check_profile{"WCAG_2.0-F68"}) ) {
-        $tcid = "WCAG_2.0-F68";
-    }
-
-    #
-    # Are we checking for missing labels ?
-    #
-    if ( defined($tcid) ) {
+    if ( defined($$current_tqa_check_profile{"WCAG_2.0-F68"}) ) {
         #
         # Check that a label is defined for each one referenced
         #
@@ -8832,7 +8350,7 @@ sub Check_Missing_And_Extra_Labels {
             #
             if ( ! defined($label_for_location{"$label_id"}) ) {
                 ($line, $column) = split(/,/, $input_id_location{"$label_id"});
-                Record_Result($tcid, $line, $column, "",
+                Record_Result("WCAG_2.0-F68", $line, $column, "",
                               String_Value("No label matching id attribute") .
                               "'$label_id'" . String_Value("for tag") .
                               " <input>");
@@ -8850,16 +8368,6 @@ sub Check_Missing_And_Extra_Labels {
 #    # Are we checking for extra labels ?
 #    #
 #    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H44"}) ) {
-#        $tcid = "WCAG_2.0-H44";
-#    }
-#    else {
-#        undef $tcid;
-#    }
-#
-#    #
-#    # Are we checking for extra labels ?
-#    #
-#    if ( defined($tcid) ) {
 #        #
 #        # Check that there is a reference for every label
 #        #
@@ -8870,7 +8378,7 @@ sub Check_Missing_And_Extra_Labels {
 #            #
 #            if ( ! defined($input_id_location{"$label_for"}) ) {
 #                ($line, $column) = split(/:/, $label_for_location{"$label_for"});
-#                Record_Result($tcid, $line, $column, "",
+#                Record_Result("WCAG_2.0-H44", $line, $column, "",
 #                              String_Value("Unused label, for attribute") .
 #                              "'$label_for'" . String_Value("at line:column") .
 #                              $label_for_location{"$label_for"});
@@ -8917,30 +8425,36 @@ sub Check_Language_Spans {
               length($content) . "\n" if $debug;
 
         #
-        # Convert possible 2 character language code into a 3 character code.
+        # Convert language code into a 3 character code.
         #
-        if ( defined($language_map::iso_639_1_iso_639_2T_map{$span_lang}) ) {
-            $span_lang = $language_map::iso_639_1_iso_639_2T_map{$span_lang};
-        }
-        
-        #
-        # Get language of this content section
-        #
-        ($content_lang, $lang, $status) = TextCat_Text_Language($content);
+        $span_lang = ISO_639_2_Language_Code($span_lang);
 
         #
-        # Does the lang attribute match the content language ?
+        # Is this a supported language ?
         #
-        print "status = $status, content_lang = $content_lang, span_lang = $span_lang\n" if $debug;
-        if ( ($status == 0 ) && ($content_lang ne "" ) &&
-             ($span_lang ne $content_lang) ) {
-            print "Span language error\n" if $debug;
-            #print "Content = $content\n" if $debug;
-            Record_Result("WCAG_2.0-H58", -1, -1, "",
-                          String_Value("Span language attribute") .
-                          " '$span_lang' " .
-                          String_Value("does not match content language") .
-                          " '$content_lang'");
+        if ( TextCat_Supported_Language($span_lang) ) {
+            #
+            # Get language of this content section
+            #
+            ($content_lang, $lang, $status) = TextCat_Text_Language($content);
+
+            #
+            # Does the lang attribute match the content language ?
+            #
+            print "status = $status, content_lang = $content_lang, span_lang = $span_lang\n" if $debug;
+            if ( ($status == 0 ) && ($content_lang ne "" ) &&
+                 ($span_lang ne $content_lang) ) {
+                print "Span language error\n" if $debug;
+                #print "Content = $content\n" if $debug;
+                Record_Result("WCAG_2.0-H58", -1, -1, "",
+                              String_Value("Span language attribute") .
+                              " '$span_lang' " .
+                              String_Value("does not match content language") .
+                              " '$content_lang'");
+            }
+        }
+        else {
+            print "Unsupported language $span_lang\n" if $debug;
         }
     }
 }
@@ -8976,14 +8490,6 @@ sub Check_Document_Errors {
     if ( ! $found_title_tag ) {
         Record_Result("WCAG_2.0-H25", -1,  0, "",
                       String_Value("Missing <title> tag"));
-    }
-
-    #
-    # Are we missing metadata ?
-    #
-    if ( (! $have_metadata) ) {
-        Record_Result("W3C-13.2", -1, 0, "",
-                      String_Value("Metadata missing"));
     }
 
     #
@@ -9096,6 +8602,9 @@ sub HTML_Check {
             # that the language code and content language agree.
             #
             Check_Language_Spans();
+        }
+        else {
+            $current_content_lang_code = "";
         }
 
         #

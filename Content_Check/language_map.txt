@@ -37,7 +37,7 @@ epo esperanto.lm
 est estonian.lm
 fin finnish.lm
 fra french.lm
-fra frisian.lm
+fry frisian.lm
 geo georgian.lm
 ger german.lm
 gre greek-iso8859-7.lm

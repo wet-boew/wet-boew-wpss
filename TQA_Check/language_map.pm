@@ -2,9 +2,9 @@
 #
 # Name:   language_map.pm
 #
-# $Revision: 5623 $
+# $Revision: 6267 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/language_map.pm $
-# $Date: 2011-12-02 13:07:12 -0500 (Fri, 02 Dec 2011) $
+# $Date: 2013-05-22 09:38:08 -0400 (Wed, 22 May 2013) $
 #
 # Description:
 #
@@ -65,6 +65,7 @@ BEGIN {
                   %iso_639_1_iso_639_2T_map
                   %one_char_iso_639_2T_map
                   %language_iso_639_2T_map
+                  ISO_639_2_Language_Code
                   );
     $VERSION = "1.0";
 }
@@ -224,7 +225,7 @@ BEGIN {
     "ger", "German",
 #    "gez", "Geez",
 #    "gil", "Gilbertese",
-#    "glg", "Gallegan",
+    "glg", "Gallegan",
 #    "gmh", "German, Middle High",
 #    "goh", "German, Old High",
 #    "gon", "Gondi",
@@ -726,6 +727,34 @@ BEGIN {
 );
 
 #
+# ISO 639-2/T (3 character) terminology to 639-2/B (3 character) bibliographic
+# language map (comment out those languages unlikely to be used to avoid
+# a false errors).
+#
+%iso_639_2T_iso_639_2B_map = (
+    "bod", "tib",
+    "ces", "cze",
+    "cym", "wel",
+    "deu", "ger",
+    "eus", "baq",
+    "ell", "gre",
+    "fas", "per",
+    "hye", "arm",
+#    "fra", "fre", # Leave fra as the code for French
+    "isl", "ice",
+    "kat", "geo",
+    "mkd", "mac",
+    "mri", "mao",
+    "msa", "may",
+    "mya", "bur",
+    "nld", "dut",
+    "ron", "rum",
+    "slk", "slo",
+    "sqi", "alb",
+    "zho", "chi",
+);
+
+#
 # 1 character to 639-2/T (3 character) language map (used in PWGSC file names
 # to defined content language).
 #
@@ -742,6 +771,54 @@ BEGIN {
     "english", "eng",
     "francais", "fra",
 );
+
+#***********************************************************************
+#
+# Name: ISO_639_2_Language_Code
+#
+# Parameters: lang - language code
+#
+# Description:
+#
+#   This function converts the supplied language code (1, 2 or 3 characters)
+# into an ISO 639.2 3 letter language code.  If no matching code is found,
+# the supplied language is returned.  Any dialect suffix is stripped of
+# the language provided.
+#
+#***********************************************************************
+sub ISO_639_2_Language_Code {
+    my ($lang) = @_;
+
+    #
+    # Strip off any possible dialect from the language code
+    # e.g. en-US becomes en.
+    #
+    $lang =~ s/-.*//g;
+
+    #
+    # Convert language to lower case
+    #
+    $lang = lc($lang);
+
+    #
+    # Convert possible 2 character language code into a 3 character code.
+    #
+    if ( defined($iso_639_1_iso_639_2T_map{$lang}) ) {
+        $lang = $iso_639_1_iso_639_2T_map{$lang};
+    }
+
+    #
+    # Convert any terminology language code to a bibliographic code.
+    #
+    if ( defined($iso_639_2T_iso_639_2B_map{$lang}) ) {
+        $lang = $iso_639_2T_iso_639_2B_map{$lang};
+    }
+
+    #
+    # Return language code
+    #
+    return($lang);
+}
 
 #***********************************************************************
 #

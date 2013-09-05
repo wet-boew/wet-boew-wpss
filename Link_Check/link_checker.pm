@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 6067 $
+# $Revision: 6374 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
-# $Date: 2012-10-25 17:28:18 -0400 (Thu, 25 Oct 2012) $
+# $Date: 2013-08-28 09:15:21 -0400 (Wed, 28 Aug 2013) $
 #
 # Description:
 #
@@ -142,6 +142,7 @@ my ($link_check_redirect)         = 4;
 my ($link_check_blocked)          = 5;
 my ($link_check_broken_anchor)    = 6;
 my ($link_check_ipv4_link)        = 7;
+my ($link_check_soft_404)         = 8;
 
 #
 # String table for error strings.
@@ -152,10 +153,11 @@ my %string_table_en = (
     "Cross language",      "Cross language",
     "Bad networkscope",    "Bad networkscope",
     "Redirect",            "Redirect",
-    "Frirewall blocked",   "Firewall blocked",
+    "Firewall blocked",    "Firewall blocked",
     "Broken anchor",       "Broken anchor",
     "source URL language", " source URL language ",
     "target URL language", " target URL language ",
+    "404 not found page with 200 (Ok) code", "404 not found page with 200 (Ok) code", 
     );
 
 
@@ -168,10 +170,11 @@ my %string_table_fr = (
     "Cross language",      "Interlangues",
     "Bad networkscope",    "Portée de réseau erronée",
     "Redirect",            "Réorienter",
-    "Frirewall blocked",   "Pare-feu bloqués",
+    "Firewall blocked",    "Pare-feu bloqués",
     "Broken anchor",       "Point d'ancrage brisé",
     "source URL language", " la langue source URL ",
     "target URL language", " la langue URL cible ",
+    "404 not found page with 200 (Ok) code", "404 page non trouvée avec le code 200 (Ok)", 
 );
 
 #
@@ -191,6 +194,7 @@ my (%link_status_message_map) = (
     $link_check_blocked, "FIREWALL_BLOCKED",
     $link_check_broken_anchor, "BROKEN_ANCHOR",
     $link_check_ipv4_link, "IPV4_LINK",
+    $link_check_soft_404, "SOFT_404",
 );
 
 #
@@ -204,6 +208,7 @@ my (%testcase_description_en) = (
     "FIREWALL_BLOCKED",   "Firewall blocked link",
     "BROKEN_ANCHOR",      "Broken anchor",
     "IPV4_LINK",          "IPV4 Link",
+    "SOFT_404",           "Soft 404 broken link",
 );
 
 my (%testcase_description_fr) = (
@@ -214,6 +219,7 @@ my (%testcase_description_fr) = (
     "FIREWALL_BLOCKED",   "Lien pare-feu bloqués",
     "BROKEN_ANCHOR",      "Point d'ancrage brisé",
     "IPV4_LINK",          "Lien IPV4",
+    "SOFT_404",           "Soft 404 lien brisé",
 );
 
 #
@@ -579,7 +585,7 @@ sub Initialize_Link_Checker_Variables {
 #
 # Name: Redirected_To_New_Site
 #
-# Parameters: domain - domain or original URL
+# Parameters: domain - domain of original URL
 #             file_path - file path of original URL
 #             url - new URL
 #
@@ -600,6 +606,7 @@ sub Redirected_To_New_Site {
     my ($domain, $file_path, $url) = @_;
 
     my ($protocol, $new_domain, $new_file_path, $query, $new_url);
+    my ($domain_minus_www, $new_domain_minus_www);
     my ($rc) = 0;
 
     #
@@ -635,6 +642,15 @@ sub Redirected_To_New_Site {
     #
     if ( $new_domain ne $domain ) {
         #
+        # Remove any possible leading www. from the domain names.
+        # Domains are equivalent if they one has www. and the other doesn't
+        #
+        $domain_minus_www = $domain;
+        $domain_minus_www =~ s/^www\.//g;
+        $new_domain_minus_www = $new_domain;
+        $new_domain_minus_www =~ s/^www\.//g;
+
+        #
         # Do we have a site vanity domain ?
         #
         if ( defined($site_vanity_domains{$domain}) ) {
@@ -646,7 +662,14 @@ sub Redirected_To_New_Site {
             print "Found site vanity domain $domain\n" if $debug;
             return(0);
         }
-
+        #
+        # Do the domains differ by the presence of a leading www ?
+        # (e.g. www.tpsgc-pwgsc.gc.ca vs tpsgc-pwgsc.gc.ca)
+        #
+        elsif ( $domain_minus_www eq $new_domain_minus_www ) {
+            print "Found www vs non-www version of domain\n" if $debug;
+            return(0);
+        }
         #
         # Is the original domain an alias for the new domain ?
         #
@@ -1034,7 +1057,15 @@ sub Link_Status {
             }
         }
 
-        #   
+        #
+        # Was the request forbidden by robots (status code = 403) ?
+        #
+        if ( (!$resp->is_success) && ($resp->code == 403) ) {
+            print "Forbidden by robots, try GET after clearing robots\n" if $debug;
+            ($url, $resp) = Crawler_Get_HTTP_Response($url, $referer_url);
+        }
+
+        #
         # Check for success on GET operation
         #   
         if ( !$resp->is_success ) {
@@ -1139,15 +1170,11 @@ sub Link_Status {
             }
 
             #
-            # Check for a 404 (Not Found) response code
+            # Check for a 403 (Forbidden by robots) response code
             #
-            elsif ( $resp->code == 404 ) {
-                #
-                # Broken link
-                #
-                $is_broken_link = 1;
+            elsif ( $resp->code == 403 ) {
                 $done = 1;
-                print "Broken link\n" if $debug;
+                print "Forbidden by robots\n" if $debug;
             }
             #
             # Check for a 404 (Not Found) response code
@@ -1174,7 +1201,7 @@ sub Link_Status {
             # GET was successful
             #
             print "GET successful of $url\n" if $debug;
-            
+
             #
             # Get the title of the target URL, it will be used later in
             # Interoperability checking.
@@ -1192,7 +1219,7 @@ sub Link_Status {
             #
             # Did we get a language ? If so try to get the site title.
             #
-            if ( $lang ne "") {
+            if ( $lang ne "" ) {
                 Get_Site_Title($url, $resp, $lang);
             }
 
@@ -1283,7 +1310,12 @@ sub Get_Content_Language {
     my ($req, $content, $lang, $resp_url, $status);
     my ($lang_code) = "";;
 
-    
+    #
+    # Remove any named anchors from the URL, this avoids getting
+    # the same link for each named anchor
+    #
+    $this_link =~ s/#.*//g;
+
     #
     # Have we seen this URL before ?
     #
@@ -1370,6 +1402,15 @@ sub Get_Content_Language {
             #
             $url_content_language{$resp_url} = $lang_code;
             $url_content_language_hits{$resp_url} = 1;
+
+            #
+            # If the response URL is not the same as the original URL,
+            # save the language code under the original one also.
+            #
+            if ( $this_link ne $resp_url ) {
+                $url_content_language{$this_link} = $lang_code;
+                $url_content_language_hits{$this_link} = 1;
+            }
         }
         else {
             print "Failed to get URL in language check\n" if $debug;
@@ -1436,6 +1477,7 @@ sub Record_Result {
 #             referer_url - url of refering link
 #             language - language of referrer URL
 #             link - link result object
+#             resp - HTTP::Response object
 #
 # Description:
 #
@@ -1449,26 +1491,27 @@ sub Record_Result {
 #
 #***********************************************************************
 sub Cross_Language_Link {
-    my ($this_link, $link_anchor, $language, $referer_url, $link) = @_;
+    my ($this_link, $link_anchor, $language, $referer_url, $link, $resp) = @_;
 
-    my ($rc, $link_language, $resp);
+    my ($rc, $link_language);
 
     #
     # Do we have a language value for the referer ?
     #
     if ( $language ne "" ) {
         #
-        # Get language of the link
+        # Get the language of the content of the document referenced by the
+        # link.
         #
-        $link_language = URL_Check_GET_URL_Language($this_link);
+        $link_language = Get_Content_Language($this_link, $referer_url,
+                                              $resp);
 
         #
-        # If the language cannot be determined from the URL, check
-        # the language of the content
+        # If the language of the content cannot be determined,
+        # get language from the URL (e.g. -eng.html)
         #
         if ( $link_language eq "" ) {
-            $link_language = Get_Content_Language($this_link, $referer_url,
-                                                  $resp);
+            $link_language = URL_Check_GET_URL_Language($this_link);
         }
         print "Cross_Language_Link referer language = $language, link language = $link_language, anchor = $link_anchor\n" if $debug;
 
@@ -1790,6 +1833,7 @@ sub Link_Checker_Get_Link_Status {
 
     my ($this_link, $is_broken_link, $is_redirected_link, $request_url );
     my ($is_firewall_blocked, $resp, $header, $cache_link, $resp_url);
+    my ($title);
 
     #
     # Get absolute URL for link.
@@ -1807,14 +1851,14 @@ sub Link_Checker_Get_Link_Status {
     #
     if ( $this_link =~ /^\s*$/ ) {
         print "Skip empty href\n" if $debug;
-        return($link);
+        return($link, $resp);
     }
     #
     # If this is a mailto link, ignore it.
     #
     elsif ( $this_link =~ /^mailto:/ ) {
         print "Ignore mailto link\n" if $debug;
-        return($link);
+        return($link, $resp);
     }
     #
     # Does the URL have a leading http ?
@@ -1822,14 +1866,14 @@ sub Link_Checker_Get_Link_Status {
     #
     elsif ( ! ($this_link =~ /^http[s]?:/i ) ) {
         print "Skip non http link\n" if $debug;
-        return($link);
+        return($link, $resp);
     }
     #
     # Does this link match any of the link ignore patterns ?
     #
     elsif ( Link_Matches_Ignore_Pattern($this_link,
                                         @link_ignore_patterns) ) {
-        return($link);
+        return($link, $resp);
     }
 
     #
@@ -1911,6 +1955,27 @@ sub Link_Checker_Get_Link_Status {
                 $visited_url_status{$this_link} = $link_check_redirect;
                 $visited_url_http_status{$request_url} = $link_check_redirect;
             }
+            #
+            # Check for soft 404 page, a page whose content looks like
+            # a 404 Not Found page but with a 200(Ok) status code
+            #
+            else {
+                #
+                # Look for 404 type of message in title
+                #
+                $title =  $link->url_title;
+                if ( ($title =~ /Error 404/i) ||
+                     ($title =~ /Erreur 404/i) ||
+                     ($title =~ /Page Not Found/i) ||
+                     ($title =~ /Page non trouv/i) ) {
+                    #
+                    # Looks like a 404 error message page
+                    #
+                    print "Soft 404 page found\n" if $debug;
+                    $visited_url_status{$this_link} = $link_check_soft_404;
+                    $visited_url_http_status{$request_url} = $link_check_soft_404;
+                }
+            }
         }
         else {
             #
@@ -1985,8 +2050,15 @@ sub Link_Checker_Get_Link_Status {
        
                 $visited_url_status{$resp_url} = $link_check_success;
             }
+            #
+            # If this link is a redirect, the response URL is a valid link
+            #
+            elsif ( $visited_url_status{$this_link} == $link_check_redirect ) {
+       
+                $visited_url_status{$resp_url} = $link_check_success;
+            }
             else {
-            $visited_url_status{$resp_url} = $visited_url_status{$this_link};
+                $visited_url_status{$resp_url} = $visited_url_status{$this_link};
             }
         }
     }
@@ -2009,7 +2081,7 @@ sub Link_Checker_Get_Link_Status {
     #
     # Return updated link object
     #
-    return($link);
+    return($link, $resp);
 }
 
 #***********************************************************************
@@ -2181,7 +2253,7 @@ sub Link_Checker {
         #
         # Get the link status
         #
-        $link = Link_Checker_Get_Link_Status($this_url, $link);
+        ($link, $resp) = Link_Checker_Get_Link_Status($this_url, $link);
 
         #
         # Start with the status of the link from the above presistent checks.
@@ -2207,7 +2279,7 @@ sub Link_Checker {
             # link.
             #
             if ( Cross_Language_Link($this_link, $link->anchor,
-                                     $link->lang, $this_url, $link) ) {
+                                     $link->lang, $this_url, $link, $resp) ) {
                 $link_check_status = $link_check_cross_language;
             }
 
@@ -2275,22 +2347,27 @@ sub Link_Check_Has_Rel_Alternate {
         %attr = $link->attr;
 
         #
-        # Do we have a rel attribute ?
+        # Is this an anchor <a> link ?
         #
-        if ( defined($attr{"rel"}) ) {
-            $rel = lc($attr{"rel"});
-            print "Link has rel=\"$rel\"\n" if $debug;
+        if ( $link->link_type eq "a" ) {
+            #
+            # Do we have a rel attribute ?
+            #
+            if ( defined($attr{"rel"}) ) {
+                $rel = lc($attr{"rel"});
+                print "Link has rel=\"$rel\"\n" if $debug;
 
-            #
-            # Do we have an "alternate' value ?
-            #
-            foreach $rel_value (split(/\s+/, $rel)) {
-                if ( $rel_value eq "alternate" ) {
-                    #
-                    # Got alternate, return true
-                    #
-                    print "Link has rel=\"alternate\"\n" if $debug;
-                    return(1);
+                #
+                # Do we have an "alternate' value ?
+                #
+                foreach $rel_value (split(/\s+/, $rel)) {
+                    if ( $rel_value eq "alternate" ) {
+                        #
+                        # Got alternate, return true
+                        #
+                        print "Link has rel=\"alternate\"\n" if $debug;
+                        return(1);
+                    }
                 }
             }
         }

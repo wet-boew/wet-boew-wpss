@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 6068 $
+# $Revision: 6291 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2012-10-31 13:50:31 -0400 (Wed, 31 Oct 2012) $
+# $Date: 2013-06-17 11:52:10 -0400 (Mon, 17 Jun 2013) $
 #
 # Description:
 #
@@ -13,6 +13,8 @@
 #
 # Public functions:
 #     Crawler_Decode_Content
+#     Crawler_Abort_Crawl
+#     Crawler_Abort_Crawl_Status
 #     Crawler_Config
 #     Crawl_Site
 #     Crawler_Get_HTTP_Response
@@ -73,6 +75,10 @@ use Encode;
 use URI::Escape;
 use Digest::MD5 qw(md5_hex);
 use HTML::Parser;
+my $have_threads = eval 'use threads; 1';
+if ( $have_threads ) {
+    $have_threads = eval 'use threads::shared; 1';
+}
 
 #***********************************************************************
 #
@@ -85,6 +91,8 @@ BEGIN {
 
     @ISA     = qw(Exporter);
     @EXPORT  = qw(Crawler_Decode_Content
+                  Crawler_Abort_Crawl
+                  Crawler_Abort_Crawl_Status
                   Crawler_Config
                   Crawl_Site
                   Crawler_Get_HTTP_Response
@@ -121,6 +129,14 @@ my (%domain_prod_dev_map, %domain_dev_prod_map);
 my ($login_interstitial_count, $logout_interstitial_count, $user_agent_hostname);
 my ($charset);
 
+#
+# Shared variables for use between treads
+#
+my ($abort_crawl);
+if ( $have_threads ) {
+    share(\$abort_crawl);
+}
+
 my ($user_agent_name) = "Crawler";
 my ($user_agent_max_size) = 10000000;
 my ($default_max_urls_between_sleeps) = 2;
@@ -148,6 +164,40 @@ sub Set_Crawler_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+}
+
+#***********************************************************************
+#
+# Name: Crawler_Abort_Crawl
+#
+# Parameters: status - abort status (1 = abort)
+#
+# Description:
+#
+#   This function sets the package global abort_crawl flag to stop
+# the crawler.
+#
+#***********************************************************************
+sub Crawler_Abort_Crawl {
+    my ($status) = @_;
+
+    $abort_crawl = $status;
+}
+
+#***********************************************************************
+#
+# Name: Crawler_Abort_Crawl_Status
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function gets the package global abort_crawl flag.
+#
+#***********************************************************************
+sub Crawler_Abort_Crawl_Status {
+
+    return($abort_crawl);
 }
 
 #***********************************************************************
@@ -748,6 +798,7 @@ sub Create_User_Agent {
     #
     print "Create user agent $user_agent_name, delay = $max_urls_between_sleeps\n" if $debug;
     $ua = LWP::RobotUA->new("$user_agent_name", "$user_agent_name\@$host");
+    $ua->ssl_opts(verify_hostname => 0);
     $ua->timeout("60");
     $ua->delay(1/(60 * $max_urls_between_sleeps));
 
@@ -1119,6 +1170,11 @@ sub Initialize_Crawler_Variables {
     # Empty out the HTTP 401 credentials table
     #
     %http_401_credentials = ();
+
+    #
+    # Clear abort crawl flag
+    #
+    $abort_crawl = 0;
 }
 
 #***********************************************************************
@@ -3013,7 +3069,7 @@ sub Crawl_Site {
     #
     # Loop until we have finished all URLs that can be crawled
     #
-    while ( @urls_to_crawl ) {
+    while ( (! $abort_crawl) && (@urls_to_crawl) ) {
 
         #
         # Dump initial crawl list.
@@ -3253,9 +3309,9 @@ sub Crawl_Site {
     $login_domain_f = "";
 
     #
-    # Return success
+    # Return abort status
     #
-    return(0);
+    return($abort_crawl);
 }
 
 #***********************************************************************

@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6066 $
+# $Revision: 6364 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2012-10-25 17:27:58 -0400 (Thu, 25 Oct 2012) $
+# $Date: 2013-08-16 12:32:49 -0400 (Fri, 16 Aug 2013) $
 #
 # Description:
 #
@@ -98,10 +98,13 @@ my (%html_tags_with_no_end_tag) = (
         "hr", "hr",
         "img", "img",
         "input", "input",
+        "keygen", "keygen",
         "link", "link",
         "meta", "meta",
         "param", "param",
         "source", "source",
+        "track", "track",
+        "wbr", "wbr",
 );
 
 
@@ -130,6 +133,7 @@ sub Extract_Links_Debug {
     Link_Object_Debug($debug);
     CSS_Extract_Links_Debug($debug);
     PDF_Extract_Links_Debug($debug);
+    XML_Extract_Links_Debug($debug);
 }
 
 #***********************************************************************
@@ -178,7 +182,7 @@ sub Extract_Links_Subsection_Links {
         # Get list of links from all subsections.
         #
         foreach $subsection_name (keys %subsection_links) {
-            print "Extract_Links_Subsection_Links, section = $subsection_name\n" if $debug;
+            print "Extract_Links_Subsection_Links, subsection = $subsection_name\n" if $debug;
             if ( defined($subsection_links{$subsection_name}) ) {
                 $link_addr = $subsection_links{$subsection_name};
                 $link_sets{$subsection_name} = $link_addr;
@@ -243,72 +247,6 @@ sub Initialize_Link_Parser_Variables {
     # Empty the section links table
     #
     %subsection_links = ();
-}
-
-#***********************************************************************
-#
-# Name: Make_URL_Absolute
-#
-# Parameters: url - extracted url
-#             base - base to convert relative to absolute URLs
-#
-# Description:
-#
-#   This function converts a relative URL into absolute, domain
-# qualified URL.
-#
-# Returns:
-#   url
-#
-#***********************************************************************
-sub Make_URL_Absolute {
-    my ($url, $base) = @_;
-
-    my ($protocol, $domain, $dir, $query);
-
-    #
-    # Extract the domain & directory portion from the URL
-    #
-    print "Make_URLs_Absolute:\n" if $debug;
-    print "  url  = $url\n" if $debug;
-    print "  base = $base\n" if $debug;
-    ($protocol, $domain, $dir, $query) = $base =~ /^(http[s]?:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
-    print "Protocol = $protocol, domain = $domain, dir = $dir, query = $query\n" if $debug;
-
-    #
-    # Convert domain portion to lowercase
-    #
-    $domain =~ tr/A-Z/a-z/;
-
-    #
-    # Clean up the directory portion
-    #
-    $dir =~ s/\/*$//g;
-
-    #
-    # If the original base had a trailing /, it was just a directory.
-    # We have to replace the slash that was removed by the above
-    # substitution.
-    #
-    if ( ($base =~ /\/$/) && ($dir ne "") ) {
-        $dir .= "/";
-    }
-
-    #
-    # Rebuild the base URL
-    #
-    $base = "$protocol//$domain/$dir$query";
-
-    #
-    # Convert relative URL into absolute
-    #
-    $url = url( $url, $base)->abs;
-
-    #
-    # Return absolute URL
-    #
-    print "New url = $url\n" if $debug;
-    return($url);
 }
 
 #***********************************************************************
@@ -568,7 +506,7 @@ sub Get_Lang {
     # Do we have a lang attribute
     #
     elsif ( defined( $attr{"lang"} ) ) {
-        $lang = $attr{"lang"};
+        $lang = lc($attr{"lang"});
         print "Get_Lang: Have lang = $lang attribute\n" if $debug;
         
         #
@@ -582,7 +520,7 @@ sub Get_Lang {
     # Do we have a xml:lang attribute
     #
     elsif ( defined( $attr{"xml:lang"} ) ) {
-        $lang = $attr{"xml:lang"};
+        $lang = lc($attr{"xml:lang"});
         print "Get_Lang: Have xml:lang = $lang attribute\n" if $debug;
         
         #
@@ -652,7 +590,7 @@ sub Anchor_Tag_Handler {
             #
             # Convert href into an absolute URL
             #
-            $abs_url = Make_URL_Absolute($href, $current_resp_base);
+            $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
 
             #
             # Do we have a lang attribute
@@ -742,7 +680,7 @@ sub Frame_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
 
         #
         # Check for title
@@ -821,7 +759,7 @@ sub Embed_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
 
         #
         # Check for title
@@ -900,7 +838,7 @@ sub Area_Tag_Handler {
     #
     if ( defined( $attr{"href"} ) ) {
         $href = $attr{"href"};
-        $abs_url = Make_URL_Absolute($href, $current_resp_base);
+        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
 
         #
         # Do we have a lang attribute
@@ -919,12 +857,25 @@ sub Area_Tag_Handler {
         $subsection = $content_section_handler->current_content_subsection;
         
         #
-        # Are we in the head section ?
+        # Do we have a subsection ?
         #
-        if ( ($subsection eq "") && $in_head_section ) {
-            $subsection = "HEAD";
+        if ( $subsection eq "" ) {
+            #
+            # Are we in the head section ?
+            #
+            if ( $in_head_section ) {
+                $subsection = "HEAD";
+            }
+            #
+            # If we are not in the <head> section and we have no subsection
+            # marker (e.g. scripts in the footer), assign link to the BODY
+            # subsection.
+            #
+            else {
+                $subsection = "BODY";
+            }
         }
-        
+
         #
         # Save link in appropriate section
         #
@@ -973,7 +924,7 @@ sub Link_Tag_Handler {
     #
     if ( defined( $attr{"href"} ) ) {
         $href = $attr{"href"};
-        $abs_url = Make_URL_Absolute($href, $current_resp_base);
+        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
 
         #
         # Do we have a lang attribute
@@ -992,12 +943,25 @@ sub Link_Tag_Handler {
         $subsection = $content_section_handler->current_content_subsection;
         
         #
-        # Are we in the head section ?
+        # Do we have a subsection ?
         #
-        if ( ($subsection eq "") && $in_head_section ) {
-            $subsection = "HEAD";
+        if ( $subsection eq "" ) {
+            #
+            # Are we in the head section ?
+            #
+            if ( $in_head_section ) {
+                $subsection = "HEAD";
+            }
+            #
+            # If we are not in the <head> section and we have no subsection
+            # marker (e.g. scripts in the footer), assign link to the BODY
+            # subsection.
+            #
+            else {
+                $subsection = "BODY";
+            }
         }
-        
+
         #
         # Save link in appropriate section
         #
@@ -1054,7 +1018,7 @@ sub Longdesc_Attribute_Handler {
     #
     if ( defined( $attr{"longdesc"} ) ) {
         $href = $attr{"href"};
-        $abs_url = Make_URL_Absolute($href, $current_resp_base);
+        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
 
         #
         # Do we have a lang attribute
@@ -1110,7 +1074,7 @@ sub Cite_Attribute_Handler {
     #
     if ( defined( $attr{"cite"} ) ) {
         $href = $attr{"href"};
-        $abs_url = Make_URL_Absolute($href, $current_resp_base);
+        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
 
         #
         # Do we have a lang attribute
@@ -1166,7 +1130,7 @@ sub Image_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
 
         #
         # Do we have a lang attribute
@@ -1237,6 +1201,81 @@ sub Image_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Input_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             language - url language
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the input tag.
+#
+#***********************************************************************
+sub Input_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    my ($src, $lang, $link, $abs_url, $subsection, $subsection_link_list);
+
+    #
+    # Do we have an image type of input ?
+    #
+    if ( defined($attr{"type"}) && ($attr{"type"} =~ /image/i) ) {
+            #
+        # Do we have a src attribute
+        #
+        if ( defined( $attr{"src"} ) ) {
+            $src = $attr{"src"};
+            $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+
+            #
+            # Do we have a lang attribute
+            #
+            $lang = Get_Lang("input", %attr);
+
+            #
+            # Save link details.
+            #
+            $link = link_object->new($src, $abs_url, "", "input", $lang,
+                                     $line, $column,
+                                     $content_lines[$line - 1]);
+            $link->attr(%attr);
+            push (@$link_object_reference, $link);
+            print " Image in input at $line, $column src = $src\n" if $debug;
+            $subsection = $content_section_handler->current_content_subsection;
+            if ( $subsection ne "" ) {
+                if ( ! defined($subsection_links{$subsection}) ) {
+                    my (@list) = ($link);
+                    $subsection_links{$subsection} = \@list;
+                }
+                else {
+                    $subsection_link_list = $subsection_links{$subsection};
+                    push(@$subsection_link_list, $link);
+                }
+            }
+
+            #
+            # Do we have alt text ?
+            #
+            if ( defined($attr{"alt"}) ) {
+                $link->alt($attr{"alt"});
+            }
+
+            #
+            # Do we have a title ?
+            #
+            if ( defined($attr{"title"}) ) {
+                $link->title($attr{"title"});
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Script_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -1261,7 +1300,7 @@ sub Script_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
 
         #
         # Do we have a lang attribute
@@ -1280,10 +1319,23 @@ sub Script_Tag_Handler {
         $subsection = $content_section_handler->current_content_subsection;
         
         #
-        # Are we in the head section ?
+        # Do we have a subsection ?
         #
-        if ( ($subsection eq "") && $in_head_section ) {
-            $subsection = "HEAD";
+        if ( $subsection eq "" ) {
+            #
+            # Are we in the head section ?
+            #
+            if ( $in_head_section ) {
+                $subsection = "HEAD";
+            }
+            #
+            # If we are not in the <head> section and we have no subsection
+            # marker (e.g. scripts in the footer), assign link to the BODY
+            # subsection.
+            #
+            else {
+                $subsection = "BODY";
+            }
         }
 
         #
@@ -1398,7 +1450,7 @@ sub Check_Lang_Attribute {
     # Check for a lang attribute
     #
     if ( defined($attr_hash{"lang"}) ) {
-        $lang = $attr_hash{"lang"};
+        $lang = lc($attr_hash{"lang"});
         
         #
         # Remove any language dialect
@@ -1411,7 +1463,7 @@ sub Check_Lang_Attribute {
     # a lang and xml:lang and that they could be different).
     #
     elsif ( defined($attr_hash{"xml:lang"})) {
-        $lang = $attr_hash{"xml:lang"};
+        $lang = lc($attr_hash{"xml:lang"});
 
         #
         # Remove any language dialect
@@ -1793,6 +1845,12 @@ sub Start_Handler {
         Image_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
     #
+    # Check input tag
+    #
+    elsif ( $tagname eq "input" ) {
+        Input_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
     # Check li tag
     #
     elsif ( $tagname eq "li" ) {
@@ -2060,12 +2118,13 @@ sub Extract_Links {
     my ( $url, $base, $lang, $mime_type, $content ) = @_;
 
     my (@links, $link, $anchor_list, $extracted_content, @other_links);
+    my ($modified_content, $subsection_name, $link_addr);
 
     #
     # Did we already extract links for this URL ?
     #
     print "Extract_Links: Checking URL $url, content length = " .
-          length($content) . "\n" if $debug;
+          length($content) . ", mime-type = $mime_type\n" if $debug;
     if ( $url eq $last_url ) {
         print "Return previously extracted links\n" if $debug;
         return(@last_link_list);
@@ -2081,6 +2140,33 @@ sub Extract_Links {
         #
         if ( $mime_type =~ /text\/html/ ) {
             @links = HTML_Extract_Links($url, $base, $lang, $content);
+
+            #
+            # Remove conditional comments from the content that control
+            # IE 8 and older browser file inclusion (conditionals found in
+            # WET template files).
+            #
+            $modified_content = $content;
+            $modified_content =~ s/<!--\[if lte IE 8\]>//g;
+            $modified_content =~ s/<!\[endif\]-->//g;
+
+            #
+            # Extract links again with the above conditional code removed.
+            # We don't do this the first time through in case removing
+            # the conditional code fails and corrupts the HTML input.
+            #
+            @other_links = HTML_Extract_Links($url, $base, $lang,
+                                              $modified_content);
+
+            #
+            # If we get more links with the conditional code removed, use
+            # those links.  If we have fewer links it is possible that the
+            # modified content was corrupt.
+            #
+            if ( @other_links > @links ) {
+                print "Use links from modified content\n" if $debug;
+                @links = @other_links;
+            }
 
             #
             # Extract any named anchors from this content.  We don't use
@@ -2121,6 +2207,16 @@ sub Extract_Links {
         elsif ( $mime_type =~ /application\/pdf/ ) {
             @links = PDF_Extract_Links($url, $base, $lang, $content);
         }
+        #
+        # Is the file XML ? or does the URL end in a .xml ?
+        #
+        elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
+                ($mime_type =~ /application\/atom\+xml/) ||
+                ($mime_type =~ /application\/xml/) ||
+                ($mime_type =~ /text\/xml/) ||
+                ($url =~ /\.xml$/i) ) {
+            @links = XML_Extract_Links($url, $base, $lang, $content);
+        }
     
         #
         # Check to see if we found no document subsections
@@ -2153,14 +2249,33 @@ sub Extract_Links {
                 print " abs_url  = " . $link->abs_url . "\n";
             }
         }
-        
+
+        #
+        # Print out each sections link set
+        #
+        if ( $debug ) {
+            foreach $subsection_name (keys %subsection_links) {
+                print "Extract_Links, subsection = $subsection_name\n";
+                if ( defined($subsection_links{$subsection_name}) ) {
+                    $link_addr = $subsection_links{$subsection_name};
+
+                    #
+                    # Print list of links returned
+                    #
+                    foreach (@$link_addr) {
+                        print "Anchor = " . $_->anchor . " href = " .
+                              $_->abs_url . "\n";
+                    }
+                }
+            }
+        }
     }
     else {
         print "Extract_Links: no content in document\n" if $debug;
     }
 
     #
-    # Remember this metadata in case we want it again.
+    # Remember this link list in case we want it again.
     #
     $last_url = $url;
     @last_link_list = @links;
@@ -2189,7 +2304,8 @@ sub Import_Packages {
     my (@package_list) = ("link_object", "css_extract_links",
                           "pdf_extract_links", "extract_anchors",
                           "content_sections", "language_map",
-                          "css_validate");
+                          "css_validate", "xml_extract_links",
+                          "url_check");
 
     #
     # Import packages, we don't use a 'use' statement as these packages

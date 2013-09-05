@@ -2,9 +2,9 @@
 #
 # Name:   feed_validate.pm
 #
-# $Revision: 5860 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/feed_validate.pm $
-# $Date: 2012-05-29 11:36:26 -0400 (Tue, 29 May 2012) $
+# $Revision: 6306 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Feed_Validate/Tools/feed_validate.pm $
+# $Date: 2013-06-25 14:46:42 -0400 (Tue, 25 Jun 2013) $
 #
 # Description:
 #
@@ -14,6 +14,7 @@
 #     Feed_Validate_Content
 #     Feed_Validate_Language
 #     Feed_Validate_Debug
+#     Feed_Validate_Is_Web_Feed
 #
 # Terms and Conditions of Use
 #
@@ -65,6 +66,7 @@ BEGIN {
     @EXPORT  = qw(Feed_Validate_Content
                   Feed_Validate_Language
                   Feed_Validate_Debug
+                  Feed_Validate_Is_Web_Feed
                   );
     $VERSION = "1.0";
 }
@@ -191,9 +193,7 @@ print "Validator output\n$validator_output\n" if $debug;
 #
 # Description:
 #
-#   This function handles the <feed> tag.  It sets the feed type,
-# checks for an xml:lang attribute and initializes the required tag
-# set.
+#   This function handles the <feed> tag.  It sets the feed type.
 #
 #***********************************************************************
 sub Feed_Tag_Handler {
@@ -267,17 +267,18 @@ sub Start_Handler {
 
 #***********************************************************************
 #
-# Name: Is_Web_Feed
+# Name: Feed_Validate_Is_Web_Feed
 #
 # Parameters: this_url - a URL
 #             content - content
 #
 # Description:
 #
-#   This function runs a number of interoperability QA checks the content.
+#   This function checks to see if the suppliedt XML
+# content is a web feed (RSS or Atom) or not.
 #
 #***********************************************************************
-sub Is_Web_Feed {
+sub Feed_Validate_Is_Web_Feed {
     my ( $this_url, $content) = @_;
 
     my ($parser, $eval_output);
@@ -339,20 +340,10 @@ sub Feed_Validate_Content {
     #
     print "Feed_Validate_Content, validate $this_url\n" if $debug;
     if ( length($content) > 0 ) {
-
         #
-        # Determine if the XML document is a Web Feed.
+        # Run the web feed validator.
         #
-        if ( Is_Web_Feed($this_url, $content) ) {
-
-            #
-            # Run the web feed validator.
-            #
-            @results_list = Run_Web_Feed_Validator($this_url, $content);
-        }
-        else {
-            print "Not a Web feed\n" if $debug;
-        }
+        @results_list = Run_Web_Feed_Validator($this_url, $content);
     }
     else {
         #
