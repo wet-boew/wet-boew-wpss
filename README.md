@@ -17,7 +17,7 @@ Reminder: The WPSS Tool DOES NOT validate HTML5 markup.
 
 # WPSS_Tool Installer
 
-The tool installer, WPSS_Tool.exe, does NOT include the required Perl or Python installers (as was the case for previous releases).  Perl and Python must be installed on the worksation prior to installing the WPSS_Tool.
+The tool installer, WPSS_Tool.exe, does NOT include the required Perl or Python installers (as was the case for previous releases).  Perl and Python must be installed on the workstation prior to installing the WPSS_Tool.
 
 Supported versions of Perl include
   - ActiveState Perl 5.14 (does not support 5.16)
