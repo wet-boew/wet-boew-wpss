@@ -3,9 +3,9 @@
 #
 # Name:   install.pl
 #
-# $Revision: 6367 $
+# $Revision: 6402 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/install.pl $
-# $Date: 2013-08-19 08:13:52 -0400 (Mon, 19 Aug 2013) $
+# $Date: 2013-10-24 07:50:04 -0400 (Thu, 24 Oct 2013) $
 #
 # Synopsis: install.pl
 #           install.pl uninstall
@@ -284,18 +284,23 @@ sub Check_Python {
         print PYTHON "   print 'fail, version less than 2.3.0'\n";
         print PYTHON "else:\n";
         print PYTHON "   print 'pass version greater than 2.3.0'\n";
+        print PYTHON "if sys.version_info<(3,0,0):\n";
+        print PYTHON "   print 'pass version less than 3.0.0'\n";
+        print PYTHON "else:\n";
+        print PYTHON "   print 'fail, version greater than 3.0.0'\n";
         print PYTHON "print sys.version_info\n";
         close(PYTHON);
         $python_output = `.\\test$$.py`;
         unlink("test$$.py");
 
         #
-        # Is the python version too old ?
+        # Is the python version too old ? or too new ?
         #
         Write_To_Log("Python test output $python_output");
-        if ( $python_output =~ /fail/i ) {
+        if ( ($python_output =~ /fail/i) ||
+             ( ! ($python_output =~ /pass/i) ) ) {
             Write_To_Log("Invalid Python version found");
-            print "Invalid Python version found, must be greater than 2.3.0\n";
+            print "Invalid Python version found, must be greater than 2.3.0, less than 3.0.0\n";
             Write_To_Log("Failed install.pl");
             exit_with_notify(1);
         }
@@ -331,6 +336,7 @@ sub Check_Perl {
     Write_To_Log("Check Perl version");
     print "Check Perl version\n";
     $version = `perl.exe --version`;
+    Write_To_Log("  Version = $version");
 
     #
     # Is this ActiveState Perl ?
@@ -518,6 +524,7 @@ sub Install_Win32_GUI {
         if ( ! $rc ) {
             Write_To_Log("Win32::GUI install failed");
             print "Missing Perl module Win32::GUI\n";
+            Write_To_Log(" rc = $rc");
             exit_with_notify(1);
         }
     }
