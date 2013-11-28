@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6364 $
+# $Revision: 6439 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2013-08-16 12:32:49 -0400 (Fri, 16 Aug 2013) $
+# $Date: 2013-11-20 07:42:07 -0500 (Wed, 20 Nov 2013) $
 #
 # Description:
 #
@@ -85,7 +85,9 @@ my ($content_section_handler, %subsection_links, @last_link_list);
 my (@lang_stack, @tag_lang_stack, $last_lang_tag, $in_head_section);
 my ($last_heading_text, $current_list_level, @inside_list_item);
 my ($have_text_handler, @text_handler_tag_list, @text_handler_text_list);
-my ($current_text_handler_tag, $inside_anchor);
+my ($current_text_handler_tag, $inside_anchor, $last_image_link);
+my ($inside_figure, $have_figcaption, $figcaption_text);
+my ($image_in_figure_with_no_alt);
 my ($last_url) = "";
 my (%html_tags_with_no_end_tag) = (
         "area", "area",
@@ -546,6 +548,64 @@ sub Get_Lang {
 
 #***********************************************************************
 #
+# Name: Save_Link_In_Subsection_List
+#
+# Parameters: link - link object
+#
+# Description:
+#
+#   This function adds the list object to the list of links for the
+# current document section.
+#
+#***********************************************************************
+sub Save_Link_In_Subsection_List {
+    my ($link) = @_;
+
+    my ($subsection, @list, $subsection_link_list);
+
+    #
+    # Get current subsection
+    #
+    $subsection = $content_section_handler->current_content_subsection;
+
+    #
+    # If there is no subsection name, try to determine if we are in the
+    # <body> or <head>.
+    #
+    if ( $subsection eq "" ) {
+        #
+        # Are we in the head section ?
+        #
+        if ( $in_head_section ) {
+            $subsection = "HEAD";
+        }
+        #
+        # If we are not in the <head> section and we have no subsection
+        # marker (e.g. scripts in the footer), assign link to the BODY
+        # subsection.
+        #
+        else {
+            $subsection = "BODY";
+        }
+    }
+
+    #
+    # Are we missing a list that we can add this link object to ?
+    #
+    if ( ! defined($subsection_links{$subsection}) ) {
+        $subsection_links{$subsection} = \@list;
+    }
+
+    #
+    # Add link object o the list for the current subsection
+    #
+    $subsection_link_list = $subsection_links{$subsection};
+    push(@$subsection_link_list, $link);
+    print "Add link object to subsection list $subsection\n" if $debug;
+}
+
+#***********************************************************************
+#
 # Name: Anchor_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -607,19 +667,12 @@ sub Anchor_Tag_Handler {
             $current_anchor_reference->attr(%attr);
             push (@$link_object_reference, $current_anchor_reference);
             print " Anchor at $line, $column href = $href\n" if $debug;
-            $subsection = $content_section_handler->current_content_subsection;
-            if ( $subsection ne "" ) {
-                print "Link in section $subsection\n" if $debug;
-                if ( ! defined($subsection_links{$subsection}) ) {
-                    my (@list) = ($current_anchor_reference);
-                    $subsection_links{$subsection} = \@list;
-                }
-                else {
-                    $subsection_link_list = $subsection_links{$subsection};
-                    push(@$subsection_link_list, $current_anchor_reference);
-                }
-            }
-            
+
+            #
+            # Save link object in subsection list
+            #
+            Save_Link_In_Subsection_List($current_anchor_reference);
+
             #
             # Do we have alt text ?
             #
@@ -706,17 +759,11 @@ sub Frame_Tag_Handler {
         $link->attr(%attr);
         push (@$link_object_reference, $link);
         print " Frame at $line, $column src = $src\n" if $debug;
-        $subsection = $content_section_handler->current_content_subsection;
-        if ( $subsection ne "" ) {
-            if ( ! defined($subsection_links{$subsection}) ) {
-                my (@list) = ($link);
-                $subsection_links{$subsection} = \@list;
-            }
-            else {
-                $subsection_link_list = $subsection_links{$subsection};
-                push(@$subsection_link_list, $link);
-            }
-        }
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
 
         #
         # Do we have alt text ?
@@ -785,17 +832,11 @@ sub Embed_Tag_Handler {
         $link->attr(%attr);
         push (@$link_object_reference, $link);
         print " Embed at $line, $column src = $src\n" if $debug;
-        $subsection = $content_section_handler->current_content_subsection;
-        if ( $subsection ne "" ) {
-            if ( ! defined($subsection_links{$subsection}) ) {
-                my (@list) = ($link);
-                $subsection_links{$subsection} = \@list;
-            }
-            else {
-                $subsection_link_list = $subsection_links{$subsection};
-                push(@$subsection_link_list, $link);
-            }
-        }
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
 
         #
         # Do we have alt text ?
@@ -854,41 +895,11 @@ sub Area_Tag_Handler {
         $link->attr(%attr);
         push (@$link_object_reference, $link);
         print " Area at $line, $column href = $href\n" if $debug;
-        $subsection = $content_section_handler->current_content_subsection;
-        
-        #
-        # Do we have a subsection ?
-        #
-        if ( $subsection eq "" ) {
-            #
-            # Are we in the head section ?
-            #
-            if ( $in_head_section ) {
-                $subsection = "HEAD";
-            }
-            #
-            # If we are not in the <head> section and we have no subsection
-            # marker (e.g. scripts in the footer), assign link to the BODY
-            # subsection.
-            #
-            else {
-                $subsection = "BODY";
-            }
-        }
 
         #
-        # Save link in appropriate section
+        # Save link object in subsection list
         #
-        if ( $subsection ne "" ) {
-            if ( ! defined($subsection_links{$subsection}) ) {
-                my (@list) = ($link);
-                $subsection_links{$subsection} = \@list;
-            }
-            else {
-                $subsection_link_list = $subsection_links{$subsection};
-                push(@$subsection_link_list, $link);
-            }
-        }
+        Save_Link_In_Subsection_List($link);
 
         #
         # Do we have alt text ?
@@ -940,41 +951,11 @@ sub Link_Tag_Handler {
         $link->attr(%attr);
         push (@$link_object_reference, $link);
         print " Link at $line, $column href = $href\n" if $debug;
-        $subsection = $content_section_handler->current_content_subsection;
-        
-        #
-        # Do we have a subsection ?
-        #
-        if ( $subsection eq "" ) {
-            #
-            # Are we in the head section ?
-            #
-            if ( $in_head_section ) {
-                $subsection = "HEAD";
-            }
-            #
-            # If we are not in the <head> section and we have no subsection
-            # marker (e.g. scripts in the footer), assign link to the BODY
-            # subsection.
-            #
-            else {
-                $subsection = "BODY";
-            }
-        }
 
         #
-        # Save link in appropriate section
+        # Save link object in subsection list
         #
-        if ( $subsection ne "" ) {
-            if ( ! defined($subsection_links{$subsection}) ) {
-                my (@list) = ($link);
-                $subsection_links{$subsection} = \@list;
-            }
-            else {
-                $subsection_link_list = $subsection_links{$subsection};
-                push(@$subsection_link_list, $link);
-            }
-        }
+        Save_Link_In_Subsection_List($link);
 
         #
         # Do we have alt text ?
@@ -1034,17 +1015,11 @@ sub Longdesc_Attribute_Handler {
         $link->attr(%attr);
         push (@$link_object_reference, $link);
         print " Longdesc at $line, $column href = $href\n" if $debug;
-        $subsection = $content_section_handler->current_content_subsection;
-        if ( $subsection ne "" ) {
-            if ( ! defined($subsection_links{$subsection}) ) {
-                my (@list) = ($link);
-                $subsection_links{$subsection} = \@list;
-            }
-            else {
-                $subsection_link_list = $subsection_links{$subsection};
-                push(@$subsection_link_list, $link);
-            }
-        }
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
     }
 }
 
@@ -1090,17 +1065,11 @@ sub Cite_Attribute_Handler {
         $link->attr(%attr);
         push (@$link_object_reference, $link);
         print " cite at $line, $column href = $href\n" if $debug;
-        $subsection = $content_section_handler->current_content_subsection;
-        if ( $subsection ne "" ) {
-            if ( ! defined($subsection_links{$subsection}) ) {
-                my (@list) = ($link);
-                $subsection_links{$subsection} = \@list;
-            }
-            else {
-                $subsection_link_list = $subsection_links{$subsection};
-                push(@$subsection_link_list, $link);
-            }
-        }
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
     }
 }
 
@@ -1146,17 +1115,11 @@ sub Image_Tag_Handler {
         $link->attr(%attr);
         push (@$link_object_reference, $link);
         print " Image at $line, $column src = $src\n" if $debug;
-        $subsection = $content_section_handler->current_content_subsection;
-        if ( $subsection ne "" ) {
-            if ( ! defined($subsection_links{$subsection}) ) {
-                my (@list) = ($link);
-                $subsection_links{$subsection} = \@list;
-            }
-            else {
-                $subsection_link_list = $subsection_links{$subsection};
-                push(@$subsection_link_list, $link);
-            }
-        }
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
 
         #
         # Do we have alt text ?
@@ -1171,6 +1134,17 @@ sub Image_Tag_Handler {
             #
             if ( $have_text_handler ) {
                 push(@{ $self->handler("text")}, $attr{"alt"});
+            }
+        }
+        else {
+            #
+            # No alt attribute, are we inside a figure ? If so
+            # a figcaption can act as alt text.
+            #
+            if ( $inside_figure ) {
+                print "Image with no alt inside a figure\n" if $debug;
+                $image_in_figure_with_no_alt = 1;
+                $last_image_link = $link;
             }
         }
 
@@ -1245,17 +1219,11 @@ sub Input_Tag_Handler {
             $link->attr(%attr);
             push (@$link_object_reference, $link);
             print " Image in input at $line, $column src = $src\n" if $debug;
-            $subsection = $content_section_handler->current_content_subsection;
-            if ( $subsection ne "" ) {
-                if ( ! defined($subsection_links{$subsection}) ) {
-                    my (@list) = ($link);
-                    $subsection_links{$subsection} = \@list;
-                }
-                else {
-                    $subsection_link_list = $subsection_links{$subsection};
-                    push(@$subsection_link_list, $link);
-                }
-            }
+
+            #
+            # Save link object in subsection list
+            #
+            Save_Link_In_Subsection_List($link);
 
             #
             # Do we have alt text ?
@@ -1316,41 +1284,11 @@ sub Script_Tag_Handler {
         $link->attr(%attr);
         push (@$link_object_reference, $link);
         print " Script at $line, $column src = $src\n" if $debug;
-        $subsection = $content_section_handler->current_content_subsection;
-        
-        #
-        # Do we have a subsection ?
-        #
-        if ( $subsection eq "" ) {
-            #
-            # Are we in the head section ?
-            #
-            if ( $in_head_section ) {
-                $subsection = "HEAD";
-            }
-            #
-            # If we are not in the <head> section and we have no subsection
-            # marker (e.g. scripts in the footer), assign link to the BODY
-            # subsection.
-            #
-            else {
-                $subsection = "BODY";
-            }
-        }
 
         #
-        # Save link in appropriate section
+        # Save link object in subsection list
         #
-        if ( $subsection ne "" ) {
-            if ( ! defined($subsection_links{$subsection}) ) {
-                my (@list) = ($link);
-                $subsection_links{$subsection} = \@list;
-            }
-            else {
-                $subsection_link_list = $subsection_links{$subsection};
-                push(@$subsection_link_list, $link);
-            }
-        }
+        Save_Link_In_Subsection_List($link);
 
         #
         # Do we have alt text ?
@@ -1754,6 +1692,149 @@ sub End_Li_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Figure_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tag - list tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the figure tag.
+#
+#***********************************************************************
+sub Figure_Tag_Handler {
+    my ( $self, $tag, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Set flag to indicate we are inside a figure
+    #
+    $inside_figure = 1;
+    $have_figcaption = 0;
+    $image_in_figure_with_no_alt = 0;
+    $figcaption_text = "";
+    print "Start figure\n" if $debug;
+}
+
+#***********************************************************************
+#
+# Name: End_Figure_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end figure tag.
+#
+#***********************************************************************
+sub End_Figure_Tag_Handler {
+    my ($self, $line, $column, $text ) = @_;
+
+    #
+    # Did we have a figcaption in this figure ?
+    #
+    if ( $have_figcaption ) {
+        #
+        # Did we have an image inside the figure ?
+        #
+        if ( $image_in_figure_with_no_alt ) {
+            #
+            # Set the last image's alt text to the figure caption
+            #
+            $last_image_link->alt($figcaption_text);
+            $last_image_link->has_alt(1);
+            print "Set last image's alt to the figure caption\n" if $debug;
+        }
+    }
+
+    #
+    # Clear flag to indicate we are inside a figure
+    #
+    $inside_figure = 0;
+    $have_figcaption = 0;
+    $image_in_figure_with_no_alt = 0;
+    print "End figure\n" if $debug;
+}
+
+#***********************************************************************
+#
+# Name: Figcaption_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the figcaption tag.
+#
+#***********************************************************************
+sub Figcaption_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Add a text handler to save the text portion of the figcaption
+    # tag.
+    #
+    Start_Text_Handler($self, "figcaption");
+    print "Start figcaption\n" if $debug;
+}
+
+#***********************************************************************
+#
+# Name: End_Figcaption_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tag - list tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the figcaption tag.
+#
+#***********************************************************************
+sub End_Figcaption_Tag_Handler {
+    my ( $self, $tag, $line, $column, $text ) = @_;
+
+    #
+    # Check for text handler, if we don't have one this may be a stray
+    # close figcaption.
+    #
+    if ( ! $have_text_handler ) {
+        print "No text handler in end figcaption tag found at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Get all the text found within the figcaption tag
+    #
+    $figcaption_text = Clean_Text(Get_Text_Handler_Content($self, ""));
+    if ( $figcaption_text ne "" ) {
+        $have_figcaption = 1;
+    }
+    print "Figcaption text = $figcaption_text\n" if $debug;
+
+    #
+    # Destroy the text handler that was used to save the text
+    # portion of the figcaption tag.
+    #
+    Destroy_Text_Handler($self, "figcaption");
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -1817,6 +1898,18 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "embed" ) {
         Embed_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
+    # Check figcaption tag
+    #
+    elsif ( $tagname eq "figcaption" ) {
+        Figcaption_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
+    # Check figure tag
+    #
+    elsif ( $tagname eq "figure" ) {
+        Figure_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
     #
     # Check frame tag
@@ -1978,6 +2071,18 @@ sub End_Handler {
         End_Anchor_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
     #
+    # Check figcaption tag
+    #
+    elsif ( $tagname eq "figcaption" ) {
+        End_Figcaption_Tag_Handler( $self, $line, $column, $text );
+    }
+    #
+    # Check figure tag
+    #
+    elsif ( $tagname eq "figure" ) {
+        End_Figure_Tag_Handler( $self, $line, $column, $text );
+    }
+    #
     # Check head tag
     #
     elsif ( $tagname eq "head" ) {
@@ -2119,6 +2224,7 @@ sub Extract_Links {
 
     my (@links, $link, $anchor_list, $extracted_content, @other_links);
     my ($modified_content, $subsection_name, $link_addr);
+    my (%saved_subsection_links);
 
     #
     # Did we already extract links for this URL ?
@@ -2140,6 +2246,14 @@ sub Extract_Links {
         #
         if ( $mime_type =~ /text\/html/ ) {
             @links = HTML_Extract_Links($url, $base, $lang, $content);
+            %saved_subsection_links = %subsection_links;
+
+            #
+            # Extract any named anchors from this content.  We don't use
+            # them here, but by extracting them now we get them into the
+            # anchor cache.
+            #
+            $anchor_list = Extract_Anchors($url, $content);
 
             #
             # Remove conditional comments from the content that control
@@ -2167,13 +2281,13 @@ sub Extract_Links {
                 print "Use links from modified content\n" if $debug;
                 @links = @other_links;
             }
-
-            #
-            # Extract any named anchors from this content.  We don't use
-            # them here, but by extracting them now we get them into the
-            # anchor cache.
-            #
-            $anchor_list = Extract_Anchors($url, $content);
+            else {
+                #
+                # Restore the set of subsection links that were saved
+                # after the first call to HTML_Extract_Links
+                #
+                %subsection_links = %saved_subsection_links;
+            }
 
             #
             # Extract any inline CSS from the HTML and extracts links
