@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 6291 $
+# $Revision: 6433 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2013-06-17 11:52:10 -0400 (Mon, 17 Jun 2013) $
+# $Date: 2013-11-08 13:05:02 -0500 (Fri, 08 Nov 2013) $
 #
 # Description:
 #
@@ -2159,7 +2159,7 @@ sub Set_Initial_Crawl_List {
     # to the list of URLs to crawl.
     #
     foreach $page (($logoutpagef, $site_entry_f, $loginpagef)) {
-        if ( defined($page) && ($page ne "") ) {
+        if ( defined($page) ) {
             #
             # Is page a fully qualified URL (i.e. leading http) ?
             #
@@ -2171,14 +2171,26 @@ sub Set_Initial_Crawl_List {
                 if ( $page eq "/" ) {
                     $page = "";
                 }
-                push( @$urls_to_crawl, "$site_dir_f/$page");
+                if ( $page ne "" ) {
+                    push( @$urls_to_crawl, "$site_dir_f/$page");
 
-                #
-                # Add URL to map with both the English & French site
-                # directory paths.
-                #
-                $$urls_to_crawl_map{"$site_dir_e/$page"} = 1;
-                $$urls_to_crawl_map{"$site_dir_f/$page"} = 1;
+                    #
+                    # Add URL to map with both the English & French site
+                    # directory paths.
+                    #
+                    $$urls_to_crawl_map{"$site_dir_e/$page"} = 1;
+                    $$urls_to_crawl_map{"$site_dir_f/$page"} = 1;
+                }
+                else {
+                    push( @$urls_to_crawl, "$site_dir_f");
+
+                    #
+                    # Add URL to map with both the English & French site
+                    # directory paths.
+                    #
+                    $$urls_to_crawl_map{"$site_dir_e"} = 1;
+                    $$urls_to_crawl_map{"$site_dir_f"} = 1;
+                }
             }
         }
     }
@@ -2188,7 +2200,7 @@ sub Set_Initial_Crawl_List {
     # to the list of URLs to crawl.
     #
     foreach $page (($logoutpagee, $site_entry_e, $loginpagee)) {
-        if ( defined($page) && ($page ne "") ) {
+        if ( defined($page) ) {
             #
             # Is page a fully qualified URL (i.e. leading http) ?
             #
@@ -2200,14 +2212,26 @@ sub Set_Initial_Crawl_List {
                 if ( $page eq "/" ) {
                     $page = "";
                 }
-                push( @$urls_to_crawl, "$site_dir_e/$page");
+                if ( $page ne "" ) {
+                    push( @$urls_to_crawl, "$site_dir_e/$page");
 
-                #
-                # Add URL to map with both the English & French site
-                # directory paths.
-                #
-                $$urls_to_crawl_map{"$site_dir_e/$page"} = 1;
-                $$urls_to_crawl_map{"$site_dir_f/$page"} = 1;
+                    #
+                    # Add URL to map with both the English & French site
+                    # directory paths.
+                    #
+                    $$urls_to_crawl_map{"$site_dir_e/$page"} = 1;
+                    $$urls_to_crawl_map{"$site_dir_f/$page"} = 1;
+                }
+                else {
+                    push( @$urls_to_crawl, "$site_dir_e");
+
+                    #
+                    # Add URL to map with both the English & French site
+                    # directory paths.
+                    #
+                    $$urls_to_crawl_map{"$site_dir_e"} = 1;
+                    $$urls_to_crawl_map{"$site_dir_f"} = 1;
+                }
             }
         }
     }
