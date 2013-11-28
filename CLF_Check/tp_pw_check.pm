@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 6370 $
+# $Revision: 6395 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2013-08-21 09:01:04 -0400 (Wed, 21 Aug 2013) $
+# $Date: 2013-10-09 15:10:01 -0400 (Wed, 09 Oct 2013) $
 #
 # Description:
 #
@@ -1247,11 +1247,11 @@ sub Form_Tag_Handler {
                 # Did we find a valid search action value ?
                 #
                 if ( ! $valid_action ) {
-                Record_Result("TP_PW_SRCH", $line, $column, $text,
-                              String_Value("Invalid search action") .
-                              " '$action' " .
-                              String_Value("expecting one of") .
-                              join(", ", @$valid_search_actions));
+                    Record_Result("TP_PW_SRCH", $line, $column, $text,
+                                  String_Value("Invalid search action") .
+                                  " '$action' " .
+                                  String_Value("expecting one of") .
+                                  join(", ", @$valid_search_actions));
                 }
             }
         }
@@ -2531,7 +2531,7 @@ sub Check_Template_Links {
     #
     # Did we get a template file domain ?
     #
-    if ( ! defined($template_domain) ) {
+    if ( defined($template_domain) ) {
         #
         # Verify checksum values of the template files.
         #

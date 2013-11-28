@@ -2,9 +2,9 @@
 #
 # Name:   clf_archive.pm
 #
-# $Revision: 6302 $
+# $Revision: 6399 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf_archive.pm $
-# $Date: 2013-06-25 14:08:36 -0400 (Tue, 25 Jun 2013) $
+# $Date: 2013-10-24 07:44:42 -0400 (Thu, 24 Oct 2013) $
 #
 # Description:
 #
@@ -473,12 +473,12 @@ sub Check_Headings_Marker {
 sub CLF_Archive_Is_Archived {
     my ($profile, $url, $content) = @_;
 
-    my ($archived_markers_found) = 0;
-    my (%metadata, $metadata_tag, $title_marker, $is_archived);
+    my (%metadata, $metadata_tag, $title_marker, $archived_markers_found);
     my (@content_results_list, @content_headings, $metadata_object);
     my ($markers_addr, $lang, $lang_addr, $extracted_content);
     my ($possible_marker_count, $archived_marker_text_found);
     my ($language, $status);
+    my ($is_archived) = 0;
 
     #
     # Do we have any archived on the web markers ?
@@ -491,117 +491,10 @@ sub CLF_Archive_Is_Archived {
     $lang_addr = $archive_markers{$profile};
 
     #
-    # Get language of the URL
-    #
-    $lang = URL_Check_GET_URL_Language($url);
-
-    #
-    # If the language cannot be determined from the URL, check
-    # the language of the content
-    #
-    if ( $lang eq "" ) {
-        ($lang, $language, $status) = TextCat_HTML_Language($content);
-    }
-
-    #
-    # Do we have markers for this language ?
-    #
-    if ( ! defined($$lang_addr{$lang}) ) {
-        print "CLF_Archive_Is_Archived no archived on the web markers for profile $profile, language $lang\n" if $debug;
-        return(0);
-    }
-    $markers_addr = $$lang_addr{$lang};
-
-    #
-    # Get the number of possible archive markers
-    #
-    $possible_marker_count = keys(%$markers_addr);
-
-    #
     # Get metadata from the document
     #
     print "CLF_Archive_Is_Archived profile = $profile, url = $url\n" if $debug;
     %metadata = Extract_Metadata($url, $content);
-        
-    #
-    # Do we have a metadata tags as an archive marker ?
-    #
-    if ( defined($$markers_addr{"metadata"}) &&
-         ($$markers_addr{"metadata"} ne "") ) {
-        #
-        # Check for archived metadata markers
-        #
-        if ( Check_Metadata_Marker($$markers_addr{"metadata"}, %metadata) ) {
-            $archived_markers_found++;
-        }
-    }
-    
-    #
-    # Do we have some title markers and title text to check ?
-    #
-    if ( defined($$markers_addr{"title"}) &&
-         ($$markers_addr{"title"} ne "") &&
-         defined($metadata{"title"}) ) {
-        #
-        # Check to see if the marker text is in the title
-        #
-        $metadata_object = $metadata{"title"};
-        if ( Check_String_For_Marker_At_Beginning($$markers_addr{"title"}, "<title>",
-                                     $metadata_object->content) ) {
-            $archived_markers_found++;
-        }
-    }
-
-    #
-    # Do we have some dc.title metadata content markers and
-    # text to check ?
-    #
-    if ( defined($$markers_addr{"dc.title"}) &&
-         ($$markers_addr{"dc.title"} ne "") &&
-         defined($metadata{"dc.title"}) ) {
-        #
-        # Check to see if the marker text is in the dc.title
-        #
-        $metadata_object = $metadata{"dc.title"};
-        if ( Check_String_For_Marker_At_Beginning($$markers_addr{"dc.title"}, "dc.title",
-                                     $metadata_object->content) ) {
-            $archived_markers_found++;
-        }
-    }
-
-    #
-    # Do we have some dcterms.title metadata content markers and
-    # text to check ?
-    #
-    if ( defined($$markers_addr{"dcterms.title"}) &&
-         ($$markers_addr{"dcterms.title"} ne "") &&
-         defined($metadata{"dcterms.title"}) ) {
-        #
-        # Check to see if the marker text is in the dcterms.title
-        #
-        $metadata_object = $metadata{"dcterms.title"};
-        if ( Check_String_For_Marker_At_Beginning($$markers_addr{"dcterms.title"}, "dcterms.title",
-                                     $metadata_object->content) ) {
-            $archived_markers_found++;
-        }
-    }
-
-    #
-    # Do we have some description metadata content markers and
-    # text to check ?
-    #
-    if ( defined($$markers_addr{"description"}) &&
-         ($$markers_addr{"description"} ne "") &&
-         defined($metadata{"description"}) ) {
-        #
-        # Check to see if the marker text is in the description
-        #
-        $metadata_object = $metadata{"description"};
-        if ( Check_String_For_Marker_At_Beginning($$markers_addr{"description"}, "description",
-                                     $metadata_object->content) ) {
-            $archived_markers_found++;
-        }
-    }
 
     #
     # Perform a content check, this will get the list of
@@ -616,86 +509,182 @@ sub CLF_Archive_Is_Archived {
     # Get the content headings
     #
     @content_headings = Content_Check_Get_Headings();
-        
+
     #
-    # Do we have some H1 marker text ?
+    # Check for archive markers in each language we have markers for.
+    # This catches the case when the wrong language marker is used.
     #
-    if ( defined($$markers_addr{"h1_text"}) &&
-         ($$markers_addr{"h1_text"} ne "") ) {
+    foreach $lang (keys(%$lang_addr)) {
         #
-        # Check to see if the marker text is in the heading
+        # Get the markers for this language
         #
-        if ( Check_Headings_Marker($$markers_addr{"h1_text"}, 1,
-                                   @content_headings) ) {
-            $archived_markers_found++;
+        print "Check archive markers for language $lang\n" if $debug;
+        $markers_addr = $$lang_addr{$lang};
+
+        #
+        # Get the number of possible archive markers
+        #
+        $possible_marker_count = keys(%$markers_addr);
+        $archived_markers_found = 0;
+
+        #
+        # Do we have a metadata tags as an archive marker ?
+        #
+        if ( defined($$markers_addr{"metadata"}) &&
+             ($$markers_addr{"metadata"} ne "") ) {
+            #
+            # Check for archived metadata markers
+            #
+            if ( Check_Metadata_Marker($$markers_addr{"metadata"}, %metadata) ) {
+                $archived_markers_found++;
+            }
+        }
+
+        #
+        # Do we have some title markers and title text to check ?
+        #
+        if ( defined($$markers_addr{"title"}) &&
+             ($$markers_addr{"title"} ne "") &&
+             defined($metadata{"title"}) ) {
+            #
+            # Check to see if the marker text is in the title
+            #
+            $metadata_object = $metadata{"title"};
+            if ( Check_String_For_Marker_At_Beginning($$markers_addr{"title"}, "<title>",
+                                         $metadata_object->content) ) {
+                $archived_markers_found++;
+            }
+        }
+
+        #
+        # Do we have some dc.title metadata content markers and
+        # text to check ?
+        #
+        if ( defined($$markers_addr{"dc.title"}) &&
+             ($$markers_addr{"dc.title"} ne "") &&
+             defined($metadata{"dc.title"}) ) {
+            #
+            # Check to see if the marker text is in the dc.title
+            #
+            $metadata_object = $metadata{"dc.title"};
+            if ( Check_String_For_Marker_At_Beginning($$markers_addr{"dc.title"}, "dc.title",
+                                         $metadata_object->content) ) {
+                $archived_markers_found++;
+            }
+        }
+
+        #
+        # Do we have some dcterms.title metadata content markers and
+        # text to check ?
+        #
+        if ( defined($$markers_addr{"dcterms.title"}) &&
+             ($$markers_addr{"dcterms.title"} ne "") &&
+             defined($metadata{"dcterms.title"}) ) {
+            #
+            # Check to see if the marker text is in the dcterms.title
+            #
+            $metadata_object = $metadata{"dcterms.title"};
+            if ( Check_String_For_Marker_At_Beginning($$markers_addr{"dcterms.title"}, "dcterms.title",
+                                         $metadata_object->content) ) {
+                $archived_markers_found++;
+            }
+        }
+
+        #
+        # Do we have some description metadata content markers and
+        # text to check ?
+        #
+        if ( defined($$markers_addr{"description"}) &&
+             ($$markers_addr{"description"} ne "") &&
+             defined($metadata{"description"}) ) {
+            #
+            # Check to see if the marker text is in the description
+            #
+            $metadata_object = $metadata{"description"};
+            if ( Check_String_For_Marker_At_Beginning($$markers_addr{"description"}, "description",
+                                         $metadata_object->content) ) {
+                $archived_markers_found++;
+            }
+        }
+
+        #
+        # Do we have some H1 marker text ?
+        #
+        if ( defined($$markers_addr{"h1_text"}) &&
+             ($$markers_addr{"h1_text"} ne "") ) {
+            #
+            # Check to see if the marker text is in the heading
+            #
+            if ( Check_Headings_Marker($$markers_addr{"h1_text"}, 1,
+                                       @content_headings) ) {
+                $archived_markers_found++;
+            }
+        }
+
+        #
+        # Do we have some H2 marker text ?
+        #
+        if ( defined($$markers_addr{"h2_text"}) &&
+             ($$markers_addr{"h2_text"} ne "") ) {
+            #
+            # Check to see if the marker text is in the heading
+            #
+            if ( Check_Headings_Marker($$markers_addr{"h2_text"}, 2,
+                                       @content_headings) ) {
+                $archived_markers_found++;
+            }
+        }
+
+        #
+        # Do we have any content marker text ?
+        #
+        $archived_marker_text_found = 0;
+        if ( defined($$markers_addr{"text"}) &&
+             ($$markers_addr{"text"} ne "") ) {
+            #
+            # Get the text contents of the page.
+            #
+            $extracted_content = Content_Check_Extract_Content_From_HTML($content);
+
+            #
+            # Check to see if the marker text is in the content
+            #
+            if ( Check_String_For_Marker($$markers_addr{"text"}, "text", 
+                                         $extracted_content) ) {
+                $archived_markers_found++;
+                $archived_marker_text_found = 1;
+                print "Found archive notice text\n" if $debug;
+            }
+        }
+
+        #
+        # Do we have any link marker text ?
+        #
+        if ( defined($$markers_addr{"link_text"}) &&
+             ($$markers_addr{"link_text"} ne "") ) {
+            #
+            # The text that must appear in a link to an archived document.
+            # We don't actually expect to see this in an archived document so
+            # we decrement the possible archive marker count to discount
+            # this marker.
+            #
+            if ( $possible_marker_count > 0 ) {
+                $possible_marker_count--;
+            }
+        }
+
+        #
+        # Did we find the archive notice text or did we find atleast
+        # half of the archive markers ?
+        #
+        print "Have $archived_markers_found markers out of $possible_marker_count \n" if $debug;
+        if ( $archived_marker_text_found || 
+             ($archived_markers_found >= ($possible_marker_count / 2)) ) {
+            $is_archived = 1;
+            last;
         }
     }
 
-    #
-    # Do we have some H2 marker text ?
-    #
-    if ( defined($$markers_addr{"h2_text"}) &&
-         ($$markers_addr{"h2_text"} ne "") ) {
-        #
-        # Check to see if the marker text is in the heading
-        #
-        if ( Check_Headings_Marker($$markers_addr{"h2_text"}, 2,
-                                   @content_headings) ) {
-            $archived_markers_found++;
-        }
-    }
-
-    #
-    # Do we have any content marker text ?
-    #
-    $archived_marker_text_found = 0;
-    if ( defined($$markers_addr{"text"}) &&
-         ($$markers_addr{"text"} ne "") ) {
-        #
-        # Get the text contents of the page.
-        #
-        $extracted_content = Content_Check_Extract_Content_From_HTML($content);
-
-        #
-        # Check to see if the marker text is in the content
-        #
-        if ( Check_String_For_Marker($$markers_addr{"text"}, "text", 
-                                     $extracted_content) ) {
-            $archived_markers_found++;
-            $archived_marker_text_found = 1;
-            print "Found archive notice text\n" if $debug;
-        }
-    }
-
-    #
-    # Do we have any link marker text ?
-    #
-    if ( defined($$markers_addr{"link_text"}) &&
-         ($$markers_addr{"link_text"} ne "") ) {
-        #
-        # The text that must appear in a link to an archived document.
-        # We don't actually expect to see this in an archived document so
-        # we decrement the possible archive marker count to discount
-        # this marker.
-        #
-        if ( $possible_marker_count > 0 ) {
-            $possible_marker_count--;
-        }
-    }
-
-    #
-    # Did we find the archive notice text or did we find atleast
-    # half of the archive markers ?
-    #
-    print "Have $archived_markers_found markers out of $possible_marker_count \n" if $debug;
-    if ( $archived_marker_text_found || 
-         ($archived_markers_found >= ($possible_marker_count / 2)) ) {
-        $is_archived = 1;
-    }
-    else {
-        $is_archived = 0;
-    }
-    
     #
     # Return archived flag
     #
