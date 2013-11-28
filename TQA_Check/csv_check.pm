@@ -2,9 +2,9 @@
 #
 # Name:   csv_check.pm
 #
-# $Revision: 6362 $
+# $Revision: 6392 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/csv_check.pm $
-# $Date: 2013-08-16 12:29:49 -0400 (Fri, 16 Aug 2013) $
+# $Date: 2013-10-03 15:21:15 -0400 (Thu, 03 Oct 2013) $
 #
 # Description:
 #
@@ -378,7 +378,7 @@ sub Record_Result {
 #
 # Description:
 #
-#   This function runs a number of technical QA checks on CSV content.
+#   This function runs a number of accessibility checks on CSV content.
 #
 #***********************************************************************
 sub CSV_Check {
@@ -386,6 +386,7 @@ sub CSV_Check {
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($line, @fields, $line_no, $status, $found_fields, $field_count);
+    my ($csv_file, $csv_file_name, $rows);
 
     #
     # Do we have a valid profile ?
@@ -424,56 +425,46 @@ sub CSV_Check {
     }
     else {
         #
+        # Create a temporary file for the PDF content.
+        #
+        $csv_file_name = "csv_text$$.csv";
+        unlink($csv_file_name);
+        print "Create temporary CSV file $csv_file_name\n" if $debug;
+        open($csv_file, ">$csv_file_name") ||
+            die "CSV_Check: Failed to open $csv_file_name for writing\n";
+        binmode $csv_file;
+        print $csv_file $content;
+        close($csv_file);
+        open($csv_file, "$csv_file_name") ||
+            die "CSV_Check: Failed to open $csv_file_name for reading\n";
+
+        #
         # Create a document parser
         #
         $parser = Text::CSV->new ({ binary => 1, eol => $/ });
 
         #
-        # Parse each line of the content
+        # Parse each line/record of the content
         #
-        $line_no = 0;
-        foreach $line (split(/\n/, $content)) {
+        $line_no = 1;
+        while ( $rows = $parser->getline($csv_file) ) {
+            #
+            # Increment record/line number
+            #
             $line_no++;
-            $status = $parser->parse($line . $/);
-
-            #
-            # Did the line parse properly ?
-            #
-            if ( ! $status ) {
-                print "CSV file error at line $line_no, line = \"$line\"\n" if $debug;
-                Record_Result("WCAG_2.0-G134", $line_no, 0, "$line",
-                              String_Value("Parse error in line"));
-            }
-            else {
-                #
-                # Get the set of fields from the parsed line
-                #
-                @fields = $parser->fields();
-                print "Have " . @fields . " fields\n" if $debug;
-
-                #
-                # Do we have the number of expected fields ?
-                #
-                if ( ! defined($field_count) ) {
-                    $field_count = @fields;
-                    print "Expected fields count = $field_count\n" if $debug;
-                }
-                #
-                # Does the field count match the expected number of fields ?
-                #
-                elsif ( $field_count != @fields ) {
-#
-# Don't report a field count mismatch as an error. This is 
-# an open data error rather than an accessibility error.
-#
-#                    $found_fields = @fields;
-#                    Record_Result("WCAG_2.0-G134", $line_no, 0, "$line",
-#                          String_Value("Inconsistent number of fields, found") .
-#                           " $found_fields " . String_Value("expecting") .
-#                           " $field_count");
-                }
-            }
         }
+
+        #
+        # Did we get to the end of file or did we encounter a parsing error
+        #
+        if ( ! $parser->eof() ) {
+            $line = $parser->error_input();
+            #$message = $parser->error_diag();
+            print "CSV file error at line $line_no, line = \"$line\"\n" if $debug;
+            Record_Result("WCAG_2.0-G134", $line_no, 0, $line,
+                          String_Value("Parse error in line"));
+        }
+        unlink($csv_file_name);
     }
 
     #
