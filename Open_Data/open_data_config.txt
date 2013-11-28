@@ -1,0 +1,80 @@
+#***********************************************************************
+#
+# Name:   open_data_config.txt
+#
+# $Revision$
+# $URL$
+# $Date$
+#
+# Description:
+#   This file contains the configuration parameters for the
+# Open Data check package. The parameters appear as name/value pairs
+# with the name at the beginning of the line.
+#
+# Comment (lines starting with #) and blank lines are ignored.
+#
+#***********************************************************************
+
+#
+#***********************************************************************
+#
+# Testcase/help URL file name
+#
+#***********************************************************************
+#
+Testcase_URL_Help_File conf/open_data_testcase_url.config
+
+#
+#***********************************************************************
+#
+# Test testcase profile
+#
+#***********************************************************************
+#
+#Open_Data_Check_Profile_eng Test
+#Open_Data_Check_Profile_fra Test
+
+#
+# Testcase id
+#
+#tcid TBS_P2_R2
+
+#
+#***********************************************************************
+#
+# Open Data
+#    http://www.tbs-sct.gc.ca/pol/doc-eng.aspx?section=text&id=25875
+#
+#***********************************************************************
+#
+Open_Data_Check_Profile_eng TBS OD
+Open_Data_Check_Profile_fra DO SCT
+
+#
+# Testcase id
+#
+tcid OD_1
+tcid OD_2
+tcid OD_3
+
+#
+#***********************************************************************
+#
+# Testcase specific data settings
+#
+#***********************************************************************
+#
+
+#testcase_data OD_1
+
+
+#
+#***********************************************************************
+#
+# Empty Open Data testcase Profile
+#
+#***********************************************************************
+#
+Open_Data_Check_Profile_eng None
+Open_Data_Check_Profile_fra Aucun
+
