@@ -2,9 +2,9 @@
 #
 # Name:   interop_xml_check.pm
 #
-# $Revision: 6266 $
+# $Revision: 6393 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_xml_check.pm $
-# $Date: 2013-05-22 09:36:14 -0400 (Wed, 22 May 2013) $
+# $Date: 2013-10-07 09:38:59 -0400 (Mon, 07 Oct 2013) $
 #
 # Description:
 #
@@ -178,7 +178,8 @@ my %string_table_en = (
     "previously found in",        "previously found in",
     "found in",                   "found in",
     "Values do not match for",    "Values do not match for",
-    "uri values do not match for", "<uri> values do not match for"
+    "uri values do not match for", "<uri> values do not match for",
+    "Fails validation",            "Fails validation, see validation results for details.",
 );
 
 #
@@ -214,6 +215,7 @@ my %string_table_fr = (
     "found in",                   "trouvé dans",
     "Values do not match for",    "Valeurs ne correspondent pas pour",
     "uri values do not match for", "Valeurs ne correspondent pas pour <uri>",
+    "Fails validation",            "Échoue la validation, voir les résultats de validation pour plus de détails.",
 );
 
 #
@@ -2420,7 +2422,16 @@ sub Interop_XML_Check {
         #
         # Parse the content.
         #
-        $eval_output = eval { $parser->parse($content); } ;
+        $eval_output = eval { $parser->parse($content); 1 } ;
+        
+        #
+        # Did the parsing fail ?
+        #
+        if ( $eval_output ne "1" ) {
+            Record_Result("SWI_B", -1, 0, "",
+                          String_Value("Fails validation"));
+
+        }
     }
     else {
         print "No content passed to Interop_XML_Check\n" if $debug;
