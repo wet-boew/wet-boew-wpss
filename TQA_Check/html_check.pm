@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 6380 $
+# $Revision: 6470 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2013-08-30 14:11:51 -0400 (Fri, 30 Aug 2013) $
+# $Date: 2013-11-26 14:51:54 -0500 (Tue, 26 Nov 2013) $
 #
 # Description:
 #
@@ -94,7 +94,7 @@ my (%tqa_check_profile_map, $current_tqa_check_profile);
 my (@color_stack,  $current_a_href,
     $last_heading_line_number, $last_heading_column_number,
     %input_id_location, %label_for_location, %accesskey_location,
-    $table_nesting_index, @table_headers_present, @table_start_line,
+    $table_nesting_index, @table_start_line, @table_header_values,
     @table_start_column, @table_has_headers, @table_summary,
     %test_case_desc_map, $have_text_handler, @text_handler_tag_list,
     @text_handler_text_list, $inside_h_tag_set, %anchor_name,
@@ -141,6 +141,12 @@ my ($click_here_patterns) =  " here click here more ici cliquez ici plus ";
 my (%section_markers) = ();
 my ($have_content_markers) = 0;
 my (@required_content_sections) = ("CONTENT");
+
+#
+# Maximum length of a heading or title
+#
+my ($max_heading_title_length) = 500;
+
 my (%html_tags_with_no_end_tag) = (
         "area", "area",
         "base", "base",
@@ -251,7 +257,6 @@ my (%deprecated_xhtml_tags) = (
 #
 # Deprecated HTML 5 tags
 # Source: http://www.w3.org/TR/html5-diff/
-# Add to this list are the deprecated XHTML tags.
 #
 my (%deprecated_html5_tags) = (
     "acronym",   "",
@@ -326,7 +331,11 @@ my (%deprecated_xhtml_attributes) = (
 # Deprecated HTML 5 attributes, hash table with index being an attribute
 # and the value a list of tags (with leading and trailing space).
 # Source: http://www.w3.org/TR/html5-diff/
-# Add to this list are the deprecated XHTML tags.
+#
+# Note: Some deprecated/obsolete attributes do not result in the page
+# being non-conforming.  We will continue to report these attributes as
+# depreceted in order to encourage web developers to remove/replace the
+# attributes (http://www.w3.org/TR/html5/obsolete.html#obsolete)
 #
 my (%deprecated_html5_attributes) = (
     "abbr",       " td th ",
@@ -669,6 +678,10 @@ my %string_table_en = (
     "Missing rel value",              "Missing 'rel' value",
     "Content does not contain letters for", "Content does not contain letters for ",
     "Invalid attribute combination found", "Invalid attribute combination found",
+    "Table headers",                  "Table 'headers'",
+    "not defined within table",       "not defined within <table>",
+    "Heading text greater than 500 characters",  "Heading text greater than 500 characters",
+    "Title text greater than 500 characters",            "Title text greater than 500 characters",
 );
 
 
@@ -805,6 +818,10 @@ my %string_table_fr = (
     "Missing rel value",              "Valeur manquante pour 'rel'",
     "Content does not contain letters for", "Contenu ne contient pas des lettres pour ",
     "Invalid attribute combination found", "Combinaison d'attribut non valide trouvé",
+    "Table headers",                  "'headers' de tableau",
+    "not defined within table",       "pas défini dans le <table>",
+    "Heading text greater than 500 characters",  "Texte du têtes supérieure 500 caractères",
+    "Title text greater than 500 characters",    "Texte du title supérieure 500 caractères",
 );
 
 #
@@ -1026,10 +1043,10 @@ sub Initialize_Test_Results {
     %form_title_value      = ();
     %id_attribute_values   = ();
     $table_nesting_index   = -1;
-    @table_headers_present = ();
     @table_start_line      = ();
     @table_start_column    = ();
     @table_has_headers     = ();
+    @table_header_values   = ();
     $inside_h_tag_set      = 0;
     %anchor_text_href_map  = ();
     %anchor_location       = ();
@@ -1312,7 +1329,7 @@ sub Destroy_Text_Handler {
             print "Restart text handler for tag $current_text_handler_tag\n" if $debug;
             
             #
-            # We have to create a new text handler top restart the
+            # We have to create a new text handler to restart the
             # text collection for the previous tag.  We also have to place
             # the saved text back in the handler.
             #
@@ -1609,17 +1626,17 @@ sub Frame_Tag_Handler {
 sub Table_Tag_Handler {
     my ( $line, $column, $text, %attr ) = @_;
 
-    my ($summary);
+    my ($summary, %header_values);
 
     #
     # Increment table nesting index and initialise the table
     # variables.
     #
     $table_nesting_index++;
-    $table_headers_present[$table_nesting_index] = 0;
     $table_start_line[$table_nesting_index] = $line;
     $table_start_column[$table_nesting_index] = $column;
     $table_has_headers[$table_nesting_index] = 0;
+    $table_header_values[$table_nesting_index] = \%header_values;
     $inside_thead[$table_nesting_index] = 0;
 
     #
@@ -1734,6 +1751,11 @@ sub End_Table_Tag_Handler {
     #
     if ( $table_nesting_index >= 0 ) {
         #
+        # Remove table headers values
+        #
+        undef $table_header_values[$table_nesting_index];
+
+        #
         # Decrement global table nesting value
         #
         $table_nesting_index--;
@@ -1837,7 +1859,7 @@ sub Blink_Tag_Handler {
 sub Check_Label_and_Title {
     my ( $self, $tag, $label_required, $line, $column, $text, %attr ) = @_;
 
-    my ($id, $title, $label, $tcid, $last_seen_text);
+    my ($id, $title, $label, $tcid, $last_seen_text, $complete_title);
     my ($found_label) = 0;
 
     #
@@ -1894,21 +1916,33 @@ sub Check_Label_and_Title {
             $found_label = 1;
 
             #
+            # If we are inside a <table> include the table location in the
+            # <label> to make it unique to the table.  The same <label> may
+            # appear in seperate <table>s in the same <form>
+            #
+            $complete_title = $title;
+            if ( $table_nesting_index > -1 ) {
+                $complete_title .= " table " .
+                                   $table_start_line[$table_nesting_index] .
+                                   $table_start_column[$table_nesting_index];
+            }
+
+            #
             # Have we seen this title before ?
             #
-            if ( defined($form_title_value{lc($title)}) ) {
+            if ( defined($form_title_value{lc($complete_title)}) ) {
                 Record_Result("WCAG_2.0-H65", $line, $column,
                               $text, String_Value("Duplicate") .
                               " title \"$title\" " .
                               String_Value("for") . $tag .
                               String_Value("Previous instance found at") .
-                              "$line:$column");
+                              $form_title_value{lc($complete_title)});
             }
             else {
                 #
                 # Save title location
                 #
-                $form_title_value{lc($title)} = "$line:$column"
+                $form_title_value{lc($complete_title)} = "$line:$column"
             }
         }
     }
@@ -2611,6 +2645,18 @@ sub End_Label_Tag_Handler {
         }
 
         #
+        # If we are inside a <table> include the table location in the
+        # <label> to make it unique to the table.  The same <label> may
+        # appear in seperate <table>s in the same <form>
+        #
+        if ( $table_nesting_index > -1 ) {
+            print "Add table location to label value\n" if $debug;
+            $complete_label .= " table " .
+                               $table_start_line[$table_nesting_index] .
+                               $table_start_column[$table_nesting_index];
+        }
+
+        #
         # Have we seen this label before ?
         #
         if ( defined($form_label_value{lc($complete_label)}) ) {
@@ -2618,7 +2664,7 @@ sub End_Label_Tag_Handler {
                           $text, String_Value("Duplicate") .
                           " <label> \"$clean_text\" " .
                           String_Value("Previous instance found at") .
-                          "$line:$column");
+                          $form_label_value{lc($complete_label)});
         }
         else {
             #
@@ -2663,6 +2709,7 @@ sub Textarea_Tag_Handler {
     #
     # Is this a read only or hidden input ?
     #
+    print "Textarea_Tag_Handler\n" if $debug;
     if ( defined($attr{"readonly"}) ||
          defined($attr{"disabled"}) ||
          (defined($attr{"type"}) && ($attr{"type"} eq "hidden") ) ) {
@@ -2674,38 +2721,6 @@ sub Textarea_Tag_Handler {
     # Increment the number of writable inputs.
     #
     $number_of_writable_inputs++;
-
-    #
-    # Do we have an ID field or are we inside a <fieldset> ?
-    #
-    if ( $fieldset_tag_index == 0 ) {
-        if ( ! defined( $attr{"id"} ) ) {
-            Record_Result("WCAG_2.0-H44", $line, $column, $text,
-                          String_Value("Missing id attribute for") .
-                          "<textarea>");
-        }
-        else {
-            #
-            # Save the location of this input id
-            #
-            $id_value = $attr{"id"};
-            $id_value =~ s/^\s*//g;
-            $id_value =~ s/\s*$//g;
-            $input_id_location{"$id_value"} = "$line,$column";
-
-            #
-            # Check for label matching this ID
-            #
-            if ( ! defined($label_for_location{$id_value}) ) {
-                #
-                # Missing label
-                #
-                Record_Result("WCAG_2.0-H44", $line, $column,
-                              $text, String_Value("Missing label before") .
-                              "<textarea>");
-            }
-        }
-    }
 
     #
     # Check to see if the textarea has a label or title
@@ -2872,7 +2887,7 @@ sub End_Legend_Tag_Handler {
                           $text, String_Value("Duplicate") .
                           " <legend> \"$clean_text\" " .
                           String_Value("Previous instance found at") .
-                          "$line:$column");
+                          $form_legend_value{lc($clean_text)});
         }
         else {
             #
@@ -2984,16 +2999,29 @@ sub End_P_Tag_Handler {
 sub TH_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
+    my ($header_values, $id);
+
     #
     # If we are inside a table, set table headers present flag
     #
     if ( $table_nesting_index >= 0 ) {
-        $table_headers_present[$table_nesting_index] = 1;
-
         #
         # Table has headers.
         #
         $table_has_headers[$table_nesting_index] = 1;
+
+        #
+        # Do we have an id attribute ?
+        #
+        if ( defined($attr{"id"}) && ($attr{"id"} ne "") ) {
+            $id = $attr{"id"};
+
+            #
+            # Save id value in table headers
+            #
+            $header_values = $table_header_values[$table_nesting_index];
+            $$header_values{$id} = $id;
+        }
     }
     else {
         #
@@ -3079,8 +3107,6 @@ sub Thead_Tag_Handler {
     # If we are inside a table, set table headers present flag
     #
     if ( $table_nesting_index >= 0 ) {
-        $table_headers_present[$table_nesting_index] = 1;
-
         #
         # Table has headers.
         #
@@ -3116,7 +3142,7 @@ sub Thead_Tag_Handler {
 sub TD_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my (%local_attr);
+    my (%local_attr, $header_values, $id, $headers);
 
     #
     # Are we inside a table ?
@@ -3127,6 +3153,41 @@ sub TD_Tag_Handler {
         #
         %local_attr = %attr;
         $td_attributes[$table_nesting_index] = \%local_attr;
+
+        #
+        # Do we have an id attribute ?
+        #
+        if ( defined($attr{"id"}) && ($attr{"id"} ne "") ) {
+            $id = $attr{"id"};
+
+            #
+            # Save id value in table headers
+            #
+            $header_values = $table_header_values[$table_nesting_index];
+            $$header_values{$id} = $id;
+        }
+
+        #
+        # Do we have a headers attribute ?
+        #
+        if ( defined($attr{"headers"}) && ($attr{"headers"} ne "") ) {
+            $headers = $attr{"headers"};
+            $headers =~ s/^\s*//g;
+            $headers =~ s/\s*$//g;
+
+            #
+            # Check headers values in table headers
+            #
+            $header_values = $table_header_values[$table_nesting_index];
+            foreach $id (split(/\s+/, $headers)) {
+                if ( ! defined($$header_values{$id}) ) {
+                    Record_Result("WCAG_2.0-H43", $line, $column, $text,
+                                  String_Value("Table headers") .
+                                  " \"$id\" " .
+                                  String_Value("not defined within table"));
+                }
+            }
+        }
     }
     else {
         #
@@ -4298,6 +4359,7 @@ sub End_H_Tag_Handler {
     # Get the heading text as a string, remove all white space
     #
     $last_heading_text = Clean_Text(Get_Text_Handler_Content($self, " "));
+    $last_heading_text = decode_entities($last_heading_text);
     print "End_H_Tag_Handler: text = \"$last_heading_text\"\n" if $debug;
 
     #
@@ -4314,6 +4376,16 @@ sub End_H_Tag_Handler {
                       $text, String_Value("Missing text in") . "<h>");
         Record_Result("WCAG_2.0-G130", $line, $column,
                       $text, String_Value("Missing text in") . "<h>");
+    }
+    #
+    # Is heading too long (perhaps it is a paragraph).
+    # This isn't an exact test, what we want to find is if the heading
+    # is descriptive.  A very long heading would not likely be descriptive,
+    # it may be more of a complete sentense or a paragraph.
+    #
+    elsif ( length($last_heading_text) > $max_heading_title_length ) {
+        Record_Result("WCAG_2.0-H42", $line, $column,
+                      $text, String_Value("Heading text greater than 500 characters") . " \"$last_heading_text\"");
     }
 
     #
@@ -6064,7 +6136,9 @@ sub End_Li_Tag_Handler {
     #
     # Set flag to indicate we are no longer inside a list item
     #
-    $inside_list_item[$current_list_level] = 0;
+    if ( $current_list_level > -1 ) {
+        $inside_list_item[$current_list_level] = 0;
+    }
 
     #
     # Get the li text as a string, remove excess white space
@@ -6097,6 +6171,7 @@ sub End_Li_Tag_Handler {
 # Name: Check_Start_of_New_List
 #
 # Parameters: self - reference to this parser
+#             tag - list tag
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -6104,21 +6179,22 @@ sub End_Li_Tag_Handler {
 # Description:
 #
 #   This function checks to see if this new list is within an
-# existing list.  It checks for text preceeding the new list
+# existing list.  It checks for text preceeding the new list 
 # that acts as a header for the list.
 #
 #***********************************************************************
 sub Check_Start_of_New_List {
-    my ( $self, $line, $column, $text ) = @_;
+    my ( $self, $tag, $line, $column, $text ) = @_;
 
     my ($clean_text);
 
     #
-    # Was the last open tag a <li> ? 
+    # Was the last open tag a <li> or <dd> and we are inside a list ?
     #
     print "Check_Start_of_New_List, last open tag = $last_open_tag\n" if $debug;
-    if ( $last_open_tag eq "li" ) {
-        print "New list inside an existing list item\n" if $debug;
+    if ( ($current_list_level > 1) && 
+         (($last_open_tag eq "li") || ($last_open_tag eq "dd")) ) {
+        print "New list inside an existing list\n" if $debug;
 
         #
         # New list as the value of an existing list.  Do we have
@@ -6126,7 +6202,7 @@ sub Check_Start_of_New_List {
         #
         if ( $have_text_handler ) {
             #
-            # Get the li text as a string, remove excess white space
+            # Get the list item text as a string, remove excess white space
             #
             $clean_text = Clean_Text(Get_Text_Handler_Content($self, ""));
         }
@@ -6144,7 +6220,7 @@ sub Check_Start_of_New_List {
         if ( $clean_text eq "" ) {
             Record_Result("WCAG_2.0-G115", $line, $column, $text,
                           String_Value("Missing content before new list") .
-                          "<$last_open_tag>");
+                          "<$tag>");
         }
     }
 }
@@ -6179,7 +6255,7 @@ sub Ol_Ul_Tag_Handler {
     #
     # Start of new list, are we already inside a list ?
     #
-    Check_Start_of_New_List($self, $line, $column, $text);
+    Check_Start_of_New_List($self, $tag, $line, $column, $text);
 }
 
 #***********************************************************************
@@ -6342,7 +6418,7 @@ sub Dl_Tag_Handler {
     #
     # Start of new list, are we already inside a list ?
     #
-    Check_Start_of_New_List($self, $line, $column, $text);
+    Check_Start_of_New_List($self, "dl", $line, $column, $text);
 }
 
 #***********************************************************************
@@ -7274,7 +7350,7 @@ sub Start_Handler {
     #
     # Check object tags
     #
-    if ( $tagname eq "object" ) {
+    elsif ( $tagname eq "object" ) {
         Object_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
 
@@ -7819,6 +7895,7 @@ sub End_Title_Tag_Handler {
         return;
     }
     $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
+    $clean_text = decode_entities($clean_text);
     print "End_Title_Tag_Handler, title = \"$clean_text\"\n" if $debug;
 
     #
@@ -7837,6 +7914,16 @@ sub End_Title_Tag_Handler {
         if ( $clean_text eq "" ) {
             Record_Result($tcid, $line, $column, $text,
                           String_Value("Missing text in") . "<title>");
+        }
+        #
+        # Is title too long (perhaps it is a paragraph).
+        # This isn't an exact test, what we want to find is if the title
+        # is descriptive.  A very long title would not likely be descriptive,
+        # it may be more of a complete sentense or a paragraph.
+        #
+        elsif ( length($clean_text) > $max_heading_title_length ) {
+            Record_Result("WCAG_2.0-H25", $line, $column,
+                          $text, String_Value("Heading text greater than 500 characters") . " \"$clean_text\"");
         }
         else {
             #
