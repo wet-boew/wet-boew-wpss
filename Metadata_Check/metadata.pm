@@ -2,9 +2,9 @@
 #
 # Name:   metadata.pm
 #
-# $Revision: 6343 $
+# $Revision: 6397 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Metadata_Check/Tools/metadata.pm $
-# $Date: 2013-07-17 13:19:19 -0400 (Wed, 17 Jul 2013) $
+# $Date: 2013-10-11 14:53:20 -0400 (Fri, 11 Oct 2013) $
 #
 # Description:
 #
@@ -61,6 +61,7 @@ use strict;
 use HTML::Parser;
 use File::Basename;
 use HTML::Entities;
+use Encode;
 
 #***********************************************************************
 #
@@ -288,23 +289,24 @@ sub Read_Compressed_Metadata_Thesaurus_File {
     #
     # Read the file, ignore blank lines and comment lines.
     #
-    while ( <THESAURUS> ) {
-        #
-        # Strip off any Windows end-of-line markers
-        chomp;
-        s/\r//g;
-
+    while ( $term = <THESAURUS> ) {
         #
         # Skip comment lines and blank lines
         #
-        if ( (/^#/) || (/^$/) ) {
+        if ( ($term =~ /^#/) || ($term =~ /^$/) ) {
             next;
         }
 
         #
+        # Strip off any Windows end-of-line markers
+        #
+        chomp($term);
+        $term =~ s/\r//g;
+
+        #
         # Save the thersaurus term
         #
-        $terms{$_} = $_;
+        $terms{lc($term)} = lc($term);
     }
     close(THESAURUS);
 
@@ -1019,6 +1021,7 @@ sub DC_Subject_Content_Check {
         # Eliminate whitespace and convert to lowercase
         #
         $orig_term = $term;
+        $term = encode("iso-8859-1", $term);
         $term =~ s/^\s+//g;
         $term =~ s/\s+$//g;
         $term = lc($term);

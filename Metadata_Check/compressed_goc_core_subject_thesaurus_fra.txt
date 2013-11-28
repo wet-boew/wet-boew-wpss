@@ -7,7 +7,7 @@
 # text delimited file.  It contains only the prefered subject terms.
 # This file was generated as follows
 #    compress_thesaurus_file.pl goc_core_subject_thesaurus_fra.txt
-# at: 11:46 2012-10-17
+# at: 12:52 2013-10-11
 #
 # This file should not be modified.
 #
@@ -425,6 +425,7 @@ comptes publics
 conception
 concurrence
 condamnation
+condition d'utilisation
 condition de la femme
 condition de la personne âgée
 condition de la personne handicapée
@@ -448,6 +449,7 @@ conservation
 conservation de l'eau
 conservation de l'énergie
 conservation de la nature
+conservation des documents
 conservation des ressources
 consommateur
 consommation
@@ -485,6 +487,7 @@ cours de conduite automobile
 coût
 coutume
 couture
+couverture du sol
 couveuse
 créance
 création d'emploi
@@ -718,6 +721,7 @@ effet secondaire
 Électricité
 Électronique
 Élevage
+Élimination des documents
 emballage
 embarcation
 emblème
@@ -750,6 +754,7 @@ engrais
 enquête
 enquête criminelle
 enquête de sécurité
+enquête publique
 enquête sociale
 enregistrement
 enregistrement numérique
@@ -854,6 +859,7 @@ expertise
 exploitation agricole
 exploitation des ressources
 exploration
+exploration de données
 exploration spatiale
 explosif
 explosion
@@ -1890,6 +1896,7 @@ sciences naturelles
 sciences physiques
 sciences polaires
 sciences sociales
+scientifique
 sculpture
 sécheresse
 secours d'urgence

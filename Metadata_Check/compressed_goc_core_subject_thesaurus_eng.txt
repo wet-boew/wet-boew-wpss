@@ -7,7 +7,7 @@
 # text delimited file.  It contains only the prefered subject terms.
 # This file was generated as follows
 #    compress_thesaurus_file.pl goc_core_subject_thesaurus_eng.txt
-# at: 11:46 2012-10-17
+# at: 12:52 2013-10-11
 #
 # This file should not be modified.
 #
@@ -516,6 +516,7 @@ dairy products
 dams
 dance
 data dictionaries
+data mining
 data processing
 data protection
 databases
@@ -1167,6 +1168,7 @@ inuit
 invasive species
 inventions
 inventories
+investigations
 investigative bodies
 investment policy
 investments
@@ -1204,6 +1206,7 @@ labour union training
 labour unions
 lakes
 land claims
+land cover
 land management
 landmines
 landslides
@@ -1714,7 +1717,9 @@ receiver general
 reciprocal agreements
 record of employment
 records
+records disposal
 records management
+records retention
 recourse
 recoveries
 recreation
@@ -1816,6 +1821,7 @@ sciences
 scientific equipment
 scientific information
 scientific research
+scientists
 screening (medicine)
 sculpture
 seafood
@@ -2017,6 +2023,7 @@ term loans
 termination of employment
 terminology
 terms of reference
+terms of use
 terrestrial ecosystems
 territorial governments
 territorial parks
