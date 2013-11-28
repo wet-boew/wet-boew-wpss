@@ -2,9 +2,9 @@
 #
 # Name: wpss_strings.pm
 #
-# $Revision: 6378 $
+# $Revision: 6415 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_strings.pm $
-# $Date: 2013-08-28 09:50:14 -0400 (Wed, 28 Aug 2013) $
+# $Date: 2013-10-30 15:37:58 -0400 (Wed, 30 Oct 2013) $
 #
 # Description:
 #
@@ -106,6 +106,9 @@ Site:
 
 Site:
 ",
+    "Open Data report header", "The following is a list of documents that contain Open Data Check violations.
+
+",
     "Image report header",	"The following is a list of images from your site.",
     "Headings report header", "The following is a report of headings within documents from your site.",
     "Entry page",	"Entry page ",
@@ -116,6 +119,7 @@ Site:
     "Crawled URLs",		"Crawled URLs",
     "Validation",		"Validation",
     "Metadata",			"Metadata",
+    "Open Data",    "Open Data",
     "Document List",		"Document List",
     "Link Check Profile",		"Link Check Profile",
     "Metadata Profile",		"Metadata Profile",
@@ -123,6 +127,7 @@ Site:
     "ACC Testcase Profile",	"ACC Testcase Profile",
     "CLF Testcase Profile",	"CLF Testcase Profile",
     "Interop Testcase Profile",	"Interoperability Testcase Profile",
+    "Open Data Testcase Profile", "Open Data Testcase Profile",
     "Department Check Testcase Profile",	"Department Check Testcase Profile",
     "ACC",  			"ACC",
     "CLF",        "CLF",
@@ -218,6 +223,9 @@ Site:
 
 Site :
 ",
+    "Open Data report header", "Ce qui suit est une liste de documents qui contiennent des violations de données ouvertes.
+
+",
     "Image report header",	"Ce qui suit est une liste d'images triée de votre site.",
     "Headings report header", "Ce qui suit est un rapport des En-têtes dans les documents de votre site",
     "Entry page",		"Page d'entrée ",
@@ -228,6 +236,7 @@ Site :
     "Crawled URLs",		"URL explorés",
     "Validation",		"Validation",
     "Metadata",			"Métadonnées",
+    "Open Data",    "Données Ouvertes",
     "Document List",		"Liste des documents",
     "Link Check Profile",		"Profil de vérifier des liens",
     "Metadata Profile",		"Profil de métadonnées",
@@ -235,6 +244,7 @@ Site :
     "ACC Testcase Profile",	"Profil des cas de test de ACC",
     "CLF Testcase Profile",	"Profil des cas de test de NSI",
     "Interop Testcase Profile",	"Profil des cas de test de Interoperability",
+    "Open Data Testcase Profile",  "Profil des cas de test de Données Ouvertes",
     "Department Check Testcase Profile",	"Profil des cas de test de department ",
     "Yes",			"Oui",
     "No",			"Non",

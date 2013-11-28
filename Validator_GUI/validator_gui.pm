@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6386 $
+# $Revision: 6434 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2013-09-05 11:47:29 -0400 (Thu, 05 Sep 2013) $
+# $Date: 2013-11-08 13:05:56 -0500 (Fri, 08 Nov 2013) $
 #
 # Description:
 #
@@ -38,6 +38,7 @@
 #     Validator_GUI_401_Login
 #     Validator_GUI_Debug
 #     Validator_GUI_Report_Option_Labels
+#     Validator_GUI_Open_Data_Setup
 #
 # Exported functions - these are required by the Win32::GUI package
 # and should not be used by anyone else.
@@ -86,6 +87,7 @@ use threads;
 use strict;
 use warnings;
 
+use Encode;
 use File::Temp();
 use File::Basename;
 use Win32::GUI();
@@ -134,6 +136,7 @@ BEGIN {
                   Validator_GUI_401_Login
                   Validator_GUI_Debug
                   Validator_GUI_Report_Option_Labels
+                  Validator_GUI_Open_Data_Setup
 
                   Validator_GUI_Browser_Terminate
                   Validator_GUI_Continue_Terminate
@@ -155,11 +158,11 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($dos_window, $error_window, $login_window, $save_content);
-my ($content_callback, $site_crawl_callback, $stop_on_errors);
+my ($content_callback, $site_crawl_callback, $open_data_callback, $stop_on_errors);
 my (@login_form_field_list, $login_window_open, %login_form_values );
 my ($authorization_401_window, $show_browser_window);
 my ($continue_window, $continue_window_open, $continue_window_save_content);
-my ($site_config_tabid, $html_input_tabid, $url_list_tabid);
+my ($site_config_tabid, $html_input_tabid, $url_list_tabid, $open_data_tabid);
 my ($report_fails_only, $main_window_tab_count, $results_window_tab_count);
 my (%results_window_tab_labels, $config_tabid, %option_combobox_map);
 my (%results_file_suffixes, $main_window_menu, $url_list_callback);
@@ -269,6 +272,8 @@ my %string_table_en = (
     "Load from File",		"Load from File",
     "Save Config",		"Save Config",
     "Load Config",		"Load Config",
+    "Load Open Data Config", "Load Open Data Config",
+    "Save Open Data Config", "Save Open Data Config",
     "Login page count", "Login page count",
     "Logout page count", "Logout page count",
     "Login interstitial page count", "Number of interstitial pages after login page",
@@ -298,6 +303,10 @@ my %string_table_en = (
     "Press Ok to close browser", "Press Ok to close browser",
     "Ignore PDF pages",          "Ignore PDF pages",
     "Process PDF pages",         "Process PDF pages",
+    "Open Data",     "Open Data",
+    "Dictionary Files",  "Dictionary Files",
+    "Data Files",        "Data Files",
+    "Resource Files",    "Resource Files",
 );
 
 my %string_table_fr = (
@@ -358,6 +367,8 @@ my %string_table_fr = (
     "Load from File",		"Charger à partir du fichier",
     "Save Config",		"Sauver Configuration",
     "Load Config",		"Charger Configuration",
+    "Load Open Data Config", "Charger Configuration de Données Ouvertes",
+    "Save Open Data Config", "Sauver Configuration de Données Ouvertes",
     "Login page count", "nombre de pages d'ouverture de session",
     "Logout page count", "nombre de pages de fermeture de session",
     "Login interstitial page count", "nombre de pages interstitielles d'ouverture de session",
@@ -387,6 +398,10 @@ my %string_table_fr = (
     "Press Ok to close browser", "Appuyez sur OK pour fermer navigateur",
     "Ignore PDF pages",          "Ignorer les pages PDF",
     "Process PDF pages",         "Traiter les pages PDF",
+    "Open Data",       "Données Ouvertes",
+    "Dictionary Files",  "xxDictionary Files",
+    "Data Files",        "xxData Files",
+    "Resource Files",    "xxResource Files",
 );
 
 my ($string_table) = \%string_table_en;
@@ -526,7 +541,8 @@ sub Validator_GUI_Add_Results_Tab {
         -vscroll   => 1,
         -autohscroll => 1,
         -autovscroll => 1,
-        -keepselection => 1 ,
+        -keepselection => 1,
+        -wantreturn => 1,
     );
 
     #
@@ -606,6 +622,7 @@ sub Update_Results_Tab {
     # a carriage return & newline.
     #
     $text =~ s/\n/\r\n/g;
+    eval {$text = encode("iso-8859-1", $text); };
     $results_window->ResultTabs->$name->Append($text . "\r\n");
 
     #
@@ -1695,66 +1712,55 @@ sub Validator_GUI_DoSite_Click {
     }
 
     #
-    # Do we have values for all fields
+    # Get any report options
     #
-    if ( $crawl_details{"sitedire"} eq "" ) {
-        Error_Message_Popup("Missing English Site Directory field");
+    %report_options = Get_Report_Options;
+    
+    #
+    # Copy report options into the crawl details hash table
+    #
+    while ( ($key, $value) = each %report_options ) {
+        $crawl_details{$key} = $value;
     }
-    elsif ( $crawl_details{"siteentrye"} eq "" ) {
-        Error_Message_Popup("Missing English Entry Page field");
+    
+    #
+    # Copy menu options into crawl details hash table
+    #
+    $crawl_details{"report_fails_only"} = $report_fails_only;
+    $crawl_details{"save_content"} = $save_content;
+    $crawl_details{"process_pdf"} = $process_pdf;
+
+    #
+    # Show the results window and clear any text.
+    #
+    foreach $tabid (values %results_window_tab_labels) {
+        $name = "results$tabid";
+        $results_window->ResultTabs->$name->Text("");
+    }
+    Results_Window_Tabstrip_Click();
+    $results_window->Show();
+    Win32::GUI::DoEvents();
+
+    #
+    # Call the site crawl callback function
+    #
+    if ( defined($site_crawl_callback) ) {
+        #
+        # Create a new thread to handle the site crawl.  This leaves
+        # the main thread free to respond to GUI events.
+        #
+        print "Child: Call site_crawl_callback\n" if $debug;
+        $child_thread = threads->create(\&Run_Site_Crawl,%crawl_details);
+
+        #
+        # Detach the thread so it can run freely
+        #
+        print "Detach crawler thread\n" if $debug;
+        $child_thread->detach();
     }
     else {
-        #
-        # Get any report options
-        #
-        %report_options = Get_Report_Options;
-        
-        #
-        # Copy report options into the crawl details hash table
-        #
-        while ( ($key, $value) = each %report_options ) {
-            $crawl_details{$key} = $value;
-        }
-        
-        #
-        # Copy menu options into crawl details hash table
-        #
-        $crawl_details{"report_fails_only"} = $report_fails_only;
-        $crawl_details{"save_content"} = $save_content;
-        $crawl_details{"process_pdf"} = $process_pdf;
-
-        #
-        # Show the results window and clear any text.
-        #
-        foreach $tabid (values %results_window_tab_labels) {
-            $name = "results$tabid";
-            $results_window->ResultTabs->$name->Text("");
-        }
-        Results_Window_Tabstrip_Click();
-        $results_window->Show();
-        Win32::GUI::DoEvents();
-
-        #
-        # Call the site crawl callback function
-        #
-        if ( defined($site_crawl_callback) ) {
-            #
-            # Create a new thread to handle the site crawl.  This leaves
-            # the main thread free to respond to GUI events.
-            #
-            print "Child: Call site_crawl_callback\n" if $debug;
-            $child_thread = threads->create(\&Run_Site_Crawl,%crawl_details);
-
-            #
-            # Detach the thread so it can run freely
-            #
-            print "Detach crawler thread\n" if $debug;
-            $child_thread->detach();
-        }
-        else {
-            print "Error: Missing site crawl callback function in Validator_GUI_DoSite_Click\n";
-            exit(1);
-        }
+        print "Error: Missing site crawl callback function in Validator_GUI_DoSite_Click\n";
+        exit(1);
     }
 
     print "Return from Validator_GUI_DoSite_Click\n" if $debug;
@@ -2744,7 +2750,8 @@ sub Add_Direct_Input_Fields {
         -vscroll   => 1,
         -autohscroll => 1,
         -autovscroll => 1,
-        -keepselection => 1 ,
+        -keepselection => 1,
+        -wantreturn => 1,
     );
     $current_pos += ($h - 80) + 10;
     
@@ -2963,7 +2970,7 @@ sub Add_URL_List_Input_Fields {
     $h = $main_window->ConfigTabs->Height - 20;
 
     #
-    # Add scrolling text field for results
+    # Add scrolling text field for URL list
     #
     $text_field_name = "url_list$tabid";
     $main_window->ConfigTabs->AddTextfield(
@@ -2975,7 +2982,8 @@ sub Add_URL_List_Input_Fields {
         -vscroll   => 1,
         -autohscroll => 1,
         -autovscroll => 1,
-        -keepselection => 1 ,
+        -keepselection => 1,
+        -wantreturn => 1,
     );
     $current_pos += ($h - 80) + 10;
 
@@ -3969,7 +3977,6 @@ sub Create_Main_Window {
     # Return window handle
     #
     return($main_window);
-
 }
 
 #***********************************************************************
@@ -4551,6 +4558,767 @@ sub Validator_GUI_Start {
     $main_window->Show();
     $rc = Win32::GUI::Dialog();
     print "Exit Win32::GUI::Dialog, rc = $rc\n" if $debug;
+}
+
+#***********************************************************************
+#
+# Name: Run_Open_Data_Callback
+#
+# Parameters: address of hash table of dataset URLs
+#             report_options - a hash table of report option values
+#
+# Description:
+#
+#   This function calls the Open Data callback function
+#
+#***********************************************************************
+sub Run_Open_Data_Callback {
+    my ($dataset_urls, %report_options) = @_;
+
+    #
+    # Add a signal handler to exit a thread.
+    #
+    $SIG{'KILL'} = sub { 
+                           #
+                           # Close browser window if we had it open
+                           #
+                           if ( defined($ie) ) {
+                               print "Close IE\n" if $debug;
+                               $ie->close();
+                               undef $ie;
+                           }
+
+                           #
+                           # Exit the thread
+                           #
+                           threads->exit();
+                      };
+
+    #
+    # Call the Open Data callback function
+    #
+    print "Child: Call open_data_callback\n" if $debug;
+    &$open_data_callback($dataset_urls, %report_options);
+    print "Child: Return from open_data_callback\n" if $debug;
+}
+
+#***********************************************************************
+#
+# Name: GUI_Do_Open_Data_Click
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function handles the GUI_Do_Open_Data button from the main window.
+#
+#***********************************************************************
+sub GUI_Do_Open_Data_Click {
+
+    my (%dataset_urls, %report_options, $value, $tab_field_name);
+    my ($tabid);
+
+    #
+    # Get data dictionary URL list
+    #
+    print "GUI_Do_Open_Data_Click\n" if $debug;
+    $tab_field_name = "data_dictionaries$open_data_tabid";
+    $value = $main_window->ConfigTabs->$tab_field_name->Text();
+    $dataset_urls{"DICTIONARY"} = $value;
+
+    #
+    # Get data URL list
+    #
+    $tab_field_name = "data_files$open_data_tabid";
+    $value = $main_window->ConfigTabs->$tab_field_name->Text();
+    $dataset_urls{"DATA"} = $value;
+
+    #
+    # Get resource URL list
+    #
+    $tab_field_name = "resource_files$open_data_tabid";
+    $value = $main_window->ConfigTabs->$tab_field_name->Text();
+    $dataset_urls{"RESOURCE"} = $value;
+
+    #
+    # Show the results window and clear any text.
+    #
+    foreach $tabid (values %results_window_tab_labels) {
+        $tab_field_name = "results$tabid";
+        $results_window->ResultTabs->$tab_field_name->Text("");
+    }
+
+    #
+    # Get any report options
+    #
+    %report_options = Get_Report_Options;
+
+    #
+    # Copy menu options into report options hash table
+    #
+    $report_options{"report_fails_only"} = $report_fails_only;
+    $report_options{"save_content"} = $save_content;
+
+    #
+    # Show the results window.
+    #
+    Results_Window_Tabstrip_Click();
+    $results_window->Show();
+    Win32::GUI::DoEvents();
+
+    #
+    # Call the Open Data callback function
+    #
+    if ( defined($open_data_callback) ) {
+        #
+        # Create a new thread to handle the open data.  This leaves
+        # the main thread free to respond to GUI events.
+        #
+        print "Child: Call open_data_callback\n" if $debug;
+        $child_thread = threads->create(\&Run_Open_Data_Callback,\%dataset_urls,
+                                        %report_options);
+
+        #
+        # Detach the thread so it can run freely
+        #
+        print "Detach url list thread\n" if $debug;
+        $child_thread->detach();
+    }
+    else {
+        print "Error: Missing url list callback function in GUI_Do_Open_Data_Click\n";
+        exit(1);
+    }
+
+    return 0;
+}
+
+#***********************************************************************
+#
+# Name: Load_Open_Data_Config
+#
+# Parameters: self - reference to main dialog
+#
+# Description:
+#
+#   This function reads open data configuration parameters from a file.
+#
+#***********************************************************************
+sub Load_Open_Data_Config {
+    my ($self) = @_;
+
+    my ($filename, $line, $field_name, $value, $name, $type, $url);
+    my ($data_list, $dictionary_list, $resource_list);
+
+    #
+    # Get name of file to read configuration from
+    #
+    $filename = Win32::GUI::GetOpenFileName(
+                   -owner  => $main_window,
+                   -title  => String_Value("Load Config"),
+                   -directory => "$program_dir\\profiles",
+                   -file   => "",
+                   -filter => [
+                       'Text file (*.txt)' => '*.txt',
+                       'All files' => '*.*',
+                    ],
+                   -defaultextension => "txt",
+                   );
+
+    #
+    # Was a file name specified ?
+    #
+    if ( defined($filename) ) {
+        #
+        # Open the configuration file
+        #
+        if ( open(FILE, "$filename") ) {
+            #
+            # Initialise lists of URLs
+            #
+            $data_list = "";
+            $dictionary_list = "";
+            $resource_list = "";
+
+            #
+            # Read all lines from the file looking for the configuration
+            # parameters
+            #
+            while ( $line = <FILE> ) {
+                chomp($line);
+
+                #
+                # Ignore blank and comment lines
+                #
+                if ( $line =~ /^$/ ) {
+                    next;
+                }
+                elsif ( $line =~ /^\s+#/ ) {
+                    next;
+                }
+
+                #
+                # Split line into 2 parts, configuration parameter, value
+                #
+                ($field_name, $value) = split(/\s+/, $line, 2);
+
+                #
+                # Do we have a value ?
+                #
+                if ( ! defined($value) ) {
+                    next;
+                }
+
+                #
+                # Check configuration field name
+                #
+                if ( defined($site_configuration_fields{$field_name}) ) {
+                    #
+                    # Load value into main dialog
+                    #
+                    $name = $site_configuration_fields{$field_name};
+                    print "Set configuration item $name to $value\n" if $debug;
+                    $main_window->ConfigTabs->$name->Text("$value"); 
+
+                    #
+                    # Update the results page
+                    #
+                    Win32::GUI::DoEvents();
+                }
+                elsif ( defined($report_options_field_names{$field_name}) ) {
+                    #
+                    # Load value into main dialog
+                    #
+                    $name = $report_options_field_names{$field_name};
+                    print "Set configuration selector $name to $value\n" if $debug;
+                    $main_window->ConfigTabs->$name->SelectString("$value"); 
+
+                    #
+                    # Update the results page
+                    #
+                    Win32::GUI::DoEvents();
+                }
+                #
+                # Data file URL ?
+                #
+                elsif ( $field_name =~ /^DATA$/i ) {
+                    $data_list .=  "$value\r\n";
+                }
+                #
+                # Dictionary file URL ?
+                #
+                elsif ( $field_name =~ /^DICTIONARY$/i ) {
+                    $dictionary_list .=  "$value\r\n";
+                }
+                #
+                # Resource file URL ?
+                #
+                elsif ( $field_name =~ /^RESOURCE$/i ) {
+                    $resource_list .=  "$value\r\n";
+                }
+            }
+            close(FILE);
+
+            #
+            # Set URL lists in main window
+            #
+            $name = "data_dictionaries$open_data_tabid";
+            $main_window->ConfigTabs->$name->Text("$dictionary_list");
+            $name = "data_files$open_data_tabid";
+            $main_window->ConfigTabs->$name->Text("$data_list");
+            $name = "resource_files$open_data_tabid";
+            $main_window->ConfigTabs->$name->Text("$resource_list");
+
+            #
+            # Update the results page
+            #
+            Win32::GUI::DoEvents();
+
+        }
+        else {
+            Error_Message_Popup("Failed to open site configuration file $filename");
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Save_Open_Data_Config
+#
+# Parameters: self - reference to main dialog
+#
+# Description:
+#
+#   This function saves open data configuration parameters into a file.
+#
+#***********************************************************************
+sub Save_Open_Data_Config {
+    my ($self) = @_;
+
+    my ($filename, $line, $field_name, $value, $tab_field_name);
+    my ($url, $user, $password);
+
+    #
+    # Get name of file to save configuration in
+    #
+    $filename = Win32::GUI::GetSaveFileName(
+                   -owner  => $main_window,
+                   -title  => String_Value("Save Config"),
+                   -directory => "$program_dir\\profiles",
+                   -file   => "",
+                   -filter => [
+                       'Text file (*.txt)' => '*.txt',
+                       'All files' => '*.*',
+                    ],
+                   -defaultextension => "txt",
+                   -createprompt => 1,
+                   );
+
+    #
+    # Was a file name specified ?
+    #
+    if ( defined($filename) ) {
+        #
+        # Open the configuration file
+        #
+        if ( open(FILE, "> $filename") ) {
+            #
+            # Save each configuration value
+            #
+            foreach $field_name (sort keys %report_options_field_names) {
+                $tab_field_name = $report_options_field_names{$field_name};
+                $value = $main_window->ConfigTabs->$tab_field_name->Text();
+                print FILE "$field_name $value\n";
+            }
+
+            #
+            # Get data dictionary URL list
+            #
+            $tab_field_name = "data_dictionaries$open_data_tabid";
+            $value = $main_window->ConfigTabs->$tab_field_name->Text();
+            foreach (split(/\n/, $value)) {
+                print FILE "DICTIONARY $_\n";
+            }
+
+            #
+            # Get data URL list
+            #
+            $tab_field_name = "data_files$open_data_tabid";
+            $value = $main_window->ConfigTabs->$tab_field_name->Text();
+            foreach (split(/\n/, $value)) {
+                print FILE "DATA $_\n";
+            }
+
+            #
+            # Get resource URL list
+            #
+            $tab_field_name = "resource_files$open_data_tabid";
+            $value = $main_window->ConfigTabs->$tab_field_name->Text();
+            foreach (split(/\n/, $value)) {
+                print FILE "RESOURCE $_\n";
+            }
+
+            close(FILE);
+        }
+        else {
+            Error_Message_Popup("Failed to create site configuration file $filename");
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Add_Open_Data_Fields
+#
+# Parameters: main_window - window handle
+#             tab_count - count of number of tabs in tab strip
+#
+# Description:
+#
+#   This function adds a tab for Open Data fields, to the main window.
+#
+#***********************************************************************
+sub Add_Open_Data_Fields {
+    my ($main_window, $tab_count) = @_;
+
+    my ($current_pos) = 40;
+    my ($tabid, $name, $h, $w, $dictionary_field_name);
+    my ($datafile_field_name, $resource_field_name);
+
+    #
+    # Add title to the tab and increment tab count
+    #
+    $main_window->ConfigTabs->InsertItem(
+        -text   => String_Value("Open Data"),
+    );
+    $tab_count++;
+
+    #
+    # Set tab identifier
+    #
+    $tabid = sprintf("_%02d", $tab_count);
+    $open_data_tabid = $tabid;
+
+    #
+    # Get the height and width of the tab page.
+    #
+    $w = $main_window->ConfigTabs->Width - 20;
+    $h = ($main_window->ConfigTabs->Height - 100) / 4;
+
+    #
+    # Add label text
+    #
+    $main_window->ConfigTabs->AddLabel(
+        -name => "Label_Dictionary" . $tabid,
+        -text => String_Value("Dictionary Files"),
+        -pos => [20,$current_pos],
+    );
+    $current_pos += 20;
+
+    #
+    # Add scrolling text field for data dictionary URL list
+    #
+    $dictionary_field_name = "data_dictionaries$tabid";
+    $main_window->ConfigTabs->AddTextfield(
+        -name => $dictionary_field_name,
+        -pos => [5,$current_pos],
+        -size => [$w - 40,$h],
+        -multiline => 1,
+        -hscroll   => 1,
+        -vscroll   => 1,
+        -autohscroll => 1,
+        -autovscroll => 1,
+        -keepselection => 1,
+        -wantreturn => 1,
+    );
+    $current_pos += $h + 20;
+
+    #
+    # Set maximum size for text area
+    #
+    $main_window->ConfigTabs->$dictionary_field_name->SetLimitText(10000);
+
+    #
+    # Add label text
+    #
+    $main_window->ConfigTabs->AddLabel(
+        -name => "Label_Data" . $tabid,
+        -text => String_Value("Data Files"),
+        -pos => [20,$current_pos],
+    );
+    $current_pos += 20;
+    
+    #
+    # Add scrolling text field for data file URL list
+    #
+    $datafile_field_name = "data_files$tabid";
+    $main_window->ConfigTabs->AddTextfield(
+        -name => $datafile_field_name,
+        -pos => [5,$current_pos],
+        -size => [$w - 40,$h],
+        -multiline => 1,
+        -hscroll   => 1,
+        -vscroll   => 1,
+        -autohscroll => 1,
+        -autovscroll => 1,
+        -keepselection => 1,
+        -wantreturn => 1,
+    );
+    $current_pos += $h + 20;
+
+    #
+    # Set maximum size for text area
+    #
+    $main_window->ConfigTabs->$datafile_field_name->SetLimitText(10000);
+
+    #
+    # Add label text
+    #
+    $main_window->ConfigTabs->AddLabel(
+        -name => "Label_Resource" . $tabid,
+        -text => String_Value("Resource Files"),
+        -pos => [20,$current_pos],
+    );
+    $current_pos += 20;
+    
+    #
+    # Add scrolling text field for resource file URL list
+    #
+    $resource_field_name = "resource_files$tabid";
+    $main_window->ConfigTabs->AddTextfield(
+        -name => $resource_field_name,
+        -pos => [5,$current_pos],
+        -size => [$w - 40,$h],
+        -multiline => 1,
+        -hscroll   => 1,
+        -vscroll   => 1,
+        -autohscroll => 1,
+        -autovscroll => 1,
+        -keepselection => 1,
+        -wantreturn => 1,
+    );
+    $current_pos += $h + 20;
+
+    #
+    # Set maximum size for text area
+    #
+    $main_window->ConfigTabs->$resource_field_name->SetLimitText(10000);
+
+    #
+    # Add button to reset fields
+    #
+    $name = "GUI_Reset_HTML$tabid";
+    $main_window->ConfigTabs->AddButton(
+          -name   => $name,
+          -text   => String_Value("Reset"),
+          -width  => 40,
+          -height => 20,
+          -pos => [20, $current_pos],
+          -tabstop => 1,
+          -onClick => sub {
+                            $main_window->ConfigTabs->$dictionary_field_name->Text("");
+                            $main_window->ConfigTabs->$datafile_field_name->Text("");
+                            $main_window->ConfigTabs->$resource_field_name->Text("");
+                          }
+    );
+
+    #
+    # Add button to check open data
+    #
+    $name = "GUI_Do_Open_Data$tabid";
+    $main_window->ConfigTabs->AddButton(
+	    -name   => $name,
+	    -text   => String_Value("Check"),
+	    -width  => 110,
+	    -height => 20,
+          -pos => [($w - 150), $current_pos],
+          -tabstop => 1,
+          -onClick => \&GUI_Do_Open_Data_Click
+    );
+
+    #
+    # Return tab count
+    #
+    return($tab_count);
+}
+
+#***********************************************************************
+#
+# Name: Create_Open_Data_Main_Window
+#
+# Parameters: report_options - report options table
+#
+# Description:
+#
+#   This function creates the main dialog window.
+#
+#***********************************************************************
+sub Create_Open_Data_Main_Window {
+    my (%report_options) = @_;
+
+    my ($current_pos, $group_start, $main_window);
+
+    #
+    # Setup dialog menu.
+    #
+    $main_window_menu = Win32::GUI::MakeMenu(
+    "&" . String_Value("File") => "File",
+    " > " . String_Value("Load Open Data Config") =>
+            { 
+                 -name => "LoadOpenDataConfig",
+                 -onClick => \&Load_Open_Data_Config
+            },
+
+    " > " . String_Value("Save Open Data Config") =>
+            { 
+                 -name => "SaveOpenDataConfig",
+                 -onClick => \&Save_Open_Data_Config 
+            },
+
+    " > " . String_Value("Exit") => 
+            { 
+                 -name => "Exit",
+                 -onClick => \&Main_Exit 
+            },
+
+ "&" . String_Value("Options")=> "Options",
+    " > " . String_Value("Report Fails Only")  =>
+            { 
+                 -name => "ReportFailsOnly", 
+                 -onClick => sub { 
+                                   $report_fails_only = 1; 
+                                   $main_window_menu->{ReportFailsAndPasses}->Enabled(1);
+                                   $main_window_menu->{ReportFailsOnly}->Enabled(0);
+                                  }
+            },
+
+    " > " . String_Value("Report Fails and Passes")  => 
+            { 
+                 -name => "ReportFailsAndPasses", 
+                 -onClick => sub { 
+                                   $report_fails_only = 0;
+                                   $main_window_menu->{ReportFailsAndPasses}->Enabled(0);
+                                   $main_window_menu->{ReportFailsOnly}->Enabled(1);
+                                  }
+            },
+    " > " . String_Value("XML Output")  =>
+            { 
+                 -name => "XMLOutput", 
+                 -onClick => sub { 
+                                   $xml_output_mode = 1; 
+                                   $main_window_menu->{TextOutput}->Enabled(1);
+                                   $main_window_menu->{XMLOutput}->Enabled(0);
+                                  }
+            },
+
+    " > " . String_Value("Text Output")  => 
+            { 
+                 -name => "TextOutput", 
+                 -onClick => sub { 
+                                   $xml_output_mode = 0;
+                                   $main_window_menu->{TextOutput}->Enabled(0);
+                                   $main_window_menu->{XMLOutput}->Enabled(1);
+                                  }
+            },
+
+    #
+    # Help menu
+    # 
+    "&" . String_Value("Help") => "Help",
+    " > " . String_Value("Version") . $version => 
+            {
+              -name => "Help", -enabled => 1
+            },
+      );
+
+    #
+    # Set default enabled/disabled state for menu options
+    #
+    $main_window_menu->{ReportFailsOnly}->Enabled(0);
+    $main_window_menu->{TextOutput}->Enabled(0);
+    $main_window_menu->{XMLOutput}->Enabled(1);
+
+    #
+    # Create main window
+    #
+    print "Create main window\n" if $debug;
+    $main_window = new Win32::GUI::Window(
+	    -name => 'Validator_GUI_Main',
+	    -text => String_Value("Main Window Title"),
+          -menu => $main_window_menu,
+          -width => 800,
+          -height => 700,
+          -dialogui => 1,
+          -resizable => 0,
+          -maximizebox => 0,
+          -minimizebox => 0,
+    );
+    $current_pos = 10;
+
+    #
+    # Add a TabStrip to the window.
+    #
+    print "Create main window tabstrip\n" if $debug;
+    $main_window->AddTabStrip (
+        -name   => "ConfigTabs",
+        -panel  => "Tab",
+        -width  => 775,
+        -height => 650,
+        -onClick => \&Main_Window_Tabstrip_Click
+    );
+    $current_pos += 600;
+    $main_window_tab_count = -1;
+
+    #
+    # Add tab for direct HTML input
+    #
+    $main_window_tab_count = Add_Open_Data_Fields($main_window,
+                                                  $main_window_tab_count);
+
+    #
+    # Add tab for configuration options if we have any
+    #
+    if ( keys(%report_options) > 0 ) {
+        $main_window_tab_count = Add_Config_Fields($main_window, 
+                                                   $main_window_tab_count, 
+                                                   %report_options);
+    }
+
+    #
+    # Initialize program options
+    #
+    $report_fails_only = 1;
+
+    #
+    # Return window handle
+    #
+    return($main_window);
+}
+
+#***********************************************************************
+#
+# Name: Validator_GUI_Open_Data_Setup
+#
+# Parameters: lang - the language of the display
+#             open_data_callback_fn - call back function
+#             report_options - a table of report options
+#
+# Description:
+#
+#   This function creates a GUI for the open data mode of the WPSS 
+# validation tool.  It creates the main dialog and presents it to the user.
+#
+#   The callback functions are called when one of the GUI validation
+# buttons are selected. The callback can be used by clients to run
+# the validation on either an entire site or pasted content.
+#
+# The open data callback prototype is
+#  callback($url_list, %report_options)
+#    where url_list is the list of urls to process
+#          report_options - a hash table of report option values
+#
+#***********************************************************************
+sub Validator_GUI_Open_Data_Setup {
+    my ($lang, $open_data_callback_fn, %report_options) = @_;
+
+    #
+    # Do we hide the Perl command prompt window ?
+    #
+    if ( $debug) {
+        Win32::GUI::Show($dos_window);
+    }
+    else {
+        Win32::GUI::Hide($dos_window);
+    }
+
+    #
+    # Do we want the French GUI ?
+    #
+    if ( $lang =~ /^fr/i ) {
+        $string_table = \%string_table_fr;
+        $site_label_width = $site_label_width_fr;
+    }
+    else {
+        #
+        # present the English GUI
+        #
+        $string_table = \%string_table_en;
+        $site_label_width = $site_label_width_en;
+    }
+
+    #
+    # Save callback function addresses
+    #
+    $open_data_callback = $open_data_callback_fn;
+
+    #
+    # Create main window
+    #
+    $main_window = Create_Open_Data_Main_Window(%report_options);
+
+    #
+    # Create results window
+    #
+    $results_window = Create_Results_Window;
 }
 
 #***********************************************************************

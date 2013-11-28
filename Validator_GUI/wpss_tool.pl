@@ -4,30 +4,20 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6377 $
+# $Revision: 6429 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2013-08-28 09:49:36 -0400 (Wed, 28 Aug 2013) $
+# $Date: 2013-11-06 11:11:59 -0500 (Wed, 06 Nov 2013) $
 #
-# Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -content ]
-#                        [ -eng ] [ -no_val ] [ -no_link ] [ -no_meta ]
-#                        [ -no_acc ] [ -no_clf ] [ -no_cont ] [ -no_feat ]
-#                        [ -no_url ] [ -xml ]
+# Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
+#                        [ -xml ] [ -open_data ]
 #
 # Where: -debug enables program debugging.
 #        -fra use French interface
 #        -eng use English interface
 #        -cgi enter CGI mode
 #        -cli enter Command Line mode
-#        -content enter Content check mode
-#        -no_val don't display validation results
-#        -no_link don't display link check results
-#        -no_meta don't display metadata check results
-#        -no_acc don't display accessibility (TQA) check results
-#        -no_clf don't display CLF check results
-#        -no_cont don't display content check results
-#        -no_feat don't display document features results
-#        -no_url don't display document list
 #        -xml generate XML output
+#        -open_data run tool for open data fils rather than web files
 #
 # Description:
 #
@@ -122,19 +112,6 @@ if ( $have_threads ) {
 my ($content_file) = 0;
 
 #
-# Results to be displayed
-#
-my ($display_validation) = 1;
-my ($display_link_check) = 1;
-my ($display_metadata_check) = 1;
-my ($display_tqa_check) = 1;
-my ($display_clf_check) = 1;
-my ($display_interop_check) = 1;
-my ($display_dept_check) = 1;
-my ($display_doc_features) = 1;
-my ($display_document_list) = 1;
-
-#
 # URL patterns to be ignored by specific tools
 #
 my (@tqa_url_skip_patterns) = ();
@@ -145,18 +122,17 @@ my (@validation_url_skip_patterns) = ();
 #
 my ($cgi_mode) = 0;
 my ($cli_mode) = 0;
-my ($content_mode) = 0;
+my ($open_data_mode) = 0;
 
 my ($debug) = 0;
 my ($command_line_debug) = 0;
 my ($max_urls_between_sleeps) = 2;
 my ($user_agent_name) = "wpss_test.pl";
-my ($max_redirects) = 10;
 
 my (%report_options, %results_file_suffixes, %report_options_labels);
 my ($crawled_urls_tab, $validation_tab, $metadata_tab, $doc_list_tab,
     $acc_tab, $link_tab, $dept_tab, $doc_features_tab,
-    $clf_tab, $interop_tab, $crawllimit);
+    $clf_tab, $interop_tab, $open_data_tab, $crawllimit);
 
 #
 # URL language values
@@ -235,6 +211,15 @@ my (%interop_check_profile_map);
 my (@interop_check_profiles, $interop_profile_label, $interop_check_profile);
 my (%interop_error_url_count, %interop_error_instance_count);
 my ($interop_testcase_url_help_file_name);
+
+#
+# Open Data Check variables
+#
+my (%open_data_check_profile_map, @open_data_check_profiles);
+my ($open_data_profile_label, $open_data_check_profile);
+my (%open_data_error_url_count, %open_data_error_instance_count);
+my ($open_data_testcase_url_help_file_name, %open_data_dictionary);
+my (@open_data_file_types) = ("DICTIONARY", "DATA", "RESOURCE");
 
 #
 # Link Check variables
@@ -1631,6 +1616,144 @@ sub Read_Content_Check_Config_File {
 
 #***********************************************************************
 #
+# Name: New_Open_Data_Check_Profile_Hash_Tables
+#
+# Parameters: profile_name - name of profile
+#
+# Description:
+#
+#   This function create a hash tables for Open Data Check test cases
+# and saves the address in the global test case profile table.
+#
+#***********************************************************************
+sub New_Open_Data_Check_Profile_Hash_Tables {
+    my ($profile_name) = @_;
+
+    my (%testcases);
+
+    #
+    # Save address of hash tables
+    #
+    push(@open_data_check_profiles, $profile_name);
+    $open_data_check_profile_map{$profile_name} = \%testcases;
+
+    #
+    # Return addresses
+    #
+    return(\%testcases);
+}
+
+
+#***********************************************************************
+#
+# Name: Read_Open_Data_Check_Config_File
+#
+# Parameters: path - the path to configuration file
+#
+# Description:
+#
+#   This function reads an Open Data  Check configuration file.
+#
+#***********************************************************************
+sub Read_Open_Data_Check_Config_File {
+    my ($config_file) = $_[0];
+
+    my (@fields, $config_type, $testcase_id, $value, $testcases);
+    my ($open_data_check_profile_name, $other_profile_name);
+
+    #
+    # Open configuration file at specified path
+    #
+    print "Opening configuration file $config_file\n" if $debug;
+    open( CONFIG_FILE, "$config_file" )
+      || die
+      "Failed to open configuration file, errno is $!\n  --> $config_file\n";
+
+    #
+    # Read file looking for values for config parameters.
+    #
+    while (<CONFIG_FILE>) {
+
+        #
+        # Ignore comment and blank lines.
+        #
+        chop;
+        if ( /^#/ ) {
+            next;
+        }
+        elsif ( /^$/ ) {
+            next;
+        }
+
+        #
+        # Split the line into fields.
+        #
+        @fields = split;
+        $config_type = $fields[0];
+
+        #
+        # Start of a new Open Data testcase profile. Get hash tables to
+        # store Open Data Check attributes
+        #
+        if ( $config_type eq "Open_Data_Check_Profile_eng" ) {
+            #
+            # Start of a new Open Data testcase profile. Get hash tables to
+            # store Open Data Check attributes
+            #
+            @fields = split(/\s+/, $_, 2);
+            $open_data_check_profile_name = $fields[1];
+            ($testcases) =
+                New_Open_Data_Check_Profile_Hash_Tables($open_data_check_profile_name);
+        }
+        #
+        # Alternate language label for this profile
+        #
+        elsif ( $config_type =~ "Open_Data_Check_Profile_" ) {
+            #
+            # Match this profile name to the current English profile.
+            #
+            @fields = split(/\s+/, $_, 2);
+            $other_profile_name = $fields[1];
+            $open_data_check_profile_map{$other_profile_name} = $testcases;
+
+        }
+        elsif ( $config_type =~ /tcid/i ) {
+            #
+            # Required Open Data testcase, get testcase id and store
+            # in hash table.
+            #
+            $testcase_id = $fields[1];
+            if ( defined($testcase_id) ) {
+                $$testcases{$testcase_id} = 1;
+            }
+        }
+        elsif ( $config_type =~ /testcase_data/i ) {
+            #
+            # Split line again to get everything after the testcase
+            # id as a single field
+            #
+            ($config_type, $testcase_id, $value) = split(/\s+/, $_, 3);
+
+            #
+            # Testcase specific data
+            #
+            if ( defined($open_data_check_profile_name) && defined($value) ) {
+                $value =~ s/\s+$//g;
+                Set_Open_Data_Check_Testcase_Data($testcase_id, $value);
+            }
+        }
+        elsif ( $config_type =~ /Testcase_URL_Help_File/i ) {
+            #
+            # Name of testcase & help URL file
+            #
+            $open_data_testcase_url_help_file_name = $fields[1];
+        }
+    }
+    close(CONFIG_FILE);
+}
+
+#***********************************************************************
+#
 # Name: Read_Config_File
 #
 # Parameters: path - the path to configuration file
@@ -1840,6 +1963,7 @@ sub Set_Package_Debug_Flags {
     PDF_Files_Debug($debug);
     Set_Interop_Check_Debug($debug);
     HTML_Language_Debug($debug);
+    Set_Open_Data_Check_Debug($debug);
 }
 
 #***********************************************************************
@@ -1906,7 +2030,7 @@ sub Initialize {
                           "tqa_testcases", "content_sections", "clf_check",
                           "metadata_result_object", "validate_markup",
                           "interop_check", "pdf_check", "dept_check",
-                          "html_language");
+                          "html_language", "open_data_check");
     my ($mday, $mon, $year, $key, $value, $metadata_profile);
     my ($tag_required, $content_required, $content_type, $scheme_values);
     my ($invalid_content, $pdf_profile);
@@ -1966,6 +2090,7 @@ sub Initialize {
     Read_Dept_Check_Config_File("$program_dir/conf/so_dept_check.config");
     Read_CLF_Check_Config_File("$program_dir/conf/so_clf_check.config");
     Read_Interop_Check_Config_File("$program_dir/conf/so_interop_check.config");
+    Read_Open_Data_Check_Config_File("$program_dir/conf/open_data_config.txt");
 
     #
     # Set testcase/url help information
@@ -1981,6 +2106,9 @@ sub Initialize {
     }
     if ( defined($interop_testcase_url_help_file_name) ) {
         Interop_Check_Read_URL_Help_File($interop_testcase_url_help_file_name);
+    }
+    if ( defined($open_data_testcase_url_help_file_name) ) {
+        Open_Data_Check_Read_URL_Help_File($open_data_testcase_url_help_file_name);
     }
 
     #
@@ -2002,6 +2130,7 @@ sub Initialize {
     PDF_Files_Language($lang);
     Validate_Markup_Language($lang);
     Set_Interop_Check_Language($lang);
+    Set_Open_Data_Check_Language($lang);
 
     #
     # Set Link Checker configuration variables
@@ -2046,6 +2175,13 @@ sub Initialize {
     #
     while ( ($key,$value) = each %interop_check_profile_map) {
         Set_Interop_Check_Test_Profile($key, $value);
+    }
+
+    #
+    # Set Open Data Check testcase profiles
+    #
+    while ( ($key,$value) = each %open_data_check_profile_map) {
+        Set_Open_Data_Check_Test_Profile($key, $value);
     }
     
     #
@@ -2556,8 +2692,41 @@ sub HTTP_Response_Callback {
             # Perform Interoperability check
             #
             Perform_Interop_Check($url, $content, $language, $mime_type, $resp);
+
+            #
+            # Save "non-HTML primary format" feature
+            #
+            $key = "non-html primary format/format principal non-html";
+            if ( defined($doc_feature_list{$key}) ) {
+                $list_ref = $doc_feature_list{$key};
+                print "Add to document feature list $key, url = $url\n" if $debug;
+                $$list_ref{$url} = 1;
+            }
         }
-        
+
+        #
+        # Do we have an image mime type ?
+        #
+        elsif ( $mime_type =~ /^image/i ) {
+            #
+            # No special processing
+            #
+        }
+        #
+        # Unknown mime-type, save URL as non-HTML primary format
+        #
+        else {
+            #
+            # Save "non-HTML primary format" feature
+            #
+            $key = "non-html primary format/format principal non-html";
+            if ( defined($doc_feature_list{$key}) ) {
+                $list_ref = $doc_feature_list{$key};
+                print "Add to document feature list $key, url = $url\n" if $debug;
+                $$list_ref{$url} = 1;
+            }
+        }
+
         #
         # Perform department checks
         #
@@ -2911,28 +3080,26 @@ sub Print_Content_Results {
     #
     # Print results
     #
-    if ( $display_dept_check ) {
-        foreach $result_object (@content_results_list ) {
-            $status = $result_object->status;
-            if ( $status != 0 ) {
-                #
-                # Increment error instance count
-                #
-                if ( ! defined($dept_error_instance_count{$result_object->description}) ) {
-                    $dept_error_instance_count{$result_object->description} = 1;
-                    $dept_error_url_count{$result_object->description} = 1;
-                }
-                else {
-                   $dept_error_instance_count{$result_object->description}++;
-                   $dept_error_url_count{$result_object->description}++;
-                }
-                $error_count{$dept_tab}++;
-
-                #
-                # Print error
-                #
-                Validator_GUI_Print_TQA_Result($dept_tab, $result_object);
+    foreach $result_object (@content_results_list ) {
+        $status = $result_object->status;
+        if ( $status != 0 ) {
+            #
+            # Increment error instance count
+            #
+            if ( ! defined($dept_error_instance_count{$result_object->description}) ) {
+                $dept_error_instance_count{$result_object->description} = 1;
+                $dept_error_url_count{$result_object->description} = 1;
             }
+            else {
+               $dept_error_instance_count{$result_object->description}++;
+               $dept_error_url_count{$result_object->description}++;
+            }
+            $error_count{$dept_tab}++;
+
+            #
+            # Print error
+            #
+            Validator_GUI_Print_TQA_Result($dept_tab, $result_object);
         }
     }
 }
@@ -2965,7 +3132,7 @@ sub Check_For_PDF_Only_Document {
         #
         # Look through each PDF document looking for am matching HTML
         #
-        while (  ($url, $title) = each %pdf_titles ) {
+        while ( ($url, $title) = each %pdf_titles ) {
             #
             # Do we have a matching HTML document title ?
             #
@@ -3113,14 +3280,6 @@ sub Check_Web_Feeds {
     my (@interop_results_list, $result_object, $status);
 
     #
-    # Are we displaying Interoperability checks ? If not we can skip them.
-    #
-    if ( ! $display_interop_check ) {
-        print "Not performing Interoperability checks\n" if $debug;
-        return;
-    }
-
-    #
     # Check Web feeds
     #
     print "Check_Web_Feeds\n" if $debug;
@@ -3182,15 +3341,9 @@ sub Check_Web_Feeds {
 sub All_Document_Checks {
 
     #
-    # If we are in CGI mode, we need a heading before
-    # reporting any title errors.
+    # Beed a heading before reporting any title errors.
     #
-    if ( $cgi_mode || $cli_mode ) {
-        if ( $display_dept_check ) {
-            Validator_GUI_Update_Results($dept_tab,
-                                         String_Value("Content violations"));
-        }
-    }
+    Validator_GUI_Update_Results($dept_tab, String_Value("Content violations"));
 
     #
     # Check for PDF only versions of documents
@@ -3552,16 +3705,12 @@ sub Results_Save_Callback {
     #
     # Save the URL, Image, Alt report.
     #
-    if ( $display_dept_check ) {
-        Save_URL_Image_Alt_Report($filename);
-    }
+    Save_URL_Image_Alt_Report($filename);
 
     #
     # Save the Headings report
     #
-    if ( $display_dept_check ) {
-        Save_Headings_Report($filename);
-    }
+    Save_Headings_Report($filename);
 }
 
 #***********************************************************************
@@ -3609,99 +3758,84 @@ sub Print_Results_Header {
                                      String_Value("Crawled URL report header") .
                                      $site_entries);
 
-        if ( $display_validation ) {
-            Validator_GUI_Update_Results($validation_tab, 
-                                         String_Value("Validation report header") .
-                                         $site_entries);
-        }
+        Validator_GUI_Update_Results($validation_tab, 
+                                     String_Value("Validation report header") .
+                                     $site_entries);
 
-        if ( $display_link_check ) {
-            Validator_GUI_Update_Results($link_tab,
-                                         String_Value("Link report header") .
-                                         $site_entries);
-        }
+        Validator_GUI_Update_Results($link_tab,
+                                     String_Value("Link report header") .
+                                     $site_entries);
 
-        if ( $display_metadata_check ) {
-            Validator_GUI_Update_Results($metadata_tab, 
-                                        String_Value("Metadata report header") .
-                                         $site_entries);
-        }
+        Validator_GUI_Update_Results($metadata_tab, 
+                                    String_Value("Metadata report header") .
+                                     $site_entries);
 
-        if ( $display_tqa_check ) {
-            Validator_GUI_Update_Results($acc_tab,
-                                         String_Value("ACC report header") .
-                                         $site_entries);
-        }
+        Validator_GUI_Update_Results($acc_tab,
+                                     String_Value("ACC report header") .
+                                     $site_entries);
 
-        if ( $display_clf_check ) {
-            Validator_GUI_Update_Results($clf_tab,
-                                         String_Value("CLF report header") .
-                                         $site_entries);
-        }
+        Validator_GUI_Update_Results($clf_tab,
+                                     String_Value("CLF report header") .
+                                     $site_entries);
 
-        if ( $display_interop_check ) {
-            Validator_GUI_Update_Results($interop_tab,
-                                         String_Value("Interop report header") .
-                                         $site_entries);
-        }
+        Validator_GUI_Update_Results($interop_tab,
+                                     String_Value("Interop report header") .
+                                     $site_entries);
         
-        if ( $display_dept_check ) {
-            Validator_GUI_Update_Results($dept_tab,
-                                         String_Value("Department report header") .
-                                         $site_entries);
-        }
+        Validator_GUI_Update_Results($dept_tab,
+                                     String_Value("Department report header") .
+                                     $site_entries);
 
-        if ( $display_doc_features ) {
-            Validator_GUI_Update_Results($doc_features_tab,
-                                   String_Value("Document Features report header") .
-                                         $site_entries);
-        }
+        Validator_GUI_Update_Results($doc_features_tab,
+                               String_Value("Document Features report header") .
+                                     $site_entries);
 
-        if ( $display_document_list ) {
-            Validator_GUI_Update_Results($doc_list_tab, 
-                                   String_Value("Document List report header") .
-                                         $site_entries);
-        }
+        Validator_GUI_Update_Results($doc_list_tab, 
+                               String_Value("Document List report header") .
+                                     $site_entries);
+    }
+    if ( defined($open_data_tab) ) {
+        Validator_GUI_Update_Results($open_data_tab,
+                                     String_Value("Open Data report header"));
     }
 
     #
     # Include profile name in header
     #
-    if ( $display_metadata_check ) {
+    if ( defined($metadata_tab) ) {
         Validator_GUI_Update_Results($metadata_tab,
                                      String_Value("Metadata Profile")
                                      . " " . $metadata_profile);
-        Validator_GUI_Update_Results($metadata_tab, "");
     }
-    if ( $display_tqa_check ) {
+    if ( defined($acc_tab) ) {
         Validator_GUI_Update_Results($acc_tab,
                                      String_Value("ACC Testcase Profile")
                                      . " " . $tqa_check_profile);
-        Validator_GUI_Update_Results($acc_tab, "");
     }
-    if ( $display_clf_check ) {
+    if ( defined($clf_tab) ) {
         Validator_GUI_Update_Results($clf_tab,
                                      String_Value("CLF Testcase Profile")
                                      . " " . $clf_check_profile);
-        Validator_GUI_Update_Results($clf_tab, "");
     }
-    if ( $display_interop_check ) {
+    if ( defined($interop_tab) ) {
         Validator_GUI_Update_Results($interop_tab,
                                      String_Value("Interop Testcase Profile")
                                      . " " . $interop_check_profile);
-        Validator_GUI_Update_Results($interop_tab, "");
     }
-    if ( $display_dept_check ) {
+    if ( defined($dept_tab) ) {
         Validator_GUI_Update_Results($dept_tab,
                                  String_Value("Department Check Testcase Profile")
                                      . " " . $dept_check_profile);
-        Validator_GUI_Update_Results($dept_tab, "");
     }
-    if ( $display_doc_features ) {
+    if ( defined($open_data_tab) ) {
+        Validator_GUI_Update_Results($open_data_tab,
+                                     String_Value("Open Data Testcase Profile")
+                                     . " " . $open_data_check_profile);
+    }
+    if ( defined($doc_features_tab) ) {
         Validator_GUI_Update_Results($doc_features_tab,
                                      String_Value("Document Features Profile")
                                      . " " . $current_doc_features_profile);
-        Validator_GUI_Update_Results($doc_features_tab, "");
     }
 
     #
@@ -3714,8 +3848,9 @@ sub Print_Results_Header {
                     $mon, $mday);
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                  $doc_list_tab, $doc_features_tab, $interop_tab) {
+                  $doc_list_tab, $doc_features_tab, $interop_tab, $open_data_tab) {
         if ( defined($tab) ) {
+            Validator_GUI_Update_Results($tab, "");
             Validator_GUI_Start_Analysis($tab, $date, 
                                          String_Value("Analysis started"));
         }
@@ -3742,7 +3877,7 @@ sub Print_Results_Summary_Table {
     # Print results table header
     #
     foreach $tab ($link_tab, $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                  $interop_tab) {
+                  $interop_tab, $open_data_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
             Validator_GUI_Update_Results($tab,
@@ -3753,7 +3888,7 @@ sub Print_Results_Summary_Table {
     #
     # Print summary results table for Link Check
     #
-    if ( $display_link_check ) {
+    if ( defined($link_tab) ) {
         foreach $tcid (sort(keys %link_error_url_count)) {
             Validator_GUI_Update_Results($link_tab, $tcid, 0);
             $line = sprintf("  URLs %5d " . String_Value("instances") .
@@ -3771,7 +3906,7 @@ sub Print_Results_Summary_Table {
     #
     # Print summary results table for Metadata Check
     #
-    if ( $display_metadata_check ) {
+    if ( defined($metadata_tab) ) {
         foreach $tcid (sort(keys %metadata_error_url_count)) {
             Validator_GUI_Update_Results($metadata_tab, $tcid, 0);
             $line = sprintf("  URLs %5d " . String_Value("instances") .
@@ -3797,7 +3932,7 @@ sub Print_Results_Summary_Table {
     #
     # Print summary results table for TQA Check
     #
-    if ( $display_tqa_check ) { 
+    if ( defined($acc_tab) ) {
         foreach $tcid (sort(keys %tqa_error_url_count)) {
             Validator_GUI_Update_Results($acc_tab, $tcid, 0);
             $line = sprintf("  URLs %5d " . String_Value("instances") .
@@ -3818,23 +3953,23 @@ sub Print_Results_Summary_Table {
             Validator_GUI_Update_Results($acc_tab, $line);
             Validator_GUI_Update_Results($acc_tab, "");
         }
+    }
 
-        #
-        # Add overall fault count
-        #
-        if ( defined($document_count{$acc_tab}) &&
-             ($document_count{$acc_tab} > 0) ) {
-            $faults = $fault_count{$acc_tab};
-            $faults_per_page = sprintf("%4.2f", $faults / $document_count{$acc_tab});
-            Validator_GUI_Print_Scan_Fault_Count($acc_tab, $faults,
-                                                 $faults_per_page);
-        }
+    #
+    # Add overall fault count
+    #
+    if ( defined($acc_tab) && defined($document_count{$acc_tab}) &&
+         ($document_count{$acc_tab} > 0) ) {
+        $faults = $fault_count{$acc_tab};
+        $faults_per_page = sprintf("%4.2f", $faults / $document_count{$acc_tab});
+        Validator_GUI_Print_Scan_Fault_Count($acc_tab, $faults,
+                                             $faults_per_page);
     }
 
     #
     # Print summary results table for CLF Check
     #
-    if ( $display_clf_check ) {
+    if ( defined($clf_tab)) {
         foreach $tcid (sort(keys %clf_error_url_count)) {
             Validator_GUI_Update_Results($clf_tab, $tcid);
             $line = sprintf("  URLs %5d " . String_Value("instances") .
@@ -3860,7 +3995,7 @@ sub Print_Results_Summary_Table {
     #
     # Print summary results table for Interopability Check
     #
-    if ( $display_interop_check ) {
+    if ( defined($interop_tab) ) {
         foreach $tcid (sort(keys %interop_error_url_count)) {
             Validator_GUI_Update_Results($interop_tab, $tcid);
             $line = sprintf("  URLs %5d " . String_Value("instances") .
@@ -3881,12 +4016,12 @@ sub Print_Results_Summary_Table {
             Validator_GUI_Update_Results($interop_tab, $line);
             Validator_GUI_Update_Results($interop_tab, "");
         }
-    }
+    } 
 
     #
     # Print summary results table for department Check
     #
-    if ( $display_dept_check ) {
+    if ( defined($dept_tab) ) {
         foreach $tcid (sort(keys %dept_error_url_count)) {
             Validator_GUI_Update_Results($dept_tab, $tcid);
             $line = sprintf("  URLs %5d " . String_Value("instances") .
@@ -3909,11 +4044,36 @@ sub Print_Results_Summary_Table {
         }
     }
 
+    #
+    # Print summary results table for open data Check
+    #
+    if ( defined($open_data_tab) ) {
+        foreach $tcid (sort(keys %open_data_error_url_count)) {
+            Validator_GUI_Update_Results($open_data_tab, $tcid);
+            $line = sprintf("  URLs %5d " . String_Value("instances") .
+                            " %5d ", $open_data_error_url_count{$tcid},
+                            $open_data_error_instance_count{$tcid});
+
+            #
+            # Add help link, if there is one
+            #
+            if ( defined( Open_Data_Check_Testcase_URL($tcid) ) ) {
+                $line .= " " . String_Value("help") .
+                         " " . Open_Data_Check_Testcase_URL($tcid);
+            }
+
+            #
+            # Print summary line
+            #
+            Validator_GUI_Update_Results($open_data_tab, $line);
+            Validator_GUI_Update_Results($open_data_tab, "");
+        }
+    }
 
     #
     # Print blank line after table.
     #
-    foreach $tab ($acc_tab, $dept_tab) {
+    foreach $tab ($acc_tab, $link_tab, $metadata_tab, $interop_tab, $open_data_tab, $dept_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
         }
@@ -3963,7 +4123,7 @@ sub Print_Results_Footer {
     #
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab, 
                   $metadata_tab, $acc_tab, $dept_tab, $doc_features_tab,
-                  $clf_tab, $interop_tab, $doc_list_tab) {
+                  $clf_tab, $interop_tab, $open_data_tab, $doc_list_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
 
@@ -4015,13 +4175,6 @@ sub Print_Results_Footer {
 #***********************************************************************
 sub Print_Document_Features_Report {
     my ($feature_id, $this_doc_feature_list, $url, $count);
-
-    #
-    # Are we displaying document features ?
-    #
-    if ( ! $display_doc_features ) {
-        return;
-    }
 
     #
     # Get the sorted list of document features
@@ -4696,12 +4849,10 @@ sub Perform_Site_Crawl {
     #
     # Site crawl is complete, print sorted list of URLs in URLs tab.
     #
-    if ( $display_document_list ) {
-        $i = 1;
-        foreach $url (sort(@url_list)) {
-            Validator_GUI_Update_Results($doc_list_tab, "$i:  $url");
-            $i++;
-        }
+    $i = 1;
+    foreach $url (sort(@url_list)) {
+        Validator_GUI_Update_Results($doc_list_tab, "$i:  $url");
+        $i++;
     }
 
     #
@@ -4819,14 +4970,6 @@ sub Perform_Markup_Validation {
     my ($pattern, @results_list, $result_object, $status);
 
     #
-    # Are we displaying markup validation ? If not we can skip them.
-    #
-    if ( ! $display_validation ) {
-        print "Not performing markup validation\n" if $debug;
-        return;
-    }
-
-    #
     # Do we want to skip validation of this document ?
     #
     foreach $pattern (@validation_url_skip_patterns) {
@@ -4834,13 +4977,6 @@ sub Perform_Markup_Validation {
             print "Skipping validation on $url, matches pattern $pattern\n" if $debug;
             return;
         }
-    }
-
-    #
-    # In content mode we ignore validation
-    #
-    if ( $content_mode ) {
-        return;
     }
 
     #
@@ -4892,11 +5028,9 @@ sub Perform_Markup_Validation {
         #
         # Print results of each validation if it failed
         #
-        if ( $display_validation ) {
-            foreach $result_object (@results_list) {
-                if ( $result_object->status != 0 ) {
-                    Validator_GUI_Print_TQA_Result($validation_tab, $result_object);
-                }
+        foreach $result_object (@results_list) {
+            if ( $result_object->status != 0 ) {
+                Validator_GUI_Print_TQA_Result($validation_tab, $result_object);
             }
         }
     }
@@ -4921,14 +5055,6 @@ sub Perform_Metadata_Check {
 
     my ($url_status, $status, $result_object, @metadata_results_list);
     my (%local_metadata_error_url_count, $title);
-
-    #
-    # Are we displaying Metadata checks ? If not we can skip them.
-    #
-    if ( ! $display_metadata_check ) {
-        print "Not performing Metadata checks\n" if $debug;
-        return;
-    }
 
     #
     # Is this URL marked as archived on the web ?
@@ -5024,11 +5150,12 @@ sub Perform_Metadata_Check {
     # Save URL for this document title (if we don't already have one).
     # This is used later when checking accessibility, if a PDF
     # document has a corresponding HTML document, only the HTML is
-    # checked for accessibility.
+    # checked for accessibility.  Save with lowercase title as we
+    # don't care if the case doesn't match, just that the text matches.
     #
     if ( defined($metadata_results{"title"}) ) {
         $result_object = $metadata_results{"title"};
-        $title = $result_object->content;
+        $title = lc($result_object->content);
         if ( ($title ne "") && (! defined($title_html_url{$title})) ) {
             $title_html_url{$title} = $url;
         }
@@ -5058,16 +5185,7 @@ sub Perform_PDF_Properties_Check {
 
     my ($url_status, $key, $status, $message, $result_object);
     my (%pdf_property_results, @pdf_property_results, $output_line);
-    my (%local_metadata_error_url_count);
-    my ($error_message) = "";
-
-    #
-    # Are we displaying Metadata checks ? If not we can skip them.
-    #
-    if ( ! $display_metadata_check ) {
-        print "Not performing PDF properties checks\n" if $debug;
-        return;
-    }
+    my (%local_metadata_error_url_count, $title);
 
     #
     # Is this URL marked as archived on the web ?
@@ -5165,11 +5283,12 @@ sub Perform_PDF_Properties_Check {
     #
     if ( defined($pdf_property_results{"Title"}) ) {
         $result_object = $pdf_property_results{"Title"};
-        $pdf_titles{$url} = $result_object->content;
+        $title = lc($result_object->content);
     }
     else {
-        $pdf_titles{$url} = "";
+        $title = "";
     }
+    $pdf_titles{$url} = $title;
 }
 
 #***********************************************************************
@@ -5191,7 +5310,7 @@ sub Perform_TQA_Check {
     my ($url, $content, $language, $mime_type, $resp) = @_;
 
     my ($url_status, $status, $message, $source_line);
-    my (@tqa_results_list, $result_object, $output_line, $error_message);
+    my (@tqa_results_list, $result_object, $output_line);
     my (%local_tqa_error_url_count, @content_links, $pattern);
     my ($score, $faults, %faults_by_group, $title, $list_ref);
 
@@ -5233,7 +5352,7 @@ sub Perform_TQA_Check {
 
     #
     # Check for rel="alternate" on the link to this document.
-    # If that attribute is present is is an alternate format of
+    # If that attribute is present it is an alternate format of
     # another document and is not subject to accessibility
     # testing.  The check is only carried out for non HTML documents.
     #
@@ -5323,52 +5442,50 @@ sub Perform_TQA_Check {
         # Print results
         #
         if ( $url_status == $tool_error ) {
-            if ( $display_tqa_check ) {
-                #
-                # Print fault count.
-                #
-                Validator_GUI_Print_URL_Fault_Count($acc_tab, $faults, $url);
+            #
+            # Print fault count.
+            #
+            Validator_GUI_Print_URL_Fault_Count($acc_tab, $faults, $url);
 
-                #
-                # Print each of the result objects
-                #
-                foreach $result_object (@tqa_results_list ) {
-                    $status = $result_object->status;
-                    if ( $status != 0 ) {
-                        #
-                        # Increment error instance count
-                        #
-                        if ( ! defined($tqa_error_instance_count{$result_object->description}) ) {
-                            $tqa_error_instance_count{$result_object->description} = 1;
-                        }
-                        else {
-                            $tqa_error_instance_count{$result_object->description}++;
-                        }
-
-                        #
-                        # Set URL error count
-                        #
-                        $local_tqa_error_url_count{$result_object->description} = 1;
-
-                        #
-                        # Print error
-                        #
-                        Validator_GUI_Print_TQA_Result($acc_tab, $result_object);
+            #
+            # Print each of the result objects
+            #
+            foreach $result_object (@tqa_results_list ) {
+                $status = $result_object->status;
+                if ( $status != 0 ) {
+                    #
+                    # Increment error instance count
+                    #
+                    if ( ! defined($tqa_error_instance_count{$result_object->description}) ) {
+                        $tqa_error_instance_count{$result_object->description} = 1;
                     }
-                }
+                    else {
+                        $tqa_error_instance_count{$result_object->description}++;
+                    }
 
-                #
-                # Set global URL error count
-                #
-                foreach (keys %local_tqa_error_url_count) {
-                    $tqa_error_url_count{$_}++;
-                }
+                    #
+                    # Set URL error count
+                    #
+                    $local_tqa_error_url_count{$result_object->description} = 1;
 
-                #
-                # Add blank line in report after URL if we had errors
-                #
-                Validator_GUI_Update_Results($acc_tab, "");
+                    #
+                    # Print error
+                    #
+                    Validator_GUI_Print_TQA_Result($acc_tab, $result_object);
+                }
             }
+
+            #
+            # Set global URL error count
+            #
+            foreach (keys %local_tqa_error_url_count) {
+                $tqa_error_url_count{$_}++;
+            }
+
+            #
+            # Add blank line in report after URL if we had errors
+            #
+            Validator_GUI_Update_Results($acc_tab, "");
         }
     }
 }
@@ -5393,16 +5510,8 @@ sub Perform_CLF_Check {
     my ($url, $content, $language, $mime_type, $resp) = @_;
 
     my ($url_status, $status, $message, $source_line);
-    my (@clf_results_list, $result_object, $output_line, $error_message);
+    my (@clf_results_list, $result_object, $output_line);
     my (%local_clf_error_url_count, @content_links, $pattern);
-
-    #
-    # Are we displaying CLF checks ? If not we can skip them.
-    #
-    if ( ! $display_clf_check ) {
-        print "Not performing CLF checks\n" if $debug;
-        return;
-    }
 
     #
     # Is this URL marked as archived on the web ?
@@ -5522,18 +5631,9 @@ sub Perform_Interop_Check {
     my ($url, $content, $language, $mime_type, $resp) = @_;
 
     my ($url_status, $status, $message, $source_line);
-    my (@interop_results_list, $result_object, $output_line, $error_message);
+    my (@interop_results_list, $result_object, $output_line);
     my (%local_interop_error_url_count, @content_links, $pattern);
     my ($feed_object, $result_object, $title, $key, $list_ref);
-
-    #
-    # Are we displaying Interoperability checks ? If not we can skip them.
-    #
-    if ( ! $display_interop_check ) {
-        print "Not performing Interoperability checks\n" if $debug;
-        return;
-    }
-
 
     #
     # Is this URL marked as archived on the web ?
@@ -5686,16 +5786,8 @@ sub Perform_Department_Check {
     my ( $url, $language, $mime_type, $resp, $content ) = @_;
 
     my ($url_status, $key, $status, $message);
-    my (@content_results_list, $result_object, $output_line, $error_message);
+    my (@content_results_list, $result_object, $output_line);
     my (%local_error_url_count, @headings);
-
-    #
-    # Are we displaying department checks ? If not we can skip them.
-    #
-    if ( ! $display_dept_check ) {
-        print "Not performing department checks\n" if $debug;
-        return;
-    }
 
     #
     # Is this URL marked as archived on the web ?
@@ -5802,15 +5894,6 @@ sub Perform_Feature_Check {
         %html_feature_count, $key, $list_ref);
 
     #
-    # If we are not going to display document feaures, we wont
-    # collect them.
-    #
-    if ( ! $display_doc_features ) {
-        print "Not performing document features check\n" if $debug;
-        return;
-    }
-    
-    #
     # Is this URL archived on the web ? if it is we don't
     # report any document features
     #
@@ -5912,7 +5995,6 @@ sub Perform_Link_Check {
     my ($url_status, $format, $message, $content, @link_results_list);
     my ($n_links, $i, $language, $status, $output_line, $link);
     my ($result_object, $base, %local_link_error_url_count);
-    my ($error_message) = "";
 
     #
     # If we are in CGI mode, skip link checks
@@ -5993,15 +6075,6 @@ sub Perform_Link_Check {
         %all_link_sets = Extract_Links_Subsection_Links("ALL");
 
         #
-        # If we are not displaying Link Check results, we can return here.
-        # No need to spend time to check links.
-        #
-        if ( ! $display_link_check ) {
-            print "Not performing Link Check\n" if $debug;
-            return;
-        }
-
-        #
         # Check links
         #
         print "Check links in URL\n  --> $url\n" if $debug;
@@ -6032,46 +6105,44 @@ sub Perform_Link_Check {
         # Print results if it is a failure.
         #
         if ( $url_status == $tool_error ) {
-            if ( $display_link_check ) {
-                #
-                # Link check failed, set Other Tool Results (to be passed
-                # to CLF Check).
-                #
-                $clf_other_tool_results{"link check"} = 1;
+            #
+            # Link check failed, set Other Tool Results (to be passed
+            # to CLF Check).
+            #
+            $clf_other_tool_results{"link check"} = 1;
 
-                #
-                # Print failures
-                #
-                foreach $result_object (@link_results_list) {
-                    $status = $result_object->status;
-                    if ( defined($status) && ($status != 0) ) {
-                        #
-                        # Increment error instance count
-                        #
-                        if ( ! defined($link_error_instance_count{$result_object->description}) ) {
-                            $link_error_instance_count{$result_object->description} = 1;
-                        }
-                        else {
-                            $link_error_instance_count{$result_object->description}++;
-                        }
-
-                        #
-                        # Set URL error count
-                        #
-                        $local_link_error_url_count{$result_object->description} = 1;
-
-                        #
-                        # Print error
-                        #
-                        Validator_GUI_Print_TQA_Result($link_tab, $result_object);
+            #
+            # Print failures
+            #
+            foreach $result_object (@link_results_list) {
+                $status = $result_object->status;
+                if ( defined($status) && ($status != 0) ) {
+                    #
+                    # Increment error instance count
+                    #
+                    if ( ! defined($link_error_instance_count{$result_object->description}) ) {
+                        $link_error_instance_count{$result_object->description} = 1;
                     }
-                }
+                    else {
+                        $link_error_instance_count{$result_object->description}++;
+                    }
 
-                #
-                # Add blank line in report
-                #
-                Validator_GUI_Update_Results($link_tab, "");
+                    #
+                    # Set URL error count
+                    #
+                    $local_link_error_url_count{$result_object->description} = 1;
+
+                    #
+                    # Print error
+                    #
+                    Validator_GUI_Print_TQA_Result($link_tab, $result_object);
+                }
             }
+
+            #
+            # Add blank line in report
+            #
+            Validator_GUI_Update_Results($link_tab, "");
         }
         else {
             #
@@ -6092,11 +6163,399 @@ sub Perform_Link_Check {
         # Scan the list of links for image links.  Add information such as
         # alt text and title to the list of image links.
         #
-        if ( $display_dept_check ) {
-            Alt_Text_Check_Record_Image_Details(\%image_alt_text_table, $url,
+        Alt_Text_Check_Record_Image_Details(\%image_alt_text_table, $url,
                                                 @links);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Perform_Open_Data_Check
+#
+# Parameters: url - dataset file URL
+#             data_file_type - type of dataset file
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function runs open data checks on the supplied URLs
+#
+#***********************************************************************
+sub Perform_Open_Data_Check {
+    my ( $url, $data_file_type, $resp ) = @_;
+
+    my ($url_status, $format, $message, $content, @results);
+    my ($i, $language, $status, $output_line, $result_object);
+    my ($result_object, $base, %local_open_data_error_url_count);
+    my ($url_count);
+
+    #
+    # Check open data
+    #
+    print "Check open data\n" if $debug;
+    @results = Open_Data_Check($url, $open_data_check_profile,
+                               $data_file_type, $resp, \%open_data_dictionary);
+
+    #
+    # Determine overall URL status
+    #
+    $url_status = $tool_success;
+    foreach $result_object (@results) {
+        if ( $result_object->status != $tool_success ) {
+            #
+            # Open data error, we can stop looking for more errors
+            #
+            $url_status = $tool_error;
+            last;
         }
     }
+
+    #
+    # Increment document & error counters
+    #
+    Increment_Counts_and_Print_URL($open_data_tab, $url,
+                                   ($url_status == $tool_error));
+
+    #
+    # Print results if it is a failure.
+    #
+    if ( $url_status == $tool_error ) {
+        #
+        # Print failures
+        #
+        foreach $result_object (@results) {
+            $status = $result_object->status;
+            if ( defined($status) && ($status != 0) ) {
+                #
+                # Increment error instance count
+                #
+                if ( ! defined($open_data_error_instance_count{$result_object->description}) ) {
+                    $open_data_error_instance_count{$result_object->description} = 1;
+                }
+                else {
+                    $open_data_error_instance_count{$result_object->description}++;
+                }
+
+                #
+                # Set URL error count
+                #
+                $local_open_data_error_url_count{$result_object->description} = 1;
+
+                #
+                # Print error
+                #
+                Validator_GUI_Print_TQA_Result($open_data_tab, $result_object);
+            }
+        }
+
+        #
+        # Add blank line in report
+        #
+        Validator_GUI_Update_Results($open_data_tab, "");
+    }
+
+    #
+    # Set global URL error count
+    #
+    foreach (keys %local_open_data_error_url_count) {
+        $open_data_error_url_count{$_}++;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Callback
+#
+# Parameters: dataset_urls - pointer to table of dataset URLs
+#             report_options - report options hash table
+#
+# Description:
+#
+#   This function is a callback function used by the GUI package to
+# process Open Data URLs.
+#
+#***********************************************************************
+sub Open_Data_Callback {
+    my ($dataset_urls, %report_options) = @_;
+
+    my (@url_list, $i, $key, $value, $resp_url, $resp, $header);
+    my ($data_file_type, $url, @all_urls, $tab);
+
+    #
+    # Initialize tool global variables
+    #
+    print "Open_Data_Callback\n" if $debug;
+    $report_fails_only = $report_options{"report_fails_only"};
+    %open_data_error_url_count = ();
+    %open_data_error_instance_count = ();
+    %open_data_error_url_count = ();
+    %open_data_dictionary = ();
+    Crawler_Abort_Crawl(0);
+
+    #
+    # Ignore robots.txt directives
+    #
+    Crawler_Robots_Handling(0);
+
+    #
+    # Get open data profile name
+    #
+    $open_data_check_profile = $report_options{$open_data_profile_label};
+
+    #
+    # Report header
+    #
+    Print_Results_Header("","");
+
+    #
+    # Loop through the data file types
+    #
+    foreach $data_file_type (@open_data_file_types) {
+        #
+        # Get list of URLs for this file type
+        #
+        if ( defined($$dataset_urls{"$data_file_type"}) ) {
+            @url_list = split(/\n+/, $$dataset_urls{"$data_file_type"});
+
+            #
+            # Process each URL in the list
+            #
+            foreach $url (@url_list) {
+                #
+                # Are we aborting the URL analysis ? Check crawler module flag
+                # in case the abort was called from another thread
+                # (i.e. the UI layer)
+                #
+                if ( Crawler_Abort_Crawl_Status() == 1 ) {
+                    last;
+                }
+
+                #
+                # Ignore blank lines
+                #
+                $url =~ s/\r//g;
+                $url =~ s/^\s+//g;
+                if ( $url =~ /^$/ ) {
+                    next;
+                }
+
+                #
+                # Get the open data file
+                #
+                print "Process open data url $url\n" if $debug;
+                ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
+                push(@all_urls, $url);
+
+                #
+                # Print URL
+                #
+                $document_count{$crawled_urls_tab}++;
+                Validator_GUI_Start_URL($crawled_urls_tab, $url, "", 0,
+                                        $document_count{$crawled_urls_tab});
+
+                #
+                # Perform Open Data checks.
+                #
+                Perform_Open_Data_Check($url, $data_file_type, $resp);
+            }
+        }
+    }
+ 
+    #
+    # Was the crawl aborted ?
+    #
+    if ( Crawler_Abort_Crawl_Status() == 1 ) {
+        #
+        # Add a note to all tabs indicating that analysis was aborted.
+        #
+        foreach $tab ($crawled_urls_tab, $open_data_tab) {
+            Validator_GUI_Update_Results($tab,
+                                         String_Value("Analysis Aborted"),
+                                         0);
+        }
+    }
+
+    #
+    # Site crawl is complete, print sorted list of URLs in URLs tab.
+    #
+    $i = 1;
+    foreach $url (sort(@all_urls)) {
+        Validator_GUI_Update_Results($doc_list_tab, "$i:  $url");
+        $i++;
+    }
+
+    #
+    # Site analysis complete, print report footer
+    #
+    Print_Results_Footer(0);
+}
+
+#***********************************************************************
+#
+# Name: Setup_HTML_Tool_GUI
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function sets up the tool for HTML checking.
+#
+#***********************************************************************
+sub Setup_HTML_Tool_GUI {
+    #
+    # Get report option labels
+    #
+    $link_check_profile_label = String_Value("Link Check Profile");
+    $metadata_profile_label = String_Value("Metadata Profile");
+    $pdf_property_profile_label = String_Value("PDF Property Profile");
+    $tqa_profile_label = String_Value("ACC Testcase Profile");
+    $clf_profile_label = String_Value("CLF Testcase Profile");
+    $interop_profile_label = String_Value("Interop Testcase Profile");
+    $dept_check_profile_label = String_Value("Department Check Testcase Profile");
+    $doc_profile_label = String_Value("Document Features Profile");
+    $robots_label = String_Value("robots.txt handling");
+    @robots_options = (String_Value("Ignore robots.txt"),
+                       String_Value("Respect robots.txt"));
+    $status_401_label = String_Value("401 handling");
+    @status_401_options = (String_Value("Ignore"),
+                           String_Value("Prompt for credentials"));
+    %report_options = ($link_check_profile_label, \@link_check_profiles,
+                       $metadata_profile_label, \@metadata_profiles,
+                       $pdf_property_profile_label, \@pdf_property_profiles,
+                       $tqa_profile_label, \@tqa_check_profiles,
+                       $clf_profile_label, \@clf_check_profiles,
+                       $interop_profile_label, \@interop_check_profiles,
+                       $dept_check_profile_label, \@dept_check_profiles,
+                       $doc_profile_label, \@doc_features_profiles,
+                       $robots_label, \@robots_options,
+                       $status_401_label, \@status_401_options);
+    %report_options_labels = ("link_profile", $link_check_profile_label,
+                              "metadata_profile", $metadata_profile_label,
+                              "pdf_profile", $pdf_property_profile_label,
+                              "tqa_profile", $tqa_profile_label,
+                              "clf_profile", $clf_profile_label,
+                              "interop_profile", $interop_profile_label,
+                              "content_profile", $dept_check_profile_label,
+                              "html_profile", $doc_profile_label,
+                              "robots_handling", $robots_label,
+                              "401_handling", $status_401_label);
+
+    #
+    # Setup the validator GUI
+    #
+    Validator_GUI_Report_Option_Labels(%report_options_labels);
+
+    #
+    # Get label for the various result tabs and the file suffix
+    # when saving results
+    #
+    $crawled_urls_tab = String_Value("Crawled URLs");
+    $results_file_suffixes{$crawled_urls_tab} = "crawl";
+    $validation_tab = String_Value("Validation");
+    $results_file_suffixes{$validation_tab} = "val";
+    $link_tab = String_Value("Link");
+    $results_file_suffixes{$link_tab} = "link";
+    $metadata_tab = String_Value("Metadata");
+    $results_file_suffixes{$metadata_tab} = "meta";
+    $acc_tab = String_Value("ACC");
+    $results_file_suffixes{$acc_tab} = "acc";
+    $clf_tab = String_Value("CLF");
+    $results_file_suffixes{$clf_tab} = "clf";
+    $interop_tab = String_Value("INT");
+    $results_file_suffixes{$interop_tab} = "int";
+    $dept_tab = String_Value("Department");
+    $results_file_suffixes{$dept_tab} = "dept";
+    $doc_features_tab = String_Value("Document Features");
+    $results_file_suffixes{$doc_features_tab} = "feat";
+    $doc_list_tab = String_Value("Document List");
+    $results_file_suffixes{$doc_list_tab} = "urls";
+
+    #
+    # Set results file suffixes
+    #
+    Validator_GUI_Set_Results_File_Suffixes(%results_file_suffixes);
+
+    #
+    # Setup the validator GUI
+    #
+    Validator_GUI_Setup($lang, \&Direct_HTML_Input_Callback,
+                        \&Perform_Site_Crawl, \&URL_List_Callback,
+                        %report_options);
+
+    #
+    # Add result tabs
+    #
+    Validator_GUI_Add_Results_Tab($crawled_urls_tab);
+    Validator_GUI_Add_Results_Tab($validation_tab);
+    Validator_GUI_Add_Results_Tab($link_tab);
+    Validator_GUI_Add_Results_Tab($metadata_tab);
+    Validator_GUI_Add_Results_Tab($acc_tab);
+    Validator_GUI_Add_Results_Tab($clf_tab);
+    Validator_GUI_Add_Results_Tab($interop_tab);
+    Validator_GUI_Add_Results_Tab($dept_tab);
+    Validator_GUI_Add_Results_Tab($doc_features_tab);
+    Validator_GUI_Add_Results_Tab($doc_list_tab);
+
+    #
+    # Set Results Save callback function
+    #
+    Validator_GUI_Set_Results_Save_Callback(\&Results_Save_Callback);
+}
+
+#***********************************************************************
+#
+# Name: Setup_Open_Data_Tool_GUI
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function sets up the tool for Open Data checking.
+#
+#***********************************************************************
+sub Setup_Open_Data_Tool_GUI {
+    #
+    # Get report option labels
+    #
+    $open_data_profile_label = String_Value("Open Data Testcase Profile");
+    %report_options = ($open_data_profile_label,
+                       \@open_data_check_profiles);
+    %report_options_labels = ("open_data_profile", 
+                              $open_data_profile_label);
+
+    #
+    # Setup the validator GUI
+    #
+    Validator_GUI_Report_Option_Labels(%report_options_labels);
+
+    #
+    # Get label for the various result tabs and the file suffix when
+    # saving results
+    #
+    $crawled_urls_tab = String_Value("Crawled URLs");
+    $results_file_suffixes{$crawled_urls_tab} = "crawl";
+    $open_data_tab = String_Value("Open Data");
+    $results_file_suffixes{$open_data_tab} = "od";
+    $doc_list_tab = String_Value("Document List");
+    $results_file_suffixes{$doc_list_tab} = "urls";
+
+    #
+    # Set results file suffixes
+    #
+    Validator_GUI_Set_Results_File_Suffixes(%results_file_suffixes);
+
+    #
+    # Setup the validator GUI for Open Data
+    #
+    Validator_GUI_Open_Data_Setup($lang, \&Open_Data_Callback,
+                                  %report_options);
+
+    #
+    # Add result tabs
+    #
+    Validator_GUI_Add_Results_Tab($crawled_urls_tab);
+    Validator_GUI_Add_Results_Tab($open_data_tab);
+    Validator_GUI_Add_Results_Tab($doc_list_tab);
 }
 
 #***********************************************************************
@@ -6124,9 +6583,6 @@ while ( @ARGV > 0 ) {
         $cli_mode = 1;
         $ui_pm_dir = "CLI"
     }
-    elsif ( $ARGV[0] eq "-content" ) {
-        $content_mode = 1;
-    }
     elsif ( $ARGV[0] eq "-debug" ) {
         $debug = 1;
         $command_line_debug = 1;
@@ -6137,32 +6593,8 @@ while ( @ARGV > 0 ) {
     elsif ( $ARGV[0] eq "-fra" ) {
         $lang = "fra";
     }
-    elsif ( $ARGV[0] eq "-no_acc" ) {
-        $display_tqa_check = 0;
-    }
-    elsif ( $ARGV[0] eq "-no_clf" ) {
-        $display_clf_check = 0;
-    }
-    elsif ( $ARGV[0] eq "-no_cont" ) {
-        $display_dept_check = 0;
-    }
-    elsif ( $ARGV[0] eq "-no_feat" ) {
-        $display_doc_features = 0;
-    }
-    elsif ( $ARGV[0] eq "-no_interop" ) {
-        $display_interop_check = 0;
-    }
-    elsif ( $ARGV[0] eq "-no_link" ) {
-        $display_link_check = 0;
-    }
-    elsif ( $ARGV[0] eq "-no_meta" ) {
-        $display_metadata_check = 0;
-    }
-    elsif ( $ARGV[0] eq "-no_url" ) {
-        $display_document_list = 0;
-    }
-    elsif ( $ARGV[0] eq "-no_val" ) {
-        $display_validation = 0;
+    elsif ( $ARGV[0] eq "-open_data" ) {
+        $open_data_mode = 1;
     }
     else {
         #
@@ -6205,138 +6637,17 @@ if ( $program_dir eq "." ) {
 Initialize;
 
 #
-# Get report option labels
+# Are we setting up for Open Data mode ?
 #
-$link_check_profile_label = String_Value("Link Check Profile");
-$metadata_profile_label = String_Value("Metadata Profile");
-$pdf_property_profile_label = String_Value("PDF Property Profile");
-$tqa_profile_label = String_Value("ACC Testcase Profile");
-$clf_profile_label = String_Value("CLF Testcase Profile");
-$interop_profile_label = String_Value("Interop Testcase Profile");
-$dept_check_profile_label = String_Value("Department Check Testcase Profile");
-$doc_profile_label = String_Value("Document Features Profile");
-$robots_label = String_Value("robots.txt handling");
-@robots_options = (String_Value("Ignore robots.txt"),
-                   String_Value("Respect robots.txt"));
-$status_401_label = String_Value("401 handling");
-@status_401_options = (String_Value("Ignore"),
-                       String_Value("Prompt for credentials"));
-%report_options = ($link_check_profile_label, \@link_check_profiles,
-                   $metadata_profile_label, \@metadata_profiles,
-                   $pdf_property_profile_label, \@pdf_property_profiles,
-                   $tqa_profile_label, \@tqa_check_profiles,
-                   $clf_profile_label, \@clf_check_profiles,
-                   $interop_profile_label, \@interop_check_profiles,
-                   $dept_check_profile_label, \@dept_check_profiles,
-                   $doc_profile_label, \@doc_features_profiles,
-                   $robots_label, \@robots_options,
-                   $status_401_label, \@status_401_options);
-%report_options_labels = ("link_profile", $link_check_profile_label,
-                          "metadata_profile", $metadata_profile_label,
-                          "pdf_profile", $pdf_property_profile_label,
-                          "tqa_profile", $tqa_profile_label,
-                          "clf_profile", $clf_profile_label,
-                          "interop_profile", $interop_profile_label,
-                          "content_profile", $dept_check_profile_label,
-                          "html_profile", $doc_profile_label,
-                          "robots_handling", $robots_label,
-                          "401_handling", $status_401_label);
-
+if ( $open_data_mode ) {
+    Setup_Open_Data_Tool_GUI();
+}
 #
-# Setup the validator GUI
+# Setup for HTML testing
 #
-Validator_GUI_Report_Option_Labels(%report_options_labels);
-
-#
-# Get label for the various result tabs and the file suffix when saving results
-#
-$crawled_urls_tab = String_Value("Crawled URLs");
-$results_file_suffixes{$crawled_urls_tab} = "crawl";
-if ( $display_validation )  {
-    $validation_tab = String_Value("Validation");
-    $results_file_suffixes{$validation_tab} = "val";
+else {
+    Setup_HTML_Tool_GUI();
 }
-if ( $display_link_check )  {
-    $link_tab = String_Value("Link");
-    $results_file_suffixes{$link_tab} = "link";
-}
-if ( $display_metadata_check )  {
-    $metadata_tab = String_Value("Metadata");
-    $results_file_suffixes{$metadata_tab} = "meta";
-}
-if ( $display_tqa_check )  {
-    $acc_tab = String_Value("ACC");
-    $results_file_suffixes{$acc_tab} = "acc";
-}
-if ( $display_clf_check )  {
-    $clf_tab = String_Value("CLF");
-    $results_file_suffixes{$clf_tab} = "clf";
-}
-if ( $display_interop_check )  {
-    $interop_tab = String_Value("INT");
-    $results_file_suffixes{$interop_tab} = "int";
-}
-if ( $display_dept_check )  {
-    $dept_tab = String_Value("Department");
-    $results_file_suffixes{$dept_tab} = "dept";
-}
-if ( $display_doc_features )  {
-    $doc_features_tab = String_Value("Document Features");
-    $results_file_suffixes{$doc_features_tab} = "feat";
-}
-if ( $display_document_list )  {
-    $doc_list_tab = String_Value("Document List");
-    $results_file_suffixes{$doc_list_tab} = "urls";
-}
-
-#
-# Set results file suffixes
-#
-Validator_GUI_Set_Results_File_Suffixes(%results_file_suffixes);
-
-#
-# Setup the validator GUI
-#
-Validator_GUI_Setup($lang, \&Direct_HTML_Input_Callback,
-                    \&Perform_Site_Crawl, \&URL_List_Callback,
-                    %report_options);
-
-#
-# Add result tabs
-#
-Validator_GUI_Add_Results_Tab($crawled_urls_tab);
-if ( $display_validation ) {
-    Validator_GUI_Add_Results_Tab($validation_tab);
-}
-if ( $display_link_check ) {
-    Validator_GUI_Add_Results_Tab($link_tab);
-}
-if ( $display_metadata_check ) {
-    Validator_GUI_Add_Results_Tab($metadata_tab);
-}
-if ( $display_tqa_check ) {
-    Validator_GUI_Add_Results_Tab($acc_tab);
-}
-if ( $display_clf_check ) {
-    Validator_GUI_Add_Results_Tab($clf_tab);
-}
-if ( $display_interop_check ) {
-    Validator_GUI_Add_Results_Tab($interop_tab);
-}
-if ( $display_dept_check ) {
-    Validator_GUI_Add_Results_Tab($dept_tab);
-}
-if ( $display_doc_features ) {
-    Validator_GUI_Add_Results_Tab($doc_features_tab);
-}
-if ( $display_document_list ) {
-    Validator_GUI_Add_Results_Tab($doc_list_tab);
-}
-
-#
-# Set Results Save callback function
-#
-Validator_GUI_Set_Results_Save_Callback(\&Results_Save_Callback);
 
 #
 # Start the GUI

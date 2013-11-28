@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6229 $
+# $Revision: 6432 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2013-03-20 11:27:59 -0400 (Wed, 20 Mar 2013) $
+# $Date: 2013-11-08 11:52:59 -0500 (Fri, 08 Nov 2013) $
 #
 # Description:
 #
@@ -40,6 +40,7 @@
 #     Validator_GUI_401_Login
 #     Validator_GUI_Debug
 #     Validator_GUI_Report_Option_Labels
+#     Validator_GUI_Open_Data_Setup
 #
 # Terms and Conditions of Use
 # 
@@ -115,6 +116,7 @@ BEGIN {
                   Validator_GUI_401_Login
                   Validator_GUI_Debug
                   Validator_GUI_Report_Option_Labels
+                  Validator_GUI_Open_Data_Setup
                   );
     $VERSION = "1.0";
 }
@@ -128,7 +130,7 @@ BEGIN {
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($content_callback, $site_crawl_callback, $stop_on_errors);
 my ($url_list_callback, $version, %default_report_options);
-my (%report_options_labels, $results_file_name);
+my (%report_options_labels, $results_file_name, $open_data_callback);
 my (%results_file_suffixes, $first_results_tab);
 my (%login_credentials, $results_save_callback);
 my (%url_401_user, %url_401_password);
@@ -1106,7 +1108,36 @@ sub Run_Site_Crawl {
         print "Return from site_crawl_callback\n" if $debug;
     }
     else {
-        print "Error: Missing craller callback function in Run_Site_Crawl\n";
+        print "Error: Missing crawller callback function in Run_Site_Crawl\n";
+        exit(1);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Run_Open_Data_Callback
+#
+# Parameters: address of hash table of dataset URLs
+#             report_options - a hash table of report option values
+#
+# Description:
+#
+#   This function calls the Open Data callback function
+#
+#***********************************************************************
+sub Run_Open_Data_Callback {
+    my ($dataset_urls, %report_options) = @_;
+
+    #
+    # Call the Open Data callback function
+    #
+    print "Child: Call open_data_callback\n" if $debug;
+    if ( defined($open_data_callback) ) {
+        &$open_data_callback($dataset_urls, %report_options);
+        print "Child: Return from open_data_callback\n" if $debug;
+    }
+    else {
+        print "Error: Missing Open Data callback function in Run_Site_Crawl\n";
         exit(1);
     }
 }
@@ -1669,9 +1700,7 @@ sub Read_Crawl_File {
     #
     if ( $crawl_details{"sitedire"} eq "" ) {
         print "Missing English Site Directory field\n";
-    }
-    elsif ( $crawl_details{"siteentrye"} eq "" ) {
-        print "Missing English Entry Page field\n";
+        exit(1);
     }
 
     #
@@ -1991,7 +2020,7 @@ sub Read_HTML_File {
 sub Read_Login_Credentials_File {
     my ($login_file) = @_;
 
-    my ($line,@fields, $field_name, $field_value);
+    my ($line, @fields, $field_name, $field_value);
 
     #
     # Open the HTML file
@@ -2048,6 +2077,139 @@ sub Read_Login_Credentials_File {
 
 #***********************************************************************
 #
+# Name: Read_Open_Data_File
+#
+# Parameters: open_data_file - path of open data dataset file
+#
+# Description:
+#
+#   This function reads the open data file to get the set of dataset URLs.
+#
+#***********************************************************************
+sub Read_Open_Data_File {
+    my ($open_data_file) = @_;
+
+    my (%report_options, $line, $field_name, $value, %dataset_urls);
+    my ($data_list, $dictionary_list, $resource_list, $tab, $suffix);
+    my ($key);
+
+    #
+    # Copy in default report options
+    #
+    foreach $key (keys(%default_report_options)) {
+        $report_options{$key} = $default_report_options{$key};
+    }
+
+    #
+    # Report failures only
+    #
+    $report_options{"report_fails_only"} = 1;
+
+    #
+    # Open the url file
+    #
+    print "Read_Open_Data_File, file name = $open_data_file\n" if $debug;
+    if ( ! open (OPEN_DATA_FILE, "$open_data_file") ) {
+        print "Error: Failed to open file $open_data_file\n";
+        exit(1);
+    }
+
+    #
+    # Read all lines from the file looking for the configuration
+    # parameters
+    #
+    while ( $line = <OPEN_DATA_FILE> ) {
+        chomp($line);
+
+        #
+        # Ignore blank and comment lines
+        #
+        if ( $line =~ /^$/ ) {
+            next;
+        }
+        elsif ( $line =~ /^\s+#/ ) {
+            next;
+        }
+
+        #
+        # Split line into 2 parts, configuration parameter, value
+        #
+        ($field_name, $value) = split(/\s+/, $line, 2);
+
+        #
+        # Do we have a value ?
+        #
+        if ( ! defined($value) ) {
+            next;
+        }
+
+        #
+        # Check configuration field name
+        #
+        if ( defined($default_report_options{$field_name}) ) {
+            $report_options{$field_name} = $value;
+            print "Set configuration selector $field_name to $value\n" if $debug;
+        }
+        #
+        # Data file URL ?
+        #
+        elsif ( $field_name =~ /^DATA$/i ) {
+            $data_list .=  "$value\r\n";
+        }
+        #
+        # Dictionary file URL ?
+        #
+        elsif ( $field_name =~ /^DICTIONARY$/i ) {
+            $dictionary_list .=  "$value\r\n";
+        }
+        #
+        # Resource file URL ?
+        #
+        elsif ( $field_name =~ /^RESOURCE$/i ) {
+            $resource_list .=  "$value\r\n";
+        }
+        #
+        # Is an output file specified
+        #
+        elsif ( $field_name eq "output_file" ) {
+            if ( $value ne "" ) {
+                #
+                # It is possible that the user selected an existing
+                # results file.  We have to strip of the results suffix
+                # to get the base file name.
+                #
+                $value =~ s/\.txt$//;
+                $value =~ s/\.xml$//;
+                while ( ($tab, $suffix) = each %results_file_suffixes ) {
+                    $value =~ s/_$suffix$//;
+                }
+                $results_file_name = $value;
+            }
+        }
+    }
+    close(FILE);
+
+    #
+    # Save dataset URLs
+    #
+    if ( defined($data_list) ) {
+        $dataset_urls{"DATA"} = $data_list;
+    }    
+    if ( defined($dictionary_list) ) {
+        $dataset_urls{"DICTIONARY"} = $dictionary_list;
+    }    
+    if ( defined($resource_list) ) {
+        $dataset_urls{"RESOURCE"} = $resource_list;
+    }    
+
+    #
+    # Return URLs and report options
+    #
+    return(\%dataset_urls, %report_options);
+}
+
+#***********************************************************************
+#
 # Name: Validator_GUI_Start
 #
 # Parameters: args - argument list
@@ -2062,6 +2224,7 @@ sub Validator_GUI_Start {
     
     my ($urls, %report_options, $url_file, $crawl_file, $arg, %crawl_details);
     my ($crawl_limit, $html_file, $content, $login_credentials_file);
+    my ($open_data_file, $dataset_urls);
     
     #
     # Check argument list
@@ -2129,6 +2292,22 @@ sub Validator_GUI_Start {
             }
             else {
                 print "Error: Missing file name after -login\n";
+                exit(1);
+            }
+        }
+        #
+        # Look for -o <open data file>
+        #
+        elsif ( $arg eq "-o" ) {
+            #
+            # Do we have a pathname ?
+            #
+            if ( @args > 0 ) {
+                $open_data_file = shift(@args);
+                print "Got Open Data file $open_data_file\n" if $debug;
+            }
+            else {
+                print "Error: Missing path after -o\n";
                 exit(1);
             }
         }
@@ -2211,6 +2390,82 @@ sub Validator_GUI_Start {
         # Analyse the block of HTML code
         #
         Run_Direct_HTML_Input_Callback($content, %report_options);
+    }
+    #
+    # Are we in open data mode ?
+    #
+    elsif ( defined($open_data_file) ) {
+        #
+        # Get list of URLs from the file and reporting options
+        #
+        ($dataset_urls, %report_options) = Read_Open_Data_File($open_data_file);
+
+        #
+        # Analyse the dataset URLs
+        #
+        Run_Open_Data_Callback($dataset_urls, %report_options);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Validator_GUI_Open_Data_Setup
+#
+# Parameters: lang - the language of the display
+#             open_data_callback_fn - call back function
+#             report_options - a table of report options
+#
+# Description:
+#
+#   This function creates a GUI for the open data mode of the WPSS
+# validation tool.  It creates the main dialog and presents it to the user.
+#
+#   The callback functions are called when one of the GUI validation
+# buttons are selected. The callback can be used by clients to run
+# the validation on either an entire site or pasted content.
+#
+# The open data callback prototype is
+#  callback($url_list, %report_options)
+#    where url_list is the list of urls to process
+#          report_options - a hash table of report option values
+#
+#***********************************************************************
+sub Validator_GUI_Open_Data_Setup {
+    my ($lang, $open_data_callback_fn, %report_options) = @_;
+
+    my ($key, $value);
+
+    #
+    # Save callback function addresses
+    #
+    $open_data_callback = $open_data_callback_fn;
+
+    #
+    # Save default report options
+    #
+    while ( ($key, $value) = each %report_options ) {
+        #
+        # Save the first value in the report options list as
+        # the default
+        #
+        $default_report_options{$key} = $$value[0];
+        print "Default report option for $key = " . $$value[0] . "\n" if $debug;
+    }
+
+    #
+    # Set message strings language.
+    #
+    if ( $lang eq "fra" ) {
+        #
+        # Results in French
+        #
+        $string_table = \%string_table_fr;
+    }
+    else {
+        #
+        # Results in English
+        #
+        $string_table = \%string_table_en;
     }
 }
 
