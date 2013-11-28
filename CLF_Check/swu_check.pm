@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 6369 $
+# $Revision: 6390 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2013-08-21 08:59:39 -0400 (Wed, 21 Aug 2013) $
+# $Date: 2013-10-03 15:16:15 -0400 (Thu, 03 Oct 2013) $
 #
 # Description:
 #
@@ -157,15 +157,9 @@ my (%testcase_data_objects);
 my (%breadcrumb_link_hrefs, 
     %breadcrumb_optional_links, %breadcrumb_optional_link_hrefs);
 my ($date_modified_metadata_value);
-my (%terms_cond_footer_links, %terms_cond_footer_link_hrefs);
 my (%site_footer_optional_links, %site_footer_optional_link_hrefs);
 my (%gc_footer_optional_links, %gc_footer_optional_link_hrefs);
-my (%splash_header_images, %splash_lang_images,
-    %splash_lang_links, %splash_lang_hrefs,
-    %splash_footer_links, %splash_footer_hrefs);
-my (%server_header_images,
-    %server_content_links, %server_content_hrefs,
-    %server_footer_links, %server_footer_hrefs);
+my (%splash_footer_hrefs);
 
 #
 # Status values
@@ -1164,7 +1158,7 @@ sub Splash_Page_Testcase_Data {
     my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
-    my (@href_list);
+    my (@href_list, $hash);
 
     #
     # Extract the language, subsection type and text from the data
@@ -1179,14 +1173,25 @@ sub Splash_Page_Testcase_Data {
         # Is this image alt text ?
         #
         if ( $type eq "IMAGE_ALT" ) {
-            if ( ! defined($splash_header_images{$lang}) ) {
-                $splash_header_images{$lang} = \@empty_list;
+            #
+            # Get hash table of splash page image alt values
+            #
+            if ( ! ($object->has_field("splash_header_images")) ) {
+                $object->add_field("splash_header_images", "hash");
+            }
+            $hash = $object->get_field("splash_header_images");
+
+            #
+            # Do we have a list of image alt text details yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
-            # Save alt text details
+            # Save image alt text details
             #
-            $list_addr = $splash_header_images{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
     }
@@ -1198,22 +1203,44 @@ sub Splash_Page_Testcase_Data {
         # Is this a language link ?
         #
         if ( $type eq "LINK" ) {
-            if ( ! defined($splash_lang_links{$lang}) ) {
-                $splash_lang_links{$lang} = \@empty_list;
+            #
+            # Get hash table of splash page link href values
+            #
+            if ( ! ($object->has_field("splash_lang_links")) ) {
+                $object->add_field("splash_lang_links", "hash");
+            }
+            $hash = $object->get_field("splash_lang_links");
+
+            #
+            # Do we have a list of hrefs yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $splash_lang_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
         #
         # Is this an href value ?
         #
         elsif ( $type eq "HREF" ) {
-            if ( ! defined($splash_lang_hrefs{$lang}) ) {
-                $splash_lang_hrefs{$lang} = \@empty_list;
+            #
+            # Get hash table of splash page link href values
+            #
+            if ( ! ($object->has_field("splash_lang_hrefs")) ) {
+                $object->add_field("splash_lang_hrefs", "hash");
+            }
+            $hash = $object->get_field("splash_lang_hrefs");
+
+            #
+            # Do we have a list of hrefs yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
@@ -1224,21 +1251,32 @@ sub Splash_Page_Testcase_Data {
             #
             # Save link text details
             #
-            $list_addr = $splash_lang_hrefs{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, \@href_list);
         }
         #
         # Is this image alt text ?
         #
         elsif ( $type eq "IMAGE_ALT" ) {
-            if ( ! defined($splash_lang_images{$lang}) ) {
-                $splash_lang_images{$lang} = \@empty_list;
+            #
+            # Get hash table of splash page image alt values
+            #
+            if ( ! ($object->has_field("splash_lang_images")) ) {
+                $object->add_field("splash_lang_images", "hash");
+            }
+            $hash = $object->get_field("splash_lang_images");
+
+            #
+            # Do we have a list of image alt text details yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
-            # Save alt text details
+            # Save image alt text details
             #
-            $list_addr = $splash_lang_images{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
     }
@@ -1250,22 +1288,44 @@ sub Splash_Page_Testcase_Data {
         # Is this link text ?
         #
         if ( $type eq "LINK" ) {
-            if ( ! defined($splash_footer_links{$lang}) ) {
-                $splash_footer_links{$lang} = \@empty_list;
+            #
+            # Get hash table of splash page link href values
+            #
+            if ( ! ($object->has_field("splash_footer_links")) ) {
+                $object->add_field("splash_footer_links", "hash");
+            }
+            $hash = $object->get_field("splash_footer_links");
+
+            #
+            # Do we have a list of hrefs yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $splash_footer_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
         #
         # Is this an href value ?
         #
         elsif ( $type eq "HREF" ) {
-            if ( ! defined($splash_footer_hrefs{$lang}) ) {
-                $splash_footer_hrefs{$lang} = \@empty_list;
+            #
+            # Get hash table of splash page link href values
+            #
+            if ( ! ($object->has_field("splash_footer_hrefs")) ) {
+                $object->add_field("splash_footer_hrefs", "hash");
+            }
+            $hash = $object->get_field("splash_footer_hrefs");
+
+            #
+            # Do we have a list of hrefs yet ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
@@ -1276,7 +1336,7 @@ sub Splash_Page_Testcase_Data {
             #
             # Save link text details
             #
-            $list_addr = $splash_footer_hrefs{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, \@href_list);
         }
     }
@@ -1300,7 +1360,7 @@ sub Server_Page_Testcase_Data {
     my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
-    my (@href_list);
+    my (@href_list, $hash);
 
     #
     # Extract the language, subsection type and text from the data
@@ -1315,14 +1375,25 @@ sub Server_Page_Testcase_Data {
         # Is this image alt text ?
         #
         if ( $type eq "IMAGE_ALT" ) {
-            if ( ! defined($server_header_images{$lang}) ) {
-                $server_header_images{$lang} = \@empty_list;
+            #
+            # Get hash table of server apge header image alt text
+            #
+            if ( ! ($object->has_field("server_header_images")) ) {
+                $object->add_field("server_header_images", "hash");
+            }
+            $hash = $object->get_field("server_header_images");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save alt text details
             #
-            $list_addr = $server_header_images{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
     }
@@ -1334,22 +1405,44 @@ sub Server_Page_Testcase_Data {
         # Is this a language link ?
         #
         if ( $type eq "LINK" ) {
-            if ( ! defined($server_content_links{$lang}) ) {
-                $server_content_links{$lang} = \@empty_list;
+            #
+            # Get hash table of server page content links
+            #
+            if ( ! ($object->has_field("server_content_links")) ) {
+                $object->add_field("server_content_links", "hash");
+            }
+            $hash = $object->get_field("server_content_links");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $server_content_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
         #
         # Is this an href value ?
         #
         elsif ( $type eq "HREF" ) {
-            if ( ! defined($server_content_hrefs{$lang}) ) {
-                $server_content_hrefs{$lang} = \@empty_list;
+            #
+            # Get hash table of server page content link hrefs
+            #
+            if ( ! ($object->has_field("server_content_hrefs")) ) {
+                $object->add_field("server_content_hrefs", "hash");
+            }
+            $hash = $object->get_field("server_content_hrefs");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
@@ -1360,7 +1453,7 @@ sub Server_Page_Testcase_Data {
             #
             # Save link text details
             #
-            $list_addr = $server_content_hrefs{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, \@href_list);
         }
     }
@@ -1372,22 +1465,44 @@ sub Server_Page_Testcase_Data {
         # Is this link text ?
         #
         if ( $type eq "LINK" ) {
-            if ( ! defined($server_footer_links{$lang}) ) {
-                $server_footer_links{$lang} = \@empty_list;
+            #
+            # Get hash table of server page footer links
+            #
+            if ( ! ($object->has_field("server_footer_links")) ) {
+                $object->add_field("server_footer_links", "hash");
+            }
+            $hash = $object->get_field("server_footer_links");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
             # Save link text details
             #
-            $list_addr = $server_footer_links{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, $text);
         }
         #
         # Is this an href value ?
         #
         elsif ( $type eq "HREF" ) {
-            if ( ! defined($server_footer_hrefs{$lang}) ) {
-                $server_footer_hrefs{$lang} = \@empty_list;
+            #
+            # Get hash table of server page footer link hrefs
+            #
+            if ( ! ($object->has_field("server_footer_hrefs")) ) {
+                $object->add_field("server_footer_hrefs", "hash");
+            }
+            $hash = $object->get_field("server_footer_hrefs");
+
+            #
+            # Do we have a language specific list already ?
+            #
+            if ( ! defined($$hash{$lang}) ) {
+                $$hash{$lang} = \@empty_list;
             }
 
             #
@@ -1398,7 +1513,7 @@ sub Server_Page_Testcase_Data {
             #
             # Save link text details
             #
-            $list_addr = $server_footer_hrefs{$lang};
+            $list_addr = $$hash{$lang};
             push(@$list_addr, \@href_list);
         }
     }
@@ -5101,7 +5216,8 @@ sub Check_Terms_and_Conditions_Links {
     #
     # Check Terms and Conditions Footer links if we have a set of expected links
     #
-    if ( defined($terms_cond_footer_links{$language}) ) {
+    if ( defined($terms_cond_footer_links) &&
+         defined($$terms_cond_footer_links{$language}) ) {
         Check_Expected_Links($url, $list_addr, $expected_link_list_addr,
                              $expected_href_list_addr, $optional_link_list_addr,
                              $optional_href_list_addr, "SWU_E2.2.7",
@@ -5564,6 +5680,7 @@ sub Check_Expected_Link_Set {
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             profile - testcase profile
 #
 # Description:
 #
@@ -5572,12 +5689,26 @@ sub Check_Expected_Link_Set {
 #
 #***********************************************************************
 sub Check_Splash_Page_Links {
-    my ($url, $language, $link_sets) = @_;
+    my ($url, $language, $link_sets, $profile) = @_;
 
     my ($list_addr, $expected_link_list_addr, @empty_list);
     my ($expected_href_list_addr, $optional_link_list_addr);
     my ($optional_href_list_addr, @links, @hrefs);
     my ($anchor, $lang, $href, @actual_links, $link, $list);
+    my ($object, $splash_header_images, $splash_lang_images);
+    my ($splash_lang_links, $splash_lang_hrefs, $splash_footer_links);
+    my ($splash_footer_hrefs);
+
+    #
+    # Get splash page links
+    #
+    $object = $testcase_data_objects{$profile};
+    $splash_header_images = $object->get_field("splash_header_images");
+    $splash_lang_images = $object->get_field("splash_lang_images");
+    $splash_lang_links = $object->get_field("splash_lang_links");
+    $splash_lang_hrefs = $object->get_field("splash_lang_hrefs");
+    $splash_footer_links = $object->get_field("splash_footer_links");
+    $splash_footer_hrefs = $object->get_field("splash_footer_hrefs");
 
     #
     # Do we have language links ?
@@ -5595,11 +5726,15 @@ sub Check_Splash_Page_Links {
     # Create a list of the splash page links and href values.
     # We don't care about the order.
     #
-    while ( ($lang, $anchor) = each %splash_lang_links ) {
-        push(@links, $$anchor[0]);
+    if ( defined($splash_lang_links) ) {
+        while ( ($lang, $anchor) = each %$splash_lang_links ) {
+            push(@links, $$anchor[0]);
+        }
     }
-    while ( ($lang, $href) = each %splash_lang_hrefs ) {
-        push(@hrefs, $$href[0]);
+    if ( defined($splash_lang_hrefs) ) {
+        while ( ($lang, $href) = each %$splash_lang_hrefs ) {
+            push(@hrefs, $$href[0]);
+        }
     }
 
     #
@@ -5636,9 +5771,10 @@ sub Check_Splash_Page_Links {
     #
     # Check header images if we have a set of expected images
     #
-    if ( defined($splash_header_images{$lang}) ) {
+    if ( defined($splash_header_images) &&
+         defined($$splash_header_images{$lang}) ) {
             print "Check header images\n" if $debug;
-        $expected_link_list_addr = $splash_header_images{$lang};
+        $expected_link_list_addr = $$splash_header_images{$lang};
         Check_Expected_Images($url, $list_addr, $expected_link_list_addr,
                               "SWU_E2.4", String_Value("Splash page header"));
     }
@@ -5659,9 +5795,10 @@ sub Check_Splash_Page_Links {
     #
     # Check language selection images if we have a set of expected images
     #
-    if ( defined($splash_lang_images{$lang}) ) {
+    if ( defined($splash_lang_images) &&
+         defined($$splash_lang_images{$lang}) ) {
             print "Check language selection images\n" if $debug;
-        $expected_link_list_addr = $splash_lang_images{$lang};
+        $expected_link_list_addr = $$splash_lang_images{$lang};
         Check_Expected_Images($url, $list_addr, $expected_link_list_addr,
                               "SWU_E2.4", String_Value("Body images"));
     }
@@ -5690,15 +5827,17 @@ sub Check_Splash_Page_Links {
     foreach $link (@actual_links) {
         print "Link language order, lang = " . $link->lang .
               "\n" if $debug;
-        if ( defined($splash_footer_links{$link->lang}) ) {
-            $list = $splash_footer_links{$link->lang};
+        if ( defined($splash_footer_links) &&
+             defined($$splash_footer_links{$link->lang}) ) {
+            $list = $$splash_footer_links{$link->lang};
             foreach (@$list) {
                 print "Add to footer links " . $_ . "\n" if $debug;
                 push(@links, $_);
             }
         }
-        if ( defined($splash_footer_hrefs{$link->lang}) ) {
-            $list = $splash_footer_hrefs{$link->lang};
+        if ( defined($splash_footer_hrefs) &&
+             defined($$splash_footer_hrefs{$link->lang}) ) {
+            $list = $$splash_footer_hrefs{$link->lang};
             foreach (@$list) {
                 print "Add to footer hrefs " . $_ . "\n" if $debug;
                 push(@hrefs, $_);
@@ -5723,6 +5862,7 @@ sub Check_Splash_Page_Links {
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             profile - testcase profile
 #
 # Description:
 #
@@ -5731,12 +5871,25 @@ sub Check_Splash_Page_Links {
 #
 #***********************************************************************
 sub Check_Server_Page_Links {
-    my ($url, $language, $link_sets) = @_;
+    my ($url, $language, $link_sets, $profile) = @_;
 
     my ($list_addr, $expected_link_list_addr, @empty_list);
     my ($expected_href_list_addr, $optional_link_list_addr);
     my ($optional_href_list_addr, @links, @hrefs, @language_order);
     my ($anchor, $lang, $href, @actual_links, $link, $list);
+    my ($object, $server_header_images, $server_content_links);
+    my ($server_content_hrefs, $server_footer_links);
+    my ($server_footer_hrefs);
+
+    #
+    # Get server page header image alt text
+    #
+    $object = $testcase_data_objects{$profile};
+    $server_header_images = $object->get_field("server_header_images");
+    $server_content_links = $object->get_field("server_content_links");
+    $server_content_hrefs = $object->get_field("server_content_hrefs");
+    $server_footer_links = $object->get_field("server_footer_links");
+    $server_footer_hrefs = $object->get_field("server_footer_hrefs");
 
     #
     # Do we have a left site title link ? This is mandatory.
@@ -5807,9 +5960,10 @@ sub Check_Server_Page_Links {
     #
     # Check header images if we have a set of expected images
     #
-    if ( defined($server_header_images{$lang}) ) {
+    if ( defined($server_header_images) &&
+         defined($$server_header_images{$lang}) ) {
             print "Check header images\n" if $debug;
-        $expected_link_list_addr = $server_header_images{$lang};
+        $expected_link_list_addr = $$server_header_images{$lang};
         Check_Expected_Images($url, $list_addr, $expected_link_list_addr,
                               "SWU_E2.5", String_Value("Server message page header"));
     }
@@ -5836,16 +5990,18 @@ sub Check_Server_Page_Links {
     @links = ();
     @hrefs = ();
     foreach $lang (@language_order) {
-        if ( defined($server_content_links{$lang}) ) {
+        if ( defined($server_content_links) &&
+             defined($$server_content_links{$lang}) ) {
             print "Add $lang server content links\n" if $debug;
-            $list = $server_content_links{$lang};
+            $list = $$server_content_links{$lang};
             foreach (@$list) {
                 print "Add to content links " . $_ . "\n" if $debug;
                 push(@links, $_);
             }
         }
-        if ( defined($server_content_hrefs{$lang}) ) {
-            $list = $server_content_hrefs{$lang};
+        if ( defined($server_content_hrefs) &&
+             defined($$server_content_hrefs{$lang}) ) {
+            $list = $$server_content_hrefs{$lang};
             foreach (@$list) {
                 print "Add to content hrefs " . $_ . "\n" if $debug;
                 push(@hrefs, $_);
@@ -5880,16 +6036,18 @@ sub Check_Server_Page_Links {
     @links = ();
     @hrefs = ();
     foreach $lang (@language_order) {
-        if ( defined($server_footer_links{$lang}) ) {
+        if ( defined($server_footer_links) &&
+             defined($$server_footer_links{$lang}) ) {
             print "Add $lang server footer links\n" if $debug;
-            $list = $server_footer_links{$lang};
+            $list = $$server_footer_links{$lang};
             foreach (@$list) {
                 print "Add to footer links " . $_ . "\n" if $debug;
                 push(@links, $_);
             }
         }
-        if ( defined($server_footer_hrefs{$lang}) ) {
-            $list = $server_footer_hrefs{$lang};
+        if ( defined($server_footer_hrefs) &&
+             defined($$server_footer_hrefs{$lang}) ) {
+            $list = $$server_footer_hrefs{$lang};
             foreach (@$list) {
                 print "Add to footer hrefs " . $_ . "\n" if $debug;
                 push(@hrefs, $_);
@@ -6414,14 +6572,14 @@ sub SWU_Check_Links {
         #
         # Check splash page links
         #
-        Check_Splash_Page_Links($url, $language, $link_sets);
+        Check_Splash_Page_Links($url, $language, $link_sets, $profile);
         $page_type = "SPLASH_PAGE";
     }
     elsif ( defined($content_subsection_found{"SERVER_DECORATION"}) ) {
         #
         # Check server page links
         #
-        Check_Server_Page_Links($url, $language, $link_sets);
+        Check_Server_Page_Links($url, $language, $link_sets, $profile);
         $page_type = "SERVER_PAGE";
     }
     elsif ( defined($content_subsection_found{"PRIORITIES"}) ) {
