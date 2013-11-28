@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6375 $
+# $Revision: 6440 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2013-08-28 09:18:33 -0400 (Wed, 28 Aug 2013) $
+# $Date: 2013-11-20 14:15:18 -0500 (Wed, 20 Nov 2013) $
 #
 # Description:
 #
@@ -1304,7 +1304,7 @@ sub TQA_Check_Links {
         $site_navigation_links) = @_;
 
     my ($result_object, @local_tqa_results_list, $nav_link_addr);
-    my ($link, $list_addr, $section, @navigation_links);
+    my ($link, $list_addr, $section, @navigation_links, @content_sections);
 
     #
     # Do we have a valid profile ?
@@ -1406,7 +1406,10 @@ sub TQA_Check_Links {
     #
     # Check for consistent labelling in content section links.
     #
-    foreach $section (Content_Subsection_Names("CONTENT")) {
+    print "Check for consistent content link labeling\n" if $debug;
+    @content_sections = Content_Subsection_Names("CONTENT");
+    push(@content_sections, "BODY");
+    foreach $section (@content_sections) {
         if ( defined($$link_sets{$section}) ) {
             $list_addr = $$link_sets{$section};
             Check_Link_Anchor_Alt_Title_Check($url, $profile, @$list_addr);
