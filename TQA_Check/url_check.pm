@@ -2,9 +2,9 @@
 #
 # Name:   url_check.pm
 #
-# $Revision: 6361 $
+# $Revision: 6510 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/url_check.pm $
-# $Date: 2013-08-16 12:27:22 -0400 (Fri, 16 Aug 2013) $
+# $Date: 2013-12-13 15:15:04 -0500 (Fri, 13 Dec 2013) $
 #
 # Description:
 #
@@ -724,7 +724,7 @@ sub URL_Check_Get_English_URL {
 sub URL_Check_Make_URL_Absolute {
     my ($url, $base) = @_;
 
-    my ($protocol, $domain, $dir, $query);
+    my ($protocol, $domain, $dir, $query, $new_url);
 
     #
     # Check for mailto:, javascript:, or ftp: links.  These are cannot be
@@ -781,12 +781,12 @@ sub URL_Check_Make_URL_Absolute {
     #
     # Convert relative URL into absolute
     #
-    $url = url($url, $base)->abs;
+    $new_url = url($url, $base)->abs;
 
     #
     # Parse the absolute URL
     #
-    ($protocol, $domain, $dir, $query, $url) = URL_Check_Parse_URL($url);
+    ($protocol, $domain, $dir, $query, $new_url) = URL_Check_Parse_URL($new_url);
 
     #
     # Remove any leading ../ from the directory portion
@@ -796,20 +796,27 @@ sub URL_Check_Make_URL_Absolute {
     }
 
     #
+    # If we did not construct a new URL, return the original URL
+    #
+    if ( $new_url eq "" ) {
+        print "Cannot generate absolute URL from $url\n" if $debug;
+        $new_url = $url;
+    }
+    #
     # Reconstruct URL
     #
-    if ( $dir ne "/" ) {
-        $url = "$protocol//$domain/$dir$query";
+    elsif ( $dir ne "/" ) {
+        $new_url = "$protocol//$domain/$dir$query";
     }
     else {
-        $url = "$protocol//$domain/$query";
+        $new_url = "$protocol//$domain/$query";
     }
 
     #
     # Return absolute URL
     #
-    print "New absolute url = $url\n" if $debug;
-    return($url);
+    print "New absolute url = $new_url\n" if $debug;
+    return($new_url);
 }
 
 #***********************************************************************
