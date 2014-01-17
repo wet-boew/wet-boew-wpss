@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6439 $
+# $Revision: 6515 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2013-11-20 07:42:07 -0500 (Wed, 20 Nov 2013) $
+# $Date: 2013-12-18 15:18:33 -0500 (Wed, 18 Dec 2013) $
 #
 # Description:
 #
@@ -1165,7 +1165,7 @@ sub Image_Tag_Handler {
     }
     
     #
-    # Is this image tage contained within an anchor tag ?
+    # Is this image tag contained within an anchor tag ?
     #
     if ( defined($current_anchor_reference) ) {
         print "img tag inside a tag\n" if $debug;
@@ -1422,7 +1422,7 @@ sub Check_Lang_Attribute {
         }
 
         #
-        # Does this tage have a matching end tag ?
+        # Does this tag have a matching end tag ?
         # 
         if ( ! defined ($html_tags_with_no_end_tag{$tagname}) ) {
             #
