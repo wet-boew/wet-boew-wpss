@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 6390 $
+# $Revision: 6507 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2013-10-03 15:16:15 -0400 (Thu, 03 Oct 2013) $
+# $Date: 2013-12-11 13:39:37 -0500 (Wed, 11 Dec 2013) $
 #
 # Description:
 #
@@ -103,7 +103,7 @@ my ($current_profile_name, %site_title_language, %subsite_title_language);
 my (%supporting_file_wet_versions, $in_site_title);
 my (%site_title_values, @lang_stack, @tag_lang_stack, $last_lang_tag);
 my ($html_lang_value, $current_lang, $current_tag, $is_archived);
-my (%navigation_links_new_window_status);
+my (%navigation_links_new_window_status, $content_before_skip_links_checked);
 my ($favicon_url) = "";
 
 #
@@ -253,6 +253,7 @@ my %string_table_en = (
     "Mismatch in WET version, found",  "Mismatch in WET version, found",
     "Missing target=_blank when expected", "Missing target=\"_blank\" in link when expected",
     "Have target=_blank when not expected", "Have target=\"_blank\" in link when not expected",
+    "Content before GC Navigation bar",  "Content before GC Navigation bar",
     );
 
 #
@@ -341,6 +342,7 @@ my %string_table_fr = (
     "Mismatch in WET version, found",  "Erreur de correspondance des versions BOEW version, a trouvé",
     "Missing target=_blank when expected", "Manquante target=\"_blank\" en lien moment prévu",
     "Have target=_blank when not expected", "Avez target=\"_blank\" en lien quand il n'est pas prévu",
+    "Content before GC Navigation bar",  "Contenu avant la barre de navigation du GC",
     );
 
 #
@@ -1793,6 +1795,7 @@ sub Initialize_Test_Results {
     $current_tag = "";
     $last_lang_tag = "top";
     $is_archived = 0;
+    $content_before_skip_links_checked = 0;
 }
 
 #***********************************************************************
@@ -2981,6 +2984,112 @@ sub Anchor_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Check_For_Content_Before_Skip_Links
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             subsection - cuurrent document subsection
+#
+# Description:
+#
+#   This function checks for possible content before the Skip
+# Links section.
+#
+#***********************************************************************
+sub Check_For_Content_Before_Skip_Links {
+    my ( $self, $line, $column, $text, $subsection ) = @_;
+
+    my ($clean_text);
+
+    #
+    # Are we in the skip links section ?
+    #
+    if ( $subsection eq "SKIP_LINKS" ) {
+        #
+        # Get all text since the <body> tag.
+        #
+        print "Check_For_Content_Before_Skip_Links\n" if $debug;
+        $clean_text = Clean_Text(Get_Text_Handler_Content($self, ""));
+
+        #
+        # Do we have any non whitespace content ?
+        #
+        if ( (! $content_before_skip_links_checked) && 
+             ($clean_text =~ /\S/) ) {
+            print "Content prior to skip links \"$clean_text\"\n" if $debug;
+            Record_Result("SWU_E2.2.6", $line, $column, $text,
+                          String_Value("Content before GC Navigation bar") .
+                          " \"$clean_text\"");
+        }
+
+        #
+        # Set flag to indicate we checked for this error once so we don't
+        # check for it multiple times.
+        #
+        $content_before_skip_links_checked = 1;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Body_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the <body> tag.
+#
+#***********************************************************************
+sub Body_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Set flag to indicate we are out of the <head> section
+    #
+    print "Start of body, end of head section\n" if $debug;
+    $in_head_section = 0;
+
+    #
+    # Start a text handler, we want to see if there is any content before
+    # the GC navigation
+    #
+    Start_Text_Handler($self, "body");
+}
+
+#***********************************************************************
+#
+# Name: End_Body_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the end body tag.
+#
+#***********************************************************************
+sub End_Body_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Destroy the text handler that was used to save the text
+    # portion of the body tag.
+    #
+    Destroy_Text_Handler($self, "body");
+}
+
+#***********************************************************************
+#
 # Name: Start_Site_Title
 #
 # Parameters: self - reference to this parser
@@ -3152,6 +3261,13 @@ sub Start_Handler {
     }
 
     #
+    # Check for possible content before skip links.
+    # content before it.
+    #
+    Check_For_Content_Before_Skip_Links($self, $line, $column, $text,
+                                        $subsection);
+
+    #
     # Check anchor tag
     #
     $tagname =~ s/\///g;
@@ -3162,8 +3278,7 @@ sub Start_Handler {
     # Check body tag
     #
     elsif ( $tagname eq "body" ) {
-        print "Start of body, end of head section\n" if $debug;
-        $in_head_section = 0;
+        Body_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
     #
     # Check dd tag
@@ -3305,9 +3420,15 @@ sub End_Handler {
     my ($subsection, $clean_text);
 
     #
+    # Check body tag
+    #
+    if ( $tagname eq "body" ) {
+        End_Body_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
     # Check dd tag
     #
-    if ( $tagname eq "dd" ) {
+    elsif ( $tagname eq "dd" ) {
         End_Dd_Tag_Handler( $self, $line, $column, $text );
     }
     #
