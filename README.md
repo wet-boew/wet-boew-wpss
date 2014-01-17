@@ -1,20 +1,29 @@
-# WPSS Validation Tool version 4.0.1
+# WPSS Validation Tool version 4.1.0
 
 The WPSS Validation Tool provides web developers and quality assurance testers the ability to perform a number of web site and web page validation tasks at one time. The tool crawls a site to find all of the documents then analyses each document with a number of validation tools.
 
-Version 4.0.1 contains the following updates and additions
- - Add open data checking tool (open_data_check.pl and desktop shortcut)  to check open dataset files (dictionary, data, resources).
- - Do case insensitive checks on titles to find matching HTML and PDF versions of a document.
- - Allow for binary data in CSV files (e.g. new-line in the cell content).
- - Report Interoperability failure for web feeds that do not parse properly - SWI_B.
- - Check for table headers that reference undefined headers or headers outside the current table - WCAG_2.0-H43.
- - Check for all language markers to determine if a page is archived or not (handles the case where wrong language message is used).
- - Encode text that is written to results tabs, this eliminates garbled French characters.
- - Report unknown mime-type documents as non-HTML primary format.
- - Accept enter key in URL list tab to move to the next input line.
- - Check for very long (> 500 characters) title and heading text - WCAG_2.0-H42, WCAG_2.0-H25
- - Don't report zoom failure for fix size fonts as current browsers can handle this - WCAG_2.0-G142
- - Decode HTML entities before checking the length of titles and headings to eliminate the length of the HTML code from the actual text length.
+Version 4.1.0 contains the following updates and additions
+  WPSS_Tool
+  - Add checks for Web Analytics (reported in CLF tab), specifically not anonymizing IP addresses in Google analytics. - WA_ID.
+  - Report URLs that use Web Analytics (google, piwik) in HTML features tab.
+  - Don't report error if there is a onclick or onkeypress attribute on a tag if there is a focusable item inside a block tag - WCAG_2.0-F42
+  - Add checks for HTML Data for Web Interoperability.  Check for RDFa syntax and schema.org vocabulary - SWI_E.
+  - Record URLs that have HTML Data in the HTML features report.
+  - Add <button> tag to list of tags that are allowed event handlers - WCAG_2.0-F42.
+  - Report WCAG_2.0-G131 for missing label and legend content.
+  - Check for content after the body tag and before the skip links - SWU_2.2.6.
+  - Check for missing content in <option> tag - WCAG_2.0-G115.
+  - Check for styled text (e.g. bold) that looks like a heading - WCAG_2.0-F2.
+  - Check for missing table headers at the end of the table. This allows for header id definitions to come after a reference - WCAG_2.0-H43.
+  - Check for missing headers id values of headers that reference <th> headers (indirect headers) - WCAG_2.0-H43.
+  - Don't try to get absolute URL from relative URLs in direct HTML input mode. This generated false WCAG_2.0-G197 errors.
+
+  Open Data Tool
+  - Add fields to GUI to enter open data API URLs.
+  - Add checks for open data API URLs (JSON, XML).
+  - Add PWGSC open data checks (CSV header row).
+  - Change testcase identifiers to include technology type (e.g. txt, csv).
+
 
 
 Reminder: The WPSS Tool DOES NOT validate HTML5 markup.
@@ -38,4 +47,4 @@ The WPSS_Tool has been tested on the following platforms
   - Windows 7 (64 bit), Strawberry Perl 5.18 (32 bit), Python 2.7.3
 
 The WPSS Tool installer is available as a release in this repository
-  - https://github.com/wet-boew/wet-boew-wpss/releases/download/4.0.1/WPSS_Tool.exe
+  - https://github.com/wet-boew/wet-boew-wpss/releases/download/4.1.0/WPSS_Tool.exe
