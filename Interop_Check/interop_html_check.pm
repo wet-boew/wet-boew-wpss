@@ -2,9 +2,9 @@
 #
 # Name:   interop_html_check.pm
 #
-# $Revision: 6215 $
+# $Revision: 6521 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_html_check.pm $
-# $Date: 2013-03-13 09:47:46 -0400 (Wed, 13 Mar 2013) $
+# $Date: 2014-01-06 11:18:29 -0500 (Mon, 06 Jan 2014) $
 #
 # Description:
 #
@@ -20,6 +20,7 @@
 #     Interop_HTML_Check_Testcase_URL
 #     Interop_HTML_Check
 #     Interop_HTML_Check_Links
+#     Interop_HTML_Check_Has_HTML_Data
 #
 # Terms and Conditions of Use
 #
@@ -57,6 +58,7 @@ use strict;
 use HTML::Entities;
 use URI::URL;
 use File::Basename;
+use JSON;
 
 #***********************************************************************
 #
@@ -76,6 +78,7 @@ BEGIN {
                   Interop_HTML_Check_Testcase_URL
                   Interop_HTML_Check
                   Interop_HTML_Check_Links
+                  Interop_HTML_Check_Has_HTML_Data
                   );
     $VERSION = "1.0";
 }
@@ -95,7 +98,15 @@ my ($results_list_addr, @content_lines, $charset);
 my ($doctype_label, $doctype_version, $doctype_class);
 my ($doctype_line, $doctype_column, $doctype_text);
 my ($charset, $charset_line, $charset_column, $charset_text);
-my (%ignore_rel_domains);
+my (%ignore_rel_domains, %html_data_vocab);
+my ($microdata_found, $microdata_line, $microdata_column, $microdata_text);
+my ($microdata_attr, $microdata_attr_count, $rdfa_found, $rdfa_attr_count);
+my ($missing_rdfa_vocab_reported, $missing_rdfa_typeof_reported);
+my (@other_rdfa_lite_attributes) = ("prefix", "resource");
+my (@vocab_tag_stack, @typeof_tag_stack, $inside_vocab, $inside_typeof);
+my (%schema_details, $current_schema_types, $current_schema_properties);
+my ($current_schema_details, $current_schema_vocab, @typeof_stack);
+my ($current_typeof_value);
 
 my ($max_error_message_string) = 2048;
 
@@ -122,6 +133,29 @@ $valid_rel_values{"area"} .= "attachment category disclosure entry-content exter
 $valid_rel_values{"link"} .= "apple-touch-icon apple-touch-icon-precomposed apple-touch-startup-image attachment canonical category dns-prefetch EditURI home index meta openid.delegate openid.server openid2.local_id openid2.provider p3pv1 pgpkey pingback prerender profile publisher rendition servive shortlink sidebar sitemap timesheet widget wlwmanifest image_src  http://docs.oasis-open.org/ns/cmis/link/200908/acl stylesheet/less ";
 
 #
+# List of HTML tags that do not have an explicit end tag.
+#
+my (%html_tags_with_no_end_tag) = (
+        "area", "area",
+        "base", "base",
+        "br", "br",
+        "col", "col",
+        "command", "command",
+        "embed", "embed",
+        "frame", "frame",
+        "hr", "hr",
+        "img", "img",
+        "input", "input",
+        "keygen", "keygen",
+        "link", "link",
+        "meta", "meta",
+        "param", "param",
+        "source", "source",
+        "track", "track",
+        "wbr", "wbr",
+);
+
+#
 # Status values
 #
 my ($check_fail)       = 1;
@@ -138,6 +172,17 @@ my %string_table_en = (
     "Missing rel value in",           "Missing 'rel' value in ",
     "Invalid rel value",              "Invalid 'rel' value",
     "Missing rel value",              "Missing 'rel' value",
+    "Microdata HTML data syntax found", "Microdata HTML data syntax found",
+    "More Microdata HTML data attributes found", "More Microdata HTML data attributes found than RDFa Lite attributes",
+    "Missing vocab content",          "Missing vocab content",
+    "Invalid vocab content",          "Invalid vocab content",
+    "Content missing from RDFa attribute", "Content missing from RDFa attribute",
+    "Missing vocab attribute",        "Missing 'vocab' attribute",
+    "Missing typeof attribute",       "Missing 'typeof' attribute",
+    "expecting one of",               "expecting one of",
+    "Missing RDFa Lite attributes, found vocab only", "Missing RDFa Lite attributes, found vocab only",
+    "Value not defined in vocab",     "Value not defined in \"vocab\"",
+    "for attribute",                  "for attribute",
 );
 
 #
@@ -152,6 +197,17 @@ my %string_table_fr = (
     "Missing rel value in",           "Valeur manquante dans 'rel' ",
     "Invalid rel value",              "Valeur de texte 'rel' est invalide",
     "Missing rel value",              "Valeur manquante pour 'rel'",
+    "Microdata HTML data syntax found", "Microdata HTML syntaxe des données trouvé",
+    "More Microdata HTML data attributes found", "Plus attributs de données de Microdata HTML trouvé que des attributs RDFa Lite",
+    "Missing vocab content",          "Le contenu de 'vocab' est manquant",
+    "Invalid vocab content",          "Contenu invalide pour 'vocab'",
+    "Content missing from RDFa attribute", "Contenu manquant pour l'attribut RDFa",
+    "Missing vocab attribute",        "Attribut 'vocab' manquant",
+    "Missing typeof attribute",       "Attribut 'typeof' manquant",
+    "expecting one of",               "expectant un des",
+    "Missing RDFa Lite attributes, found vocab only", "Manquant des attributs RDFa Lite, trouvé \"vocab\" seulement",
+    "Value not defined in vocab",     "Valeur n'est pas définie dans \"vocab\"",
+    "for attribute",                  "pour l'attribut",
 );
 
 #
@@ -246,6 +302,72 @@ sub String_Value {
 
 #***********************************************************************
 #
+# Name: Read_Schema_Details
+#
+# Parameters: schema - schema name
+#             filename - name of file containing schema details
+#
+# Description:
+#
+#   This function reads the specified file which is expected to contain
+# schema details (types, properties) in JSON format.  The function returns
+# a reference to the JSON data structure for the schema details.  An
+# undefined value is returned if the file could not be be found, read or if
+# the content count not be parsed.  Comment lines in the file (leadiing #
+# character) are removed prior to parsing.
+#
+#***********************************************************************
+sub Read_Schema_Details {
+    my ($schema, $filename) = @_;
+    
+    my ($line, $content, $ref, $eval_output);
+    
+    #
+    # Open the schema details file
+    #
+    if ( open(SCHEMA, "$program_dir/$filename") ) {
+        while ( $line = <SCHEMA> ) {
+            #
+            # Ignore comment lines
+            #
+            if ( $line =~ /^\s*#/ ) {
+                next;
+            }
+            else {
+                $content .= $line;
+            }
+        }
+        
+        #
+        # Close the schema file
+        #
+        close(SCHEMA);
+        
+        #
+        # Parse the content as JSON
+        #
+        $eval_output = eval { $ref = decode_json($content); 1 } ;
+
+        #
+        # Did the parse fail ?
+        #
+        if ( ! $eval_output ) {
+            $eval_output =~ s/ at \S* line \d*$//g;
+            print "Error: Failed to parse schema details file $eval_output\n" if $debug;
+        }
+    }
+    else {
+        print "Error: Failed to open schema details file $program_dir/$filename\n" if $debug;
+    }
+    
+    #
+    # Return the reference to the JSON object
+    #
+    return($ref);
+}
+
+#***********************************************************************
+#
 # Name: Set_Interop_HTML_Check_Testcase_Data
 #
 # Parameters: testcase - testcase identifier
@@ -260,7 +382,7 @@ sub String_Value {
 sub Set_Interop_HTML_Check_Testcase_Data {
     my ($testcase, $data) = @_;
 
-    my ($type, $value);
+    my ($type, $value, $schema, $filename, $ref);
 
     #
     # Check the testcase id
@@ -273,6 +395,41 @@ sub Set_Interop_HTML_Check_Testcase_Data {
         #
         if ( defined($value) && ($type =~ /^IGNORE_REL_DOMAIN$/i) ) {
             $ignore_rel_domains{$value} = 1;
+        }
+    }
+    elsif ( $testcase =~ /^SWI_E$/i ) {
+        ($type, $value) = split(/\s+/, $data, 2);
+        
+        #
+        # Check the type of SWI_E data
+        #
+        if ( defined($value) && ($type =~ /^HTML_DATA_VOCAB$/i) ) {
+            #
+            # Set possible "vocab" value.
+            #
+            $html_data_vocab{$value} = 1;
+        }
+        elsif ( defined($value) && ($type =~ /^SCHEMA_DETAILS$/i) ) {
+            #
+            # Get schema name and types & properties file name.
+            #
+            ($schema, $filename) = split(/\s+/, $value, 2);
+            
+            #
+            # If we have a filemame, read the types & properties from
+            # the file.
+            #
+            if ( defined($filename) ) {
+                $ref = Read_Schema_Details($schema, $filename);
+                
+                #
+                # If we have a ref value, save it in the schema details table.
+                #
+                if ( defined($ref) ) {
+                    print "Got schema details for $schema from $filename\n" if $debug;
+                    $schema_details{$schema} = $ref;
+                }
+            }
         }
     }
     else {
@@ -341,7 +498,26 @@ sub Initialize_Test_Results {
     $charset = "";
     $charset_line = -1;
     $charset_column = 0;
-    $charset_text = ""
+    $charset_text = "";
+    $rdfa_found = 0;
+    $missing_rdfa_vocab_reported = 0;
+    $missing_rdfa_typeof_reported = 0;
+    $rdfa_attr_count = 0;
+    $microdata_found = 0;
+    $microdata_attr = "";
+    $microdata_attr_count = 0;
+    $microdata_line = "";
+    $microdata_column = "";
+    $microdata_text = "";
+    @vocab_tag_stack = ();
+    @typeof_tag_stack = ();
+    $current_typeof_value = "";
+    @typeof_stack = ();
+    $inside_vocab = 0;
+    $inside_typeof = 0;
+    undef($current_schema_details);
+    undef($current_schema_properties);
+    undef($current_schema_types);
 }
 
 #***********************************************************************
@@ -542,6 +718,459 @@ sub Meta_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Check_Microdata_Data_Attributes
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks the tag for possible Microdata HTML data attributes.
+#
+#***********************************************************************
+sub Check_Microdata_Data_Attributes {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+
+    #
+    # Check for Microdata syntax.
+    #
+    if ( defined($attr{"itemscope"}) ) {
+        $microdata_attr = "itemscope";
+        $microdata_attr_count++;
+    }
+    elsif ( defined($attr{"itemtype"}) ) {
+        $microdata_attr = "itemtype";
+        $microdata_attr_count++;
+    }
+    elsif ( defined($attr{"itemprop"}) ) {
+        $microdata_attr = "itemprop";
+        $microdata_attr_count++;
+    }
+
+    #
+    # If this is the first time we found an attribute,
+    # set flag and save the location details
+    #
+    if ( (! $microdata_found) && ($microdata_attr ne "") ) {
+        print "Found Microdata attribute $microdata_attr at $line:$column\n" if $debug;
+        $microdata_found = 1;
+        $microdata_line = $line;
+        $microdata_column = $column;
+        $microdata_text = $text;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Vocab_Attribute
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks the tag for a possible RDFa Lite HTML vocab
+# attribute.
+#
+#***********************************************************************
+sub Check_Vocab_Attribute {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+
+    my ($vocab, $values);
+
+    #
+    # Check for RDFa Lite attribute vocab
+    #
+    print "Check_Vocab_Attribute\n" if $debug;
+    if ( defined($attr{"vocab"}) ) {
+        $inside_vocab = 1;
+        $rdfa_found = 1;
+        $rdfa_attr_count++;
+        print "Found RDFa Lite attribute vocab in tag $tagname at $line:$column\n" if $debug;
+
+        #
+        # Is the vocabulary one of the expected values ?
+        #
+        $vocab = $attr{"vocab"};
+        if (  $vocab =~ /^\s*$/ ) {
+            #
+            # Missing vocabulary
+            #
+            $values = join(", ", keys %html_data_vocab);
+            Record_Result("SWI_E", $line, $column, $text,
+                          String_Value("Missing vocab content") . " " .
+                          String_Value("expecting one of") . " \"$values\"");
+        }
+        elsif ( ! defined($html_data_vocab{$vocab}) ) {
+            #
+            # Invalid vocabulary
+            #
+            $values = join(", ", keys %html_data_vocab);
+            Record_Result("SWI_E", $line, $column, $text,
+                          String_Value("Invalid vocab content") .
+                          " \"$vocab\" " . String_Value("expecting one of") .
+                          " \"$values\"");
+        }
+
+        #
+        # Do we have schema details for this vocabulary
+        #
+        if ( defined($schema_details{$vocab}) ) {
+            $current_schema_details = $schema_details{$vocab};
+            $current_schema_types = $$current_schema_details{"types"};
+            $current_schema_properties = $$current_schema_details{"properties"};
+            $current_schema_vocab = $vocab;
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Typeof_Attribute
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks the tag for a possible RDFa Lite HTML typeof
+# attribute.
+#
+#***********************************************************************
+sub Check_Typeof_Attribute {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+
+    my ($attribute, $content);
+
+    #
+    # Check for typeof attribute
+    #
+    print "Check_Typeof_Attribute\n" if $debug;
+    if ( defined($attr{"typeof"}) ) {
+        $inside_typeof = 1;
+        $rdfa_found = 1;
+        $rdfa_attr_count++;
+        print "Found RDFa Lite attribute typeof in tag $tagname at $line:$column\n" if $debug;
+
+        #
+        # Have we seen a vocab attribute to set the vocabulary ?
+        #
+        if ( (! $inside_vocab) && ( ! $missing_rdfa_vocab_reported) ) {
+            Record_Result("SWI_E_RDFA", $line, $column, $text,
+                          String_Value("Missing vocab attribute"));
+
+            #
+            # Set flag so we don't report this again until we see a vocab.
+            #
+            $missing_rdfa_vocab_reported = 1;
+        }
+
+        #
+        # Do we have content for the attribute ?
+        #
+        $content = $attr{"typeof"};
+        if ( $content =~ /^\s*$/ ) {
+            Record_Result("SWI_E_RDFA", $line, $column, $text,
+                          String_Value("Content missing from RDFa attribute") .
+                          " \"typeof\"");
+        }
+        else {
+            #
+            # Save current "typeof" value (so we can use it
+            # when checking properties).
+            #
+            $current_typeof_value = $content;
+
+            #
+            # Do we have current schema details ?
+            #
+            if ( defined($current_schema_types) ) {
+                #
+                # Is this "typeof" value defined for the schema ?
+                # Skip values that contain a colon ":", this syntax is
+                # used when multiple vocabularies are used.  We are only
+                # checking the primary vocabulary.
+                #
+                print "Check typeof = $content in schema\n" if $debug;
+                if ( ! ($content =~ /:/) ) {
+                    if ( ! defined($$current_schema_types{$content}) ) {
+                        print "Error: typeof \"$content\" not defined in vocab\n" if $debug;
+                        Record_Result("SWI_E_RDFA", $line, $column, $text,
+                                      String_Value("Value not defined in vocab") .
+                                      " \"$current_schema_vocab\" " .
+                                      String_Value("for attribute") .
+                                      " \'typeof=\"$content\"\'");
+                    }
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Property_Attribute
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks the tag for possible RDFa Lite HTML data
+# attributes.
+#
+#***********************************************************************
+sub Check_Property_Attribute {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+
+    my ($content, $properties, $ref, @empty_list, $property, $found);
+
+    #
+    # Check for property attribute
+    #
+    print "Check_Property_Attribute\n" if $debug;
+    if ( defined($attr{"property"}) ) {
+        print "Found RDFa Lite attribute property in tag $tagname at $line:$column\n" if $debug;
+
+        #
+        # Have we seen a vocab attribute to set the vocabulary ?
+        #
+        if ( (! $inside_vocab) && ( ! $missing_rdfa_vocab_reported) ) {
+            Record_Result("SWI_E_RDFA", $line, $column, $text,
+                          String_Value("Missing vocab attribute"));
+
+            #
+            # Set flag so we don't report this again until we see a vocab.
+            #
+            $missing_rdfa_vocab_reported = 1;
+        }
+
+        #
+        # Do we have content for the attribute ?
+        #
+        if ( $attr{"property"} =~ /^\s*$/ ) {
+            Record_Result("SWI_E_RDFA", $line, $column, $text,
+                          String_Value("Content missing from RDFa attribute") .
+                          " \"property\"");
+        }
+        #
+        # Are we inside a typeof ?
+        #
+        elsif ( ! $inside_typeof ) {
+            Record_Result("SWI_E_RDFA", $line, $column, $text,
+                          String_Value("Missing typeof attribute"));
+        }
+        #
+        # Do we have current schema details ?
+        #
+        elsif ( defined($current_schema_details) ) {
+            #
+            # Is this "property" value defined for the typeof
+            # value in this schema ?
+            # Skip values that contain a colon ":", this syntax is
+            # used when multiple vocabularies are used.  We are only
+            # checking the primary vocabulary.
+            #
+            $content = $attr{"property"};
+            print "Check typeof = $content in schema\n" if $debug;
+            if ( ! ($content =~ /:/) ) {
+                #
+                # Get properties for the current typeof value
+                #
+                $properties = \@empty_list;
+                if ( defined($current_typeof_value) &&
+                     defined($$current_schema_types{$current_typeof_value}) ) {
+                    $ref = $$current_schema_types{$current_typeof_value};
+                    if ( defined($$ref{"properties"}) ) {
+                        $properties = $$ref{"properties"};
+                        print "Properties for $current_typeof_value are " .
+                              join(",", @$properties) . "\n" if $debug;
+                    }
+                }
+
+                #
+                # Is this property in the list of properties for the
+                # typeof value ?
+                #
+                $found = 0;
+                foreach $property (@$properties) {
+                    if ( $content eq $property ) {
+                        print "Found match on property value\n" if $debug;
+                        $found = 1;
+                        last;
+                    }
+                }
+
+                #
+                # Did we find a match on the property value
+                #
+                if ( ! $found ) {
+                    print "Error: property \"$content\" not defined in vocab\n" if $debug;
+                    Record_Result("SWI_E_RDFA", $line, $column, $text,
+                                  String_Value("Value not defined in vocab") .
+                                  " \"$current_schema_vocab\" " .
+                                  String_Value("for attribute") .
+                                  " \'typeof=\"$current_typeof_value\" property=\"$content\"\'");
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Other_RDFa_Attributes
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks the tag for possible RDFa Lite HTML data
+# attributes.
+#
+#***********************************************************************
+sub Check_Other_RDFa_Attributes {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+
+    my ($attribute);
+
+    #
+    # Check for other RDFa Lite attributes
+    #
+    print "Check_Other_RDFa_Attributes\n" if $debug;
+    foreach $attribute (@other_rdfa_lite_attributes) {
+        if ( defined($attr{"$attribute"}) ) {
+            $rdfa_found = 1;
+            $rdfa_attr_count++;
+            print "Found RDFa Lite attribute $attribute in tag $tagname at $line:$column\n" if $debug;
+
+            #
+            # Have we seen a vocab attribute to set the vocabulary ?
+            #
+            if ( (! $inside_vocab) && ( ! $missing_rdfa_vocab_reported) ) {
+                Record_Result("SWI_E_RDFA", $line, $column, $text,
+                              String_Value("Missing vocab attribute"));
+
+                #
+                # Set flag so we don't report this again until we see a vocab.
+                #
+                $missing_rdfa_vocab_reported = 1;
+            }
+
+            #
+            # Have we seen a typeof attribute to set the item type ?
+            #
+            if ( (! $inside_typeof) && ( ! $missing_rdfa_typeof_reported) ) {
+                Record_Result("SWI_E_RDFA", $line, $column, $text,
+                              String_Value("Missing typeof attribute"));
+
+                #
+                # Set flag so we don't report this again until we see a typeof.
+                #
+                $missing_rdfa_typeof_reported = 1;
+            }
+
+            #
+            # Do we have content for the attribute ?
+            #
+            if ( $attr{"$attribute"} =~ /^\s*$/ ) {
+                Record_Result("SWI_E_RDFA", $line, $column, $text,
+                              String_Value("Content missing from RDFa attribute") .
+                              " \"$attribute\"");
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_RDFa_Lite_Data_Attributes
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks the tag for possible RDFa Lite HTML data
+# attributes.
+#
+#***********************************************************************
+sub Check_RDFa_Lite_Data_Attributes {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+
+    #
+    # Check for RDFa Lite attribute vocab
+    #
+    print "Check_RDFa_Lite_Data_Attributes\n" if $debug;
+    Check_Vocab_Attribute($tagname, $line, $column, $text, %attr);
+    
+    #
+    # Check for RDFa Lite attribute typeof
+    #
+    Check_Typeof_Attribute($tagname, $line, $column, $text, %attr);
+
+    #
+    # Check for RDFa Lite attribute property
+    #
+    Check_Property_Attribute($tagname, $line, $column, $text, %attr);
+
+    #
+    # Check for other RDFa Lite attributes
+    #
+    Check_Other_RDFa_Attributes($tagname, $line, $column, $text, %attr);
+
+}
+
+#***********************************************************************
+#
+# Name: Check_HTML_Data_Attributes
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks the tag for possible HTML data attributes.
+#
+#***********************************************************************
+sub Check_HTML_Data_Attributes {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+
+    #
+    # Check for possible RDFa Lite mark-up
+    #
+    Check_RDFa_Lite_Data_Attributes($tagname, $line, $column, $text, %attr);
+
+    #
+    # Check for possible Microdata mark-up
+    #
+    Check_Microdata_Data_Attributes($tagname, $line, $column, $text, %attr);
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -570,6 +1199,112 @@ sub Start_Handler {
     if ( $tagname eq "meta" ) {
         Meta_Tag_Handler( $line, $column, $text, %attr_hash );
     }
+
+    #
+    # Check for HTML Data attributes on the tag
+    #
+    Check_HTML_Data_Attributes($tagname, $line, $column, $text, %attr_hash);
+
+    #
+    # Does this tag have an explicit end tag ?
+    #
+    if ( ! defined($html_tags_with_no_end_tag{$tagname}) ) {
+        #
+        # Are we inside a "vocab" setting ? If so we must remember this
+        # tag so we know when get get to the end of the block that
+        # started the "vocab".
+        #
+        if ( $inside_vocab ) {
+            print "Push tag onto vocab tag stack $tagname at $line:$column\n" if $debug;
+            push(@vocab_tag_stack, $tagname);
+        }
+
+        #
+        # Are we inside a "typeof" setting ? If so we must remember this
+        # tag so we know when get get to the end of the block that
+        # started the "typeof". Also save the typeof value.
+        #
+        if ( $inside_typeof ) {
+            print "Push tag onto typeof tag stack $tagname at $line:$column\n" if
+ $debug;
+            push(@typeof_tag_stack, $tagname);
+            push(@typeof_stack, $current_typeof_value);
+        }
+    }
+}
+#***********************************************************************
+#
+# Name: End_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end of HTML tags.
+#
+#***********************************************************************
+sub End_Handler {
+    my ( $self, $tagname, $line, $column, $text, %attr ) = @_;
+
+    my ($popped_tag);
+
+    #
+    # Does this tag have an explicit end tag ?
+    #
+    print "End_Handler tag $tagname at $line:$column\n" if $debug;
+    if ( ! defined($html_tags_with_no_end_tag{$tagname}) ) {
+        #
+        # Are we inside a "vocab" setting ? If so we must pop a tag
+        # (should be this tag) from the stack.  If we end up with no
+        # tags left, we have ended the "vocab" block.
+        #
+        if ( $inside_vocab ) {
+            $popped_tag = pop(@vocab_tag_stack);
+            print "Popped tag from vocab tag stack $tagname at $line:$column\n" if $debug;
+
+            #
+            # Do we have any tags left ?
+            #
+            if ( @vocab_tag_stack == 0 ) {
+                print "End of vocab tag stack\n" if $debug;
+                $inside_vocab = 0;
+                $missing_rdfa_vocab_reported = 0;
+                undef($current_schema_details);
+                undef($current_schema_properties);
+                undef($current_schema_types);
+            }
+        }
+
+        #
+        # Are we inside a "typeof" setting ? If so we must pop a tag
+        # (should be this tag) from the stack.  If we end up with no
+        # tags left, we have ended the "typeof" block.
+        #
+        if ( $inside_typeof ) {
+            $popped_tag = pop(@typeof_tag_stack);
+            print "Popped tag from typeof tag stack $tagname at $line:$column\n" if $debug;
+            
+            #
+            # Pop off the last typeof value
+            #
+            $current_typeof_value = pop(@typeof_stack);
+
+            #
+            # Do we have any tags left ?
+            #
+            if ( @typeof_tag_stack == 0 ) {
+                print "End of typeof tag stack\n" if $debug;
+                $inside_typeof = 0;
+                $missing_rdfa_typeof_reported = 0;
+            }
+        }
+    }
 }
 
 #***********************************************************************
@@ -587,7 +1322,7 @@ sub Start_Handler {
 sub Check_Baseline_Technologies {
 
     #
-    # Did we  find a DOCTYPE line ?
+    # Did we find a DOCTYPE line ?
     #
     if ( $doctype_label ne "" ) {
         #
@@ -658,6 +1393,62 @@ sub Check_Encoding {
                               $charset_text,
                               String_Value("Charset is not UTF-8"));
             }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_HTML_Data_Type
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function checks if we only found a non standard HTML data syntax
+#  (e.g. Microdata).  If RDFa Lite is found along with other syntaxes, no
+# error is reported.
+#
+#***********************************************************************
+sub Check_HTML_Data_Type {
+
+    #
+    # Did we not find RDFa Lite syntax ?
+    #
+    if ( ! $rdfa_found ) {
+        print "No RDFa Lite HTML data found in document\n" if $debug;
+        #
+        # Did we find Microdata ?
+        #
+        if ( $microdata_found ) {
+            #
+            # Invalid HTML Data syntax used
+            #
+            Record_Result("SWI_E", $microdata_line, $microdata_column,
+                          $microdata_text,
+                          String_Value("Microdata HTML data syntax found"));
+        }
+    }
+    #
+    # Do we have only 1 RDFa Lite attribute ? (i.e. the vocab attribute)
+    #
+    elsif ( $rdfa_attr_count == 1 ) {
+        print "Only 1 RDFa Lite attribute found\n" if $debug;
+        Record_Result("SWI_E", -1, -1, "",
+                      String_Value("Missing RDFa Lite attributes, found vocab only"));
+    }
+    #
+    # Do we have RDFa Lite and Microdata
+    #
+    elsif ( $rdfa_found && $microdata_found ) {
+        print "RDFa Lite HTML data and Micordata found in document\n" if $debug;
+        print "RDFa Lite attribute count = $rdfa_attr_count, Mocrodata count = $microdata_attr_count\n" if $debug;
+        #
+        # Do we have more Microdata attributes than RDFa Lite attributes ?
+        #
+        if ( $microdata_attr_count > $rdfa_attr_count ) {
+            Record_Result("SWI_E", -1, -1, "",
+                          String_Value("More Microdata HTML data attributes found"));
         }
     }
 }
@@ -753,6 +1544,10 @@ sub Interop_HTML_Check {
             start => \&Start_Handler,
             "self,tagname,line,column,text,\@attr"
         );
+        $parser->handler(
+            end => \&End_Handler,
+            "self,tagname,line,column,text,\@attr"
+        );
 
         #
         # Parse the content.
@@ -773,7 +1568,12 @@ sub Interop_HTML_Check {
     # Check character encoding
     #
     Check_Encoding($resp);
-    
+
+    #
+    # Check HTML Data type (e.g. RDFa vs Microdata)
+    #
+    Check_HTML_Data_Type();
+
     #
     # Return list of results
     #
@@ -1265,6 +2065,30 @@ sub Interop_HTML_Check_Links {
     #
     foreach $result_object (@local_results_list) {
         push(@$results_list, $result_object);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Interop_HTML_Check_Has_HTML_Data
+#
+# Parameters: url - URL
+#
+# Description:
+#
+#   This function checks the URL against the last HTML document analysed.
+# If it is a match, it returns whether or not the HTML document contained
+# HTML Data mark-up.
+#
+#***********************************************************************
+sub Interop_HTML_Check_Has_HTML_Data {
+    my ($url) = @_;
+
+    #
+    # Does this URL match the last one analysed ?
+    #
+    if ( $url eq $current_url ) {
+        return($rdfa_found || $microdata_found);
     }
 }
 

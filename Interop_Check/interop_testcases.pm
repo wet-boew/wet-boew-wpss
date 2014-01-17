@@ -2,9 +2,9 @@
 #
 # Name:   interop_testcases.pm
 #
-# $Revision: 6311 $
+# $Revision: 6511 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_testcases.pm $
-# $Date: 2013-06-26 11:04:08 -0400 (Wed, 26 Jun 2013) $
+# $Date: 2013-12-16 13:51:34 -0500 (Mon, 16 Dec 2013) $
 #
 # Description:
 #
@@ -101,18 +101,22 @@ my (%testcase_description_en) = (
 #
 # Standard on Web Interoperability checkpoints
 #
-"SWI_B",     "SWI_B: Web feed requirements",
-"SWI_C",     "SWI_C: Character Encoding Requirements",
-"SWI_D",     "SWI_D: Mark-up Language Requirements",
+"SWI_B",      "SWI_B: Web feed requirements",
+"SWI_C",      "SWI_C: Character Encoding Requirements",
+"SWI_D",      "SWI_D: Mark-up Language Requirements",
+"SWI_E",      "SWI_E: HTML data requirements",
+"SWI_E_RDFA", "SWI_E_RDFA: RDFa Lite Mark-up language requirements",
 );
 
 my (%testcase_description_fr) = (
 #
 # Standard on Web Interoperability checkpoints
 #
-"SWI_B",     "SWI_B: Exigences relatives aux fils de nouvelles",
-"SWI_C",     "SWI_C: Exigences relatives à l'encodage des caractères",
-"SWI_D",     "SWI_D: Exigences relatives au langage de balisage",
+"SWI_B",      "SWI_B: Exigences relatives aux fils de nouvelles",
+"SWI_C",      "SWI_C: Exigences relatives à l'encodage des caractères",
+"SWI_D",      "SWI_D: Exigences relatives au langage de balisage",
+"SWI_E",      "SWI_E: Exigences relatives aux données HTML",
+"SWI_E_RDFA", "SWI_E_RDFA: Exigences relatives au langage de balisage du RDFa Lite",
 );
 
 #

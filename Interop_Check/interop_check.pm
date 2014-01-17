@@ -2,9 +2,9 @@
 #
 # Name:   interop_check.pm
 #
-# $Revision: 6310 $
+# $Revision: 6499 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_check.pm $
-# $Date: 2013-06-26 11:03:57 -0400 (Wed, 26 Jun 2013) $
+# $Date: 2013-12-05 14:56:01 -0500 (Thu, 05 Dec 2013) $
 #
 # Description:
 #
@@ -22,6 +22,7 @@
 #     Interop_Check_Feed_Details
 #     Interop_Check_Feeds
 #     Interop_Check_Links
+#     Interop_Check_Has_HTML_Data
 #
 # Terms and Conditions of Use
 # 
@@ -80,6 +81,7 @@ BEGIN {
                   Interop_Check_Feed_Details
                   Interop_Check_Feeds
                   Interop_Check_Links
+                  Interop_Check_Has_HTML_Data
                   );
     $VERSION = "1.0";
 }
@@ -373,6 +375,26 @@ sub Interop_Check_Links {
     }
 }
 
+#***********************************************************************
+#
+# Name: Interop_Check_Has_HTML_Data
+#
+# Parameters: url - URL
+#
+# Description:
+#
+#    This function returns whether or not the last URL analysed
+# contained HTML data mark-up.
+#
+#***********************************************************************
+sub Interop_Check_Has_HTML_Data {
+    my ($url) = @_;
+
+    #
+    # Get HTML data flag from last HTML document analysed
+    #
+    return(Interop_HTML_Check_Has_HTML_Data($url));
+}
 
 #***********************************************************************
 #
