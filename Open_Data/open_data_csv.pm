@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 6526 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
+# $Date: 2014-01-06 11:29:39 -0500 (Mon, 06 Jan 2014) $
 #
 # Description:
 #
@@ -101,6 +101,7 @@ my %string_table_en = (
     "expecting",                     "expecting",
     "No content in file",            "No content in file",
     "Missing header row terms",      "Missing header row terms",
+    "Missing header row",            "Missing header row",
     );
 
 my %string_table_fr = (
@@ -109,6 +110,7 @@ my %string_table_fr = (
     "expecting",                     "expectant",
     "No content in file",            "Aucun contenu dans fichier",
     "Missing header row terms",      "Manquant termes de lignes d'en-tête",
+    "Missing header row",            "Manquant lignes d'en-tête",
     );
 
 #
@@ -381,6 +383,7 @@ sub Check_First_Data_Row {
             # An unmatched field, save it for possible use later
             #
             push (@unmatched_fields, $field);
+            print "No dictionary value for \"$field\"\n" if $debug;
         }
     }
     
@@ -392,28 +395,22 @@ sub Check_First_Data_Row {
         return();
     }
     #
-    # Did we match no terms, we may not have a heading row in this
-    # CSV file
-    #
-    elsif ( $count == 0 ) {
-        print "Fields do not match any terms, assume no heading row\n" if $debug;
-        return();
-    }
-    #
-    # Didn't we get a match on atleast 25% of the fields ? If so we expect
+    # Didn we get a match on atleast 25% of the fields ? If so we expect
     # all the fields to match.
     #
     elsif ( $count >= (@fields / 4) ) {
         print "Found atleast 25% match on fields and terms\n" if $debug;
-        Record_Result("OD_3", 1, 0, "",
+        Record_Result("OD_CSV_1", 1, 0, "",
                       String_Value("Missing header row terms") .
                       " \"" . join(", ", @unmatched_fields) . "\"");
     }
     else {
         #
-        # Found a matching term for all fields
+        # Missing header row, found a match on fewer than 25% of fields
         #
-        print "Found a matching term for all fields\n" if $debug;
+        print "Found a match on fewer than 25% fields\n" if $debug;
+        Record_Result("TP_PW_OD_CSV_1", 1, 0, "",
+                      String_Value("Missing header row"));
     }
 }
 
@@ -536,7 +533,7 @@ sub Open_Data_CSV_Check_Data {
             #
             elsif ( $field_count != @fields ) {
                 $found_fields = @fields;
-                Record_Result("OD_3", $line_no, 0, "$line",
+                Record_Result("OD_CSV_1", $line_no, 0, "$line",
                       String_Value("Inconsistent number of fields, found") .
                        " $found_fields " . String_Value("expecting") .
                        " $field_count");
