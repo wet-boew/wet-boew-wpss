@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6429 $
+# $Revision: 6539 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2013-11-06 11:11:59 -0500 (Wed, 06 Nov 2013) $
+# $Date: 2014-01-08 13:08:05 -0500 (Wed, 08 Jan 2014) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ]
@@ -205,6 +205,13 @@ my ($clf_testcase_url_help_file_name, %clf_other_tool_results);
 my ($is_archived, %clf_site_links);
 
 #
+# Standard on Privacy and Web Analytics variables
+#
+my (%wa_check_profile_map);
+my (@wa_check_profiles, $wa_profile_label, $wa_check_profile);
+my ($wa_testcase_url_help_file_name);
+
+#
 # Interoperability Check variables
 #
 my (%interop_check_profile_map);
@@ -219,7 +226,7 @@ my (%open_data_check_profile_map, @open_data_check_profiles);
 my ($open_data_profile_label, $open_data_check_profile);
 my (%open_data_error_url_count, %open_data_error_instance_count);
 my ($open_data_testcase_url_help_file_name, %open_data_dictionary);
-my (@open_data_file_types) = ("DICTIONARY", "DATA", "RESOURCE");
+my (@open_data_file_types) = ("DICTIONARY", "DATA", "RESOURCE", "API");
 
 #
 # Link Check variables
@@ -372,6 +379,7 @@ sub Read_HTML_Features_Config_File {
     open( CONFIG_FILE, "$config_file" )
       || die
       "Failed to open configuration file, errno is $!\n  --> $config_file\n";
+    binmode CONFIG_FILE;
 
     #
     # Read file looking for values for config parameters.
@@ -1108,6 +1116,144 @@ sub Read_CLF_Check_Config_File {
                 CLF_Check_Set_Archive_Markers($clf_check_profile_name,
                                               $archived_type, $archived_value);
             }
+        }
+    }
+    close(CONFIG_FILE);
+}
+
+#***********************************************************************
+#
+# Name: New_WA_Check_Profile_Hash_Tables
+#
+# Parameters: profile_name - name of profile
+#
+# Description:
+#
+#   This function create a hash tables for WA Check test cases
+# and saves the address in the global test case profile
+# table.
+#
+#***********************************************************************
+sub New_WA_Check_Profile_Hash_Tables {
+    my ($profile_name) = @_;
+
+    my (%testcases);
+
+    #
+    # Save address of hash tables
+    #
+    push(@wa_check_profiles, $profile_name);
+    $wa_check_profile_map{$profile_name} = \%testcases;
+
+    #
+    # Return addresses
+    #
+    return(\%testcases);
+}
+
+#***********************************************************************
+#
+# Name: Read_WA_Check_Config_File
+#
+# Parameters: path - the path to configuration file
+#
+# Description:
+#
+#   This function reads a WA Check configuration file.
+#
+#***********************************************************************
+sub Read_WA_Check_Config_File {
+    my ($config_file) = $_[0];
+
+    my (@fields, $config_type, $testcase_id, $value, $testcases);
+    my ($wa_check_profile_name, $other_profile_name);
+
+    #
+    # Open configuration file at specified path
+    #
+    print "Opening configuration file $config_file\n" if $debug;
+    open( CONFIG_FILE, "$config_file" )
+      || die
+      "Failed to open configuration file, errno is $!\n  --> $config_file\n";
+
+    #
+    # Read file looking for values for config parameters.
+    #
+    while (<CONFIG_FILE>) {
+
+        #
+        # Ignore comment and blank lines.
+        #
+        chop;
+        if ( /^#/ ) {
+            next;
+        }
+        elsif ( /^$/ ) {
+            next;
+        }
+
+        #
+        # Split the line into fields.
+        #
+        @fields = split;
+        $config_type = $fields[0];
+
+        #
+        # Start of a new WA testcase profile. Get hash tables to
+        # store WA Check attributes
+        #
+        if ( $config_type eq "Web_Analytics_Check_Profile_eng" ) {
+            #
+            # Start of a new WA testcase profile. Get hash tables to
+            # store WA Check attributes
+            #
+            @fields = split(/\s+/, $_, 2);
+            $wa_check_profile_name = $fields[1];
+            ($testcases) =
+                New_WA_Check_Profile_Hash_Tables($wa_check_profile_name);
+        }
+        #
+        # Alternate language label for this profile
+        #
+        elsif ( $config_type =~ "Web_Analytics_Check_Profile_" ) {
+            #
+            # Match this profile name to the current English profile.
+            #
+            @fields = split(/\s+/, $_, 2);
+            $other_profile_name = $fields[1];
+            $wa_check_profile_map{$other_profile_name} = $testcases;
+
+        }
+        elsif ( $config_type =~ /tcid/i ) {
+            #
+            # Required WA testcase, get testcase id and store
+            # in hash table.
+            #
+            $testcase_id = $fields[1];
+            if ( defined($testcase_id) ) {
+                $$testcases{$testcase_id} = 1;
+            }
+        }
+        elsif ( $config_type =~ /testcase_data/i ) {
+            #
+            # Split line again to get everything after the testcase
+            # id as a single field
+            #
+            ($config_type, $testcase_id, $value) = split(/\s+/, $_, 3);
+
+            #
+            # Testcase specific data
+            #
+            if ( defined($wa_check_profile_name) && defined($value) ) {
+                $value =~ s/\s+$//g;
+                Set_WA_Check_Testcase_Data($wa_check_profile_name, $testcase_id, $value);
+            }
+        }
+        elsif ( $config_type =~ /Testcase_URL_Help_File/i ) {
+            #
+            # Name of testcase & help URL file
+            #
+            $wa_testcase_url_help_file_name = $fields[1];
         }
     }
     close(CONFIG_FILE);
@@ -1959,6 +2105,7 @@ sub Set_Package_Debug_Flags {
     Alt_Text_Check_Debug($debug);
     Content_Section_Debug($debug);
     Set_CLF_Check_Debug($debug);
+    Set_Web_Analytics_Check_Debug($debug);
     Validate_Markup_Debug($debug);
     PDF_Files_Debug($debug);
     Set_Interop_Check_Debug($debug);
@@ -2030,7 +2177,8 @@ sub Initialize {
                           "tqa_testcases", "content_sections", "clf_check",
                           "metadata_result_object", "validate_markup",
                           "interop_check", "pdf_check", "dept_check",
-                          "html_language", "open_data_check");
+                          "html_language", "open_data_check",
+                          "web_analytics_check");
     my ($mday, $mon, $year, $key, $value, $metadata_profile);
     my ($tag_required, $content_required, $content_type, $scheme_values);
     my ($invalid_content, $pdf_profile);
@@ -2089,6 +2237,7 @@ sub Initialize {
     Read_Content_Check_Config_File("$program_dir/conf/so_content_check.config");
     Read_Dept_Check_Config_File("$program_dir/conf/so_dept_check.config");
     Read_CLF_Check_Config_File("$program_dir/conf/so_clf_check.config");
+    Read_WA_Check_Config_File("$program_dir/conf/web_analytics_config.txt");
     Read_Interop_Check_Config_File("$program_dir/conf/so_interop_check.config");
     Read_Open_Data_Check_Config_File("$program_dir/conf/open_data_config.txt");
 
@@ -2103,6 +2252,9 @@ sub Initialize {
     }
     if ( defined($clf_testcase_url_help_file_name) ) {
         CLF_Check_Read_URL_Help_File($clf_testcase_url_help_file_name);
+    }
+    if ( defined($wa_testcase_url_help_file_name) ) {
+        Web_Analytics_Check_Read_URL_Help_File($wa_testcase_url_help_file_name);
     }
     if ( defined($interop_testcase_url_help_file_name) ) {
         Interop_Check_Read_URL_Help_File($interop_testcase_url_help_file_name);
@@ -2126,6 +2278,7 @@ sub Initialize {
     Alt_Text_Check_Language($lang);
     Set_Link_Checker_Language($lang);
     Set_CLF_Check_Language($lang);
+    Set_Web_Analytics_Check_Language($lang);
     Metadata_Check_Language($lang);
     PDF_Files_Language($lang);
     Validate_Markup_Language($lang);
@@ -2168,6 +2321,13 @@ sub Initialize {
     #
     while ( ($key,$value) = each %clf_check_profile_map) {
         Set_CLF_Check_Test_Profile($key, $value);
+    }
+
+    #
+    # Set Web Analytics Check testcase profiles
+    #
+    while ( ($key,$value) = each %wa_check_profile_map) {
+        Set_Web_Analytics_Check_Test_Profile($key, $value);
     }
 
     #
@@ -2448,6 +2608,12 @@ sub HTTP_Response_Callback {
                                 String_Value("Not reviewed") . " $url",
                                 $referrer, $supporting_file,
                                 $document_count{$crawled_urls_tab});
+
+        #
+        # End this URL
+        #
+        Validator_GUI_End_URL($crawled_urls_tab, $url, $referrer,
+                              $supporting_file);
         return(0);
     }
 
@@ -2708,6 +2874,14 @@ sub HTTP_Response_Callback {
         # Do we have an image mime type ?
         #
         elsif ( $mime_type =~ /^image/i ) {
+            #
+            # No special processing
+            #
+        }
+        #
+        # Do we have the robots.txt file ?
+        #
+        elsif ( $url =~ /robots\.txt$/i ) {
             #
             # No special processing
             #
@@ -3816,6 +3990,9 @@ sub Print_Results_Header {
         Validator_GUI_Update_Results($clf_tab,
                                      String_Value("CLF Testcase Profile")
                                      . " " . $clf_check_profile);
+        Validator_GUI_Update_Results($clf_tab,
+                                     String_Value("Web Analytics Testcase Profile")
+                                     . " " . $wa_check_profile);
     }
     if ( defined($interop_tab) ) {
         Validator_GUI_Update_Results($interop_tab,
@@ -3967,7 +4144,7 @@ sub Print_Results_Summary_Table {
     }
 
     #
-    # Print summary results table for CLF Check
+    # Print summary results table for CLF Check and Web Analytics Check
     #
     if ( defined($clf_tab)) {
         foreach $tcid (sort(keys %clf_error_url_count)) {
@@ -3982,6 +4159,10 @@ sub Print_Results_Summary_Table {
             if ( defined( CLF_Check_Testcase_URL($tcid) ) ) {
                 $line .= " " . String_Value("help") .
                          " " . CLF_Check_Testcase_URL($tcid);
+            }
+            elsif ( defined( Web_Analytics_Check_Testcase_URL($tcid) ) ) {
+                $line .= " " . String_Value("help") .
+                         " " . Web_Analytics_Check_Testcase_URL($tcid);
             }
 
             #
@@ -4537,6 +4718,11 @@ sub Initialize_Tool_Globals {
     #
     $clf_check_profile = $options{$clf_profile_label};
     Set_Link_Check_CLF_Profile($clf_check_profile);
+    
+    #
+    # Get Web Analytics Check profile name
+    #
+    $wa_check_profile = $options{$wa_profile_label};
     
     #
     # Get Interoperability Check profile name
@@ -5510,8 +5696,9 @@ sub Perform_CLF_Check {
     my ($url, $content, $language, $mime_type, $resp) = @_;
 
     my ($url_status, $status, $message, $source_line);
-    my (@clf_results_list, $result_object, $output_line);
-    my (%local_clf_error_url_count, @content_links, $pattern);
+    my (@clf_results_list, $result_object, $output_line, @wa_results_list);
+    my (%local_clf_error_url_count, @content_links, $pattern, $result_object);
+    my ($found_web_analytics, $analytics_type, $list_ref);
 
     #
     # Is this URL marked as archived on the web ?
@@ -5545,6 +5732,38 @@ sub Perform_CLF_Check {
             CLF_Check_Links(\@clf_results_list, $url,
                             $clf_check_profile, $language,
                             \%all_link_sets, \%clf_site_links, $logged_in);
+        }
+    }
+
+    #
+    # Check Web Analytics
+    #
+    @wa_results_list = Web_Analytics_Check($url, $language, $wa_check_profile,
+                                           $mime_type, $resp, $content);
+
+    #
+    # Add Web Analytics results to the CLF results
+    #
+    foreach $result_object (@wa_results_list) {
+        push(@clf_results_list, $result_object);
+    }
+
+    #
+    # Check if this URL has web analytics code on the page.  The above
+    # checks were for invalid analytics, we want to record a HTML feature
+    # if the page has analytics or not.
+    #
+    ($found_web_analytics, $analytics_type) = Web_Analytics_Has_Web_Analytics();
+    if ( $found_web_analytics ) {
+        print "URL has Web Analytics\n" if $debug;
+
+        #
+        # Record this URL as having web analytics
+        #
+        if ( defined($doc_feature_list{"Web Analytics/Web analytique"}) ) {
+            $list_ref = $doc_feature_list{"Web Analytics/Web analytique"};
+            print "Add to document feature list \"Web Analytics/Web analytique\", url = $url\n" if $debug;
+            $$list_ref{$url} = 1;
         }
     }
 
@@ -5674,9 +5893,27 @@ sub Perform_Interop_Check {
                 $title = $url;
             }
 
+            #
+            # Check links for Interoperability
+            #
             Interop_Check_Links(\@interop_results_list, $url, $title,
                                 $mime_type, $interop_check_profile,
                                 $language, \%all_link_sets);
+
+            #
+            # Does this URL have HTML Data mark-up ?
+            #
+            if ( Interop_Check_Has_HTML_Data($url) ) {
+                #
+                # Add to HTML features list
+                #
+                $key = "HTML Data/données HTML";
+                if ( defined($doc_feature_list{$key}) ) {
+                    $list_ref = $doc_feature_list{$key};
+                    print "Add to document feature list $key, url = $url\n" if $debug;
+                    $$list_ref{$url} = 1;
+                }
+            }
         }
         #
         # If this appears to be a Web feed, get the feed details
@@ -6410,6 +6647,7 @@ sub Setup_HTML_Tool_GUI {
     $pdf_property_profile_label = String_Value("PDF Property Profile");
     $tqa_profile_label = String_Value("ACC Testcase Profile");
     $clf_profile_label = String_Value("CLF Testcase Profile");
+    $wa_profile_label = String_Value("Web Analytics Testcase Profile");
     $interop_profile_label = String_Value("Interop Testcase Profile");
     $dept_check_profile_label = String_Value("Department Check Testcase Profile");
     $doc_profile_label = String_Value("Document Features Profile");
@@ -6424,6 +6662,7 @@ sub Setup_HTML_Tool_GUI {
                        $pdf_property_profile_label, \@pdf_property_profiles,
                        $tqa_profile_label, \@tqa_check_profiles,
                        $clf_profile_label, \@clf_check_profiles,
+                       $wa_profile_label, \@wa_check_profiles,
                        $interop_profile_label, \@interop_check_profiles,
                        $dept_check_profile_label, \@dept_check_profiles,
                        $doc_profile_label, \@doc_features_profiles,
@@ -6434,6 +6673,7 @@ sub Setup_HTML_Tool_GUI {
                               "pdf_profile", $pdf_property_profile_label,
                               "tqa_profile", $tqa_profile_label,
                               "clf_profile", $clf_profile_label,
+                              "wa_profile", $wa_profile_label,
                               "interop_profile", $interop_profile_label,
                               "content_profile", $dept_check_profile_label,
                               "html_profile", $doc_profile_label,

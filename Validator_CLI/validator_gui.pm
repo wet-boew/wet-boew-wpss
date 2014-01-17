@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6432 $
+# $Revision: 6478 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2013-11-08 11:52:59 -0500 (Fri, 08 Nov 2013) $
+# $Date: 2013-11-28 11:56:50 -0500 (Thu, 28 Nov 2013) $
 #
 # Description:
 #
@@ -2091,7 +2091,7 @@ sub Read_Open_Data_File {
 
     my (%report_options, $line, $field_name, $value, %dataset_urls);
     my ($data_list, $dictionary_list, $resource_list, $tab, $suffix);
-    my ($key);
+    my ($key, $api_list);
 
     #
     # Copy in default report options
@@ -2169,6 +2169,12 @@ sub Read_Open_Data_File {
             $resource_list .=  "$value\r\n";
         }
         #
+        # API URL ?
+        #
+        elsif ( $field_name =~ /^API$/i ) {
+            $api_list .=  "$value\r\n";
+        }
+        #
         # Is an output file specified
         #
         elsif ( $field_name eq "output_file" ) {
@@ -2200,6 +2206,9 @@ sub Read_Open_Data_File {
     }    
     if ( defined($resource_list) ) {
         $dataset_urls{"RESOURCE"} = $resource_list;
+    }    
+    if ( defined($api_list) ) {
+        $dataset_urls{"API"} = $api_list;
     }    
 
     #

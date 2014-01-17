@@ -2,9 +2,9 @@
 #
 # Name: wpss_strings.pm
 #
-# $Revision: 6415 $
+# $Revision: 6488 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_strings.pm $
-# $Date: 2013-10-30 15:37:58 -0400 (Wed, 30 Oct 2013) $
+# $Date: 2013-11-29 15:21:47 -0500 (Fri, 29 Nov 2013) $
 #
 # Description:
 #
@@ -126,6 +126,7 @@ Site:
     "PDF Property Profile",	"PDF Property Profile",
     "ACC Testcase Profile",	"ACC Testcase Profile",
     "CLF Testcase Profile",	"CLF Testcase Profile",
+    "Web Analytics Testcase Profile",	"Web Analytics Testcase Profile",
     "Interop Testcase Profile",	"Interoperability Testcase Profile",
     "Open Data Testcase Profile", "Open Data Testcase Profile",
     "Department Check Testcase Profile",	"Department Check Testcase Profile",
@@ -243,6 +244,7 @@ Site :
     "PDF Property Profile",	"Profil de propriété de PDF",
     "ACC Testcase Profile",	"Profil des cas de test de ACC",
     "CLF Testcase Profile",	"Profil des cas de test de NSI",
+    "Web Analytics Testcase Profile",	"Profil des cas de test de Web analytique",
     "Interop Testcase Profile",	"Profil des cas de test de Interoperability",
     "Open Data Testcase Profile",  "Profil des cas de test de Données Ouvertes",
     "Department Check Testcase Profile",	"Profil des cas de test de department ",
