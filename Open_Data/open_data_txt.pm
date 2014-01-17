@@ -2,9 +2,9 @@
 #
 # Name:   open_data_txt.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 6526 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_txt.pm $
+# $Date: 2014-01-06 11:29:39 -0500 (Mon, 06 Jan 2014) $
 #
 # Description:
 #
@@ -107,6 +107,7 @@ my %string_table_en = (
     "Extra term in dictionary",      "Extra term in dictionary",
     "Term missing from dictionary",  "Term missing from dictionary",
     "No definition for term",        "No definition for term",
+    "No terms found in dictionary",  "No terms found in dictionary",
     );
 
 my %string_table_fr = (
@@ -121,6 +122,7 @@ my %string_table_fr = (
     "Extra term in dictionary",      "Terme supplémentaire dans dictionnaire",
     "Term missing from dictionary",  "Terme manquant de dictionnaire",
     "No definition for term",        "Aucune définition pour terme",
+    "No terms found in dictionary",  "Pas de termes trouvés dans le dictionnaire",
     );
 
 #
@@ -441,7 +443,7 @@ sub Parse_Text_Dictionary {
                 # Have we seen this term before ?
                 #
                 if ( defined($terms_and_definitions{$term}) ) {
-                    Record_Result("OD_3", $line_no, 0, "$current_text",
+                    Record_Result("OD_TXT_1", $line_no, 0, "$current_text",
                                   String_Value("Duplicate term") . 
                                   " \"$term\" " .
                                   String_Value("Previous instance found at") .
@@ -455,7 +457,7 @@ sub Parse_Text_Dictionary {
                     # Extra term in this data dictionary that does not exist
                     # in the previously defined dictionary
                     #
-                    Record_Result("OD_3", $line_no, 0, "$current_text",
+                    Record_Result("OD_TXT_1", $line_no, 0, "$current_text",
                                   String_Value("Extra term in dictionary") . 
                                   " \"$term\"");
 
@@ -509,7 +511,7 @@ sub Parse_Text_Dictionary {
                 # Several blank lines after a term and no definition found.
                 #
                 print "Several blank lines after term with no definition\n" if $debug;
-                Record_Result("OD_3", $line_no, 0, "",
+                Record_Result("OD_TXT_1", $line_no, 0, "",
                               String_Value("Multiple blank lines after term"));
 
                 #
@@ -529,7 +531,7 @@ sub Parse_Text_Dictionary {
             print "Non blank line, in_term = $in_term, in_definition = $in_definition\n" if $debug;
             if ( $in_term ) {
                 print "Blank line expected after term at line $line_no\n" if $debug;
-                Record_Result("OD_3", $line_no, 0, "$line",
+                Record_Result("OD_TXT_1", $line_no, 0, "$line",
                               String_Value("Multiple lines found in term"));
 
                 #
@@ -571,7 +573,7 @@ sub Parse_Text_Dictionary {
                 # definition ?
                 #
                 if ( $blank_line_count < 2 ) {
-                    Record_Result("OD_3", $line_no, 0, "$line",
+                    Record_Result("OD_TXT_1", $line_no, 0, "$line",
                                   String_Value("Expect at least 2 blank lines after definition"));
                 }
             }
@@ -606,7 +608,7 @@ sub Parse_Text_Dictionary {
     #
     elsif ( $in_term ) {
         print "Found term at end of content with no definition\n" if $debug;
-        Record_Result("OD_3", $line_no, 0, "",
+        Record_Result("OD_TXT_1", $line_no, 0, "",
                       String_Value("No definition for term") .
                       " \"$current_text\"");
     }
@@ -623,15 +625,27 @@ sub Parse_Text_Dictionary {
     # one we just parsed.
     #
     else {
-        foreach $term (keys(%$dictionary)) {
-            if ( ! defined($terms_and_definitions{$term}) ) {
-                #
-                # Missing term.
-                #
-                Record_Result("OD_3", -1, 0, "",
-                              String_Value("Term missing from dictionary") . 
-                              " \"$term\"");
-
+        #
+        # Did we find any terms in this data dictionary ?
+        #
+        if ( keys(%terms_and_definitions) == 0 ) {
+            Record_Result("OD_3", -1, 0, "",
+                          String_Value("No terms found in dictionary") . 
+                          " \"$term\"");
+        }
+        else {
+            #
+            # Check for missing terms.
+            #
+            foreach $term (keys(%$dictionary)) {
+                if ( ! defined($terms_and_definitions{$term}) ) {
+                    #
+                    # Missing term.
+                    #
+                    Record_Result("OD_TXT_1", -1, 0, "",
+                                 String_Value("Term missing from dictionary") . 
+                                  " \"$term\"");
+                }
             }
         }
     }
@@ -693,6 +707,12 @@ sub Open_Data_TXT_Check_Dictionary {
                       String_Value("No content in file"));
     }
     else {
+        #
+        # Remove BOM from UTF-8 content ($EF $BB $BF)
+        #  Byte Order Mark - http://en.wikipedia.org/wiki/Byte_order_mark
+        #
+        $content =~ s/^\xEF\xBB\xBF//;
+
         #
         # Parse the text looking for terms and definitions.
         # Make sure there is a blank line at the end of the content.

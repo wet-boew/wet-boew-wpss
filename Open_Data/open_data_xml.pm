@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 6496 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_xml.pm $
+# $Date: 2013-12-03 12:50:58 -0500 (Tue, 03 Dec 2013) $
 #
 # Description:
 #
@@ -18,6 +18,7 @@
 #     Set_Open_Data_XML_Test_Profile
 #     Open_Data_XML_Check_Data
 #     Open_Data_XML_Check_Dictionary
+#     Open_Data_XML_Check_API
 #
 # Terms and Conditions of Use
 #
@@ -72,6 +73,7 @@ BEGIN {
                   Set_Open_Data_XML_Test_Profile
                   Open_Data_XML_Check_Data
                   Open_Data_XML_Check_Dictionary
+                  Open_Data_XML_Check_API
                   );
     $VERSION = "1.0";
 }
@@ -102,12 +104,14 @@ my %string_table_en = (
     "Fails validation",            "Fails validation",
     "No terms in found data dictionary", "No terms found in data dictionary",
     "No content in file",          "No content in file",
+    "No content in API", "No content in API",
     );
 
 my %string_table_fr = (
     "Fails validation",            "Échoue la validation",
     "No terms found in data dictionary", "Pas de termes trouvés dans dictionnaire de données",
     "No content in file",          "Aucun contenu dans fichier",
+    "No content in API", "Aucun contenu dans API",
     );
 
 #
@@ -587,6 +591,106 @@ sub Open_Data_XML_Check_Dictionary {
     #
     if ( $debug ) {
         print "Open_Data_XML_Check_Dictionary results\n";
+        foreach $result_object (@tqa_results_list) {
+            print "Testcase: " . $result_object->testcase;
+            print "  message  = " . $result_object->message . "\n";
+        }
+    }
+
+    #
+    # Return list of results
+    #
+    return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_XML_Check_API
+#
+# Parameters: this_url - a URL
+#             profile - testcase profile
+#             content - XML content
+#
+# Description:
+#
+#   This function runs a number of open data checks on XML API content.
+#
+#***********************************************************************
+sub Open_Data_XML_Check_API {
+    my ( $this_url, $profile, $content, $dictionary ) = @_;
+
+    my ($parser, $url, @tqa_results_list, $result_object, $testcase);
+    my ($eval_output);
+
+    #
+    # Do we have a valid profile ?
+    #
+    print "Open_Data_XML_Check_API: Checking URL $this_url, profile = $profile\n" if $debug;
+    if ( ! defined($open_data_profile_map{$profile}) ) {
+        print "Open_Data_XML_Check_API: Unknown testcase profile passed $profile\n";
+        return(@tqa_results_list);
+    }
+
+    #
+    # Save URL in global variable
+    #
+    if ( $this_url =~ /^http/i ) {
+        $current_url = $this_url;
+    }
+    else {
+        #
+        # Doesn't look like a URL.  Could be just a block of XML
+        # from the standalone validator which does not have a URL.
+        #
+        $current_url = "";
+    }
+
+    #
+    # Initialize the test case pass/fail table.
+    #
+    Initialize_Test_Results($profile, \@tqa_results_list);
+
+    #
+    # Did we get any content ?
+    #
+    if ( length($content) == 0 ) {
+        print "No content passed to Open_Data_XML_Check_API\n" if $debug;
+        Record_Result("OD_3", -1, 0, "",
+                      String_Value("No content in API"));
+    }
+    else {
+        #
+        # Create a document parser
+        #
+        $parser = XML::Parser->new;
+        $tag_count = 0;
+
+        #
+        # Add handlers for some of the XML tags
+        #
+        $parser->setHandlers(Start => \&Start_Handler);
+        $parser->setHandlers(End => \&End_Handler);
+
+        #
+        # Parse the content.
+        #
+        $eval_output = eval { $parser->parse($content); 1 } ;
+
+        #
+        # Did the parse fail ?
+        #
+        if ( ! $eval_output ) {
+            $eval_output =~ s/\n at .* line \d*$//g;
+            Record_Result("OD_3", -1, 0, "$eval_output",
+                          String_Value("Fails validation"));
+        }
+    }
+
+    #
+    # Print testcase information
+    #
+    if ( $debug ) {
+        print "Open_Data_XML_Check_API results\n";
         foreach $result_object (@tqa_results_list) {
             print "Testcase: " . $result_object->testcase;
             print "  message  = " . $result_object->message . "\n";

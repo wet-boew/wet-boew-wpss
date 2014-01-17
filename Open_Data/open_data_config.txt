@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 6525 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_config.txt $
+# $Date: 2014-01-06 11:29:08 -0500 (Mon, 06 Jan 2014) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -42,6 +42,39 @@ Testcase_URL_Help_File conf/open_data_testcase_url.config
 #
 #***********************************************************************
 #
+# PWGSC Open Data
+#    http://www.tbs-sct.gc.ca/pol/doc-eng.aspx?section=text&id=25875
+#
+#***********************************************************************
+#
+Open_Data_Check_Profile_eng PWGSC OD
+Open_Data_Check_Profile_fra DO TPSGC
+
+#
+# Testcase id
+# Open Data files
+#
+tcid OD_1
+tcid OD_2
+tcid OD_3
+tcid OD_TXT_1
+tcid OD_CSV_1
+
+#
+# Open Data API
+#
+tcid OD_API_1
+tcid OD_API_2
+tcid OD_API_3
+
+#
+# PWGSC Open Data
+#
+tcid TP_PW_OD_CSV_1
+
+#
+#***********************************************************************
+#
 # Open Data
 #    http://www.tbs-sct.gc.ca/pol/doc-eng.aspx?section=text&id=25875
 #
@@ -52,10 +85,20 @@ Open_Data_Check_Profile_fra DO SCT
 
 #
 # Testcase id
+# Open Data file
 #
 tcid OD_1
 tcid OD_2
 tcid OD_3
+tcid OD_TXT_1
+tcid OD_CSV_1
+
+#
+# Open Data API
+#
+tcid OD_API_1
+tcid OD_API_2
+tcid OD_API_3
 
 #
 #***********************************************************************

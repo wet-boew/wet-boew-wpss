@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 6524 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_testcases.pm $
+# $Date: 2014-01-06 11:28:37 -0500 (Mon, 06 Jan 2014) $
 #
 # Description:
 #
@@ -104,6 +104,20 @@ my (%testcase_description_en) = (
 "OD_1",     "OD_1: Open Data URL",
 "OD_2",     "OD_2: Character Encoding Requirements",
 "OD_3",     "OD_3: Mark-up Language Requirements",
+"OD_CSV_1", "OD_CSV_1: CSV Data",
+"OD_TXT_1", "OD_TXT_1: TXT Dictionary",
+
+#
+# Open Data API checkpoints
+#
+"OD_API_1",     "OD_API_1: Open Data URL",
+"OD_API_2",     "OD_API_2: Character Encoding Requirements",
+"OD_API_3",     "OD_API_3: Mark-up Language Requirements",
+
+#
+# PWGSC Open Data checkpoints
+#
+"TP_PW_OD_CSV_1",   "TP_PW_OD_CSV_1: CSV Header Row",
 );
 
 my (%testcase_description_fr) = (
@@ -113,6 +127,20 @@ my (%testcase_description_fr) = (
 "OD_1",     "OD_1: URL des Données Ouvertes",
 "OD_2",     "OD_2: Exigences relatives à l'encodage des caractères",
 "OD_3",     "OD_3: Exigences relatives au langage de balisage",
+"OD_CSV_1", "OD_CSV_1: Données CSV",
+"OD_TXT_1", "OD_TXT_1: TXT Dictionnaire",
+
+#
+# Open Data API checkpoints
+#
+"OD_API_1",     "OD_API_1: URL des Données Ouvertes",
+"OD_API_2",     "OD_API_2: Exigences relatives à l'encodage des caractères",
+"OD_API_3",     "OD_API_3: Exigences relatives au langage de balisage",
+
+#
+# PWGSC Open Data checkpoints
+#
+"TP_PW_OD_CSV_1",   "TP_PW_OD_CSV_1: Lignes d'en-tête du CSV",
 );
 
 #

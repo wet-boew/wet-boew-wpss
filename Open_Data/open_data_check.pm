@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 6215 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/open_data_check.pm $
-# $Date: 2013-03-13 09:47:46 -0400 (Wed, 13 Mar 2013) $
+# $Revision: 6496 $
+# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_check.pm $
+# $Date: 2013-12-03 12:50:58 -0500 (Tue, 03 Dec 2013) $
 #
 # Description:
 #
@@ -104,7 +104,9 @@ my %string_table_en = (
     "Character encoding is not UTF-8", "Character encoding is not UTF-8",
     "Invalid mime-type for data dictionary", "Invalid mime-type for data dictionary",
     "Invalid mime-type for data file", "Invalid mime-type for data file",
+    "Invalid mime-type for API",       "Invalid mime-type for API",
     "Dataset URL unavailable",         "Dataset URL unavailable",
+    "API URL unavailable",             "API URL unavailable",
 );
 
 #
@@ -114,7 +116,9 @@ my %string_table_fr = (
     "Character encoding is not UTF-8", "L'encodage des caractères ne pas UTF-8",
     "Invalid mime-type for data dictionary", "Invalid type MIME pour le dictionnaire de donnée",
     "Invalid mime-type for data file", "Invalid type MIME pour le jeu de donnée",
+    "Invalid mime-type for API",       "Invalid type MIME pour API",
     "Dataset URL unavailable",         "URL du jeu de données disponible",
+    "API URL unavailable",             "URL du API disponible",
 );
 
 #
@@ -156,6 +160,7 @@ sub Set_Open_Data_Check_Language {
     # Set language in supporting modules
     #
     Set_Open_Data_CSV_Language($language);
+    Set_Open_Data_JSON_Language($language);
     Set_Open_Data_TXT_Language($language);
     Set_Open_Data_XML_Language($language);
 }
@@ -183,6 +188,7 @@ sub Set_Open_Data_Check_Debug {
     # Set debug flag in supporting modules
     #
     Set_Open_Data_CSV_Debug($debug);
+    Set_Open_Data_JSON_Debug($debug);
     Set_Open_Data_TXT_Debug($debug);
     Set_Open_Data_XML_Debug($debug);
     Set_Open_Data_Testcase_Debug($debug);
@@ -283,6 +289,7 @@ sub Set_Open_Data_Check_Testcase_Data {
     # Set testcase data in supporting modules
     #
     Set_Open_Data_CSV_Testcase_Data($testcase, $data);
+    Set_Open_Data_JSON_Testcase_Data($testcase, $data);
     Set_Open_Data_TXT_Testcase_Data($testcase, $data);
     Set_Open_Data_XML_Testcase_Data($testcase, $data);
 }
@@ -318,6 +325,7 @@ sub Set_Open_Data_Check_Test_Profile {
     # Set testcase profile in supporting modules
     #
     Set_Open_Data_CSV_Test_Profile($profile, $open_data_checks);
+    Set_Open_Data_JSON_Test_Profile($profile, $open_data_checks);
     Set_Open_Data_TXT_Test_Profile($profile, $open_data_checks);
     Set_Open_Data_XML_Test_Profile($profile, $open_data_checks);
 }
@@ -419,14 +427,15 @@ sub Record_Result {
 # Name: Check_Encoding
 #
 # Parameters: resp - HTTP response object
+#             tcid - testcase identifier
 #
 # Description:
 #
-#   This function checks the character encoding of the web page.
+#   This function checks the character encoding of the URL content.
 #
 #***********************************************************************
 sub Check_Encoding {
-    my ($resp) = @_;
+    my ($resp, $tcid) = @_;
 
     my ($content, $output);
 
@@ -458,7 +467,7 @@ sub Check_Encoding {
                 # Not UTF 8 content
                 #
                 $output =  eval { decode('utf8', $content, Encode::FB_WARN);};
-                Record_Result("OD_2", 0, -1, "$output",
+                Record_Result($tcid, 0, -1, "$output",
                               String_Value("Character encoding is not UTF-8"));
             }
         }
@@ -485,7 +494,7 @@ sub Check_Open_Data_URL {
     my ($message);
 
     #
-    # Check not unsuccessful GET operation
+    # Check unsuccessful GET operation
     #
     if ( ! defined($resp) || (! $resp->is_success) ) {
         #
@@ -501,7 +510,47 @@ sub Check_Open_Data_URL {
         #
         # Check for UTF-8 encoding
         #
-        Check_Encoding($resp);
+        Check_Encoding($resp, "OD_2");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Open_Data_API_URL
+#
+# Parameters: url - URL of the API
+#             resp - HTTP::Response object
+#       
+#
+# Description:
+#
+#   This function checks to see if the API URL is available
+# and is encoded using UTF-8.
+#
+#***********************************************************************
+sub Check_Open_Data_API_URL {
+    my ($url, $resp) = @_;
+
+    my ($message);
+
+    #
+    # Check unsuccessful GET operation
+    #
+    if ( ! defined($resp) || (! $resp->is_success) ) {
+        #
+        # Failed to get url
+        #
+        $message = String_Value("API URL unavailable");
+        if ( defined($resp) ) {
+            $message .= " : " . $resp->status_line;
+        }
+        Record_Result("OD_API_1", -1, -1, "", $message);
+    }
+    else {
+        #
+        # Check for UTF-8 encoding
+        #
+        Check_Encoding($resp, "OD_API_2");
     }
 }
 
@@ -669,6 +718,73 @@ sub Check_Data_File_URL {
 
 #***********************************************************************
 #
+# Name: Check_API_URL
+#
+# Parameters: url - open data API URL
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function checks an API URL.  It checks that 
+#     - the content type is XML or JSON
+#     - the content contains valid markup
+#
+#***********************************************************************
+sub Check_API_URL {
+    my ($url, $resp) = @_;
+
+    my ($result_object, @other_results, $content, $header, $mime_type);
+
+    #
+    # Data dictionary files are expected to be either XML or TXT
+    # format.
+    #
+    print "Check_API_URL\n" if $debug;
+    if ( defined($resp) &&  $resp->is_success ) {
+        $header = $resp->headers;
+        $mime_type = $header->content_type;
+
+        #
+        # Is the content type json ?
+        #
+        if ( $mime_type =~ /application\/json/i ) {
+            print "JSON API URL\n" if $debug;
+            @other_results = Open_Data_JSON_Check_API($url,
+                                               $current_open_data_profile_name,
+                                                            $resp->content);
+        }
+        #
+        # Is this XML ?
+        #
+        elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
+                ($mime_type =~ /application\/xml/) ||
+                ($mime_type =~ /text\/xml/) ) {
+            print "XML API URL\n" if $debug;
+            @other_results = Open_Data_XML_Check_API($url,
+                                               $current_open_data_profile_name,
+                                                            $resp->content);
+        }
+        else {
+            #
+            # Unexpected mime-type for API
+            #
+            Record_Result("OD_API_3", -1, -1, "",
+                          String_Value("Invalid mime-type for API")
+                           . " \"" . $mime_type . "\"");
+        }
+
+        #
+        # Add results from API check into the complete
+        # results list.
+        #
+        foreach $result_object (@other_results) {
+            push(@$results_list_addr, $result_object);
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Open_Data_Check
 #
 # Parameters: url - open data file URL
@@ -719,14 +835,17 @@ sub Open_Data_Check {
     }
 
     #
-    # Check that the URL is valid and has proper encoding
-    #
-    Check_Open_Data_URL($url, $resp);
-
-    #
     # Is this a data dictionary file
     #
     if ( $data_file_type =~ /DICTIONARY/i ) {
+        #
+        # Check that the URL is valid and has proper encoding
+        #
+        Check_Open_Data_URL($url, $resp);
+
+        #
+        # Check dictionary content
+        #
         Check_Dictionary_URL($url, $resp, $dictionary);
     }
 
@@ -734,6 +853,14 @@ sub Open_Data_Check {
     # Is this a data file
     #
     elsif ( $data_file_type =~ /DATA/i ) {
+        #
+        # Check that the URL is valid and has proper encoding
+        #
+        Check_Open_Data_URL($url, $resp);
+
+        #
+        # Check data content
+        #
         Check_Data_File_URL($url, $resp, $dictionary);
     }
 
@@ -741,7 +868,30 @@ sub Open_Data_Check {
     # Is this a resource file
     #
     elsif ( $data_file_type =~ /RESOURCE/i ) {
+        #
+        # Check that the URL is valid and has proper encoding
+        #
+        Check_Open_Data_URL($url, $resp);
+
+        #
+        # Check resource content
+        #
         Check_Resource_URL($url, $resp, $dictionary);
+    }
+
+    #
+    # Is this a API URL
+    #
+    elsif ( $data_file_type =~ /API/i ) {
+        #
+        # Check that the URL is valid and has proper encoding
+        #
+        Check_Open_Data_API_URL($url, $resp);
+
+        #
+        # Check API content
+        #
+        Check_API_URL($url, $resp);
     }
 
     #
@@ -780,6 +930,7 @@ sub Import_Packages {
     my ($package);
     my (@package_list) = ("tqa_result_object", "open_data_csv",
                           "open_data_txt", "open_data_xml",
+                          "open_data_json",
                           "open_data_testcases", "crawler");
 
     #
