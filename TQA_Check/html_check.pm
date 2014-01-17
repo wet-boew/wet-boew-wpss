@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 6470 $
+# $Revision: 6540 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2013-11-26 14:51:54 -0500 (Tue, 26 Nov 2013) $
+# $Date: 2014-01-09 12:03:53 -0500 (Thu, 09 Jan 2014) $
 #
 # Description:
 #
@@ -123,12 +123,16 @@ my (@color_stack,  $current_a_href,
     %form_legend_value, %form_title_value, %legend_text_value,
     @inside_list_item, $last_heading_text, $have_figcaption, 
     $image_in_figure_with_no_alt, $fig_image_line, $fig_image_column,
-    $fig_image_text, $in_figure,
+    $fig_image_text, $in_figure, $found_onclick_onkeypress,
+    $onclick_onkeypress_line, $onclick_onkeypress_column,
+    @onclick_onkeypress_tag, $onclick_onkeypress_text, $have_focusable_item,
+    $pseudo_header, $emphasis_count, $anchor_inside_emphasis,
+    @missing_table_headers, @table_header_locations, @table_header_types,
 );
 
 my ($is_valid_html) = -1;
 
-my ($tags_allowed_events) = " a area form input select ";
+my ($tags_allowed_events) = " a area button form input select ";
 my ($tags_with_color_attribute) = " BODY TABLE TD TH HR ";
 my ($input_types_requiring_label_before)  = " file password text ";
 my ($input_types_requiring_label_after)  = " checkbox radio ";
@@ -141,6 +145,7 @@ my ($click_here_patterns) =  " here click here more ici cliquez ici plus ";
 my (%section_markers) = ();
 my ($have_content_markers) = 0;
 my (@required_content_sections) = ("CONTENT");
+my ($pseudo_header_length) = 50;
 
 #
 # Maximum length of a heading or title
@@ -611,6 +616,11 @@ my %string_table_en = (
     "Duplicate anchor name",            "Duplicate anchor name ",
     "Duplicate label id",               "Duplicate <label> 'id' ",
     "Duplicate id",                     "Duplicate 'id' ",
+    "Duplicate id in headers",          "Duplicate 'id' in 'headers'",
+    "Missing",                          "Missing",
+    "found in header",                  "found in header",
+    "Self reference in headers",        "Self reference in 'headers'",
+    "Header defined at",                "Header defined at (line:column)",
     "Duplicate",                        "Duplicate",
     "Duplicate accesskey",              "Duplicate 'accesskey' ",
     "Invalid content for",              "Invalid content for ",
@@ -682,6 +692,8 @@ my %string_table_en = (
     "not defined within table",       "not defined within <table>",
     "Heading text greater than 500 characters",  "Heading text greater than 500 characters",
     "Title text greater than 500 characters",            "Title text greater than 500 characters",
+    "Title same as id for",               "'title' same as 'id' for ",
+    "Text styled to appear like a heading", "Text styled to appear like a heading",
 );
 
 
@@ -751,6 +763,11 @@ my %string_table_fr = (
     "Duplicate anchor name",            "Doublon du nom d'ancrage ",
     "Duplicate label id",               "Doublon <label> 'id' ",
     "Duplicate id",                     "Doublon 'id' ",
+    "Duplicate id in headers",          "Doublon 'id' dans 'headers'",
+    "Missing",                          "Manquantes",
+    "found in header",                  "trouvé dans les en-têtes",
+    "Self reference in headers",        "référence auto dans 'headers'",
+    "Header defined at",                "En-tête défini à (la ligne:colonne)",
     "Duplicate",                        "Doublon",
     "Duplicate accesskey",              "Doublon 'accesskey' ",
     "Invalid content for",              "Contenu invalide pour ",
@@ -822,6 +839,8 @@ my %string_table_fr = (
     "not defined within table",       "pas défini dans le <table>",
     "Heading text greater than 500 characters",  "Texte du têtes supérieure 500 caractères",
     "Title text greater than 500 characters",    "Texte du title supérieure 500 caractères",
+    "Title same as id for",               "'title' identique à 'id' pour ",
+    "Text styled to appear like a heading", "Texte de style pour apparaître comme un titre",
 );
 
 #
@@ -1011,7 +1030,7 @@ sub Initialize_Test_Results {
     my ($profile, $local_results_list_addr) = @_;
 
     my ($test_case, @comment_lines, $line, $english_comment, $french_comment);
-    my ($tcid, $name);
+    my ($name);
 
     #
     # Set current hash tables
@@ -1047,6 +1066,9 @@ sub Initialize_Test_Results {
     @table_start_column    = ();
     @table_has_headers     = ();
     @table_header_values   = ();
+    @table_header_types    = ();
+    @missing_table_headers = ();
+    @table_header_locations = ();
     $inside_h_tag_set      = 0;
     %anchor_text_href_map  = ();
     %anchor_location       = ();
@@ -1101,6 +1123,9 @@ sub Initialize_Test_Results {
     %legend_text_value     = ();
     $last_heading_text     = "";
     $current_text_handler_tag = "";
+    $pseudo_header         = "";
+    $emphasis_count        = 0;
+    $anchor_inside_emphasis = 0;
 
     #
     # Initialize content section found flags to false
@@ -1374,6 +1399,46 @@ sub Destroy_Text_Handler {
 
 #***********************************************************************
 #
+# Name: Have_Text_Handler_For_Tag
+#
+# Parameters: tag - tag name
+#
+# Description:
+#
+#   This function returns true if a text handler has been started for
+# the named tag.
+#
+#***********************************************************************
+sub Have_Text_Handler_For_Tag {
+    my ($tag) = @_;
+
+    my ($this_tag);
+
+    #
+    # Do we have an active text handler ?
+    # 
+    if ( $have_text_handler ) {
+        #
+        # Check the tag names for each active handler
+        #
+        foreach $this_tag (@text_handler_tag_list) {
+            if ( $this_tag eq $tag ) {
+                #
+                # Found text handler for this tag
+                #
+                return(1);
+            }
+        }
+    }
+
+    #
+    # If we got here, we have no text handler for the specified tag
+    #
+    return(0);
+}
+
+#***********************************************************************
+#
 # Name: Start_Text_Handler
 #
 # Parameters: self - reference to a HTML::Parse object
@@ -1626,7 +1691,8 @@ sub Frame_Tag_Handler {
 sub Table_Tag_Handler {
     my ( $line, $column, $text, %attr ) = @_;
 
-    my ($summary, %header_values);
+    my ($summary, %header_values, %missing_header_references);
+    my (%header_locations, %header_types);
 
     #
     # Increment table nesting index and initialise the table
@@ -1637,6 +1703,9 @@ sub Table_Tag_Handler {
     $table_start_column[$table_nesting_index] = $column;
     $table_has_headers[$table_nesting_index] = 0;
     $table_header_values[$table_nesting_index] = \%header_values;
+    $table_header_locations[$table_nesting_index] = \%header_locations;
+    $table_header_types[$table_nesting_index] = \%header_types;
+    $missing_table_headers[$table_nesting_index] = \%missing_header_references;
     $inside_thead[$table_nesting_index] = 0;
 
     #
@@ -1744,16 +1813,39 @@ sub End_Fieldset_Tag_Handler {
 sub End_Table_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($start_line, $start_column);
+    my ($start_line, $start_column, $table_ref, $list_ref, $id);
+    my ($h_ref, $h_line, $h_column, $h_headers, $h_text);
+    my ($header_values);
 
     #
     # Check to see if table headers were used in this table.
     #
     if ( $table_nesting_index >= 0 ) {
         #
+        # Check for any missing table header definitions
+        #
+        $table_ref = $missing_table_headers[$table_nesting_index];
+        $header_values = $table_header_values[$table_nesting_index];
+        foreach $id (keys %$table_ref) {
+            $list_ref = $$table_ref{$id};
+            foreach $h_ref (@$list_ref) {
+                ($h_line, $h_column, $h_headers, $h_text) = split(":", $h_ref, 4);
+                if ( ! defined($$header_values{$id}) ) {
+                    Record_Result("WCAG_2.0-H43", $h_line, $h_column, $h_text,
+                                  String_Value("Table headers") .
+                                  " \"$id\" " .
+                                  String_Value("not defined within table"));
+                }
+            }
+        }
+
+        #
         # Remove table headers values
         #
         undef $table_header_values[$table_nesting_index];
+        undef $table_header_locations[$table_nesting_index];
+        undef $missing_table_headers[$table_nesting_index];
+        undef $table_header_types[$table_nesting_index];
 
         #
         # Decrement global table nesting value
@@ -1838,7 +1930,7 @@ sub Blink_Tag_Handler {
 
 #***********************************************************************
 #
-# Name: Check_Label_and_Title
+# Name: Check_Label_Id_and_Title
 #
 # Parameters: self - reference to object
 #             tag - HTML tag name
@@ -1856,26 +1948,16 @@ sub Blink_Tag_Handler {
 # for an id attribute and a corresponding label.
 #
 #***********************************************************************
-sub Check_Label_and_Title {
+sub Check_Label_Id_and_Title {
     my ( $self, $tag, $label_required, $line, $column, $text, %attr ) = @_;
 
-    my ($id, $title, $label, $tcid, $last_seen_text, $complete_title);
+    my ($id, $title, $label, $last_seen_text, $complete_title);
     my ($found_label) = 0;
-
-    #
-    # Get possible title attribute
-    #
-    print "Check_Label_and_Title for $tag, label_required = $label_required\n" if $debug;
-    if ( defined($attr{"title"}) ) {
-        $title = $attr{"title"};
-        $title =~ s/^\s*//g;
-        $title =~ s/\s*$//g;
-        print "Have title = \"$title\"\n" if $debug;
-    }
 
     #
     # Get possible id attribute and corresponding label
     #
+    print "Check_Label_Id_and_Title for $tag, label_required = $label_required\n" if $debug;
     if ( defined($attr{"id"}) ) {
         $id = $attr{"id"};
         $id =~ s/^\s*//g;
@@ -1888,7 +1970,31 @@ sub Check_Label_and_Title {
         #
         if ( defined($label_for_location{$id}) ) {
             $label = $label_for_location{$id};
+            $found_label = 1;
             print "Have label = \"$label\"\n" if $debug;
+        }
+    }
+
+    #
+    # Get possible title attribute
+    #
+    if ( defined($attr{"title"}) ) {
+        $title = $attr{"title"};
+        $title =~ s/^\s*//g;
+        $title =~ s/\s*$//g;
+        print "Have title = \"$title\"\n" if $debug;
+
+        #
+        # Did we have an id value ?
+        #
+        if ( defined($id) ) {
+            #
+            # Is the Title the same as the id ?
+            #
+            if ( lc($title) eq lc($id) ) {
+                Record_Result("WCAG_2.0-H65", $line, $column, $text,
+                              String_Value("Title same as id for") . $tag);
+            }
         }
     }
 
@@ -2169,6 +2275,7 @@ sub Input_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
     my ($input_type, $id, $value, $input_tag_type);
+    my ($found_label) = 0;
 
     #
     # Is this a read only or disabled input ?
@@ -2251,16 +2358,16 @@ sub Input_Tag_Handler {
             #
             # Should expect a label for this input before input.
             #
-            Check_Label_and_Title($self, $input_tag_type, 1, $line,
-                                  $column, $text, %attr);
+            Check_Label_Id_and_Title($self, $input_tag_type, 1, $line,
+                                     $column, $text, %attr);
         }
         else {
             #
             # Label may appear after this input.  Label check will happen
             # at the end of the document.
             #
-            Check_Label_and_Title($self, $input_tag_type, 0, $line, $column,
-                                  $text, %attr);
+            Check_Label_Id_and_Title($self, $input_tag_type, 0, $line, $column,
+                                     $text, %attr);
         }
     }
 
@@ -2325,6 +2432,13 @@ sub Input_Tag_Handler {
                 $id =~ s/\s*$//g;
                 $input_id_location{"$id"} = "$line,$column";
             }
+
+            #
+            # Do we have a label that matches this id ?
+            #
+            if ( defined($label_for_location{"$id"}) ) {
+                $found_label = 1;
+            }
         }
     }
 
@@ -2379,18 +2493,19 @@ sub Input_Tag_Handler {
             #
             elsif ( $attr{"name"} eq $last_radio_checkbox_name ) {
                 #
-                # Are we inside a fieldset ?
+                # Are we inside a fieldset and we don't have an
+                # explicit label ? 
                 #
                 print "Next $input_type of a list, name = " . $attr{"name"} .
                       " last input name = $last_radio_checkbox_name\n" if $debug;
-                if ( $fieldset_tag_index == 0 ) {
+                if ( ($fieldset_tag_index == 0) && ( ! $found_label) ) {
                     #
                     # No fieldset for these inputs
                     #
                     Record_Result("WCAG_2.0-H71", $line, $column, $text,
                                   String_Value("Missing fieldset"));
                     Record_Result("WCAG_2.0-F68", $line, $column, $text,
-                                  String_Value("No label for") .  "<input>");
+                                  String_Value("No label for") . "<input>");
                 }
             }
         }
@@ -2436,7 +2551,8 @@ sub Select_Tag_Handler {
     #
     # Check for one of a title or a label
     #
-    Check_Label_and_Title($self, "<select>", 1, $line, $column, $text, %attr);
+    Check_Label_Id_and_Title($self, "<select>", 1, $line, $column, $text,
+                             %attr);
 
     #
     # Save the location of this select id if we are not inside a <fieldset>.
@@ -2628,6 +2744,8 @@ sub End_Label_Tag_Handler {
     if ( $clean_text eq "" ) {
         Record_Result("WCAG_2.0-H44", $line, $column,
                       $text, String_Value("Missing text in") . "<label>");
+        Record_Result("WCAG_2.0-G131", $line, $column,
+                      $text, String_Value("Missing text in") . "<label>");
     }
     else {
         #
@@ -2725,7 +2843,8 @@ sub Textarea_Tag_Handler {
     #
     # Check to see if the textarea has a label or title
     #
-    Check_Label_and_Title($self, "<textarea>", 0, $line, $column, $text, %attr);
+    Check_Label_Id_and_Title($self, "<textarea>", 0, $line, $column, $text,
+                             %attr);
 
     #
     # Check for accesskey attribute
@@ -2867,6 +2986,8 @@ sub End_Legend_Tag_Handler {
     if ( $clean_text eq "" ) {
         Record_Result("WCAG_2.0-H71", $line, $column,
                       $text, String_Value("Missing text in") . "<legend>");
+        Record_Result("WCAG_2.0-G131", $line, $column,
+                      $text, String_Value("Missing text in") . "<legend>");
     }
     #
     # Have we seen this legend before ?
@@ -2947,7 +3068,7 @@ sub P_Tag_Handler {
 sub End_P_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $word_count, $tcid, $clean_text);
+    my ($this_text, $clean_text);
 
     #
     # Get all the text found within the p tag
@@ -2963,22 +3084,439 @@ sub End_P_Tag_Handler {
     }
 
     #
-    # Get the p text as a string and count the number of words
+    # Get the p text as a string
     #
     $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
-    $word_count = split(/\s+/, $clean_text);
-    print "End_P_Tag_Handler word count = $word_count\n" if $debug;
 
     #
     # Check for using white space characters to control spacing within a word
     #
     Check_Character_Spacing("<p>", $line, $column, $clean_text);
-    
+
+    #
+    # Was there a pseudo-header ? Is it the entire contents of the 
+    # paragraph ? (not just emphasised text inside the paragraph)
+    #
+    if ( ($pseudo_header ne "") &&
+         ($pseudo_header eq $clean_text) ) {
+        print "Possible pseudo-header paragraph \"$clean_text\" at $line:$column\n" if $debug;
+        Record_Result("WCAG_2.0-F2", $line, $column, $text,
+                      String_Value("Text styled to appear like a heading") .
+                      " \"$pseudo_header\"");
+    }
+    else {
+        #
+        # Have no pseudo-header
+        #
+        $pseudo_header = ""
+    }
+
     #
     # Destroy the text handler that was used to save the text
-    # portion of the legend tag.
+    # portion of the p tag.
     #
     Destroy_Text_Handler($self, "p");
+}
+
+#***********************************************************************
+#
+# Name: Emphasis_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tag - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles tags that convey emphasis (e.g. strong, em, b, i).
+# 
+# It checks to see if the last open tag is a paragraph tag, a div tag, or
+# we are already within an emphasis block.
+#
+#***********************************************************************
+sub Emphasis_Tag_Handler {
+    my ( $self, $tag, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Was the last open tag a paragraph, div or are we already inside an
+    # emphasis block ?
+    #
+    if ( ($last_open_tag eq "p") || 
+         ($emphasis_count > 0) ) {
+        #
+        # Increment emphasis level count
+        #
+        $emphasis_count++;
+
+        #
+        # Add a text handler to save the text portion of this tag
+        #
+        Start_Text_Handler($self, $tag);
+    }
+}
+
+#***********************************************************************
+#
+# Name: End_Emphasis_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tag - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles end tags that convey emphasis (e.g. strong, em,
+#  b, i).
+#
+#***********************************************************************
+sub End_Emphasis_Tag_Handler {
+    my ( $self, $tag, $line, $column, $text ) = @_;
+
+    my ($this_text, $last_line, $last_column, $clean_text);
+
+    #
+    # Get all the text found within the tag
+    #
+    if ( ! $have_text_handler ) {
+        #
+        # No text handler, this emphasis tag may not have been within a
+        # paragraph, so it can be ignored.
+        #
+        print "Ignore end emphasis tag $tag\n" if $debug;
+        return;
+    }
+
+    #
+    # Get the tag text as a string, remove all white space and convert
+    # to lowercase
+    #
+    $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
+    print "End_Emphasis_Tag_Handler: text = \"$clean_text\"\n" if $debug;
+
+    $pseudo_header = "";
+    #
+    # Are we missing text ?
+    #
+    if ( $clean_text eq "" ) {
+        Record_Result("WCAG_2.0-G115", $line, $column,
+                      $text, String_Value("Missing text in") . "<$tag>");
+    }
+    #
+    # If this emphasis is inside a block tag such as <caption>, it
+    # is ignored as it is not a heading.  Also ignore it if it is
+    # a table header (<th>, <td>).
+    #
+    elsif ( Have_Text_Handler_For_Tag("caption") ||
+            Have_Text_Handler_For_Tag("summary") ||
+            Have_Text_Handler_For_Tag("td") ||
+            Have_Text_Handler_For_Tag("th")    ) {
+        print "Ignore possible pseudo-heading inside block tag\n" if $debug;
+    }
+    #
+    # Does the text end with a period ? This suggests it is a sentence
+    # rather than a heading.  Wont ignore other punctuation such as
+    # a question mark as they can appear in FAQ type of headings.
+    #
+    elsif ( $clean_text =~ /\.$/ ) {
+        print "Ignore possible pseudo-heading that end with a period\n" if $debug;
+    }
+    #
+    # Do we have an anchor inside the emphasis block ?
+    # Ignore this text as the anchor may be bolded.
+    #
+    elsif ( $anchor_inside_emphasis ) {
+        print "Ignore possible pseudo-heading that contains an anchor\n" if $debug;
+    }
+    #
+    # Check the length of the text, if it is below a certain threshold
+    # it may be acting as a pseudo-header
+    #
+    elsif ( length($clean_text) < $pseudo_header_length ) {
+        #
+        # Possible pseudo-header
+        #
+        $pseudo_header = $clean_text;
+        print "Possible pseudo-header \"$clean_text\" at $line:$column\n" if $debug;
+    }
+
+    #
+    # Destroy the text handler that was used to save the text
+    # portion of the tag.
+    #
+    Destroy_Text_Handler($self, $tag);
+
+    #
+    # Decrement the emphasis tag level
+    #
+    $emphasis_count--;
+
+    #
+    # If we are outside any emphasis block, reset the "anchor in emphasis"
+    # flag.
+    #
+    if ( $emphasis_count <= 0 ) {
+        $anchor_inside_emphasis = 0;
+        $emphasis_count = 0;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Headers_Attribute
+#
+# Parameters: tag - tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks for a headers attribute for the specified tag.
+# It checks to see if all the headers of the headers are referenced
+# (e.g. is this tag references header id=h1, this tag should also
+# reference all headers of the tag that defines id=h1).  
+#
+# From: http://www.w3.org/TR/html5/tabular-data.html#attr-tdth-headers
+# A th element with ID id is said to be directly targeted by all td 
+# and th elements in the same table that have headers attributes whose 
+# values include as one of their tokens the ID id. A th element A is 
+# said to be targeted by a th or td element B if either A is directly 
+# targeted by B or if there exists an element C that is itself targeted 
+# by the element B and A is directly targeted by C.
+#
+# It returns a complete list of headers that should be referenced.  
+# If a referenced header is not defined (e.g. defined later in the 
+# HTML stream), the reference is saved for later checking.
+#
+#***********************************************************************
+sub Check_Headers_Attribute {
+    my ( $tag, $line, $column, $text, %attr ) = @_;
+
+    my ($header_values, $id, $headers, $table_ref, $list_ref);
+    my ($complete_headers, %headers_set, $p_headers, $p_id);
+    my ($location_ref, %h43_reported, $types_ref);
+
+    #
+    # Do we have a headers attribute ?
+    #
+    if ( defined($attr{"headers"}) && ($attr{"headers"} ne "") ) {
+        $headers = $attr{"headers"};
+        $headers =~ s/^\s*//g;
+        $headers =~ s/\s*$//g;
+
+        #
+        # Do a first pass through the list of headers to check
+        # for duplicates.
+        #
+        foreach $id (split(/\s+/, $headers)) {
+            #
+            # Have we seen this id already in the list of headers ?
+            #
+            if ( defined($headers_set{$id}) ) {
+                Record_Result("WCAG_2.0-H88", $line, $column, $text,
+                              String_Value("Duplicate id in headers") .
+                              " headers=\"$id\"");
+            }
+            else {
+                #
+                # Save id value
+                #
+                $headers_set{$id} = $id;
+            }
+        }
+
+        #
+        # Generate a complete list of specified header id values
+        #
+        $complete_headers = join(" ", keys(%headers_set));
+
+        #
+        # Second pass through the headers, check that the id values
+        # reference headers within this table. Check that headers of
+        # headers appear in this tag's headers list.
+        #
+        $header_values = $table_header_values[$table_nesting_index];
+        $location_ref = $table_header_locations[$table_nesting_index];
+        $types_ref = $table_header_types[$table_nesting_index];
+        foreach $id (keys(%headers_set)) {
+            #
+            # Have we seen this id in a header ?
+            #
+            if ( defined($$header_values{$id}) ) {
+                print "Check header id $id\n" if $debug;
+
+                #
+                # Is this id from a th tag ? Only th tag header ids are
+                # targeted headers.
+                #
+                if ( $$types_ref{$id} eq "th") {
+                    #
+                    # Check to see if all the id values in the 'headers'
+                    # attribute of this header also appear in this tags
+                    # 'headers' attribute (i.e. header references must
+                    # be explicit and not transitive).
+                    #
+                    $p_headers = $$header_values{$id};
+
+                    #
+                    # Check that each id in the parent header list is in
+                    # this tag's list.
+                    #
+                    foreach $p_id (split(/\s+/, $p_headers)) {
+                        #
+                        # Report error if parent id is not in the set of
+                        # headers (only report once per possible parent id)
+                        #
+                        print "Check parent header $p_id\n" if $debug;
+                        if ( (! defined($headers_set{$p_id})) && 
+                             (! defined($h43_reported{$p_id})) ) {
+                            Record_Result("WCAG_2.0-H43", $line, $column, $text,
+                                          String_Value("Missing") .
+                                          " 'headers=\"$p_id\"' " .
+                                          String_Value("found in header") .
+                                          " 'id=\"$id\"'. " .
+                                          String_Value("Header defined at") .
+                                          " " . $$location_ref{$id});
+                            $h43_reported{$p_id} = $p_id;
+                        }
+
+                        #
+                        # Add this header to the list of complete headers
+                        # for this tag.  This speeds up future checking
+                        # as we don't have to iterate up the parent header
+                        # chain.
+                        #
+                        if ( ! defined($headers_set{$p_id}) ) {
+                            $headers_set{$p_id} = $p_id;
+                        }
+                    }
+                }
+                else {
+                    print "Skip non <th> header\n" if $debug;
+                }
+            }
+            else {
+                #
+                # Record this header reference as a potential error.
+                # The header definition may appear later in the
+                # table. Get the list of references to this id value.
+                #
+                $table_ref = $missing_table_headers[$table_nesting_index];
+                if ( ! defined($$table_ref{$id}) ) {
+                    my (@empty_list);
+                    $$table_ref{$id} = \@empty_list;
+                }
+                $list_ref = $$table_ref{$id};
+
+                #
+                # Store the location and text of this reference.
+                #
+                push(@$list_ref, "$line:$column:$complete_headers:$text");
+            }
+        }
+
+        #
+        # Generate a complete list of specified and required headers
+        #
+        $complete_headers = join(" ", keys(%headers_set));
+    }
+    else {
+        #
+        # No headers
+        #
+        $complete_headers = "";
+    }
+
+    #
+    # Return cmoplete list of headers
+    #
+    return($complete_headers);
+}
+
+#***********************************************************************
+#
+# Name: Delayed_Headers_Attribute_Check
+#
+# Parameters: id - header id
+#
+# Description:
+#
+#   This function performs delayed checks on  headers attributes for 
+# headers that are defined after they are used.  It checks to see if all
+# the references to this header include references to this header's
+# headers  (e.g. is this tag references header id=h1, this tag should also
+#
+# reference all headers of the tag that defines id=h1).
+# From: http://www.w3.org/TR/html5/tabular-data.html#attr-tdth-headers
+# A th element with ID id is said to be directly targeted by all td 
+# and th elements in the same table that have headers attributes whose 
+# values include as one of their tokens the ID id. A th element A is 
+# said to be targeted by a th or td element B if either A is directly 
+# targeted by B or if there exists an element C that is itself targeted 
+# by the element B and A is directly targeted by C.
+#
+#***********************************************************************
+sub Delayed_Headers_Attribute_Check {
+    my ($id) = @_;
+
+    my ($header_values, $headers, $table_ref, $list_ref);
+    my ($r_ref, $p_id, $location_ref, %h43_reported);
+    my ($r_line, $r_column, $r_headers, $r_text, $types_ref);
+
+    #
+    # Get list of references to this header
+    #
+    $location_ref = $table_header_locations[$table_nesting_index];
+    $header_values = $table_header_values[$table_nesting_index];
+    $table_ref = $missing_table_headers[$table_nesting_index];
+    $types_ref = $table_header_types[$table_nesting_index];
+    $list_ref = $$table_ref{$id};
+
+    #
+    # Do we have any headers and is this a th header (not a td header) ?
+    #
+    $headers = $$header_values{$id};
+    if ( ($headers ne "") && ($$types_ref{$id} eq "th") ) {
+        #
+        # Check each reference to this header to see if they include
+        # all header reference we have.
+        #
+        foreach $r_ref (@$list_ref) {
+            #
+            # Get the details of the header reference
+            #
+            ($r_line, $r_column, $r_headers, $r_text) = split(/:/, $r_ref, 4);
+
+            #
+            # Check that each id in this headers list is in
+            # this referenced tag's header list.
+            #
+            foreach $p_id (split(/\s+/, $headers)) {
+                if ( index(" $r_headers ", " $p_id ") == -1 ) {
+                    #
+                    # Report error only report once per possible parent id.
+                    #
+                    if ( ! defined($h43_reported{$p_id}) ) {
+                        Record_Result("WCAG_2.0-H43", $r_line, $r_column,
+                                      $r_text,
+                                      String_Value("Missing") .
+                                      " 'headers=\"$p_id\"' " . 
+                                      String_Value("found in header") .
+                                      " 'id=\"$id\"'. " .
+                                      String_Value("Header defined at") .
+                                      " " . $$location_ref{$id});
+                        $h43_reported{$p_id} = $p_id;
+                    }
+                }
+            }
+        }
+    }
 }
 
 #***********************************************************************
@@ -2999,7 +3537,8 @@ sub End_P_Tag_Handler {
 sub TH_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my ($header_values, $id);
+    my ($header_values, $id, $table_ref, $complete_headers, $h_id);
+    my ($header_location, $header_type);
 
     #
     # If we are inside a table, set table headers present flag
@@ -3011,6 +3550,12 @@ sub TH_Tag_Handler {
         $table_has_headers[$table_nesting_index] = 1;
 
         #
+        # Check for a headers attribute to reference table headers
+        #
+        $complete_headers = Check_Headers_Attribute("th", $line, $column,
+                                                    $text, %attr);
+
+        #
         # Do we have an id attribute ?
         #
         if ( defined($attr{"id"}) && ($attr{"id"} ne "") ) {
@@ -3020,7 +3565,34 @@ sub TH_Tag_Handler {
             # Save id value in table headers
             #
             $header_values = $table_header_values[$table_nesting_index];
-            $$header_values{$id} = $id;
+            $$header_values{$id} = $complete_headers;
+            $header_location = $table_header_locations[$table_nesting_index];
+            $$header_location{$id} = "$line:$column";
+            $header_type = $table_header_types[$table_nesting_index];
+            $$header_type{$id} = "th";
+
+            #
+            # Clear any possible table header references we have saved
+            # as potential errors (reference preceeds definition).
+            #
+            $table_ref = $missing_table_headers[$table_nesting_index];
+            if ( defined($$table_ref{$id}) ) {
+                Delayed_Headers_Attribute_Check($id);
+                delete $$table_ref{$id};
+            }
+
+            #
+            # Check to see if this tag references it's own id in the
+            # list of headers.
+            #
+            foreach $h_id (split(/\s+/, $complete_headers)) {
+                if ( $h_id eq $id ) {
+                    Record_Result("WCAG_2.0-H88", $line, $column, $text,
+                                  String_Value("Self reference in headers") .
+                                  " <th id=\"$id\" headers=\"$id\">");
+                    last;
+                }
+            }
         }
     }
     else {
@@ -3142,7 +3714,8 @@ sub Thead_Tag_Handler {
 sub TD_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my (%local_attr, $header_values, $id, $headers);
+    my (%local_attr, $header_values, $id, $headers, $table_ref, $list_ref);
+    my ($complete_headers, $header_location, $header_type);
 
     #
     # Are we inside a table ?
@@ -3155,6 +3728,12 @@ sub TD_Tag_Handler {
         $td_attributes[$table_nesting_index] = \%local_attr;
 
         #
+        # Check for a headers attribute to reference table headers
+        #
+        $complete_headers = Check_Headers_Attribute("td", $line, $column,
+                                                    $text, %attr);
+
+        #
         # Do we have an id attribute ?
         #
         if ( defined($attr{"id"}) && ($attr{"id"} ne "") ) {
@@ -3164,28 +3743,20 @@ sub TD_Tag_Handler {
             # Save id value in table headers
             #
             $header_values = $table_header_values[$table_nesting_index];
-            $$header_values{$id} = $id;
-        }
-
-        #
-        # Do we have a headers attribute ?
-        #
-        if ( defined($attr{"headers"}) && ($attr{"headers"} ne "") ) {
-            $headers = $attr{"headers"};
-            $headers =~ s/^\s*//g;
-            $headers =~ s/\s*$//g;
+            $$header_values{$id} = $complete_headers;
+            $header_location = $table_header_locations[$table_nesting_index];
+            $$header_location{$id} = "$line:$column";
+            $header_type = $table_header_types[$table_nesting_index];
+            $$header_type{$id} = "td";
 
             #
-            # Check headers values in table headers
+            # Clear any possible table header references we have saved
+            # as potential errors (reference preceeds definition).
             #
-            $header_values = $table_header_values[$table_nesting_index];
-            foreach $id (split(/\s+/, $headers)) {
-                if ( ! defined($$header_values{$id}) ) {
-                    Record_Result("WCAG_2.0-H43", $line, $column, $text,
-                                  String_Value("Table headers") .
-                                  " \"$id\" " .
-                                  String_Value("not defined within table"));
-                }
+            $table_ref = $missing_table_headers[$table_nesting_index];
+            if ( defined($$table_ref{$id}) ) {
+                Delayed_Headers_Attribute_Check($id);
+                delete $$table_ref{$id};
             }
         }
     }
@@ -4165,6 +4736,14 @@ sub Anchor_Tag_Handler {
         Record_Result("WCAG_2.0-G115", $line, $column, $text,
                       String_Value("Missing href, id or name in <a>"));
     }
+
+    #
+    # Are we inside an emphasis block ? If so set a flag to indicate we
+    # found an anchor tag.
+    #
+    if ( $emphasis_count > 0 ) {
+        $anchor_inside_emphasis = 1;
+    }
 }
 
 #***********************************************************************
@@ -4184,7 +4763,7 @@ sub Anchor_Tag_Handler {
 sub Declaration_Handler {
     my ( $text, $line, $column ) = @_;
 
-    my ($this_dtd, @dtd_lines, $testcase, $tcid);
+    my ($this_dtd, @dtd_lines, $testcase);
     my ($top, $availability, $registration, $organization, $type, $label);
     my ($language, $url);
 
@@ -4276,7 +4855,7 @@ sub Declaration_Handler {
 sub Start_H_Tag_Handler {
     my ( $self, $tagname, $line, $column, $text, %attr ) = @_;
 
-    my ($level, $tcid);
+    my ($level);
 
     #
     # Get heading level number from the tag
@@ -4345,7 +4924,7 @@ sub Start_H_Tag_Handler {
 sub End_H_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $last_line, $last_column, $tcid, $clean_text);
+    my ($this_text, $last_line, $last_column, $clean_text);
 
     #
     # Get all the text found within the h tag
@@ -4794,7 +5373,7 @@ sub Button_Tag_Handler {
 sub End_Button_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $last_line, $last_column, $tcid, $clean_text);
+    my ($this_text, $last_line, $last_column, $clean_text);
 
     #
     # Get all the text found within the button tag plus any title attribute
@@ -4816,17 +5395,10 @@ sub End_Button_Tag_Handler {
     Check_Character_Spacing("<button>", $line, $column, $clean_text);
 
     #
-    # Is testcase part of this profile ?
-    #
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H91"}) ) {
-        $tcid = "WCAG_2.0-H91";
-    }
-
-    #
     # Are we missing button text ?
     #
     if ( $clean_text eq "" ) {
-        Record_Result($tcid, $line, $column,
+        Record_Result("WCAG_2.0-H91", $line, $column,
                       $text, String_Value("Missing text in") . "<button>");
     }
 
@@ -4880,7 +5452,7 @@ sub Caption_Tag_Handler {
 sub End_Caption_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $last_line, $last_column, $tcid, $clean_text);
+    my ($this_text, $last_line, $last_column, $clean_text);
 
     #
     # Get all the text found within the caption tag
@@ -5022,6 +5594,86 @@ sub End_Figcaption_Tag_Handler {
     # portion of the figcaption tag.
     #
     Destroy_Text_Handler($self, "figcaption");
+}
+
+#***********************************************************************
+#
+# Name: Option_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles option tags.
+#
+#***********************************************************************
+sub Option_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Add a text handler to save the text portion of the option
+    # tag.
+    #
+    Start_Text_Handler($self, "option");
+}
+
+#***********************************************************************
+#
+# Name: End_Option_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end option tag.
+#
+#***********************************************************************
+sub End_Option_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    my ($this_text, $last_line, $last_column, $clean_text);
+
+    #
+    # Get all the text found within the option tag
+    #
+    if ( ! $have_text_handler ) {
+        print "End option tag found without corresponding open tag at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Get the option text as a string, remove all white space and convert
+    # to lowercase
+    #
+    $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
+    print "End_Option_Tag_Handler: text = \"$clean_text\"\n" if $debug;
+
+    #
+    # Check for using white space characters to control spacing within a word
+    #
+    Check_Character_Spacing("<option>", $line, $column, $clean_text);
+
+    #
+    # Are we missing option text ?
+    #
+    if ( $clean_text eq "" ) {
+        Record_Result("WCAG_2.0-G115", $line, $column,
+                      $text, String_Value("Missing text in") . "<option>");
+    }
+
+    #
+    # Destroy the text handler that was used to save the text
+    # portion of the option tag.
+    #
+    Destroy_Text_Handler($self, "option");
 }
 
 #***********************************************************************
@@ -5208,10 +5860,50 @@ sub Check_Event_Handlers {
     #
     if ( defined($attr{"onclick"}) or defined($attr{"onkeypress"}) ) {
         if ( index( $tags_allowed_events, " $tagname " ) == -1 ) {
-            Record_Result("WCAG_2.0-F42", $line, $column, $text,
-                          String_Value("onclick or onkeypress found in tag") .
-                          "<$tagname>");
+            #
+            # Is this a tag that has no explicit end tag ? If so report
+            # the problem here.
+            #
+            if ( defined($html_tags_with_no_end_tag{$tagname}) ) {
+                Record_Result("WCAG_2.0-F42", $line, $column, $text,
+                            String_Value("onclick or onkeypress found in tag") .
+                              "<$tagname>");
+            }
+            else {
+                #
+                # Save this tag and location.  If there is a focusable item
+                # inside the tag, then the onclick/onkeypress is
+                # acceptable.
+                #
+                print "Found onclick/onkeypress in attribute list for $tagname\n" if $debug;
+                $found_onclick_onkeypress = 1;
+                $onclick_onkeypress_line = $line;
+                $onclick_onkeypress_column = $column;
+                $onclick_onkeypress_text = $text;
+                $have_focusable_item = 0;
+            }
         }
+    }
+
+    #
+    # If we have onclick/onkeypress save this tag and location.
+    # If there is a focusable item inside the tag, then the
+    # onclick/onkeypress is acceptable.
+    #
+    if ( $found_onclick_onkeypress && 
+         (! defined($html_tags_with_no_end_tag{$tagname})) ) {
+        print "Add $tagname to onclick_onkeypress_tag stack\n" if $debug;
+        push(@onclick_onkeypress_tag, $tagname);
+    }
+
+    #
+    # Are we inside a tag with onclick/onkeypress and is this tag
+    # a focusable item ?
+    #
+    if ( $found_onclick_onkeypress && 
+         (index( $tags_allowed_events, " $tagname " ) > -1) ) { 
+        print "Found focusable item while inside onclick/onkeypress\n" if $debug;
+        $have_focusable_item = 1;
     }
 }
 
@@ -5302,8 +5994,6 @@ sub Start_Form_Tag_Handler {
 #***********************************************************************
 sub End_Form_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
-
-    my ($tcid, @tcids);
 
     #
     # Set flag to indicate we are outside a <form> .. </form>
@@ -6191,8 +6881,8 @@ sub Check_Start_of_New_List {
     #
     # Was the last open tag a <li> or <dd> and we are inside a list ?
     #
-    print "Check_Start_of_New_List, last open tag = $last_open_tag\n" if $debug;
-    if ( ($current_list_level > 1) && 
+    print "Check_Start_of_New_List $tag, last open tag = $last_open_tag, list level = $current_list_level\n" if $debug;
+    if ( ($current_list_level > 0) && 
          (($last_open_tag eq "li") || ($last_open_tag eq "dd")) ) {
         print "New list inside an existing list\n" if $debug;
 
@@ -6528,14 +7218,13 @@ sub Check_ID_Attribute {
 sub Check_Duplicate_Attributes {
     my ( $tagname, $line, $column, $text, $attrseq, %attr ) = @_;
 
-    my ($tcid, $attribute, $this_attribute, @attribute_list);
+    my ($attribute, $this_attribute, @attribute_list);
 
     #
     # Check for duplicate attributes
     #
     print "Check_Duplicate_Attributes\n" if $debug;
     if ( defined($$current_tqa_check_profile{"WCAG_2.0-H94"}) ) {
-        $tcid = "WCAG_2.0-H94";
 
         #
         # Get a copy of the attribute list that we can work with
@@ -6554,7 +7243,7 @@ sub Check_Duplicate_Attributes {
                     #
                     # Have a duplicate attribute
                     #
-                    Record_Result($tcid, $line, $column,
+                    Record_Result("WCAG_2.0-H94", $line, $column,
                                   $text, String_Value("Duplicate attribute") .
                                   "'$attribute'" .
                                   String_Value("for tag") .
@@ -6691,8 +7380,7 @@ sub Check_Lang_Attribute {
 sub Check_OnFocus_Attribute {
     my ( $tagname, $line, $column, $text, $attrseq, %attr ) = @_;
 
-    my ($tcid, $onfocus);
-
+    my ($onfocus);
 
     #
     # Do we have an onfocus attribute ?
@@ -6735,7 +7423,7 @@ sub Check_OnFocus_Attribute {
 sub Check_Attributes {
     my ( $tagname, $line, $column, $text, $attrseq, %attr ) = @_;
 
-    my ($tcid, $error, $id, $attribute, $this_attribute, @attribute_list);
+    my ($error, $id, $attribute, $this_attribute, @attribute_list);
 
     #
     # Check id attribute
@@ -7165,6 +7853,14 @@ sub Start_Handler {
     }
 
     #
+    # Check b tag
+    #
+    elsif ( $tagname eq "b" ) {
+        Emphasis_Tag_Handler($self, $tagname, $line, $column, $text,
+                             %attr_hash);
+    }
+
+    #
     # Check blink tag
     #
     elsif ( $tagname eq "blink" ) {
@@ -7204,6 +7900,14 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "dt" ) {
         Dt_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check em tag
+    #
+    elsif ( $tagname eq "em" ) {
+        Emphasis_Tag_Handler($self, $tagname, $line, $column, $text,
+                             %attr_hash);
     }
 
     #
@@ -7275,6 +7979,14 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "html" ) {
         HTML_Tag_Handler( $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check i tag
+    #
+    elsif ( $tagname eq "i" ) {
+        Emphasis_Tag_Handler($self, $tagname, $line, $column, $text,
+                             %attr_hash);
     }
 
     #
@@ -7362,6 +8074,13 @@ sub Start_Handler {
     }
 
     #
+    # Check option
+    #
+    elsif ( $tagname eq "option" ) {
+        Option_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+
+    #
     # Check p tags
     #
     elsif ( $tagname eq "p" ) {
@@ -7387,6 +8106,14 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "select" ) {
         Select_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check strong tag
+    #
+    elsif ( $tagname eq "strong" ) {
+        Emphasis_Tag_Handler($self, $tagname, $line, $column, $text,
+                             %attr_hash);
     }
 
     #
@@ -7723,9 +8450,13 @@ sub End_Anchor_Tag_Handler {
         if ( $image_found_inside_anchor ) {
             #
             # Anchor contains an image with no alt text and no link text.
+            # Do we have title text on the anchor tag ? We can use
+            # the 'title' attribute to supplemt the link text.
             #
-            Record_Result("WCAG_2.0-F89", $line, $column,
-                          $text, String_Value("Null alt on an image"));
+            if ( $current_a_title eq "" ) {
+                Record_Result("WCAG_2.0-F89", $line, $column,
+                              $text, String_Value("Null alt on an image"));
+            }
         }
         else {
             #
@@ -7885,7 +8616,7 @@ sub End_Title_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
     my ($attr, $protocol, $domain, $file_path, $query, $url);
-    my ($tcid, $invalid_title, $clean_text);
+    my ($invalid_title, $clean_text);
 
     #
     # Get all the text found within the title tag
@@ -7910,9 +8641,8 @@ sub End_Title_Tag_Handler {
         #
         # Is the title an empty string ?
         #
-        $tcid = "WCAG_2.0-F25";
         if ( $clean_text eq "" ) {
-            Record_Result($tcid, $line, $column, $text,
+            Record_Result("WCAG_2.0-F25", $line, $column, $text,
                           String_Value("Missing text in") . "<title>");
         }
         #
@@ -7942,13 +8672,13 @@ sub End_Title_Tag_Handler {
             # by a number of authoring tools.  Invalid titles may include
             # "untitled", "new document", ...
             #
-            if ( defined($testcase_data{$tcid}) ) {
-                foreach $invalid_title (split(/\n/, $testcase_data{$tcid})) {
+            if ( defined($testcase_data{"WCAG_2.0-F25"}) ) {
+                foreach $invalid_title (split(/\n/, $testcase_data{"WCAG_2.0-F25"})) {
                     #
                     # Do we have a match on the invalid title text ?
                     #
                     if ( $clean_text =~ /^$invalid_title$/i ) {
-                        Record_Result($tcid, $line, $column, $text,
+                        Record_Result("WCAG_2.0-F25", $line, $column, $text,
                                       String_Value("Invalid title text value") .
                                       " '$clean_text'");
                     }
@@ -8174,6 +8904,13 @@ sub End_Handler {
     }
 
     #
+    # Check b tag
+    #
+    elsif ( $tagname eq "b" ) {
+        End_Emphasis_Tag_Handler($self, $tagname, $line, $column, $text);
+    }
+
+    #
     # Check blockquote tag
     #
     elsif ( $tagname eq "blockquote" ) {
@@ -8206,6 +8943,13 @@ sub End_Handler {
     #
     elsif ( $tagname eq "dt" ) {
         End_Dt_Tag_Handler( $self, $line, $column, $text );
+    }
+
+    #
+    # Check em tag
+    #
+    elsif ( $tagname eq "em" ) {
+        End_Emphasis_Tag_Handler($self, $tagname, $line, $column, $text);
     }
 
     #
@@ -8251,6 +8995,13 @@ sub End_Handler {
     }
 
     #
+    # Check i tag
+    #
+    elsif ( $tagname eq "i" ) {
+        End_Emphasis_Tag_Handler($self, $tagname, $line, $column, $text);
+    }
+
+    #
     # Check label tag
     #
     elsif ( $tagname eq "label" ) {
@@ -8286,6 +9037,13 @@ sub End_Handler {
     }
 
     #
+    # Check option tag
+    #
+    elsif ( $tagname eq "option" ) {
+        End_Option_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
     # Check p tag
     #
     elsif ( $tagname eq "p" ) {
@@ -8297,6 +9055,13 @@ sub End_Handler {
     #
     elsif ( $tagname eq "q" ) {
         End_Q_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    # Check strong tag
+    #
+    elsif ( $tagname eq "strong" ) {
+        End_Emphasis_Tag_Handler($self, $tagname, $line, $column, $text);
     }
 
     #
@@ -8374,6 +9139,36 @@ sub End_Handler {
             print "last_lang_tag not defined\n" if $debug;
         }
         print "Pop $last_lang_tag, $current_lang from language stack\n" if $debug;
+    }
+
+    #
+    # If we previously found an onclick/onkeypress, pop this tag off the stack
+    #
+    if ( $found_onclick_onkeypress ) {
+        pop(@onclick_onkeypress_tag);
+
+        #
+        # Have we popped all the tags from the stack ? 
+        #
+        if ( @onclick_onkeypress_tag == 0 ) {
+            #
+            # If we did not find a focusable item, there is an error
+            # as the tag with onclick/onkeypress is acting like a link
+            #
+            print "End of onclick/onkeypress tag stack\n" if $debug;
+            if ( ! $have_focusable_item ) {
+                Record_Result("WCAG_2.0-F42", $onclick_onkeypress_line, 
+                              $onclick_onkeypress_column,
+                              $onclick_onkeypress_text,
+                            String_Value("onclick or onkeypress found in tag") .
+                              "<$tagname>");
+            }
+
+            #
+            # Clear onclick/onkeypress flag
+            #
+            $found_onclick_onkeypress = 0;
+        }
     }
 
     #
@@ -8559,7 +9354,7 @@ sub Check_Language_Spans {
 #***********************************************************************
 sub Check_Document_Errors {
 
-    my ($label_id, $line, $column, $comment, $found, $tcid);
+    my ($label_id, $line, $column, $comment, $found);
     my ($english_comment, $french_comment, @comment_lines, $name);
 
     #

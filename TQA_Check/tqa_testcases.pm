@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 6331 $
+# $Revision: 6513 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2013-07-09 13:57:13 -0400 (Tue, 09 Jul 2013) $
+# $Date: 2013-12-18 15:16:14 -0500 (Wed, 18 Dec 2013) $
 #
 # Description:
 #
@@ -97,6 +97,7 @@ my (%testcase_description_en) = (
 #      Failures of this technique are reported under technique G142
 #
 "WCAG_2.0-C28", "1.4.4 C28: Specifying the size of text containers using em units",
+"WCAG_2.0-F2", "1.3.1 F2: Failure of Success Criterion 1.3.1 due to using changes in text presentation to convey information without using the appropriate markup or text",
 "WCAG_2.0-F3", "1.1.1 F3: Failure of Success Criterion 1.1.1 due to using CSS to include images that convey important information",
 "WCAG_2.0-F4", "2.2.2 F4: Failure of Success Criterion 2.2.2 due to using text-decoration:blink without a mechanism to stop it in less than five seconds",
 "WCAG_2.0-F16", "2.2.2 F16: Failure of Success Criterion 2.2.2 due to including scrolling content where movement is not essential to the activity without also including a mechanism to pause and restart the content",
@@ -139,6 +140,10 @@ my (%testcase_description_en) = (
 # G4: Allowing the content to be paused and restarted from where it was paused
 #     Failures of this technique are reported under techniques F16
 #
+# G11: Creating content that blinks for less than 5 seconds
+#      Failures of this technique are reported under techniques F4
+#      for blink decoration and F47 for <blink> tag.
+#
 "WCAG_2.0-G18", "1.4.3 G18: Ensuring that a contrast ratio of at least 4.5:1 exists between text (and images of text) and background behind the text",
 "WCAG_2.0-G19", "2.3.1 G19: Ensuring that no component of the content flashes more than three times in any 1-second period",
 #
@@ -156,6 +161,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-G115", "1.3.1 G115: Using semantic elements to mark up structure",
 "WCAG_2.0-G125", "2.4.5 G125: Providing links to navigate to related Web pages",
 "WCAG_2.0-G130", "2.4.6 G130: Providing descriptive headings",
+"WCAG_2.0-G131", "2.4.6, 3.3.2 G131: Providing descriptive labels",
 "WCAG_2.0-G134", "4.1.1 G134: Validating Web pages",
 #
 # Advisory technique
@@ -239,6 +245,7 @@ my (%testcase_description_fr) = (
 #      Failures of this technique are reported under technique G142
 #
 "WCAG_2.0-C28", "1.4.4 C28: Spécifier la taille des conteneurs de texte en utilisant des unités em",
+"WCAG_2.0-F2", "1.3.1 F2 : Échec du critère de succès 1.3.1 consistant à utiliser les changements dans la présentation du texte pour véhiculer de l'information sans utiliser le balisage ou le texte approprié",
 "WCAG_2.0-F3", "1.1.1 F3: Échec du critère de succès 1.1.1 consistant à utiliser les CSS pour inclure une image qui véhicule une information importante",
 "WCAG_2.0-F4", "2.2.2 F4: Échec du critère de succès 2.2.2 consistant à utiliser text-decoration:blink sans mécanisme pour l'arrêter en moins de 5 secondes",
 "WCAG_2.0-F16", "2.2.2 F16: Échec du critère de succès 2.2.2 consistant à inclure un contenu défilant lorsque le mouvement n'est pas essentiel à l'activité sans inclure aussi un mécanisme pour mettre ce contenu en pause et pour le redémarrer",
@@ -281,6 +288,10 @@ my (%testcase_description_fr) = (
 # G4: Allowing the content to be paused and restarted from where it was paused
 #     Failures of this technique are reported under techniques F16
 #
+# G11: Creating content that blinks for less than 5 seconds
+#      Failures of this technique are reported under techniques F4
+#      for blink decoration and F47 for <blink> tag.
+#
 "WCAG_2.0-G18", "1.4.3 G18: S'assurer qu'un rapport de contraste d'au moins 4,5 pour 1 existe entre le texte (et le texte sous forme d'image) et l'arrière-plan du texte",
 "WCAG_2.0-G19", "2.3.1 G19: S'assurer qu'aucun composant du contenu ne flashe plus de 3 fois dans une même période d'une seconde",
 #
@@ -298,6 +309,7 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-G115", "1.3.1 G115: Utiliser les éléments sémantiques pour baliser la structure",
 "WCAG_2.0-G125", "2.4.5 G125: Fournir des liens de navigation vers les pages Web reliées",
 "WCAG_2.0-G130", "2.4.6 G130: Fournir des en-têtes de section descriptifs",
+"WCAG_2.0-G131", "2.4.6, 3.3.2 G131: Fournir des étiquettes descriptives",
 "WCAG_2.0-G134", "4.1.1 G134: Valider les pages Web",
 #
 # Advisory technique
@@ -379,6 +391,7 @@ my ($testcase_description_table) = \%testcase_description_en;
 #
 my (%testcase_groups_table) = (
 "WCAG_2.0-C28", "1.4.4",
+"WCAG_2.0-F2", "1.3.1",
 "WCAG_2.0-F3", "1.1.1",
 "WCAG_2.0-F4", "2.2.2",
 "WCAG_2.0-F16", "2.2.2",
@@ -409,6 +422,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-G115", "1.3.1",
 "WCAG_2.0-G125", "2.4.5",
 "WCAG_2.0-G130", "2.4.6",
+"WCAG_2.0-G131", "2.4.6, 3.3.2",
 "WCAG_2.0-G134", "4.1.1",
 "WCAG_2.0-G142", "1.4.4",
 "WCAG_2.0-G145", "1.4.3",
