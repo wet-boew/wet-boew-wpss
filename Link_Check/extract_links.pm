@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6515 $
+# $Revision: 6563 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2013-12-18 15:18:33 -0500 (Wed, 18 Dec 2013) $
+# $Date: 2014-02-14 15:10:06 -0500 (Fri, 14 Feb 2014) $
 #
 # Description:
 #
@@ -87,7 +87,7 @@ my ($last_heading_text, $current_list_level, @inside_list_item);
 my ($have_text_handler, @text_handler_tag_list, @text_handler_text_list);
 my ($current_text_handler_tag, $inside_anchor, $last_image_link);
 my ($inside_figure, $have_figcaption, $figcaption_text);
-my ($image_in_figure_with_no_alt);
+my ($image_in_figure_with_no_alt, @object_reference_list);
 my ($last_url) = "";
 my (%html_tags_with_no_end_tag) = (
         "area", "area",
@@ -244,6 +244,7 @@ sub Initialize_Link_Parser_Variables {
     $current_text_handler_tag = "";
     $inside_anchor = 0;
     undef @text_handler_tag_list;
+    @object_reference_list = ();
 
     #
     # Empty the section links table
@@ -713,6 +714,7 @@ sub Anchor_Tag_Handler {
 # Name: Frame_Tag_Handler
 #
 # Parameters: self - reference to this parser
+#             tag - name of tag
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -720,11 +722,11 @@ sub Anchor_Tag_Handler {
 #
 # Description:
 #
-#   This function handles the frame tag, it looks for a src attribute.
+#   This function handles the frame/iframe tag, it looks for a src attribute.
 #
 #***********************************************************************
 sub Frame_Tag_Handler {
-    my ( $self, $line, $column, $text, %attr ) = @_;
+    my ( $self, $tag, $line, $column, $text, %attr ) = @_;
 
     my ($src, $title, $lang, $link, $abs_url, $subsection, $subsection_link_list);
 
@@ -753,7 +755,7 @@ sub Frame_Tag_Handler {
         #
         # Save link details.
         #
-        $link = link_object->new($src, $abs_url, $title, "frame", $lang,
+        $link = link_object->new($src, $abs_url, $title, $tag, $lang,
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
@@ -907,6 +909,120 @@ sub Area_Tag_Handler {
         if ( defined($attr{"alt"}) ) {
             $link->alt($attr{"alt"});
         }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Object_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles object tags.
+#
+#***********************************************************************
+sub Object_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    my ($href, $lang, $link, $abs_url, $subsection, $subsection_link_list);
+
+    #
+    # Do we have a data attribute
+    #
+    if ( defined( $attr{"data"} ) ) {
+        $href = $attr{"data"};
+        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
+
+        #
+        # Do we have a lang attribute
+        #
+        $lang = Get_Lang("object", %attr);
+
+        #
+        # Save link details.
+        #
+        $link = link_object->new($href, $abs_url, "", "object", $lang,
+                                 $line, $column,
+                                 $content_lines[$line - 1]);
+        $link->attr(%attr);
+        push (@$link_object_reference, $link);
+        print " Object at $line, $column data = $href\n" if $debug;
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
+
+        #
+        # Do we have alt text ?
+        #
+        if ( defined($attr{"alt"}) ) {
+            $link->alt($attr{"alt"});
+        }
+    }
+
+    #
+    # Add a text handler to save the text portion of the object
+    # tag.
+    #
+    Start_Text_Handler($self, "object");
+    push(@object_reference_list, $link);
+}
+
+#***********************************************************************
+#
+# Name: End_Object_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end object </object> tag.
+#
+#***********************************************************************
+sub End_Object_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    my ($all_object_text, $current_object_reference);
+
+    #
+    # Check for text handler, if we don't have one this may be a stray
+    # close object.
+    #
+    if ( ! $have_text_handler ) {
+        print "No text handler in end object tag found at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Get all the text found within the object tag
+    #
+    $all_object_text = Clean_Text(Get_Text_Handler_Content($self, " "));
+
+    #
+    # Save object text
+    #
+    $current_object_reference = pop(@object_reference_list);
+    if ( defined($current_object_reference) ) {
+        $current_object_reference->alt($all_object_text);
+        $current_object_reference->has_alt(1);
+        print "Object text = $all_object_text\n" if $debug;
+
+        #
+        # Destroy the text handler that was used to save the text
+        # portion of the object tag.
+        #
+        Destroy_Text_Handler($self, "object");
     }
 }
 
@@ -1820,7 +1936,7 @@ sub End_Figcaption_Tag_Handler {
     #
     # Get all the text found within the figcaption tag
     #
-    $figcaption_text = Clean_Text(Get_Text_Handler_Content($self, ""));
+    $figcaption_text = Clean_Text(Get_Text_Handler_Content($self, " "));
     if ( $figcaption_text ne "" ) {
         $have_figcaption = 1;
     }
@@ -1915,7 +2031,7 @@ sub Start_Handler {
     # Check frame tag
     #
     elsif ( $tagname eq "frame" ) {
-        Frame_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+        Frame_Tag_Handler( $self, "frame", $line, $column, $text, %attr_hash );
     }
     #
     # Check h tag
@@ -1930,6 +2046,12 @@ sub Start_Handler {
     elsif ( $tagname eq "head" ) {
         print "Start of head section\n" if $debug;
         $in_head_section = 1;
+    }
+    #
+    # Check iframe tag
+    #
+    elsif ( $tagname eq "iframe" ) {
+        Frame_Tag_Handler( $self, "iframe", $line, $column, $text, %attr_hash );
     }
     #
     # Check img tag
@@ -1954,6 +2076,12 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "link" ) {
         Link_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
+    # Check object tag
+    #
+    elsif ( $tagname eq "object" ) {
+        Object_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
     #
     # Check ol tag
@@ -2024,7 +2152,7 @@ sub End_Anchor_Tag_Handler {
     #
     # Get all the text found within the anchor tag
     #
-    $all_anchor_text = Clean_Text(Get_Text_Handler_Content($self, ""));
+    $all_anchor_text = Clean_Text(Get_Text_Handler_Content($self, " "));
 
     #
     # Save anchor text
@@ -2068,7 +2196,7 @@ sub End_Handler {
     # Check anchor tags
     #
     if ( $tagname eq "a" ) {
-        End_Anchor_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+        End_Anchor_Tag_Handler($self, $line, $column, $text);
     }
     #
     # Check figcaption tag
@@ -2101,6 +2229,12 @@ sub End_Handler {
     #
     elsif ( $tagname eq "li" ) {
         End_Li_Tag_Handler( $self, $line, $column, $text );
+    }
+    #
+    # Check object tags
+    #
+    elsif ( $tagname eq "object" ) {
+        End_Object_Tag_Handler($self, $line, $column, $text);
     }
     #
     # Check ol tag
