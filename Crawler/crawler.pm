@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 6433 $
+# $Revision: 6551 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2013-11-08 13:05:02 -0500 (Fri, 08 Nov 2013) $
+# $Date: 2014-01-30 08:56:53 -0500 (Thu, 30 Jan 2014) $
 #
 # Description:
 #
@@ -2086,10 +2086,15 @@ sub Filter_Links {
 
     #
     # Look for links from a <link> or <script> tag that references
-    # a CSS or JavaScript file.  Even if these are not part of our
-    # site we include them as the have a direct impact on this document.
+    # a CSS or JavaScript file.  Look for links from <frame> and
+    # <iframe> tags.
+    # Even if these are not part of our site we include them as they
+    # have a direct impact on this document.
     #
     foreach $this_link (@links) {
+        #
+        # Check <link> tags
+        #
         if ( $this_link->link_type eq "link" ) {
             #
             # Is this a CSS link ?
@@ -2105,6 +2110,9 @@ sub Filter_Links {
                 }
             }
         }
+        #
+        # Check <script> tags
+        #
         elsif ( $this_link->link_type eq "script" ) {
             #
             # Is this a JavaScript link ?
@@ -2120,7 +2128,20 @@ sub Filter_Links {
                 }
             }
         }
-
+        #
+        # Check <frame> or <iframe> tags
+        #
+        elsif ( ($this_link->link_type eq "frame") ||
+                ($this_link->link_type eq "iframe") ) {
+            #
+            # Was the link excluded as not being part of our site ?
+            #
+            if ( ! Matches_Site_URL_Pattern($this_link->abs_url) ) {
+                print "Add frame URL " . $this_link->abs_url .
+                      " to filtered set\n" if $debug;
+                $filtered_links{$this_link->abs_url} = 1;
+            }
+        }
     }
 
     #
@@ -3116,7 +3137,7 @@ sub Crawl_Site {
         # Get HTTP::Response object for the URL.
         #
         ($rewritten_url, $resp) = Crawler_Get_HTTP_Response($url, 
-                                    $url_referer_map{$url});
+                                                       $url_referer_map{$url});
 
         #
         # If the response URL is not the same as the requested URL,
