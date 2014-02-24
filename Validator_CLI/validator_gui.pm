@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6478 $
+# $Revision: 6544 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2013-11-28 11:56:50 -0500 (Thu, 28 Nov 2013) $
+# $Date: 2014-01-21 11:23:08 -0500 (Tue, 21 Jan 2014) $
 #
 # Description:
 #
@@ -334,6 +334,13 @@ sub Update_Results_Tab {
     my ($tab_label, $text) = @_;
   
     my ($suffix, $file_name);
+
+    #
+    # Do we have text ?
+    #
+    if ( ! defined($text) ) {
+        $text = "";
+    }
 
     #
     # Are we saving the results directly to a file ?
