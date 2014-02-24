@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6539 $
+# $Revision: 6571 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2014-01-08 13:08:05 -0500 (Wed, 08 Jan 2014) $
+# $Date: 2014-02-21 08:58:27 -0500 (Fri, 21 Feb 2014) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ]
@@ -17,7 +17,7 @@
 #        -cgi enter CGI mode
 #        -cli enter Command Line mode
 #        -xml generate XML output
-#        -open_data run tool for open data fils rather than web files
+#        -open_data run tool for open data files rather than web files
 #
 # Description:
 #
@@ -70,6 +70,7 @@ use CGI;
 #use Win32::TieRegistry( Delimiter=>"#", ArrayValues=>0 );
 use Win32::TieRegistry;
 use HTML::Entities;
+use Archive::Zip;
 
 use strict;
 
@@ -87,7 +88,7 @@ my (%login_form_values, $performed_login, %link_config_vars);
 my (@crawler_link_ignore_patterns, %document_count, %error_count);
 my (%fault_count, $user_agent_hostname, %url_list, $version);
 my (@links, @ui_args, %image_alt_text_table, @web_feed_list);
-my (%all_link_sets, %domain_prod_dev_map);
+my (%all_link_sets, %domain_prod_dev_map, @all_urls);
 my (%all_link_sets, %domain_prod_dev_map, $logged_in);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
 my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
@@ -2812,6 +2813,7 @@ sub HTTP_Response_Callback {
         # Is the file JavaScript ? or does the URL end in a .js ?
         #
         elsif ( ($mime_type =~ /application\/x\-javascript/) ||
+                ($mime_type =~ /text\/javascript/) ||
                 ($url =~ /\.js$/i) ) {
             #
             # Perform TQA check of JavaScript content
@@ -2830,6 +2832,7 @@ sub HTTP_Response_Callback {
             #
             Perform_TQA_Check($url, $content, $language, $mime_type, $resp);
         }
+
         #
         # Is the file XML ? or does the URL end in a .xml ?
         #
@@ -2878,6 +2881,7 @@ sub HTTP_Response_Callback {
             # No special processing
             #
         }
+
         #
         # Do we have the robots.txt file ?
         #
@@ -2886,6 +2890,7 @@ sub HTTP_Response_Callback {
             # No special processing
             #
         }
+
         #
         # Unknown mime-type, save URL as non-HTML primary format
         #
@@ -6407,35 +6412,28 @@ sub Perform_Link_Check {
 
 #***********************************************************************
 #
-# Name: Perform_Open_Data_Check
+# Name: Record_Open_Data_Check_Results
 #
 # Parameters: url - dataset file URL
 #             data_file_type - type of dataset file
 #             resp - HTTP::Response object
+#             content - content
 #
 # Description:
 #
-#   This function runs open data checks on the supplied URLs
+#   This function records open data checks results.
 #
 #***********************************************************************
-sub Perform_Open_Data_Check {
-    my ( $url, $data_file_type, $resp ) = @_;
+sub Record_Open_Data_Check_Results {
+    my ( $url, @results ) = @_;
 
-    my ($url_status, $format, $message, $content, @results);
-    my ($i, $language, $status, $output_line, $result_object);
-    my ($result_object, $base, %local_open_data_error_url_count);
-    my ($url_count);
+    my ($url_status, $status, $result_object);
+    my (%local_open_data_error_url_count);
 
     #
-    # Check open data
+    # Check open data results
     #
-    print "Check open data\n" if $debug;
-    @results = Open_Data_Check($url, $open_data_check_profile,
-                               $data_file_type, $resp, \%open_data_dictionary);
-
-    #
-    # Determine overall URL status
-    #
+    print "Record open data check results\n" if $debug;
     $url_status = $tool_success;
     foreach $result_object (@results) {
         if ( $result_object->status != $tool_success ) {
@@ -6501,6 +6499,107 @@ sub Perform_Open_Data_Check {
 
 #***********************************************************************
 #
+# Name: Perform_Open_Data_Check
+#
+# Parameters: url - dataset file URL
+#             data_file_type - type of dataset file
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function runs open data checks on the supplied URL.
+#
+#***********************************************************************
+sub Perform_Open_Data_Check {
+    my ( $url, $data_file_type, $resp ) = @_;
+
+    my ($contents, $zip, @members, $member_name, $header, $mime_type);
+    my (@results, $zip_file_name, $member_url);
+
+    #
+    # Check for possible ZIP content (a zip file containing the 
+    # open data files).
+    #
+    print "Perform_Open_Data_Check check for ZIP content\n" if $debug;
+    if ( defined($resp) &&  $resp->is_success ) {
+        $header = $resp->headers;
+        $mime_type = $header->content_type;
+    }
+    else {
+        #
+        # Unknown mime-type
+        #
+        $mime_type = "";
+    }
+
+    #
+    # If mime-type is a ZIP file, get at ZIP archive content.
+    #
+    if ( ($mime_type =~ /application\/zip/) ||
+         ($url =~ /\.zip$/i) ) {
+        print "Open data ZIP file\n" if $debug;
+        ($zip, $zip_file_name, @results) = Open_Data_Check_Zip_Content($url, 
+                                                      $open_data_check_profile, 
+                                                       $data_file_type,
+                                                       $resp);
+
+        #
+        # Record any errors from the ZIP container (e.g. malformed
+        # zip file).
+        #
+        Record_Open_Data_Check_Results($url, @results);
+
+        #
+        # Process each member of the zip archive
+        #
+        if ( defined($zip) ) {
+            @members = $zip->memberNames();
+            foreach $member_name (@members) {
+                #
+                # Get contents for this member
+                #
+                print "Process zip member $member_name\n" if $debug;
+                $contents = $zip->contents($member_name);
+
+                #
+                # Create and a URL for the member of the ZIP
+                #
+                $member_url = "$url:$member_name";
+                push(@all_urls, $member_url);
+                $document_count{$crawled_urls_tab}++;
+                Validator_GUI_Start_URL($crawled_urls_tab, $member_url, "", 0,
+                                        $document_count{$crawled_urls_tab});
+
+                #
+                # Perform checks on this content
+                #
+                @results = Open_Data_Check($member_url,
+                                           $open_data_check_profile,
+                                           $data_file_type, $resp,
+                                           $contents, \%open_data_dictionary);
+                Record_Open_Data_Check_Results($member_url, @results);
+            }
+        }
+
+        #
+        # Remove temporary zip file
+        #
+        unlink($zip_file_name);
+    }
+    else {
+        #
+        # Treat URL as a single open data file
+        #
+        print "Single open data file\n" if $debug;
+            @results = Open_Data_Check($url, $open_data_check_profile,
+                               $data_file_type, $resp,
+                               $resp->content, \%open_data_dictionary);
+            Record_Open_Data_Check_Results($url, @results);
+    }
+}
+
+#***********************************************************************
+#
 # Name: Open_Data_Callback
 #
 # Parameters: dataset_urls - pointer to table of dataset URLs
@@ -6516,7 +6615,7 @@ sub Open_Data_Callback {
     my ($dataset_urls, %report_options) = @_;
 
     my (@url_list, $i, $key, $value, $resp_url, $resp, $header);
-    my ($data_file_type, $url, @all_urls, $tab);
+    my ($data_file_type, $url, $tab);
 
     #
     # Initialize tool global variables
@@ -6762,6 +6861,14 @@ sub Setup_Open_Data_Tool_GUI {
                        \@open_data_check_profiles);
     %report_options_labels = ("open_data_profile", 
                               $open_data_profile_label);
+
+    #
+    # Set user agent max size if it has not been specified.
+    #
+    if ( ! defined($crawler_config_vars{"user_agent_max_size"}) ) {
+        $crawler_config_vars{"user_agent_max_size"} = 100000000;
+        Crawler_Config(%crawler_config_vars);
+    }
 
     #
     # Setup the validator GUI
