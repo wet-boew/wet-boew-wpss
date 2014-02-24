@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 6526 $
+# $Revision: 6569 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2014-01-06 11:29:39 -0500 (Mon, 06 Jan 2014) $
+# $Date: 2014-02-21 08:52:24 -0500 (Fri, 21 Feb 2014) $
 #
 # Description:
 #
@@ -370,9 +370,6 @@ sub Check_First_Data_Row {
     #
     print "Check for terms in first row of CSV file\n" if $debug;
     $count = 0;
-    #
-    # Check each field for a matching term
-    #
     foreach $field (@fields) {
         if ( defined($$dictionary{$field}) ) {
             print "Found term/field match for $term\n" if $debug;
@@ -395,7 +392,7 @@ sub Check_First_Data_Row {
         return();
     }
     #
-    # Didn we get a match on atleast 25% of the fields ? If so we expect
+    # Did we get a match on atleast 25% of the fields ? If so we expect
     # all the fields to match.
     #
     elsif ( $count >= (@fields / 4) ) {
@@ -409,8 +406,15 @@ sub Check_First_Data_Row {
         # Missing header row, found a match on fewer than 25% of fields
         #
         print "Found a match on fewer than 25% fields\n" if $debug;
-        Record_Result("TP_PW_OD_CSV_1", 1, 0, "",
-                      String_Value("Missing header row"));
+        if ( $count == 0 ) {
+            Record_Result("TP_PW_OD_CSV_1", 1, 0, "",
+                          String_Value("Missing header row"));
+        }
+        else {
+            Record_Result("TP_PW_OD_CSV_1", 1, 0, "",
+                          String_Value("Missing header row terms") .
+                          " \"" . join(", ", @unmatched_fields) . "\"");
+        }
     }
 }
 
@@ -472,7 +476,6 @@ sub Open_Data_CSV_Check_Data {
                       String_Value("No content in file"));
     }
     else {
-
         #
         # Remove BOM from UTF-8 content ($EF $BB $BF)
         #  Byte Order Mark - http://en.wikipedia.org/wiki/Byte_order_mark
@@ -512,6 +515,7 @@ sub Open_Data_CSV_Check_Data {
             # Get the set of fields from the parsed line/record
             #
             @fields = @$rows;
+            print "Line # $line_no, field count " . scalar(@fields) . "\n" if $debug;
 
             #
             # Is this the first row ? If so check for a possible heading

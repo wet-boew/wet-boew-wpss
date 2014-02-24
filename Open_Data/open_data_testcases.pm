@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision: 6524 $
+# $Revision: 6568 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_testcases.pm $
-# $Date: 2014-01-06 11:28:37 -0500 (Mon, 06 Jan 2014) $
+# $Date: 2014-02-21 08:51:15 -0500 (Fri, 21 Feb 2014) $
 #
 # Description:
 #
@@ -106,6 +106,7 @@ my (%testcase_description_en) = (
 "OD_3",     "OD_3: Mark-up Language Requirements",
 "OD_CSV_1", "OD_CSV_1: CSV Data",
 "OD_TXT_1", "OD_TXT_1: TXT Dictionary",
+"OD_ZIP_1", "OD_ZIP_1: ZIP Archive",
 
 #
 # Open Data API checkpoints
@@ -118,6 +119,7 @@ my (%testcase_description_en) = (
 # PWGSC Open Data checkpoints
 #
 "TP_PW_OD_CSV_1",   "TP_PW_OD_CSV_1: CSV Header Row",
+"TP_PW_OD_ZIP_1",   "TP_PW_OD_ZIP_1: ZIP Archive",
 );
 
 my (%testcase_description_fr) = (
@@ -129,6 +131,7 @@ my (%testcase_description_fr) = (
 "OD_3",     "OD_3: Exigences relatives au langage de balisage",
 "OD_CSV_1", "OD_CSV_1: Données CSV",
 "OD_TXT_1", "OD_TXT_1: TXT Dictionnaire",
+"OD_ZIP_1", "OD_ZIP_1: Archive ZIP",
 
 #
 # Open Data API checkpoints
@@ -141,6 +144,7 @@ my (%testcase_description_fr) = (
 # PWGSC Open Data checkpoints
 #
 "TP_PW_OD_CSV_1",   "TP_PW_OD_CSV_1: Lignes d'en-tête du CSV",
+"TP_PW_OD_ZIP_1",   "TP_PW_OD_ZIP_1: Archive ZIP",
 );
 
 #
