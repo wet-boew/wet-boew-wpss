@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6527 $
+# $Revision: 6572 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2014-01-06 11:31:36 -0500 (Mon, 06 Jan 2014) $
+# $Date: 2014-02-21 13:37:25 -0500 (Fri, 21 Feb 2014) $
 #
 # Description:
 #
@@ -1372,6 +1372,7 @@ sub GUI_Do_HTML_Click {
         #
         Results_Window_Tabstrip_Click();
         $results_window->Show();
+        $results_window->BringWindowToTop();
         Win32::GUI::DoEvents();
 
         #
@@ -1540,6 +1541,7 @@ sub GUI_Do_URL_List_Click {
         #
         Results_Window_Tabstrip_Click();
         $results_window->Show();
+        $results_window->BringWindowToTop();
         Win32::GUI::DoEvents();
 
         #
@@ -1741,6 +1743,7 @@ sub Validator_GUI_DoSite_Click {
     }
     Results_Window_Tabstrip_Click();
     $results_window->Show();
+    $results_window->BringWindowToTop();
     Win32::GUI::DoEvents();
 
     #
@@ -4673,6 +4676,7 @@ sub GUI_Do_Open_Data_Click {
     #
     Results_Window_Tabstrip_Click();
     $results_window->Show();
+    $results_window->BringWindowToTop();
     Win32::GUI::DoEvents();
 
     #
