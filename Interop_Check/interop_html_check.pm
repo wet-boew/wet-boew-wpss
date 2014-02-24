@@ -2,9 +2,9 @@
 #
 # Name:   interop_html_check.pm
 #
-# $Revision: 6521 $
+# $Revision: 6543 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_html_check.pm $
-# $Date: 2014-01-06 11:18:29 -0500 (Mon, 06 Jan 2014) $
+# $Date: 2014-01-20 08:11:59 -0500 (Mon, 20 Jan 2014) $
 #
 # Description:
 #
@@ -1227,11 +1227,12 @@ sub Start_Handler {
         if ( $inside_typeof ) {
             print "Push tag onto typeof tag stack $tagname at $line:$column\n" if
  $debug;
-            push(@typeof_tag_stack, $tagname);
+            push(@typeof_tag_stack, "$tagname:$line:$column");
             push(@typeof_stack, $current_typeof_value);
         }
     }
 }
+
 #***********************************************************************
 #
 # Name: End_Handler
@@ -1302,6 +1303,10 @@ sub End_Handler {
                 print "End of typeof tag stack\n" if $debug;
                 $inside_typeof = 0;
                 $missing_rdfa_typeof_reported = 0;
+                $current_typeof_value = "";
+            }
+            else {
+                $current_typeof_value = $typeof_stack[$#typeof_stack - 1];
             }
         }
     }
