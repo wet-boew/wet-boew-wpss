@@ -897,7 +897,8 @@ sub Web_Analytics_Check {
         #
         # Is this JavaScript code ?
         #
-        elsif ( $mime_type =~ /application\/x\-javascript/ ) {
+        elsif ( ($mime_type =~ /application\/x\-javascript/) ||
+                ($mime_type =~ /text\/javascript/) ) {
             #
             # Check for Web Analytics
             #
