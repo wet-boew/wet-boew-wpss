@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 6507 $
+# $Revision: 6561 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2013-12-11 13:39:37 -0500 (Wed, 11 Dec 2013) $
+# $Date: 2014-02-14 15:08:19 -0500 (Fri, 14 Feb 2014) $
 #
 # Description:
 #
@@ -224,7 +224,7 @@ my %string_table_en = (
     "Incorrect search button found",   "Incorrect search button found",
     "Missing search input field",      "Missing search input field",
     "Missing search button",           "Missing search button",
-    "Missing link",                    "Missing link",
+    "Missing link in",                 "Missing link in",
     "Language selection links",        "Language selection links",
     "Terms and conditions",            "Terms and conditions link",
     "Server page title links",         "Server page title links",
@@ -239,7 +239,7 @@ my %string_table_en = (
     "Missing size in search text input field", "Missing size in search text input field",
     "Incorrect size in search text input field", "Incorrect size in search text input field",
     "Breadcrumb link found outside li",  "Breadcrumb link found outside <li>",
-    "Missing required link",           "Missing required link",
+    "Missing required link in",        "Missing required link in",
     "Image link found in",             "Image link found in",
     "Missing content from metadata tag", "Missing content from metadata tag",
     "Date modified metadata tag",      "Date modified metadata tag",
@@ -313,7 +313,7 @@ my %string_table_fr = (
     "Incorrect search button found",   "trouve le bouton de recherche incorrect",
     "Missing search input field",      "Manquantes champs de recherche",
     "Missing search button",           "Manquantes bouton de recherche",
-    "Missing link",                    "Manquantes lien",
+    "Missing link in",                 "Manquantes lien dans",
     "Language selection links",        "Liens de sélection de la langue d'affichage",
     "Terms and conditions",            "Lien 'Avis'",
     "Server page title links",         "Liens dans le titre du pages de messages du serveur",
@@ -328,7 +328,7 @@ my %string_table_fr = (
     "Missing size in search text input field", "La taille manquante dans le champ de saisie de recherche de texte",
     "Incorrect size in search text input field", "La taille incorrecte dans le champ de saisie de recherche de texte",
     "Breadcrumb link found outside li",  "Trouvé piste de navigation en dedors de <li>",
-    "Missing required link",           "Lien requis manquant",
+    "Missing required link in",        "Lien requis manquant dans",
     "Image link found in",             "Lien contenant une image dans",
     "Missing content from metadata tag", "Contenu manquant de balise de métadonnées",
     "Date modified metadata tag",      "Balise de métadonnées pour Date de modification",
@@ -677,7 +677,7 @@ sub Header_Section_Testcase_Data {
     my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
-    my (@href_list, $hash);
+    my (@value_list, $hash);
 
     #
     # Extract the language, subsection type and text from the data
@@ -710,13 +710,13 @@ sub Header_Section_Testcase_Data {
             #
             # Split text into a list of possible href values
             #
-            @href_list = split(/\s+/, $text);
+            @value_list = split(/\s+/, $text);
 
             #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, \@href_list);
+            push(@$list_addr, \@value_list);
         }
     }
     #
@@ -743,10 +743,15 @@ sub Header_Section_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
         #
         # Breadcrumb links
@@ -768,10 +773,15 @@ sub Header_Section_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
     }
     #
@@ -798,10 +808,15 @@ sub Header_Section_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
     }
     #
@@ -987,7 +1002,7 @@ sub Footer_Section_Testcase_Data {
     my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
-    my (@href_list, $hash);
+    my (@value_list, $hash);
 
     #
     # Extract the language, subsection type and text from the data
@@ -1020,13 +1035,13 @@ sub Footer_Section_Testcase_Data {
             #
             # Split text into a list of possible href values
             #
-            @href_list = split(/\s+/, $text);
+            @value_list = split(/\s+/, $text);
 
             #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, \@href_list);
+            push(@$list_addr, \@value_list);
         }
     }
     #
@@ -1053,10 +1068,15 @@ sub Footer_Section_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
         #
         # Is this the Site footer subsection
@@ -1078,10 +1098,15 @@ sub Footer_Section_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
         #
         # GC Footer links
@@ -1103,10 +1128,15 @@ sub Footer_Section_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
     }
     #
@@ -1134,10 +1164,15 @@ sub Footer_Section_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
     }
 }
@@ -1160,7 +1195,7 @@ sub Splash_Page_Testcase_Data {
     my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
-    my (@href_list, $hash);
+    my (@value_list, $hash);
 
     #
     # Extract the language, subsection type and text from the data
@@ -1221,10 +1256,15 @@ sub Splash_Page_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
         #
         # Is this an href value ?
@@ -1248,13 +1288,13 @@ sub Splash_Page_Testcase_Data {
             #
             # Split text into a list of possible href values
             #
-            @href_list = split(/\s+/, $text);
+            @value_list = split(/\s+/, $text);
 
             #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, \@href_list);
+            push(@$list_addr, \@value_list);
         }
         #
         # Is this image alt text ?
@@ -1306,10 +1346,15 @@ sub Splash_Page_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
         #
         # Is this an href value ?
@@ -1333,13 +1378,13 @@ sub Splash_Page_Testcase_Data {
             #
             # Split text into a list of possible href values
             #
-            @href_list = split(/\s+/, $text);
+            @value_list = split(/\s+/, $text);
 
             #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, \@href_list);
+            push(@$list_addr, \@value_list);
         }
     }
 }
@@ -1362,7 +1407,7 @@ sub Server_Page_Testcase_Data {
     my ($testcase, $data, $object) = @_;
 
     my (@empty_list, $lang, $type, $list_addr, $subsection, $text);
-    my (@href_list, $hash);
+    my (@value_list, $hash);
 
     #
     # Extract the language, subsection type and text from the data
@@ -1423,10 +1468,15 @@ sub Server_Page_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
         #
         # Is this an href value ?
@@ -1450,13 +1500,13 @@ sub Server_Page_Testcase_Data {
             #
             # Split text into a list of possible href values
             #
-            @href_list = split(/\s+/, $text);
+            @value_list = split(/\s+/, $text);
 
             #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, \@href_list);
+            push(@$list_addr, \@value_list);
         }
     }
     #
@@ -1483,10 +1533,15 @@ sub Server_Page_Testcase_Data {
             }
 
             #
+            # Split text into a list of possible link text values
+            #
+            @value_list = split(/\s+%\s+/, $text);
+
+            #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, $text);
+            push(@$list_addr, \@value_list);
         }
         #
         # Is this an href value ?
@@ -1510,13 +1565,13 @@ sub Server_Page_Testcase_Data {
             #
             # Split text into a list of possible href values
             #
-            @href_list = split(/\s+/, $text);
+            @value_list = split(/\s+/, $text);
 
             #
             # Save link text details
             #
             $list_addr = $$hash{$lang};
-            push(@$list_addr, \@href_list);
+            push(@$list_addr, \@value_list);
         }
     }
 }
@@ -3903,7 +3958,7 @@ sub Trim_Whitespace {
 #
 # Parameters: link - a link object
 #             link_no - link number (from a list of links)
-#             expected_anchor - expected anchor text
+#             expected_anchor - list of expected anchor text values
 #             expected_href - list of expected href values
 #             tcid - testcase identifier
 #             section - document section
@@ -3919,7 +3974,7 @@ sub Check_Link_Anchor_and_Href {
     my ($link, $link_no, $expected_anchor, $expected_href, $tcid,
         $section) = @_;
 
-    my ($anchor_text, $href, $message, $href_value, $href_match);
+    my ($anchor_text, $href, $message, $anchor_value, $href_value, $match);
 
     #
     # Trim anchor text and encode any entities
@@ -3930,16 +3985,39 @@ sub Check_Link_Anchor_and_Href {
     #
     # Does the anchor text match what is expected ?
     #
-    print "Check link anchor text \"" . $anchor_text .
-          "\" versus \"$expected_anchor\"\n" if $debug;
-    if ( defined($expected_anchor) && (lc($anchor_text) ne lc($expected_anchor)) ) {
+    $match = 0;
+    if ( defined($expected_anchor) ) {
+        foreach $anchor_value (@$expected_anchor) {
+            print "Check link anchor text \"" . $anchor_text .
+                  "\" versus \"$anchor_value\"\n" if $debug;
+            if ( lc($anchor_text) eq lc($anchor_value) ) {
+                $match = 1;
+                print "Match anchor value\n" if $debug;
+                last;
+            }
+        }
+    }
+
+    #
+    # Did we match anchor value
+    #
+    if ( ! $match ) {
         $message = String_Value("Invalid anchor text") .
                     "'" . $link->anchor . "'" .
                     String_Value("in") . "$section " .
-                    String_Value("link") . " # " . $link_no .
-                    " " . String_Value("expecting") .
-                    "'" . $expected_anchor . 
-                    "'";
+                    String_Value("link") . " # " . $link_no;
+
+        #
+        # Add expected anchor values to the message.
+        #
+        if ( @$expected_anchor == 1 ) {
+            $message .= " " . String_Value("expecting") .
+                        "'" . join(", ", @$expected_anchor) . "'";
+        }
+        else {
+            $message .= " " . String_Value("expecting one of") .
+                        "'" . join(", ", @$expected_anchor) . "'";
+        }
         Record_Result($tcid, $link->line_no, $link->column_no,
                       $link->source_line, $message);
     }
@@ -3948,8 +4026,8 @@ sub Check_Link_Anchor_and_Href {
     # Does the href text match what is expected ?
     #
     $href = $link->abs_url;
+    $match = 0;
     if ( defined($href) ) {
-        $href_match = 0;
         foreach $href_value (@$expected_href) {
             print "Check link href \"" . $href .
                   "\" versus \"$href_value\"\n" if $debug;
@@ -3960,7 +4038,7 @@ sub Check_Link_Anchor_and_Href {
             # ( e.g. travel.gc.ca equals travel.gc.ca/)
             #
             if ( ($href eq $href_value) || ($href eq ($href_value . "/")) ) {
-                $href_match = 1;
+                $match = 1;
                 print "Match href value\n" if $debug;
                 last;
             }
@@ -3970,7 +4048,7 @@ sub Check_Link_Anchor_and_Href {
     #
     # Did we match href value
     #
-    if ( ! $href_match ) {
+    if ( ! $match ) {
         $message = String_Value("Invalid href") .
                     "'" . $href . "'" .
                     String_Value("in") . "$section " .
@@ -4013,35 +4091,49 @@ sub Check_Link_Anchor_and_Href {
 sub Check_Required_Link_Set {
     my ($url, $link_list_addr, $link_set_list_addr, $tcid, $section) = @_;
 
-    my ($link, $anchor_text, $expected_anchor, $found_match);
+    my ($link, $anchor_text, $link_list, $expected_anchor, $found_match);
+    my ($message);
 
     #
     # Check for all required links
     #
     print "Check all required links in section $section\n" if $debug;
-    foreach $expected_anchor (@$link_set_list_addr) {
+    foreach $link_list (@$link_set_list_addr) {
         #
-        # Check each link in the actual link set for a match on the anchor
-        # text.
+        # Check each possible anchor text from the link list. We need
+        # a match on only 1 from the list.
         #
         $found_match = 0;
-        foreach $link (@$link_list_addr) {
+        foreach $expected_anchor (@$link_list) {
             #
-            # Trim anchor text and encode any entities
+            # Check each link in the actual link set for a match on the anchor
+            # text.
             #
-            $anchor_text = Trim_Whitespace($link->anchor);
-            $anchor_text = encode_entities($anchor_text);
+            foreach $link (@$link_list_addr) {
+                #
+                # Trim anchor text and encode any entities
+                #
+                $anchor_text = Trim_Whitespace($link->anchor);
+                $anchor_text = encode_entities($anchor_text);
+
+                #
+                # Does the anchor text match what is expected ?
+                #
+                print "Check link anchor text \"" . $anchor_text .
+                      "\" versus \"$expected_anchor\"\n" if $debug;
+                if ( lc($anchor_text) eq lc($expected_anchor) ) {
+                    #
+                    # Found a match on anchor text.
+                    #
+                    $found_match = 1;
+                    last;
+                }
+            }
 
             #
-            # Does the anchor text match what is expected ?
+            # Did we find a match on this anchor text ?
             #
-            print "Check link anchor text \"" . $anchor_text .
-                  "\" versus \"$expected_anchor\"\n" if $debug;
-            if ( lc($anchor_text) eq lc($expected_anchor) ) {
-                #
-                # Found a match on anchor text.
-                #
-                $found_match = 1;
+            if ( $found_match ) {
                 last;
             }
         }
@@ -4050,10 +4142,20 @@ sub Check_Required_Link_Set {
         # Did we not find the link ?
         #
         if ( ! $found_match ) {
+            #
+            # Add expected anchor values to the message.
+            #
+            if ( @$link_list == 1 ) {
+                $message = " " . String_Value("expecting") .
+                           "'" . join(", ", @$link_list) . "'";
+            }
+            else {
+                $message = " " . String_Value("expecting one of") .
+                           "'" . join(", ", @$link_list) . "'";
+            }
             Record_Result($tcid, -1, -1, "",
-                          String_Value("Missing required link") .
-                          " \"$expected_anchor\" " .
-                          String_Value("in") . "$section");
+                          String_Value("Missing required link in") .
+                          " $section " . $message);
         }
     }
 }
@@ -4090,7 +4192,7 @@ sub Check_Expected_Links {
 
     my ($link, $link_count, $link_no, @links, $expected_link_count);
     my ($link_text, $message, $optional_link_count, $optional_link_no);
-    my ($anchor, $href, $href_list);
+    my ($anchor, $anchor_list, $href, $href_list);
 
     #
     # Check that a set of links appear with the correct
@@ -4138,7 +4240,21 @@ sub Check_Expected_Links {
                 # Get anchor and href values
                 #
                 $link = $links[$link_no];
-                $anchor = $$expected_link_list_addr[$link_no];
+                if ( defined($expected_link_list_addr) &&
+                     defined($$expected_link_list_addr[$link_no]) )  {
+                    $anchor_list = $$expected_link_list_addr[$link_no];
+                }
+                else {
+                    #
+                    # No expected anchor value, use actual value from the link.
+                    #
+                    print "No expected anchor value, use actual value from the link.\n" if $debug;
+                    my (@new_list);
+                    $anchor = Trim_Whitespace($link->anchor);
+                    $anchor = encode_entities($anchor);
+                    push(@new_list, $anchor);
+                    $anchor_list = \@new_list;
+                }
                 if ( defined($expected_href_list_addr) &&
                      defined($$expected_href_list_addr[$link_no]) )  {
                     $href_list = $$expected_href_list_addr[$link_no];
@@ -4147,6 +4263,7 @@ sub Check_Expected_Links {
                     #
                     # No expected href value, use actual value from the link.
                     #
+                    print "No expected href value, use actual value from the link.\n" if $debug;
                     my (@new_list);
                     push(@new_list, $link->abs_url);
                     $href_list = \@new_list;
@@ -4155,7 +4272,7 @@ sub Check_Expected_Links {
                 #
                 # Check anchor and href values
                 #
-                Check_Link_Anchor_and_Href($link, ($link_no + 1), $anchor,
+                Check_Link_Anchor_and_Href($link, ($link_no + 1), $anchor_list,
                                            $href_list, $tcid, $section);
             }
 
@@ -4187,7 +4304,22 @@ sub Check_Expected_Links {
                         # Get anchor and href values
                         #
                         $link = $links[$link_no];
-                        $anchor = $$optional_link_list_addr[$optional_link_no];
+                        if ( defined($optional_link_list_addr) &&
+                             defined($$optional_link_list_addr[$optional_link_no]) )  {
+                            $anchor_list = $$optional_link_list_addr[$optional_link_no];
+                        }
+                        else {
+                            #
+                            # No expected anchor value, use actual
+                            # value from the link.
+                            #
+                            print "No expected anchor value, use actual value from the link.\n" if $debug;
+                            my (@new_list);
+                            $anchor_list = \@new_list;
+                            $anchor = Trim_Whitespace($link->anchor);
+                            $anchor = encode_entities($anchor);
+                            push(@new_list, $anchor);
+                        }
                         if ( defined($optional_href_list_addr) &&
                              defined($$optional_href_list_addr[$optional_link_no]) )  {
                             $href_list = $$optional_href_list_addr[$optional_link_no];
@@ -4197,6 +4329,7 @@ sub Check_Expected_Links {
                             # No expected href value, use actual value
                             # from the link.
                             #
+                            print "No expected href value, use actual value from the link.\n" if $debug;
                             my (@new_list);
                             push(@new_list, $link->abs_url);
                             $href_list = \@new_list;
@@ -4206,7 +4339,7 @@ sub Check_Expected_Links {
                         # Check anchor and href values
                         #
                         Check_Link_Anchor_and_Href($link, ($link_no + 1), 
-                                                   $anchor, $href_list,
+                                                   $anchor_list, $href_list,
                                                    $optional_tcid, $section);
 
                         #
@@ -4328,7 +4461,7 @@ sub Check_Expected_Images {
     my ($url, $link_list_addr, $expected_link_list_addr, $tcid, $section) = @_;
 
     my ($link, $link_count, $link_no, @links, $expected_link_count);
-    my ($alt_text, $message);
+    my ($alt_text, $message, %attr);
 
     #
     # Check that a set of image links appear with the correct
@@ -4343,6 +4476,20 @@ sub Check_Expected_Images {
         foreach $link (@$link_list_addr) {
             if ( $link->link_type eq "img" ) {
                 push(@links, $link);
+            }
+            #
+            # Check for object images with an image type attribute
+            #
+            elsif ( $link->link_type eq "object" ) {
+                %attr = $link->attr;
+
+                #
+                # Do we have a type attribute ? and is it of type image ?
+                #
+                if ( defined($attr{"type"}) && 
+                     ($attr{"type"} =~ /image/i) ) {
+                    push(@links, $link);
+                }
             }
         } 
 
@@ -4367,7 +4514,6 @@ sub Check_Expected_Images {
                           String_Value("images"));
         }
         else {
-
             #
             # Check values of the alt text for each item.
             #
@@ -4742,7 +4888,7 @@ sub Check_GC_Navigation_Links {
     if ( defined($gc_nav_optional_links) &&
          defined($$gc_nav_optional_links{$language}) ) {
         $optional_link_list_addr = $$gc_nav_optional_links{$language};
-    }
+   }
 
     #
     # Get list of optional link href values (i.e. language link)
@@ -5674,7 +5820,8 @@ sub Check_Expected_Link_Set {
 
     my ($link, $link_count, $link_no, @links, $expected_link_count);
     my ($link_text, $message, $anchor, $href, %expected_link_set);
-    my ($expected_href_count);
+    my ($expected_href_count, $anchor_list, $href_list, $link_found);
+    my ($i, $anchor_values);
     my (@actual_link_order) = ();
 
     #
@@ -5710,8 +5857,7 @@ sub Check_Expected_Link_Set {
         else {
             $expected_href_count = 0;
         }
-        print "Expecting $expected_link_count links " .
-              join(", ", @$expected_link_list_addr) . "\n" if $debug;
+        print "Expecting $expected_link_count links\n" if $debug;
 
         #
         # Did we find at least the expected number links ?
@@ -5727,11 +5873,12 @@ sub Check_Expected_Link_Set {
         else {
 
             #
-            # Initialize data structure for expected link anchor text.
+            # Initialize set of expected links
             #
             for ($link_no = 0; $link_no < $expected_link_count; $link_no++) {
-                $anchor = $$expected_link_list_addr[$link_no];
-                $expected_link_set{$anchor} = 0;
+                $anchor_list = $$expected_link_list_addr[$link_no];
+                $anchor_values = join(", ", @$anchor_list);
+                $expected_link_set{$anchor_values} = 0;
             }
 
             #
@@ -5740,48 +5887,81 @@ sub Check_Expected_Link_Set {
             #
             foreach $link (@$link_list_addr) {
                 #
-                # Check values of the anchor text and href for each expected item.
+                # Check values of the anchor text and href for each
+                # expected item.
                 #
+                $link_found = 0;
                 for ($link_no = 0; $link_no < $expected_link_count; $link_no++) {
                     #
                     # Get expected anchor and href values
                     #
-                    $anchor = $$expected_link_list_addr[$link_no];
+                    $anchor_list = $$expected_link_list_addr[$link_no];
                     if ( defined($expected_href_list_addr) &&
                          defined($$expected_href_list_addr[$link_no]) )  {
-                        $href = $$expected_href_list_addr[$link_no];
+                        $href_list = $$expected_href_list_addr[$link_no];
                     }
                     else {
                         #
                         # No expected href set it to an empty string
                         #
-                        $href = "";
+                        my (@empty_list);
+                        $href_list = \@empty_list;
                     }
 
                     #
                     # Check anchor and href values
                     #
-                    print "Check for link with anchor = $anchor, href = $href\n" if $debug;
-                    if ( Match_Link_Anchor_and_Href($link, $anchor, $href,
-                                                    $tcid, $section) ) {
-                        $expected_link_set{$anchor} = 1;
-                        
+                    $anchor_values = join(", ", @$anchor_list);
+                    print "Check for link with anchor in list $anchor_values\n" if $debug;
+                    print "Check for link with href in list " .
+                          join(", ", @$href_list) . "\n" if $debug;
+
+                    #
+                    # Check for a match for any anchor/href combination
+                    #
+                    for ($i = 0; $i < @$anchor_list; $i++) {
+                        $anchor = $$anchor_list[$i];
+                        $href = $$href_list[$i];
+                        if ( ! defined($href) ) {
+                            $href = $link->abs_url;
+                        }
+
                         #
-                        # Save link refernce in actual link order list
+                        # Do we match this anchor and href ?
                         #
-                        push(@actual_link_order, $link);
+                        if ( Match_Link_Anchor_and_Href($link, $anchor,
+                                                        $href,
+                                                        $tcid, $section) ) {
+                            #
+                            # Save link reference in actual link order list
+                            #
+                            print "Found match for anchor = $anchor, href = $href\n" if $debug;
+                            push(@actual_link_order, $link);
+                            $link_found = 1;
+                            $expected_link_set{$anchor_values} = 1;
+                            last;
+                        }
+                    }
+
+                    #
+                    # Did we find the link ?
+                    #
+                    if ( $link_found ) {
+                        last;
                     }
                 }
             }
 
             #
-            # Did we find all of the expected links ?
+            # Did we find all the expected links ?
             #
-            foreach $anchor (@$expected_link_list_addr) {
-                if ( ! $expected_link_set{$anchor} ) {
+            while ( ($anchor_values, $link_found) = each %expected_link_set ) {
+                if ( ! $link_found ) {
                     Record_Result($tcid, -1, -1, "",
-                                  String_Value("Missing link") . " '$anchor' " .
-                                  String_Value("in") . " $section");
+                                  String_Value("Missing link in") . 
+                                  " '$section' " .
+                                  String_Value("expecting one of") .
+                                  " '$anchor_values'");
                 }
             }
         }
