@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 6540 $
+# $Revision: 6573 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2014-01-09 12:03:53 -0500 (Thu, 09 Jan 2014) $
+# $Date: 2014-02-24 08:00:29 -0500 (Mon, 24 Feb 2014) $
 #
 # Description:
 #
@@ -112,7 +112,7 @@ my (@color_stack,  $current_a_href,
     $current_a_title, %content_section_found, $last_tag, $last_open_tag,
     $current_content_lang_code, $inside_label, %last_label_attributes,
     $text_between_tags, $in_head_tag, @tag_order_stack, $wcag_2_0_h74_reported,
-    @param_lists, $inside_anchor,
+    @param_lists, $inside_anchor, $last_label_text,
     $image_found_inside_anchor, $wcag_2_0_f70_reported,
     %html_tags_allowed_only_once_location, $last_a_href, $last_a_contains_image,
     %abbr_acronym_text_title_lang_map, $current_lang, $abbr_acronym_title,
@@ -128,6 +128,8 @@ my (@color_stack,  $current_a_href,
     @onclick_onkeypress_tag, $onclick_onkeypress_text, $have_focusable_item,
     $pseudo_header, $emphasis_count, $anchor_inside_emphasis,
     @missing_table_headers, @table_header_locations, @table_header_types,
+    $inline_style_count, @p_div_inline_style_stack, %css_styles,
+    %input_instance_not_allowed_label,
 );
 
 my ($is_valid_html) = -1;
@@ -146,6 +148,14 @@ my (%section_markers) = ();
 my ($have_content_markers) = 0;
 my (@required_content_sections) = ("CONTENT");
 my ($pseudo_header_length) = 50;
+
+#
+# Status codes for text catagorization (taken from textcat.pm)
+#
+my ($NOT_ENOUGH_TEXT) = -1;
+my ($LANGUAGES_TOO_CLOSE) = -2;
+my ($INVALID_CONTENT) = -3;
+my ($CATAGORIZATION_OK) = 0;
 
 #
 # Maximum length of a heading or title
@@ -446,42 +456,42 @@ my (%implicit_xhtml_end_tag_end_handler) = (
 # Source: http://dev.w3.org/html5/spec/Overview.html#optional-tags
 #
 my (%implicit_html5_end_tag_start_handler) = (
-  "address", "p ",
-  "article", "p ",
-  "aside", "p ",
-  "blockquote", "p ",
+  "address", " p ",
+  "article", " p ",
+  "aside", " p ",
+  "blockquote", " p ",
   "dd", " dd dt ",
-  "dir", "p ",
-  "dl", "p ",
+  "dir", " p ",
+  "dl", " p ",
   "dt", " dd dt ",
-  "fieldset", "p ",
-  "footer", "p ",
-  "form", "p ",
-  "h1", "p ",
-  "h2", "p ",
-  "h3", "p ",
-  "h4", "p ",
-  "h5", "p ",
-  "h6", "p ",
-  "header", "p ",
-  "hgroup", "p ",
-  "hr", "p ",
+  "fieldset", " p ",
+  "footer", " p ",
+  "form", " p ",
+  "h1", " p ",
+  "h2", " p ",
+  "h3", " p ",
+  "h4", " p ",
+  "h5", " p ",
+  "h6", " p ",
+  "header", " p ",
+  "hgroup", " p ",
+  "hr", " p ",
   "li", " li ",
-  "menu", "p ",
-  "nav", "p ",
-  "ol", "p ",
-  "p", "p ",
-  "pre", "p ",
+  "menu", " p ",
+  "nav", " p ",
+  "ol", " p ",
+  "p", " p ",
+  "pre", " p ",
   "rp", " rp rt ",
   "rt", " rp rt ",
-  "table", "p ",
+  "table", " p ",
   "tbody", " tbody tfoot ",
   "thead", " tbody tfoot ",
   "tfoot", " tbody ",
   "td", " td th ",
   "th", " td th ",
   "tr", " tr ",
-  "ul", "p ",
+  "ul", " p ",
 );
 
 #
@@ -621,6 +631,7 @@ my %string_table_en = (
     "found in header",                  "found in header",
     "Self reference in headers",        "Self reference in 'headers'",
     "Header defined at",                "Header defined at (line:column)",
+    "defined at",                       "defined at (line:column)",
     "Duplicate",                        "Duplicate",
     "Duplicate accesskey",              "Duplicate 'accesskey' ",
     "Invalid content for",              "Invalid content for ",
@@ -629,7 +640,7 @@ my %string_table_en = (
     "GIF flashes more than 3 times in 1 second", "GIF flashes more than 3 times in 1 second",
     "Missing <title> tag",              "Missing <title> tag",
     "Found tag",                        "Found tag ",
-    "Found label for",                  "Found <label> for ",
+    "label not allowed for",            "<label> not allowed for ",
     "Label found for hidden input",      "<label> found for <input type=\"hidden\">",
     "Duplicate attribute",              "Duplicate attribute ",
     "Missing xml:lang attribute",       "Missing 'xml:lang' attribute ",
@@ -694,6 +705,7 @@ my %string_table_en = (
     "Title text greater than 500 characters",            "Title text greater than 500 characters",
     "Title same as id for",               "'title' same as 'id' for ",
     "Text styled to appear like a heading", "Text styled to appear like a heading",
+    "Unable to determine content language, possible languages are", "Unable to determine content language, possible languages are",
 );
 
 
@@ -768,6 +780,7 @@ my %string_table_fr = (
     "found in header",                  "trouvé dans les en-têtes",
     "Self reference in headers",        "référence auto dans 'headers'",
     "Header defined at",                "En-tête défini à (la ligne:colonne)",
+    "defined at",                       "défini à (la ligne:colonne)",
     "Duplicate",                        "Doublon",
     "Duplicate accesskey",              "Doublon 'accesskey' ",
     "Invalid content for",              "Contenu invalide pour ",
@@ -776,7 +789,7 @@ my %string_table_fr = (
     "GIF flashes more than 3 times in 1 second", "Clignotement de l'image GIF supérieur à 3 par seconde",
     "Missing <title> tag",              "Balise <title> manquant",
     "Found tag",                        "Balise trouvé ",
-    "Found label for",                  "<label> trouvé pour ",
+    "label not allowed for",            "<label> pas permis pour ",
     "Label found for hidden input",      "<label> trouvé pour <input type=\"hidden\">",
     "Duplicate attribute",              "Doublon attribut ",
     "Missing xml:lang attribute",       "Attribut 'xml:lang' manquant ",
@@ -841,6 +854,7 @@ my %string_table_fr = (
     "Title text greater than 500 characters",    "Texte du title supérieure 500 caractères",
     "Title same as id for",               "'title' identique à 'id' pour ",
     "Text styled to appear like a heading", "Texte de style pour apparaître comme un titre",
+    "Unable to determine content language, possible languages are", "Impossible de déterminer la langue du contenu, les langues possibles sont",
 );
 
 #
@@ -1096,6 +1110,7 @@ sub Initialize_Test_Results {
     $last_tag              = "";
     $last_open_tag         = "";
     %last_label_attributes = ();
+    $last_label_text       = "";
     $text_between_tags     = "";
     $in_head_tag           = 0;
     @tag_order_stack       = ();
@@ -1126,6 +1141,9 @@ sub Initialize_Test_Results {
     $pseudo_header         = "";
     $emphasis_count        = 0;
     $anchor_inside_emphasis = 0;
+    $inline_style_count    = 0;
+    %css_styles            = ();
+    %input_instance_not_allowed_label = ();
 
     #
     # Initialize content section found flags to false
@@ -1330,11 +1348,22 @@ sub Destroy_Text_Handler {
     # Destroy text handler
     #
     print "Destroy_Text_Handler for tag $tag\n" if $debug;
-
+    
     #
     # Do we have a text handler ?
     #
     if ( $have_text_handler ) {
+        #
+        # Is the current text handler for this tag ?
+        #
+        if ( $current_text_handler_tag ne $tag ) {
+            #
+            # Not the right tag, we will continue with the destroy but note the
+            # error.  This may be caused by a mismatch in open/close tags.
+            #
+            print "Error: Trying to destroy text handler for $tag, current handler is for $current_text_handler_tag\n" if $debug;
+        }
+
         #
         # Get the text from the handler
         #
@@ -1352,6 +1381,7 @@ sub Destroy_Text_Handler {
         if ( @text_handler_tag_list > 0 ) {
             $current_text_handler_tag = pop(@text_handler_tag_list);
             print "Restart text handler for tag $current_text_handler_tag\n" if $debug;
+            print "Text handler stack is " . join(" ", @text_handler_tag_list) . "\n" if $debug;
             
             #
             # We have to create a new text handler to restart the
@@ -1472,6 +1502,7 @@ sub Start_Text_Handler {
         $current_text = Get_Text_Handler_Content($self, " ");
         push(@text_handler_tag_list, $current_text_handler_tag);
         print "Saving \"$current_text\" for $current_text_handler_tag tag\n" if $debug;
+        print "Text handler stack is " . join(" ", @text_handler_tag_list) . "\n" if $debug;
         push(@text_handler_text_list, $current_text);
         
         #
@@ -2409,8 +2440,15 @@ sub Input_Tag_Handler {
             # Label must not be used for this input type
             #
             Record_Result("WCAG_2.0-H44", $line, $column,
-                          $text, String_Value("Found label for") .
+                          $text, String_Value("label not allowed for") .
                           "$input_tag_type");
+        }
+        else {
+            #
+            # Record this input in case a label appears after
+            # it.
+            #
+            $input_instance_not_allowed_label{$id} = "$input_type:$line:$column";
         }
     }
 
@@ -2646,13 +2684,14 @@ sub Check_Accesskey_Attribute {
 sub Label_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my ($label_for);
+    my ($label_for, $input_tag_type, $input_line, $input_column);
 
     #
     # We are inside a label
     #
     $inside_label = 1;
     %last_label_attributes = %attr;
+    $last_label_text = "";
 
     #
     # Check for "for" attribute
@@ -2677,6 +2716,20 @@ sub Label_Tag_Handler {
                               "'$label_for'" .  " " .
                               String_Value("Previous instance found at") .
                               $label_for_location{$label_for});
+            }
+
+            #
+            # Was this label referenced by an input that is not allowed
+            # to have a label (e.g. submit buttons).
+            #
+            if ( defined($input_instance_not_allowed_label{$label_for}) ) {
+                ($input_tag_type, $input_line, $input_column) = split(/:/,
+                            $input_instance_not_allowed_label{$label_for});
+                Record_Result("WCAG_2.0-H44", $line, $column,
+                              $text, String_Value("label not allowed for") .
+                              "<input type=\"$input_tag_type\" " .
+                              String_Value("defined at") .
+                              " $input_line:$input_column");
             }
 
             #
@@ -2732,7 +2785,8 @@ sub End_Label_Tag_Handler {
     #
     $clean_text = Clean_Text(Get_Text_Handler_Content($self, ""));
     print "End_Label_Tag_Handler: text = \"$clean_text\"\n" if $debug;
-    
+    $last_label_text = $clean_text;
+
     #
     # Check for using white space characters to control spacing within a word
     #
@@ -3027,6 +3081,215 @@ sub End_Legend_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Check_For_Inline_Style
+#
+# Parameters: tag - tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks for a possible inline styles on a tag.
+# It looks for a possible style attribute or a class attribute that
+# references a CSS style.  If styles are found they are saved in a
+# style stack for possible use when handling an end tag.
+#
+#***********************************************************************
+sub Check_For_Inline_Style {
+    my ( $tag, $line, $column, $text, %attr ) = @_;
+
+    my ($style, %style_map);
+    
+    #
+    # Do we have a style attribute ?
+    #
+    if ( defined($attr{"style"}) && ($attr{"style"} ne "") ) {
+        $inline_style_count++;
+        $style = "inline_" . $inline_style_count . "_$tag";
+        print "Found inline style in tag $tag, generated class = $style\n" if $debug;
+        %style_map = CSS_Check_Get_Styles($current_url,
+                                          "$style {" . $attr{"style"} . "}");
+
+        #
+        # Add this style to the CSS styles for this URL
+        #
+        $css_styles{$style} = $style_map{$style};
+    }
+    #
+    # Do we have a class attribute ?
+    #
+    elsif ( defined($attr{"class"}) && ($attr{"class"} ne "") ) {
+        $style = "." . $attr{"class"};
+    }
+    else {
+        #
+        # No style attribute
+        #
+        $style = "";
+    }
+    
+    #
+    # Save the inline style (if any) on the inline style stack
+    #
+    push(@p_div_inline_style_stack, $style);
+}
+
+#***********************************************************************
+#
+# Name: Possible_Pseudo_Heading
+#
+# Parameters: text - text
+#
+# Description:
+#
+#   This function checks the supplied text to see if it may be a
+# pseudo heading.  It checks that the content is
+#  - not in a table
+#  - does not end in a period
+#  - is not inside an anchor
+#  - is less than a pseudo header maximum length
+#
+#***********************************************************************
+sub Possible_Pseudo_Heading {
+    my ( $text ) = @_;
+
+    my ($possible_heading) = 0;
+    my ($decoded_text);
+
+    #
+    # Convert any HTML entities into actual characters so we can get
+    # an accurate text length.
+    #
+    $decoded_text = decode_entities($text);
+
+    #
+    # If this emphasis is inside a block tag such as <caption>, it
+    # is ignored as it is not a heading.  Also ignore it if it is
+    # a table header (<th>, <td>).
+    #
+    print "Possible_Pseudo_Heading\n" if $debug;
+    if ( Have_Text_Handler_For_Tag("caption") ||
+            Have_Text_Handler_For_Tag("summary") ||
+            Have_Text_Handler_For_Tag("td") ||
+            Have_Text_Handler_For_Tag("th")    ) {
+        print "Ignore possible pseudo-heading inside block tag\n" if $debug;
+    }
+    #
+    # Does the text end with a period ? This suggests it is a sentence
+    # rather than a heading.  Wont ignore other punctuation such as
+    # a question mark as they can appear in FAQ type of headings.
+    #
+    elsif ( $text =~ /\.$/ ) {
+        print "Ignore possible pseudo-heading that end with a period\n" if $debug;
+    }
+    #
+    # Do we have an anchor inside the emphasis block ?
+    # Ignore this text as the anchor may be bolded.
+    #
+    elsif ( $anchor_inside_emphasis ) {
+        print "Ignore possible pseudo-heading that contains an anchor\n" if $debug;
+    }
+    #
+    # Is the emphasized text a label ?
+    #
+    elsif ( $inside_label || ($text eq $last_label_text) ) {
+        print "Ignore possible pseudo-heading that are labels\n" if $debug;
+    }
+    #
+    # Check the length of the text, if it is below a certain threshold
+    # it may be acting as a pseudo-header
+    #
+    elsif ( length($decoded_text) < $pseudo_header_length ) {
+        #
+        # Possible pseudo-header
+        #
+        $possible_heading = 1;
+        print "Possible pseudo-header \"$text\"\n" if $debug;
+    }
+
+    #
+    # Return status
+    #
+    return($possible_heading);
+}
+
+#***********************************************************************
+#
+# Name: Check_Pseudo_Heading
+#
+# Parameters: tag - tagname
+#             content - text between the open & close tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function checks for a pseudo heading.  It checks to see
+# if a possible psedue heading was detected (emphasised text) and if
+# it matches this tag's text.  It checks for any CSS emphasis on this
+# tag that makes it appear as a heading.
+#
+#***********************************************************************
+sub Check_Pseudo_Heading {
+    my ( $tag, $content, $line, $column, $text ) = @_;
+
+    my ($has_emphasis, $found_heading, $style, $style_object);
+
+    #
+    # Was there a pseudo-header ? Is it the entire contents of the 
+    # paragraph ? (not just emphasised text inside the paragraph)
+    #
+    if ( ($pseudo_header ne "") &&
+         ($pseudo_header eq $content) ) {
+        print "Possible pseudo-header paragraph \"$content\" at $line:$column\n" if $debug;
+        Record_Result("WCAG_2.0-F2", $line, $column, $text,
+                      String_Value("Text styled to appear like a heading") .
+                      " \"$pseudo_header\"");
+        $found_heading = 1;
+    }
+    else {
+        #
+        # Have no pseudo-header, reset global variable
+        #
+        $pseudo_header = "";
+        $found_heading = 0;
+    }
+
+    #
+    # Get inline style associated with this tag.
+    #
+    $style = pop(@p_div_inline_style_stack);
+    print "Check for inline style \"$style\" for tag p\n" if $debug;
+    if ( ($content ne "") && (! $found_heading) && ($style ne "") ) {
+        #
+        # Do we have a CSS style for the style name ?
+        #
+        if ( defined($css_styles{$style}) ) {
+            $style_object = $css_styles{$style};
+
+            $has_emphasis = CSS_Check_Does_Style_Have_Emphasis($style,
+                                                               $style_object);
+
+            #
+            # Did we find CSS emphasis ?
+            #
+            if ( $has_emphasis ) {
+                if ( Possible_Pseudo_Heading($content) ) {
+                    print "Possible pseudo-header \"$content\" at $line:$column\n" if $debug;
+                    Record_Result("WCAG_2.0-F2", $line, $column, $text,
+                          String_Value("Text styled to appear like a heading") .
+                          " \"$content\"");
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: P_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -3048,6 +3311,13 @@ sub P_Tag_Handler {
     # tag.
     #
     Start_Text_Handler($self, "p");
+
+    #
+    # Check for possible inline styles.
+    # This style may cause the paragraph to appear as a heading
+    # (e.g. bold, increase font size).
+    #
+    Check_For_Inline_Style("p", $line, $column, $text, %attr);
 }
 
 #***********************************************************************
@@ -3068,7 +3338,7 @@ sub P_Tag_Handler {
 sub End_P_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $clean_text);
+    my ($this_text, $clean_text, $style, $style_object, $has_emphasis);
 
     #
     # Get all the text found within the p tag
@@ -3097,25 +3367,99 @@ sub End_P_Tag_Handler {
     # Was there a pseudo-header ? Is it the entire contents of the 
     # paragraph ? (not just emphasised text inside the paragraph)
     #
-    if ( ($pseudo_header ne "") &&
-         ($pseudo_header eq $clean_text) ) {
-        print "Possible pseudo-header paragraph \"$clean_text\" at $line:$column\n" if $debug;
-        Record_Result("WCAG_2.0-F2", $line, $column, $text,
-                      String_Value("Text styled to appear like a heading") .
-                      " \"$pseudo_header\"");
-    }
-    else {
-        #
-        # Have no pseudo-header
-        #
-        $pseudo_header = ""
-    }
+    Check_Pseudo_Heading("p", $clean_text, $line, $column, $text);
 
     #
     # Destroy the text handler that was used to save the text
     # portion of the p tag.
     #
     Destroy_Text_Handler($self, "p");
+}
+
+#***********************************************************************
+#
+# Name: Div_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the div tag.
+#
+#***********************************************************************
+sub Div_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Add a text handler to save the text portion of the div
+    # tag.
+    #
+    Start_Text_Handler($self, "div");
+
+    #
+    # Check for possible inline styles.
+    # This style may cause the paragraph to appear as a heading
+    # (e.g. bold, increase font size).
+    #
+    Check_For_Inline_Style("div", $line, $column, $text, %attr);
+}
+
+#***********************************************************************
+#
+# Name: End_Div_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end div tag.
+#
+#***********************************************************************
+sub End_Div_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    my ($this_text, $clean_text, $style, $style_object, $has_emphasis);
+
+    #
+    # Get all the text found within the div tag
+    #
+    if ( ! $have_text_handler ) {
+        #
+        # If we don't have a text handler, ignore it.
+        #
+        print "End div tag found no text handler at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Get the div text as a string
+    #
+    $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
+
+    #
+    # Check for using white space characters to control spacing within a word
+    #
+    Check_Character_Spacing("<div>", $line, $column, $clean_text);
+
+    #
+    # Was there a pseudo-header ? Is it the entire contents of the
+    # div ? (not just emphasised text inside the div)
+    #
+    Check_Pseudo_Heading("div", $clean_text, $line, $column, $text);
+
+    #
+    # Destroy the text handler that was used to save the text
+    # portion of the div tag.
+    #
+    Destroy_Text_Handler($self, "div");
 }
 
 #***********************************************************************
@@ -3145,17 +3489,19 @@ sub Emphasis_Tag_Handler {
     # emphasis block ?
     #
     if ( ($last_open_tag eq "p") || 
+         ($last_open_tag eq "div") || 
          ($emphasis_count > 0) ) {
         #
         # Increment emphasis level count
         #
         $emphasis_count++;
-
-        #
-        # Add a text handler to save the text portion of this tag
-        #
-        Start_Text_Handler($self, $tag);
     }
+
+    #
+    # Add a text handler to save the text portion of this tag
+    #
+    print "Start Emphasis text handler for $tag\n" if $debug;
+    Start_Text_Handler($self, $tag);
 }
 
 #***********************************************************************
@@ -3198,45 +3544,18 @@ sub End_Emphasis_Tag_Handler {
     $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
     print "End_Emphasis_Tag_Handler: text = \"$clean_text\"\n" if $debug;
 
-    $pseudo_header = "";
     #
     # Are we missing text ?
     #
+    $pseudo_header = "";
     if ( $clean_text eq "" ) {
         Record_Result("WCAG_2.0-G115", $line, $column,
                       $text, String_Value("Missing text in") . "<$tag>");
     }
     #
-    # If this emphasis is inside a block tag such as <caption>, it
-    # is ignored as it is not a heading.  Also ignore it if it is
-    # a table header (<th>, <td>).
+    # Check for possible pseudo heading based on content
     #
-    elsif ( Have_Text_Handler_For_Tag("caption") ||
-            Have_Text_Handler_For_Tag("summary") ||
-            Have_Text_Handler_For_Tag("td") ||
-            Have_Text_Handler_For_Tag("th")    ) {
-        print "Ignore possible pseudo-heading inside block tag\n" if $debug;
-    }
-    #
-    # Does the text end with a period ? This suggests it is a sentence
-    # rather than a heading.  Wont ignore other punctuation such as
-    # a question mark as they can appear in FAQ type of headings.
-    #
-    elsif ( $clean_text =~ /\.$/ ) {
-        print "Ignore possible pseudo-heading that end with a period\n" if $debug;
-    }
-    #
-    # Do we have an anchor inside the emphasis block ?
-    # Ignore this text as the anchor may be bolded.
-    #
-    elsif ( $anchor_inside_emphasis ) {
-        print "Ignore possible pseudo-heading that contains an anchor\n" if $debug;
-    }
-    #
-    # Check the length of the text, if it is below a certain threshold
-    # it may be acting as a pseudo-header
-    #
-    elsif ( length($clean_text) < $pseudo_header_length ) {
+    elsif ( Possible_Pseudo_Heading($clean_text) ) {
         #
         # Possible pseudo-header
         #
@@ -4939,6 +5258,7 @@ sub End_H_Tag_Handler {
     #
     $last_heading_text = Clean_Text(Get_Text_Handler_Content($self, " "));
     $last_heading_text = decode_entities($last_heading_text);
+    $last_heading_text =~ s/ALT://g;
     print "End_H_Tag_Handler: text = \"$last_heading_text\"\n" if $debug;
 
     #
@@ -5336,7 +5656,7 @@ sub Button_Tag_Handler {
             # Label must not be used for a button
             #
             Record_Result("WCAG_2.0-H44", $line, $column,
-                          $text, String_Value("Found label for") . "<button>");
+                          $text, String_Value("label not allowed for") . "<button>");
         }
     }
 
@@ -7236,6 +7556,16 @@ sub Check_Duplicate_Attributes {
         #
         $attribute = shift(@attribute_list);
         while ( defined($attribute) ) {
+            #
+            # Skip possible blank attribute
+            #
+            if ( $attribute eq "" ) {
+               next;
+            }
+
+            #
+            # Check for another instance of this attribute in the list
+            #
             print "Check attribute $attribute\n" if $debug;
             foreach $this_attribute (@attribute_list) {
                 print "Check against attribute $this_attribute\n" if $debug;
@@ -7248,6 +7578,7 @@ sub Check_Duplicate_Attributes {
                                   "'$attribute'" .
                                   String_Value("for tag") .
                                   "<$tagname>");
+                    last;
                 }
             }
 
@@ -7846,7 +8177,7 @@ sub Start_Handler {
     }
 
     #
-    # Check areas
+    # Check area tag
     #
     elsif ( $tagname eq "area" ) {
         Area_Tag_Handler($self, $language, $line, $column, $text, %attr_hash);
@@ -7875,17 +8206,24 @@ sub Start_Handler {
     }
 
     #
-    # Check button
+    # Check button tag
     #
     elsif ( $tagname eq "button" ) {
         Button_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
 
     #
-    # Check caption
+    # Check caption tag
     #
     elsif ( $tagname eq "caption" ) {
         Caption_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check div tag
+    #
+    elsif ( $tagname eq "div" ) {
+        Div_Tag_Handler($self, $language, $line, $column, $text, %attr_hash);
     }
 
     #
@@ -7932,7 +8270,7 @@ sub Start_Handler {
     }
 
     #
-    # Check figure
+    # Check figure tag
     #
     elsif ( $tagname eq "figure" ) {
         Figure_Tag_Handler( $self, $line, $column, $text, %attr_hash );
@@ -8074,7 +8412,7 @@ sub Start_Handler {
     }
 
     #
-    # Check option
+    # Check option tag
     #
     elsif ( $tagname eq "option" ) {
         Option_Tag_Handler( $self, $line, $column, $text, %attr_hash );
@@ -8653,7 +8991,7 @@ sub End_Title_Tag_Handler {
         #
         elsif ( length($clean_text) > $max_heading_title_length ) {
             Record_Result("WCAG_2.0-H25", $line, $column,
-                          $text, String_Value("Heading text greater than 500 characters") . " \"$clean_text\"");
+                          $text, String_Value("Title text greater than 500 characters") . " \"$clean_text\"");
         }
         else {
             #
@@ -8929,6 +9267,13 @@ sub End_Handler {
     #
     elsif ( $tagname eq "caption" ) {
         End_Caption_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    # Check div tag
+    #
+    elsif ( $tagname eq "div" ) {
+        End_Div_Tag_Handler($self, $line, $column, $text);
     }
 
     #
@@ -9431,7 +9776,7 @@ sub HTML_Check {
     my ( $this_url, $language, $profile, $resp, $content ) = @_;
 
     my ($parser, @tqa_results_list, $result_object, $testcase);
-    my ($lang_code, $lang, $status);
+    my ($lang_code, $lang, $status, $css_content);
 
     #
     # Do we have a valid profile ?
@@ -9485,8 +9830,34 @@ sub HTML_Check {
             #
             Check_Language_Spans();
         }
+        elsif ( $status == $LANGUAGES_TOO_CLOSE ) {
+            #
+            # Could not determine the language of the content, the 
+            # top language choices were too close.  Report an error
+            # as it might be that the content contains several languages
+            # that are not properly spanned.
+            #
+            Record_Result("WCAG_2.0-H57", -1, -1, "",
+                          String_Value("Unable to determine content language, possible languages are") .
+                          " " . join(", ", TextCat_Too_Close_Languages()));
+            $current_content_lang_code = "";
+        }
         else {
             $current_content_lang_code = "";
+        }
+
+        #
+        # Extract any inline CSS from the HTML
+        #
+        print "Check for inline CSS\n" if $debug;
+        $css_content = CSS_Validate_Extract_CSS_From_HTML($this_url,
+                                                          $content);
+
+        #
+        # Get styles from the CSS content
+        #
+        if ( $css_content ne "" ) {
+            %css_styles = CSS_Check_Get_Styles($this_url, $css_content);
         }
 
         #
