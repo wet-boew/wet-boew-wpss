@@ -2,9 +2,9 @@
 #
 # Name: textcat.pm
 #
-# $Revision: 6264 $
+# $Revision: 6558 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/textcat.pm $
-# $Date: 2013-05-22 09:30:57 -0400 (Wed, 22 May 2013) $
+# $Date: 2014-02-14 15:05:25 -0500 (Fri, 14 Feb 2014) $
 #
 # Description
 #
@@ -29,6 +29,7 @@
 #     TextCat_Supported_Language
 #     TextCat_Verbose
 #     TextCat_All_Language_Spans
+#     TextCat_Too_Close_Languages
 #
 #***********************************************************************
 
@@ -58,7 +59,8 @@ BEGIN {
                   TextCat_Text_Language
                   TextCat_Supported_Language
                   TextCat_Verbose
-                  TextCat_All_Language_Spans);
+                  TextCat_All_Language_Spans
+                  TextCat_Too_Close_Languages);
     $VERSION = "1.0";
 }
 
@@ -72,7 +74,7 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (@languages, %language_model, %language_code_map, $save_text);
-my ($table_depth, %supported_languages);
+my ($table_depth, %supported_languages, @last_too_close_languages);
 
 my $non_word_characters = '0-9\s';
 my $directory           = 'LM';     #default directory to .lm files
@@ -1080,11 +1082,18 @@ sub TextCat_Text_Language {
     # Compare the results for the top 2 languages, if they are too
     # close in value return unknown rather than selecting the wrong one.
     #
+    @last_too_close_languages = ();
     $lang1 = $answers[0];
     if ( @answers > 1 ) {
         $lang2 = $answers[1];
         if ( ($results{$lang2} / $results{$lang1}) < 1.02 ) {
             print "Top 2 languages too close, return unknown language\n" if $debug;
+
+            #
+            # Save top 2 languages incase the caller wants to get them
+            #
+            @last_too_close_languages = ($language_code_map{$lang1},
+                                         $language_code_map{$lang2});
             return("", "unknown", $LANGUAGES_TOO_CLOSE);
         }
     }
@@ -1344,6 +1353,23 @@ sub Load_Language_Models {
     # for an unknown language.  The language code is an empty string.
     #
     $language_code_map{"unknown"} = "";
+}
+
+#***********************************************************************
+#
+# Name: TextCat_Too_Close_Languages
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the list of languages from the last text
+# catagorization that resulted in a "too close languages" status.
+#
+#***********************************************************************
+sub TextCat_Too_Close_Languages {
+
+    return(@last_too_close_languages);
 }
 
 #***********************************************************************
