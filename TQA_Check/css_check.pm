@@ -2,9 +2,9 @@
 #
 # Name:   css_check.pm
 #
-# $Revision: 6331 $
+# $Revision: 6550 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/css_check.pm $
-# $Date: 2013-07-09 13:57:13 -0400 (Tue, 09 Jul 2013) $
+# $Date: 2014-01-30 08:12:56 -0500 (Thu, 30 Jan 2014) $
 #
 # Description:
 #
@@ -19,6 +19,7 @@
 #     Set_CSS_Check_Valid_Markup
 #     CSS_Check
 #     CSS_Check_Get_Styles
+#     CSS_Check_Does_Style_Have_Emphasis
 #
 # Terms and Conditions of Use
 # 
@@ -74,6 +75,7 @@ BEGIN {
                   Set_CSS_Check_Valid_Markup
                   CSS_Check
                   CSS_Check_Get_Styles
+                  CSS_Check_Does_Style_Have_Emphasis
                   );
     $VERSION = "1.0";
 }
@@ -1646,6 +1648,101 @@ sub CSS_Check_Get_Styles {
     # Return table of styles
     #
     return(%style_hash);
+}
+
+#***********************************************************************
+#
+# Name: CSS_Check_Does_Style_Have_Emphasis
+#
+# Parameters: style_name - name of style
+#             style_object - style object refernce
+#
+# Description:
+#
+#   This function checks the properties of the style object to see
+# if it has emphasis (e.g. bold, increased size, etc).
+#
+#***********************************************************************
+sub CSS_Check_Does_Style_Have_Emphasis {
+    my ( $style_name, $style_object ) = @_;
+
+    my (@properties, $this_prop, $hash, $property, $value);
+    my ($has_emphasis) = 0;
+
+    #
+    # Did we get any content ?
+    #
+    print "CSS_Check_Does_Style_Have_Emphasis for style $style_name\n" if $debug;
+
+    #
+    # Get properties for this style
+    #
+    @properties = $style_object->properties;
+    for $this_prop (@properties) {
+        #
+        # Get the property name and its value
+        #
+        $hash = $$this_prop{"options"};
+        $property = $$hash{"property"};
+        $value = $$hash{"value"};
+        print "  $property: $value\n" if $debug;
+
+        #
+        # Check for font-weight: 
+        #   bold (or higher) 
+        #   700 (or higher)
+        #
+        if ( $property eq "font-weight" ) {
+            if ( ($value eq "bold") || ($value eq "bolder") ||
+                 ($value eq "700") || ($value eq "800") || ($value eq "900")) {
+                $has_emphasis = 1;
+                print "Found font-weight emphasis\n" if $debug;
+            }
+        }
+
+        #
+        # Check for font-size: 
+        #   absolute size: large (or higher)
+        #   relative size: larger
+        #   percentage: 100% (or higher), 1.1em (or higher)
+        #
+        if ( $property eq "font-size" ) {
+            #
+            # Check absolute or relative values
+            #
+            if ( ($value eq "large") || ($value eq "x-large") || 
+                 ($value eq "xx-large") || ($value eq "larger") ) {
+                $has_emphasis = 1;
+                print "Found font-size absolute or relative emphasis\n" if $debug;
+            }
+            #
+            # Check for percentage
+            #
+            elsif ( $value =~ /%$/ ) {
+                $value =~ s/%//g;
+                if ( $value > 100 ) {
+                    $has_emphasis = 1;
+                    print "Found font-size percentage emphasis\n" if $debug;
+                } 
+            } 
+            #
+            # Check for em units
+            #
+            elsif ( $value =~ /em$/ ) {
+                $value =~ s/em//g;
+                if ( $value > 1.1 ) {
+                    $has_emphasis = 1;
+                    print "Found font-size em emphasis\n" if $debug;
+                } 
+            } 
+        }
+    }
+
+    #
+    # Return emphasis indicator
+    #
+    print "Style has emphasis = $has_emphasis\n" if $debug;
+    return($has_emphasis);
 }
 
 #***********************************************************************
