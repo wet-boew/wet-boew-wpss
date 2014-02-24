@@ -2,9 +2,9 @@
 #
 # Name: validator_xml.pm
 #
-# $Revision: 6321 $
+# $Revision: 6545 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_xml.pm $
-# $Date: 2013-06-26 15:53:16 -0400 (Wed, 26 Jun 2013) $
+# $Date: 2014-01-21 11:54:55 -0500 (Tue, 21 Jan 2014) $
 #
 # Description:
 #
@@ -156,7 +156,7 @@ sub Validator_XML_TQA_Result {
     # Construct XML string for the result object attributes
     #
     print "Validator_XML_TQA_Result\n" if $debug;
-    if ( $result_object->line_no != -1 ) {
+    if ( $result_object->page_no == -1 ) {
         $xml_string = "  <qa_result_item type=\"" . $result_type . "\" " .
 "testcase=\"" . $result_object->testcase . "\" " .
 "line=\"" . $result_object->line_no . "\" " .
@@ -171,7 +171,7 @@ sub Validator_XML_TQA_Result {
         #
         # Print page number, if there is one
         #
-        elsif ( $result_object->page_no > 0 ) {
+        else {
             $xml_string = "  <qa_result_item type=\"" . $result_type . "\" " .
 "testcase=\"" . $result_object->testcase . "\" " .
 "page=\"" . $result_object->page_no . "\" >
