@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6440 $
+# $Revision: 6553 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2013-11-20 14:15:18 -0500 (Wed, 20 Nov 2013) $
+# $Date: 2014-01-30 14:26:58 -0500 (Thu, 30 Jan 2014) $
 #
 # Description:
 #
@@ -422,7 +422,8 @@ sub Set_TQA_Check_Valid_Markup {
         elsif ( $mime_type =~ "text\/css" ) {
             Set_CSS_Check_Valid_Markup($validity);
         }
-        elsif ( $mime_type =~ "application\/x-javascript" ) {
+        elsif ( ($mime_type =~ "application\/x-javascript") ||
+                ($mime_type =~ "text\/javascript") ) {
             Set_JavaScript_Check_Valid_Markup($validity);
         }
         elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
@@ -539,20 +540,13 @@ sub Record_Result {
 sub Check_HTTP_Response {
     my ($url, $resp) = @_;
 
-    my ($tcid, $refresh, $header, @values, $value);
+    my ($refresh, $header, @values, $value);
 
     #
     # Do we have a response object (wont have one if we are doing direct HTML
     # input).
     #
     if ( defined($resp) ) {
-        #
-        # Are we checking server side redirects ?
-        #
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-F58"}) ) {
-            $tcid = "WCAG_2.0-F58";
-        }
-
         #
         # Is there a refresh field in the header ?
         #
@@ -579,11 +573,11 @@ sub Check_HTTP_Response {
                         # Is there any refresh content ?
                         #
                         if ( $refresh =~ /url/i ) {
-                            Record_Result($tcid, -1, -1, "",
+                            Record_Result("WCAG_2.0-F58", -1, -1, "",
                                           String_Value("HTTP header redirect not allowed"));
                         }
                         else {
-                            Record_Result($tcid, -1, -1, "",
+                            Record_Result("WCAG_2.0-F58", -1, -1, "",
                                           String_Value("HTTP header refresh not allowed"));
                         }
                     }
@@ -608,7 +602,7 @@ sub Check_HTTP_Response {
 #***********************************************************************
 sub Check_Other_Tool_Results {
 
-    my (@tqa_results_list, $result_object, $tcid, $orig_results_list_addr);
+    my (@tqa_results_list);
 
     #
     # This is a place holder function and does nothing.
@@ -638,7 +632,7 @@ sub Check_Other_Tool_Results {
 sub TQA_Check {
     my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
 
-    my ($tcid, $extracted_content, @tqa_results_list);
+    my ($extracted_content, @tqa_results_list);
     my (@other_tqa_results_list, $result_object, $fault_count);
 
     #
@@ -714,7 +708,8 @@ sub TQA_Check {
     #
     # Is it JavaScript content?
     #
-    elsif ( $mime_type =~ /application\/x-javascript/ ) {
+    elsif ( ($mime_type =~ /application\/x-javascript/) ||
+            ($mime_type =~ /text\/javascript/) ) {
         @tqa_results_list = JavaScript_Check($this_url, $language, $profile,
                                              $content);
     }
@@ -805,18 +800,13 @@ sub Prepare_String_For_Comparison {
     $string = encode_entities($string);
 
     #
-    # Convert newline and return into space
+    # Remove newline, return and &nbsp;
     #
-    $string =~ s/[\n\r]/ /g;
+    $string =~ s/[\n\r]//g;
+    $string =~ s/\&nbsp;//g;
 
     #
-    # Remove leading & trailing whitespace
-    #
-    $string =~ s/^\s*//g;
-    $string =~ s/\s*$//g;
-
-    #
-    # Remove whitespace
+    # Remove all other whitespace
     #
     $string =~ s/\s//g;
 
@@ -879,6 +869,53 @@ sub Clean_Text {
 
 #***********************************************************************
 #
+# Name: Is_Leading_Substring
+#
+# Parameters: string1 - a string
+#             string2 - a string
+#
+# Description:
+#
+#   This function checks to see if either string is a substring
+# of the other.  The string is only a substring if it contains extra
+# text at the end of the string.  It is not a substring if one appears
+# in the middle of the other.
+#
+#***********************************************************************
+sub Is_Leading_Substring {
+    my ($string1, $string2) = @_;
+
+    my ($substring);
+
+    #
+    # Is one string a substring of the other (check only if
+    # both strings are not empty)
+    #
+    $substring = 0;
+    if ( ($string1 ne "") && ($string2 ne "") ) {
+        #
+        # is the first string value a substring of the second
+        # value (one value has additional content).
+        #
+        if ( $string1 =~ /^$string2/ ) {
+            print "First sting is a substring of second anchor\n" if $debug;
+            $substring = 1;
+        }
+        elsif ( $string2 =~ /^$string1/ ) {
+            print "Second string is a substring of first anchor\n" if $debug;
+            $substring = 1;
+        }
+    }
+
+    #
+    # Return substring status
+    #
+    return($substring);
+}
+
+
+#***********************************************************************
+#
 # Name: Check_Link_Anchor_Alt_Title_Check
 #
 # Parameters: url - URL
@@ -895,7 +932,7 @@ sub Clean_Text {
 sub Check_Link_Anchor_Alt_Title_Check {
     my ($url, $profile, @links) = @_;
 
-    my ($tcid, $link);
+    my ($link, $string1, $string2);
     my ($lang, $anchor, $title, $alt, $link_url, $referer_url);
     my ($url_link_object_table, $previous_link, $different);
     my ($difference, $line_no, $column_no, $link_type);
@@ -905,8 +942,7 @@ sub Check_Link_Anchor_Alt_Title_Check {
     #
     # Are we checking labels, names and text alternatives ?
     #
-    $tcid = "WCAG_2.0-G197";
-    if ( defined($$current_tqa_check_profile{$tcid}) ) {
+    if ( defined($$current_tqa_check_profile{"WCAG_2.0-G197"}) ) {
         #
         # Loop through the links
         #
@@ -982,15 +1018,25 @@ sub Check_Link_Anchor_Alt_Title_Check {
                 $different = 0;
                 print "Check new anchor text \"$anchor\" vs \"" .
                       $previous_link->anchor . "\"\n" if $debug;
-                if ( Prepare_String_For_Comparison($previous_link->anchor) ne
-                     Prepare_String_For_Comparison($anchor) ) {
-                    $different = 1;
-                    $difference =
-                      String_Value("Anchor values do not match for link to")
-                      . " $link_url\n" .
-                      String_Value("Found") . " \"$anchor\" " .
-                      String_Value("previously found") . " \"" .
-                      $previous_link->anchor . "\"";
+                $string1 = Prepare_String_For_Comparison($previous_link->anchor);
+                $string2 = Prepare_String_For_Comparison($anchor);
+
+                #
+                # Are the strings different ?
+                #
+                if ( $string1 ne $string2 ) {
+                    #
+                    # Is one string a leading substring of the other ?
+                    #
+                    if ( ! Is_Leading_Substring($string1, $string2) ) {
+                        $different = 1;
+                        $difference =
+                          String_Value("Anchor values do not match for link to")
+                          . " $link_url\n" .
+                          String_Value("Found") . " \"$anchor\" " .
+                          String_Value("previously found") . " \"" .
+                          $previous_link->anchor . "\"";
+                    }
                 }
 
                 #
@@ -999,15 +1045,21 @@ sub Check_Link_Anchor_Alt_Title_Check {
                 if ( ! $different ) {
                     print "Check new title text \"$title\" vs \"" .
                           $previous_link->title . "\"\n" if $debug;
-                    if ( Prepare_String_For_Comparison($previous_link->title) ne
-                         Prepare_String_For_Comparison($title) ) {
-                        $different = 1;
-                        $difference =
-                          String_Value("Title values do not match for link to")
-                          . " $link_url\n" .
-                          String_Value("Found") . " \"$title\" " .
-                          String_Value("previously found") . " \"" .
-                          $previous_link->title . "\"";
+                    $string1 = Prepare_String_For_Comparison($previous_link->title);
+                    $string2 = Prepare_String_For_Comparison($title);
+                    if ( $string1 ne $string2 ) {
+                        #
+                        # Is one string a leading substring of the other ?
+                        #
+                        if ( ! Is_Leading_Substring($string1, $string2) ) {
+                            $different = 1;
+                            $difference =
+                              String_Value("Title values do not match for link to")
+                              . " $link_url\n" .
+                              String_Value("Found") . " \"$title\" " .
+                              String_Value("previously found") . " \"" .
+                              $previous_link->title . "\"";
+                        }
                     }
                 }
 
@@ -1017,15 +1069,21 @@ sub Check_Link_Anchor_Alt_Title_Check {
                 if ( ! $different ) {
                     print "Check new alt text \"$alt\" vs \"" .
                           $previous_link->alt . "\"\n" if $debug;
-                    if ( Prepare_String_For_Comparison($previous_link->alt) ne
-                         Prepare_String_For_Comparison($alt) ) {
-                        $different = 1;
-                        $difference =
-                          String_Value("Alt values do not match for link to")
-                          . " $link_url\n" .
-                          String_Value("Found") . " \"$alt\" " .
-                          String_Value("previously found") . " \"" .
-                          $previous_link->alt . "\"";
+                    $string1 = Prepare_String_For_Comparison($previous_link->alt);
+                    $string2 = Prepare_String_For_Comparison($alt);
+                    if ( $string1 ne $string2 ) {
+                        #
+                        # Is one string a leading substring of the other ?
+                        #
+                        if ( ! Is_Leading_Substring($string1, $string2) ) {
+                            $different = 1;
+                            $difference =
+                              String_Value("Alt values do not match for link to")
+                              . " $link_url\n" .
+                              String_Value("Found") . " \"$alt\" " .
+                              String_Value("previously found") . " \"" .
+                              $previous_link->alt . "\"";
+                        }
                     }
                 }
                 
@@ -1048,7 +1106,7 @@ sub Check_Link_Anchor_Alt_Title_Check {
                     #
                     # Record testcase result
                     #
-                    Record_Result($tcid, $line_no, $column_no, "",
+                    Record_Result("WCAG_2.0-G197", $line_no, $column_no, "",
                           $difference . String_Value("at line:column") .
                           $previous_link->line_no . ":" .
                           $previous_link->column_no);
@@ -1242,8 +1300,6 @@ sub Check_Navigation_Links {
 sub Check_Site_Navigation_Links {
     my ($url, $language, $section, $links, $site_navigation_links) = @_;
 
-    my ($tcid);
-
     #
     # Are any links provided ?
     #
@@ -1256,8 +1312,7 @@ sub Check_Site_Navigation_Links {
     # Are we checking for consistent navigation ?
     #
     print "Check_Site_Navigation_Links for $url\n" if $debug;
-    $tcid = "WCAG_2.0-F66";
-    if ( defined($$current_tqa_check_profile{$tcid}) ) {
+    if ( defined($$current_tqa_check_profile{"WCAG_2.0-F66"}) ) {
         #
         # Do we have any navigation links for this language ?
         #
