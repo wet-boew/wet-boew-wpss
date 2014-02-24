@@ -2,9 +2,9 @@
 #
 # Name:   validate_markup.pm
 #
-# $Revision: 6307 $
+# $Revision: 6552 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/validate_markup.pm $
-# $Date: 2013-06-25 14:54:26 -0400 (Tue, 25 Jun 2013) $
+# $Date: 2014-01-30 14:25:24 -0500 (Thu, 30 Jan 2014) $
 #
 # Description:
 #
@@ -221,7 +221,8 @@ sub Validate_Markup {
             print "Validate robots.txt content\n" if $debug;
             @results_list = Robots_Check($this_url, $content);
         }
-        elsif ( $mime_type =~ /application\/x-javascript/ ) {
+        elsif ( ($mime_type =~ /application\/x-javascript/) ||
+                ($mime_type =~ /text\/javascript/) ) {
             #
             # Validate the JavaScript content.
             #
