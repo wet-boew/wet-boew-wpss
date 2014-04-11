@@ -2,9 +2,9 @@
 #
 # Name:   interop_xml_check.pm
 #
-# $Revision: 6393 $
+# $Revision: 6584 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_xml_check.pm $
-# $Date: 2013-10-07 09:38:59 -0400 (Mon, 07 Oct 2013) $
+# $Date: 2014-03-12 15:23:47 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -2391,7 +2391,7 @@ sub Interop_XML_Check {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
