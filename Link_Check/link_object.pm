@@ -2,9 +2,9 @@
 #
 # Name: link_object.pm
 #
-# $Revision: 6032 $
+# $Revision: 6608 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_object.pm $
-# $Date: 2012-10-15 13:27:44 -0400 (Mon, 15 Oct 2012) $
+# $Date: 2014-04-02 09:44:35 -0400 (Wed, 02 Apr 2014) $
 #
 # Description:
 #
@@ -19,26 +19,27 @@
 #    new - create new object instance
 #    href - get/set href value
 #    abs_url - get/set absolute url value
-#    anchor - get/set anchor value
-#    lang - get/set lang value
-#    line_no - get/set line number value
-#    column_no - get/set column number value
-#    source_line - get/set source value
-#    mime_type - get/set mime-type value
-#    link_type - get/set link type value
-#    link_status - get/set link status value
-#    query - get/set the query portion of the URL
-#    domain_path - get/set the protocol/domain/path portion of the URL
 #    alt - get/set alt text
-#    title - get/set title
-#    referer_url - get/set the referer URL
-#    message - get/set the testcase message
+#    anchor - get/set anchor value
+#    attr - get/set the set of link attributes
+#    column_no - get/set column number value
+#    content_length - get/set link content length value
+#    domain_path - get/set the protocol/domain/path portion of the URL
 #    has_alt - get/set the has_alt attribute
 #    has_img - get/set the has_img attribute
-#    is_archived - get/set the is_archived attribute
 #    in_list - get/set the in_list attribute
+#    is_archived - get/set the is_archived attribute
+#    lang - get/set lang value
+#    line_no - get/set line number value
+#    link_status - get/set link status value
+#    link_type - get/set link type value
 #    list_heading - get/set the list_heading attribute
-#    attr - get/set the set of link attributes
+#    message - get/set the testcase message
+#    mime_type - get/set mime-type value
+#    query - get/set the query portion of the URL
+#    referer_url - get/set the referer URL
+#    source_line - get/set source value
+#    title - get/set title
 #    url_title - get/set the title of the target URL
 #
 # Terms and Conditions of Use
@@ -156,21 +157,22 @@ sub new {
     #
     # Save arguments as link object data items
     #
-    $self->{"href"} = $href;
     $self->{"abs_url"} = $abs_url;
+    $self->{"alt"} = "";
     $self->{"anchor"} = $anchor;
+    $self->{"attr"} = \%attr;
+    $self->{"column_no"} = $column_no;
+    $self->{"content_length"} = 0;
+    $self->{"has_alt"} = 0;
+    $self->{"has_img"} = 0;
+    $self->{"href"} = $href;
+    $self->{"in_list"} = 0;
+    $self->{"is_archived"} = 0;
     $self->{"link_type"} = $link_type;
     $self->{"lang"} = $lang;
     $self->{"line_no"} = $line_no;
-    $self->{"column_no"} = $column_no;
-    $self->{"message"} = "";
-    $self->{"alt"} = "";
-    $self->{"has_alt"} = 0;
-    $self->{"has_img"} = 0;
-    $self->{"is_archived"} = 0;
-    $self->{"in_list"} = 0;
     $self->{"list_heading"} = "";
-    $self->{"attr"} = \%attr;
+    $self->{"message"} = "";
 
     #
     # Extract components of the URL, we save some pieces seperately
@@ -252,35 +254,6 @@ sub new {
     
 #********************************************************
 #
-# Name: href
-#
-# Parameters: self - class reference
-#             href - link href (optional)
-#
-# Description:
-#
-#   This function either sets or returns the href
-# attribute of the link object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub href {
-    my ($self, $href) = @_;
-    
-    #
-    # Was a href value supplied ?
-    #
-    if ( defined($href) ) {
-        $self->{"href"} = $href;
-    }
-    else {
-        return($self->{"href"});
-    }
-}
-
-#********************************************************
-#
 # Name: abs_url
 #
 # Parameters: self - class reference
@@ -305,299 +278,6 @@ sub abs_url {
     }
     else {
         return($self->{"abs_url"});
-    }
-}
-
-#********************************************************
-#
-# Name: anchor
-#
-# Parameters: self - class reference
-#             anchor - anchor text for link (optional)
-#
-# Description:
-#
-#   This function either sets or returns the anchor
-# attribute of the link object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub anchor {
-    my ($self, $anchor) = @_;
-    
-    #
-    # Was an anchor value supplied ?
-    #
-    if ( defined($anchor) ) {
-        $self->{"anchor"} = $anchor;
-    }
-    else {
-        return($self->{"anchor"});
-    }
-}
-
-#********************************************************
-#
-# Name: lang
-#
-# Parameters: self - class reference
-#             lang - language of link (optional)
-#
-# Description:
-#
-#   This function either sets or returns the language
-# attribute of the link object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub lang {
-    my ($self, $lang) = @_;
-
-    #
-    # Was a language value supplied ?
-    #
-    if ( defined($lang) ) {
-        $self->{"lang"} = $lang;
-    }
-    else {
-        return($self->{"lang"});
-    }
-}
-
-#********************************************************
-#
-# Name: line_no
-#
-# Parameters: self - class reference
-#             line_no - line number of link in source(optional)
-#
-# Description:
-#
-#   This function either sets or returns the line number
-# attribute of the link object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub line_no {
-    my ($self, $line_no) = @_;
-
-    #
-    # Was a line number value supplied ?
-    #
-    if ( defined($line_no) ) {
-        $self->{"line_no"} = $line_no;
-    }
-    else {
-        return($self->{"line_no"});
-    }
-}
-
-#********************************************************
-#
-# Name: column_no
-#
-# Parameters: self - class reference
-#             column_no - column number of link in source(optional)
-#
-# Description:
-#
-#   This function either sets or returns the column number
-# attribute of the link object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub column_no {
-    my ($self, $column_no) = @_;
-
-    #
-    # Was a column number value supplied ?
-    #
-    if ( defined($column_no) ) {
-        $self->{"column_no"} = $column_no;
-    }
-    else {
-        return($self->{"column_no"});
-    }
-}
-
-#********************************************************
-#
-# Name: source_line
-#
-# Parameters: self - class reference
-#             source_line - source line of link (optional)
-#
-# Description:
-#
-#   This function either sets or returns the source line
-# attribute of the link object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub source_line {
-    my ($self, $source_line) = @_;
-
-    #
-    # Was a source line value supplied ?
-    #
-    if ( defined($source_line) ) {
-        $self->{"source_line"} = $source_line;
-    }
-    else {
-        return($self->{"source_line"});
-    }
-}
-
-#********************************************************
-#
-# Name: link_type
-#
-# Parameters: self - class reference
-#             link_type - link type of link (optional)
-#
-# Description:
-#
-#   This function either sets or returns the link type
-# attribute of the link object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub link_type {
-    my ($self, $link_type) = @_;
-
-    #
-    # Was a link type value supplied ?
-    #
-    if ( defined($link_type) ) {
-        $self->{"link_type"} = $link_type;
-    }
-    else {
-        return($self->{"link_type"});
-    }
-}
-
-#********************************************************
-#
-# Name: mime_type
-#
-# Parameters: self - class reference
-#             mime_type - mime type of link (optional)
-#
-# Description:
-#
-#   This function either sets or returns the mime type
-# attribute of the link object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub mime_type {
-    my ($self, $mime_type) = @_;
-
-    #
-    # Was a mime type value supplied ?
-    #
-    if ( defined($mime_type) ) {
-        $self->{"mime_type"} = $mime_type;
-    }
-    else {
-        return($self->{"mime_type"});
-    }
-}
-
-#********************************************************
-#
-# Name: link_status
-#
-# Parameters: self - class reference
-#             link_status - status of link (optional)
-#
-# Description:
-#
-#   This function either sets or returns the status
-# attribute of the link object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub link_status {
-    my ($self, $link_status) = @_;
-
-    #
-    # Was a status value supplied ?
-    #
-    if ( defined($link_status) ) {
-        $self->{"link_status"} = $link_status;
-    }
-    else {
-        return($self->{"link_status"});
-    }
-}
-
-#********************************************************
-#
-# Name: query
-#
-# Parameters: self - class reference
-#             query_value - query portion of a URL (optional)
-#
-# Description:
-#
-#   This function either sets or returns the query
-# attribute of the link object. The query of an URL is the portion
-# following the file name, either an anchor reference or the URL
-# argument. If a value is supplied, it is saved in the object. 
-# If no value is supplied, the current value is returned.
-#
-#********************************************************
-sub query {
-    my ($self, $query_value) = @_;
-
-    #
-    # Was a query value supplied ?
-    #
-    if ( defined($query_value) ) {
-        $self->{"query"} = $query_value;
-    }
-    else {
-        return($self->{"query"});
-    }
-}
-
-#********************************************************
-#
-# Name: domain_path
-#
-# Parameters: self - class reference
-#             domain_path_value - protocol, domain & path portion
-#               of a URL (optional)
-#
-# Description:
-#
-#   This function either sets or returns the domain_path
-# attribute of the link object. The domain_path of an URL is the portion
-# preceeding any anchor reference or query arguments.
-# If a value is supplied, it is saved in the object.
-# If no value is supplied, the current value is returned.
-#
-#********************************************************
-sub domain_path {
-    my ($self, $domain_path_value) = @_;
-
-    #
-    # Was a protocol/domain/path value supplied ?
-    #
-    if ( defined($domain_path_value) ) {
-        $self->{"domain_path"} = $domain_path_value;
-    }
-    else {
-        return($self->{"domain_path"});
     }
 }
 
@@ -633,88 +313,151 @@ sub alt {
 
 #********************************************************
 #
-# Name: title
+# Name: anchor
 #
 # Parameters: self - class reference
-#             title_value - title value (optional)
+#             anchor - anchor text for link (optional)
 #
 # Description:
 #
-#   This function either sets or returns the title
-# attribute of the link object.
-# If a value is supplied, it is saved in the object.
-# If no value is supplied, the current value is returned.
+#   This function either sets or returns the anchor
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
 #
 #********************************************************
-sub title {
-    my ($self, $title_value) = @_;
-
+sub anchor {
+    my ($self, $anchor) = @_;
+    
     #
-    # Was a title value supplied ?
+    # Was an anchor value supplied ?
     #
-    if ( defined($title_value) ) {
-        $self->{"title"} = $title_value;
+    if ( defined($anchor) ) {
+        $self->{"anchor"} = $anchor;
     }
     else {
-        return($self->{"title"});
+        return($self->{"anchor"});
     }
 }
 
 #********************************************************
 #
-# Name: referer_url
+# Name: attr
 #
 # Parameters: self - class reference
-#             referer_url_value - referer url value (optional)
+#             attr_values - list of attribute values (optional)
 #
 # Description:
 #
-#   This function either sets or returns the referer
-# url attribute of the link object.
+#   This function either sets or returns the list of
+# attributes values of the link object.
 # If a value is supplied, it is saved in the object.
 # If no value is supplied, the current value is returned.
 #
 #********************************************************
-sub referer_url {
-    my ($self, $referer_url_value) = @_;
+sub attr {
+    my ($self, %attr_values) = @_;
+    my ($attr_addr);
 
     #
-    # Was a referer url value supplied ?
+    # Were attribute list values supplied ?
     #
-    if ( defined($referer_url_value) ) {
-        $self->{"referer_url"} = $referer_url_value;
+    if ( keys(%attr_values) > 0 ) {
+        $attr_addr = $self->{"attr"};
+        %$attr_addr = %attr_values;
     }
     else {
-        return($self->{"referer_url"});
+        $attr_addr = $self->{"attr"};
+        return(%$attr_addr);
     }
 }
 
 #********************************************************
 #
-# Name: message
+# Name: column_no
 #
 # Parameters: self - class reference
-#             message_value - referer url value (optional)
+#             column_no - column number of link in source(optional)
 #
 # Description:
 #
-#   This function either sets or returns the message
-# attribute of the link object.
+#   This function either sets or returns the column number
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub column_no {
+    my ($self, $column_no) = @_;
+
+    #
+    # Was a column number value supplied ?
+    #
+    if ( defined($column_no) ) {
+        $self->{"column_no"} = $column_no;
+    }
+    else {
+        return($self->{"column_no"});
+    }
+}
+
+#********************************************************
+#
+# Name: content_length
+#
+# Parameters: self - class reference
+#             content_length - content length(optional)
+#
+# Description:
+#
+#   This function either sets or returns the content length
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub content_length {
+    my ($self, $content_length) = @_;
+
+    #
+    # Was a content lngth value supplied ?
+    #
+    if ( defined($content_length) ) {
+        $self->{"content_length"} = $content_length;
+    }
+    else {
+        return($self->{"content_length"});
+    }
+}
+
+#********************************************************
+#
+# Name: domain_path
+#
+# Parameters: self - class reference
+#             domain_path_value - protocol, domain & path portion
+#               of a URL (optional)
+#
+# Description:
+#
+#   This function either sets or returns the domain_path
+# attribute of the link object. The domain_path of an URL is the portion
+# preceeding any anchor reference or query arguments.
 # If a value is supplied, it is saved in the object.
 # If no value is supplied, the current value is returned.
 #
 #********************************************************
-sub message {
-    my ($self, $message_value) = @_;
+sub domain_path {
+    my ($self, $domain_path_value) = @_;
 
     #
-    # Was a message value supplied ?
+    # Was a protocol/domain/path value supplied ?
     #
-    if ( defined($message_value) ) {
-        $self->{"message"} = $message_value;
+    if ( defined($domain_path_value) ) {
+        $self->{"domain_path"} = $domain_path_value;
     }
     else {
-        return($self->{"message"});
+        return($self->{"domain_path"});
     }
 }
 
@@ -778,30 +521,30 @@ sub has_img {
 
 #********************************************************
 #
-# Name: is_archived
+# Name: href
 #
 # Parameters: self - class reference
-#             is_archived_value - is_archived value (optional)
+#             href - link href (optional)
 #
 # Description:
 #
-#   This function either sets or returns the is_archived
-# attribute of the link object.
-# If a value is supplied, it is saved in the object.
-# If no value is supplied, the current value is returned.
+#   This function either sets or returns the href
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
 #
 #********************************************************
-sub is_archived {
-    my ($self, $is_archived_value) = @_;
+sub href {
+    my ($self, $href) = @_;
 
     #
-    # Was a is_archived value supplied ?
+    # Was a href value supplied ?
     #
-    if ( defined($is_archived_value) ) {
-        $self->{"is_archived"} = $is_archived_value;
+    if ( defined($href) ) {
+        $self->{"href"} = $href;
     }
     else {
-        return($self->{"is_archived"});
+        return($self->{"href"});
     }
 }
 
@@ -836,6 +579,151 @@ sub in_list {
 
 #********************************************************
 #
+# Name: is_archived
+#
+# Parameters: self - class reference
+#             is_archived_value - is_archived value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the is_archived
+# attribute of the link object.
+# If a value is supplied, it is saved in the object.
+# If no value is supplied, the current value is returned.
+#
+#********************************************************
+sub is_archived {
+    my ($self, $is_archived_value) = @_;
+
+    #
+    # Was a is_archived value supplied ?
+    #
+    if ( defined($is_archived_value) ) {
+        $self->{"is_archived"} = $is_archived_value;
+    }
+    else {
+        return($self->{"is_archived"});
+    }
+}
+
+#********************************************************
+#
+# Name: lang
+#
+# Parameters: self - class reference
+#             lang - language of link (optional)
+#
+# Description:
+#
+#   This function either sets or returns the language
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub lang {
+    my ($self, $lang) = @_;
+
+    #
+    # Was a language value supplied ?
+    #
+    if ( defined($lang) ) {
+        $self->{"lang"} = $lang;
+    }
+    else {
+        return($self->{"lang"});
+    }
+}
+
+#********************************************************
+#
+# Name: line_no
+#
+# Parameters: self - class reference
+#             line_no - line number of link in source(optional)
+#
+# Description:
+#
+#   This function either sets or returns the line number
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub line_no {
+    my ($self, $line_no) = @_;
+
+    #
+    # Was a line number value supplied ?
+    #
+    if ( defined($line_no) ) {
+        $self->{"line_no"} = $line_no;
+    }
+    else {
+        return($self->{"line_no"});
+    }
+}
+
+#********************************************************
+#
+# Name: link_status
+#
+# Parameters: self - class reference
+#             link_status - status of link (optional)
+#
+# Description:
+#
+#   This function either sets or returns the status
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub link_status {
+    my ($self, $link_status) = @_;
+
+    #
+    # Was a status value supplied ?
+    #
+    if ( defined($link_status) ) {
+        $self->{"link_status"} = $link_status;
+    }
+    else {
+        return($self->{"link_status"});
+    }
+}
+
+#********************************************************
+#
+# Name: link_type
+#
+# Parameters: self - class reference
+#             link_type - link type of link (optional)
+#
+# Description:
+#
+#   This function either sets or returns the link type
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub link_type {
+    my ($self, $link_type) = @_;
+
+    #
+    # Was a link type value supplied ?
+    #
+    if ( defined($link_type) ) {
+        $self->{"link_type"} = $link_type;
+    }
+    else {
+        return($self->{"link_type"});
+    }
+}
+
+#********************************************************
+#
 # Name: list_heading
 #
 # Parameters: self - class reference
@@ -865,33 +753,176 @@ sub list_heading {
 
 #********************************************************
 #
-# Name: attr
+# Name: message
 #
 # Parameters: self - class reference
-#             attr_values - list of attribute values (optional)
+#             message_value - referer url value (optional)
 #
 # Description:
 #
-#   This function either sets or returns the list of
-# attributes values of the link object.
+#   This function either sets or returns the message
+# attribute of the link object.
 # If a value is supplied, it is saved in the object.
 # If no value is supplied, the current value is returned.
 #
 #********************************************************
-sub attr {
-    my ($self, %attr_values) = @_;
-    my ($attr_addr);
+sub message {
+    my ($self, $message_value) = @_;
 
     #
-    # Were attribute list values supplied ?
+    # Was a message value supplied ?
     #
-    if ( keys(%attr_values) > 0 ) {
-        $attr_addr = $self->{"attr"};
-        %$attr_addr = %attr_values;
+    if ( defined($message_value) ) {
+        $self->{"message"} = $message_value;
     }
     else {
-        $attr_addr = $self->{"attr"};
-        return(%$attr_addr);
+        return($self->{"message"});
+    }
+}
+
+#********************************************************
+#
+# Name: mime_type
+#
+# Parameters: self - class reference
+#             mime_type - mime type of link (optional)
+#
+# Description:
+#
+#   This function either sets or returns the mime type
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub mime_type {
+    my ($self, $mime_type) = @_;
+
+    #
+    # Was a mime type value supplied ?
+    #
+    if ( defined($mime_type) ) {
+        $self->{"mime_type"} = $mime_type;
+    }
+    else {
+        return($self->{"mime_type"});
+    }
+}
+
+#********************************************************
+#
+# Name: query
+#
+# Parameters: self - class reference
+#             query_value - query portion of a URL (optional)
+#
+# Description:
+#
+#   This function either sets or returns the query
+# attribute of the link object. The query of an URL is the portion
+# following the file name, either an anchor reference or the URL
+# argument. If a value is supplied, it is saved in the object. 
+# If no value is supplied, the current value is returned.
+#
+#********************************************************
+sub query {
+    my ($self, $query_value) = @_;
+
+    #
+    # Was a query value supplied ?
+    #
+    if ( defined($query_value) ) {
+        $self->{"query"} = $query_value;
+    }
+    else {
+        return($self->{"query"});
+    }
+}
+
+#********************************************************
+#
+# Name: referer_url
+#
+# Parameters: self - class reference
+#             referer_url_value - referer url value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the referer
+# url attribute of the link object.
+# If a value is supplied, it is saved in the object.
+# If no value is supplied, the current value is returned.
+#
+#********************************************************
+sub referer_url {
+    my ($self, $referer_url_value) = @_;
+
+    #
+    # Was a referer url value supplied ?
+    #
+    if ( defined($referer_url_value) ) {
+        $self->{"referer_url"} = $referer_url_value;
+    }
+    else {
+        return($self->{"referer_url"});
+    }
+}
+
+#********************************************************
+#
+# Name: source_line
+#
+# Parameters: self - class reference
+#             source_line - source line of link (optional)
+#
+# Description:
+#
+#   This function either sets or returns the source line
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub source_line {
+    my ($self, $source_line) = @_;
+
+    #
+    # Was a source line value supplied ?
+    #
+    if ( defined($source_line) ) {
+        $self->{"source_line"} = $source_line;
+    }
+    else {
+        return($self->{"source_line"});
+    }
+}
+
+#********************************************************
+#
+# Name: title
+#
+# Parameters: self - class reference
+#             title_value - title value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the title
+# attribute of the link object.
+# If a value is supplied, it is saved in the object.
+# If no value is supplied, the current value is returned.
+#
+#********************************************************
+sub title {
+    my ($self, $title_value) = @_;
+
+    #
+    # Was a title value supplied ?
+    #
+    if ( defined($title_value) ) {
+        $self->{"title"} = $title_value;
+    }
+    else {
+        return($self->{"title"});
     }
 }
 
