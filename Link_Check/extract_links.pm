@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6563 $
+# $Revision: 6618 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2014-02-14 15:10:06 -0500 (Fri, 14 Feb 2014) $
+# $Date: 2014-04-08 11:22:14 -0400 (Tue, 08 Apr 2014) $
 #
 # Description:
 #
@@ -170,7 +170,9 @@ sub Extract_Links_Subsection_Links {
         if ( $debug ) {
             print "Extract_Links_Subsection_Links, subsection = $subsection\n";
             foreach (@links) {
-                print "Anchor = " . $_->anchor . " href = " . $_->abs_url . "\n";
+                print "Anchor = \"" . $_->anchor . 
+                      "\" alt = \"" . $_->alt .
+                      "\" href = " . $_->abs_url . "\n";
             }
         }
 
@@ -194,8 +196,9 @@ sub Extract_Links_Subsection_Links {
                 #
                 if ( $debug ) {
                     foreach (@$link_addr) {
-                        print "Anchor = " . $_->anchor . " href = " .
-                              $_->abs_url . "\n";
+                        print "Anchor = \"" . $_->anchor . 
+                              "\" alt = \"" . $_->alt .
+                              "\" href = " . $_->abs_url . "\n";
                     }
                 }
             }
@@ -2391,12 +2394,13 @@ sub Extract_Links {
 
             #
             # Remove conditional comments from the content that control
-            # IE 8 and older browser file inclusion (conditionals found in
-            # WET template files).
+            # IE file inclusion (conditionals found in WET template files).
             #
             $modified_content = $content;
-            $modified_content =~ s/<!--\[if lte IE 8\]>//g;
+            $modified_content =~ s/<!--\[if[^>]*>//g;
+            $modified_content =~ s/<!--<!\[endif\]-->//g;
             $modified_content =~ s/<!\[endif\]-->//g;
+            $modified_content =~ s/<!-->//g;
 
             #
             # Extract links again with the above conditional code removed.
@@ -2511,7 +2515,9 @@ sub Extract_Links {
                     # Print list of links returned
                     #
                     foreach (@$link_addr) {
-                        print "Anchor = " . $_->anchor . " href = " .
+                        print "Anchor = \"" . $_->anchor . 
+                              "\" alt = \"" . $_->alt .
+                              "\" href = " .
                               $_->abs_url . "\n";
                     }
                 }
