@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 6570 $
+# $Revision: 6620 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_check.pm $
-# $Date: 2014-02-21 08:53:31 -0500 (Fri, 21 Feb 2014) $
+# $Date: 2014-04-11 14:08:18 -0400 (Fri, 11 Apr 2014) $
 #
 # Description:
 #
@@ -20,6 +20,7 @@
 #     Open_Data_Check_Read_URL_Help_File
 #     Open_Data_Check
 #     Open_Data_Check_Zip_Content
+#     Open_Data_Check_Read_JSON_Description
 #
 # Terms and Conditions of Use
 #
@@ -57,6 +58,7 @@ use strict;
 use Encode;
 use File::Basename;
 use Archive::Zip qw(:ERROR_CODES);
+use JSON;
 
 #***********************************************************************
 #
@@ -76,6 +78,7 @@ BEGIN {
                   Open_Data_Check_Read_URL_Help_File
                   Open_Data_Check
                   Open_Data_Check_Zip_Content
+                  Open_Data_Check_Read_JSON_Description
                   );
     $VERSION = "1.0";
 }
@@ -108,10 +111,13 @@ my %string_table_en = (
     "Invalid mime-type for data dictionary", "Invalid mime-type for data dictionary",
     "Invalid mime-type for data file", "Invalid mime-type for data file",
     "Invalid mime-type for API",       "Invalid mime-type for API",
+    "Invalid mime-type for description", "Invalid mime-type for description",
     "Dataset URL unavailable",         "Dataset URL unavailable",
     "API URL unavailable",             "API URL unavailable",
     "Error in reading ZIP, status =",  "Error in reading ZIP, status =",
     "Multiple file types in ZIP",      "Multiple file types in ZIP",
+    "Invalid dataset description field type", "Invalid dataset description field type",
+    "for",                             "for",
 );
 
 #
@@ -122,10 +128,13 @@ my %string_table_fr = (
     "Invalid mime-type for data dictionary", "Invalid type MIME pour le dictionnaire de donnée",
     "Invalid mime-type for data file", "Invalid type MIME pour le jeu de donnée",
     "Invalid mime-type for API",       "Invalid type MIME pour API",
+    "Invalid mime-type for description", "Invalid mime-type pour description",
     "Dataset URL unavailable",         "URL du jeu de données disponible",
     "API URL unavailable",             "URL du API disponible",
     "Error in reading ZIP, status =",  "Erreur de lecture fichier ZIP, status =",
     "Multiple file types in ZIP",      "Plusieurs types de fichiers dans un fichier ZIP",
+    "Invalid dataset description field type", "Invalide type de champ de description de données",
+    "for",                             "pour",
 );
 
 #
@@ -589,6 +598,7 @@ sub Check_Open_Data_API_URL {
 # Name: Check_Dictionary_URL
 #
 # Parameters: url - open data file URL
+#             format - optional content format
 #             resp - HTTP::Response object
 #             content - content
 #             dictionary - address of a hash table for data dictionary
@@ -601,7 +611,7 @@ sub Check_Open_Data_API_URL {
 #
 #***********************************************************************
 sub Check_Dictionary_URL {
-    my ($url, $resp, $content, $dictionary) = @_;
+    my ($url, $format, $resp, $content, $dictionary) = @_;
 
     my ($result_object, @other_results, $header, $mime_type);
 
@@ -614,6 +624,12 @@ sub Check_Dictionary_URL {
         $header = $resp->headers;
         $mime_type = $header->content_type;
     }
+    elsif ( ! $resp->is_success ) {
+        #
+        # Don't have a valid dataset URL
+        #
+        return;
+    }
     else {
         #
         # Unknown mime-type
@@ -625,6 +641,7 @@ sub Check_Dictionary_URL {
     # Is this a plain text file ?
     #
     if ( ($mime_type =~ /text\/plain/) ||
+         ($format =~ /^txt$/i) ||
          ($url =~ /\.txt$/i) ) {
         #
         # Check for UTF-8 encoding
@@ -646,6 +663,7 @@ sub Check_Dictionary_URL {
     elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
             ($mime_type =~ /application\/xml/) ||
             ($mime_type =~ /text\/xml/) ||
+            ($format =~ /^xml$/i) ||
             ($url =~ /\.xml$/i) ) {
         #
         # Check for UTF-8 encoding
@@ -709,6 +727,7 @@ sub Check_Resource_URL {
 # Name: Check_Data_File_URL
 #
 # Parameters: url - open data file URL
+#             format - optional content format
 #             resp - HTTP::Response object
 #             content - content
 #             dictionary - address of a hash table for data dictionary
@@ -721,7 +740,7 @@ sub Check_Resource_URL {
 #
 #***********************************************************************
 sub Check_Data_File_URL {
-    my ($url, $resp, $content, $dictionary) = @_;
+    my ($url, $format, $resp, $content, $dictionary) = @_;
 
     my ($result_object, @other_results, $header, $mime_type, $base);
 
@@ -733,6 +752,12 @@ sub Check_Data_File_URL {
     if ( defined($resp) &&  $resp->is_success ) {
         $header = $resp->headers;
         $mime_type = $header->content_type;
+    }
+    elsif ( ! $resp->is_success ) {
+        #
+        # Don't have a valid dataset URL
+        #
+        return;
     }
     else {
         #
@@ -746,6 +771,7 @@ sub Check_Data_File_URL {
     #
     if ( ($mime_type =~ /text\/x-comma-separated-values/) ||
          ($mime_type =~ /text\/csv/) ||
+         ($format =~ /^csv$/i) ||
          ($url =~ /\.csv$/i) ) {
         #
         # Check for UTF-8 encoding
@@ -767,6 +793,7 @@ sub Check_Data_File_URL {
     elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
             ($mime_type =~ /application\/xml/) ||
             ($mime_type =~ /text\/xml/) ||
+            ($format =~ /^xml$/i) ||
             ($url =~ /\.xml$/i) ) {
         #
         # Check for UTF-8 encoding
@@ -892,6 +919,7 @@ sub Check_API_URL {
 # Name: Open_Data_Check
 #
 # Parameters: url - open data file URL
+#             foramt - optional content format
 #             profile - testcase profile
 #             data_file_type - type of dataset file
 #             resp - HTTP::Response object
@@ -905,10 +933,12 @@ sub Check_API_URL {
 #    DICTIONARY - a data dictionary file
 #    DATA - a data file
 #    RESOURCE - a resource file
+#    API - a data API
 #
 #***********************************************************************
 sub Open_Data_Check {
-    my ( $url, $profile, $data_file_type, $resp, $content, $dictionary ) = @_;
+    my ($url, $format, $profile, $data_file_type, $resp, $content,
+        $dictionary) = @_;
 
     my (@tqa_results_list, $result_object, @other_results);
 
@@ -951,7 +981,7 @@ sub Open_Data_Check {
         #
         # Check dictionary content
         #
-        Check_Dictionary_URL($url, $resp, $content, $dictionary);
+        Check_Dictionary_URL($url, $format, $resp, $content, $dictionary);
     }
 
     #
@@ -966,7 +996,7 @@ sub Open_Data_Check {
         #
         # Check data content
         #
-        Check_Data_File_URL($url, $resp, $content, $dictionary);
+        Check_Data_File_URL($url, $format, $resp, $content, $dictionary);
     }
 
     #
@@ -1136,6 +1166,267 @@ sub Open_Data_Check_Zip_Content {
     # Return Archie:Zip object as list of testcase results
     #
     return($zip, $zip_file_name, @tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Check_Open_Data_Description_URL
+#
+# Parameters: url - URL of the dataset file
+#             resp - HTTP::Response object
+#
+#
+# Description:
+#
+#   This function checks to see if the dataset URL is available
+# and is encoded using UTF-8.
+#
+#***********************************************************************
+sub Check_Open_Data_Description_URL {
+    my ($url, $resp) = @_;
+
+    my ($message);
+
+    #
+    # Check unsuccessful GET operation
+    #
+    print "Check_Open_Data_Description_URL\n" if $debug;
+    if ( ! defined($resp) || (! $resp->is_success) ) {
+        #
+        # Failed to get url
+        #
+        $message = String_Value("Dataset URL unavailable");
+        if ( defined($resp) ) {
+            $message .= " : " . $resp->status_line;
+        }
+        Record_Result("OD_1", -1, -1, "", $message);
+    }
+    else {
+        #
+        # Check for UTF-8 encoding
+        #
+        Check_Encoding($resp, $resp->content, "OD_2");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Read_JSON_Open_Data_Description
+#
+# Parameters: resp - HTTP::Response object
+#
+#
+# Description:
+#
+#   This function reads the open data JSON description object and
+# extracts the dataset URLs.  It returns a hash table with the dataset
+# URLs and dataset file types.
+#
+#***********************************************************************
+sub Read_JSON_Open_Data_Description {
+    my ($resp) = @_;
+
+    my (%dataset_urls) = ();
+    my ($ref, $result, $resources, $value, $url, $type);
+    my ($eval_output, $i, $ref_type, $format);
+    my ($have_error) = 0;
+
+    #
+    # Parse the content.
+    #
+    print "Read_JSON_Open_Data_Description, decode JSON content\n" if $debug;
+    $eval_output = eval { $ref = decode_json($resp->content); 1 } ;
+
+    #
+    # Did the parse fail ?
+    #
+    if ( ! $eval_output ) {
+        print "JSON parse failed => $eval_output\n" if $debug;
+        $eval_output =~ s/ at \S* line \d*$//g;
+        Record_Result("OD_3", -1, 0, "$eval_output",
+                      String_Value("Fails validation"));
+        $have_error = 1;
+    }
+
+    #
+    # Get the "result" field of the JSON object
+    #
+    if ( (! $have_error) && (! defined($$ref{"result"})) ) {
+        #
+        # Missing "result" field
+        #
+        Record_Result("OD_3", -1, -1, "",
+                      String_Value("Missing dataset description field") .
+                      " \"result\"");
+        $have_error = 1;
+    }
+    else {
+        print "Get the result field\n" if $debug;
+        $result = $$ref{"result"};
+
+        #
+        # Is this a hash table ?
+        #
+        $ref_type = ref $result;
+        if ( $ref_type ne "HASH" ) {
+            Record_Result("OD_3", -1, -1, "",
+                          String_Value("Invalid dataset description field type") .
+                          " \"$ref_type\" " . String_Value("for") .
+                          " \"result\"");
+            $have_error = 1;
+        }
+    }
+
+    #
+    # Get the "resources" field from the result table
+    #
+    if ( (! $have_error) && (! defined($$result{"resources"})) ) {
+        #
+        # Missing "resources" field
+        #
+        Record_Result("OD_3", -1, -1, "",
+                      String_Value("Missing dataset description field") .
+                      " \"resources\"");
+        $have_error = 1;
+    }
+    else {
+        print "Get the resources field\n" if $debug;
+        $resources = $$result{"resources"};
+
+        #
+        # Is this a hash table ?
+        #
+        $ref_type = ref $resources;
+        if ( $ref_type ne "ARRAY" ) {
+            Record_Result("OD_3", -1, -1, "",
+                          String_Value("Invalid dataset description field type") .
+                          " \"$ref_type\" " . String_Value("for") .
+                          " \"resources\"");
+            $have_error = 1;
+        }
+    }
+
+    #
+    # Get the dataset file details
+    #
+    if ( ! $have_error ) {
+        #
+        # Get dataset files
+        #
+        $i = 1;
+        print "Get dataset URLs\n" if $debug;
+        foreach $value (@$resources) {
+           if ( ref $value eq "HASH" ) {
+               $type = $$value{"resource_type"};
+               $format = $$value{"format"};
+               $url = $$value{"url"};
+               print "Dataset URL # $i, type = $type, format = $format, url = $url\n" if $debug;
+               $i++;
+                       
+               #
+               # Save dataset URL
+               #
+               if ( $type eq "file" ) {
+                   $dataset_urls{"DATA"} .= "$format\t$url\n";
+               }
+               elsif ( $type eq "doc" ) {
+                   $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
+               }
+           }
+        }
+    }
+
+    #
+    # Return hash table
+    #
+    return(\%dataset_urls);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Check_Read_JSON_Description
+#
+# Parameters: url - open data JSON description URL
+#             profile - testcase profile
+#             resp - HTTP::Response object
+#             dataset_urls - address of hash table
+#
+# Description:
+#
+#   This function reads the JSON dataset description information from
+# the supplied content.  It extracts the set of dataset URLs and
+# creates a hash table of dataset URLs and their types (e.g. DATA,
+# DICTIONARY, RESOURCE, API).  This function returns a testcase
+# results list and updates a supplied hash table with dataset URLs
+# and dataset file types.
+#
+#***********************************************************************
+sub Open_Data_Check_Read_JSON_Description {
+    my ($url, $profile, $resp, $dataset_urls) = @_;
+
+    my (@tqa_results_list, $result_object, @other_results, $header);
+    my ($mime_type);
+
+    #
+    # Do we have a valid profile ?
+    #
+    print "Open_Data_Check_Read_JSON_Description: profile = $profile\n" if $debug;
+    if ( ! defined($open_data_profile_map{$profile}) ) {
+        print "Unknown Open Data testcase profile passed $profile\n" if $debug;
+        return;
+    }
+
+    #
+    # Initialize the test case pass/fail table.
+    #
+    Initialize_Test_Results($profile, \@tqa_results_list);
+    $current_url = $url;
+
+    #
+    # Are any of the testcases defined in this module
+    # in the testcase profile ?
+    #
+    if ( keys(%$current_open_data_profile) == 0 ) {
+        #
+        # No tests handled by this module
+        #
+        print "No tests handled by this module\n" if $debug;
+        return(@tqa_results_list);
+    }
+
+    #
+    # Check that the URL is valid and has proper encoding
+    #
+    Check_Open_Data_Description_URL($url, $resp);
+
+    #
+    # Is the mime-type JSON ?
+    #
+    if ( defined($resp) &&  $resp->is_success ) {
+        $header = $resp->headers;
+        $mime_type = $header->content_type;
+
+        #
+        # Is the content type json ?
+        #
+        if ( $mime_type =~ /application\/json/i ) {
+            $$dataset_urls = Read_JSON_Open_Data_Description($resp);
+        }
+        else {
+            #
+            # Unexpected mime-type for API
+            #
+            print "Invalid mime-type for description URL \"$mime_type\"\n" if $debug;
+            Record_Result("OD_3", -1, -1, "",
+                          String_Value("Invalid mime-type for description")
+                           . " \"" . $mime_type . "\"");
+        }
+    }
+
+    #
+    # Return testcase results
+    #
+    return(@tqa_results_list);
 }
 
 #***********************************************************************
