@@ -2,9 +2,9 @@
 #
 # Name:   metadata.pm
 #
-# $Revision: 6397 $
+# $Revision: 6585 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Metadata_Check/Tools/metadata.pm $
-# $Date: 2013-10-11 14:53:20 -0400 (Fri, 11 Oct 2013) $
+# $Date: 2014-03-12 15:25:21 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -2276,7 +2276,7 @@ sub Validate_Metadata {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
