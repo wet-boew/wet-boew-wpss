@@ -2,9 +2,9 @@
 #
 # Name: content_sections.pm
 #
-# $Revision: 6303 $
+# $Revision: 6582 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/content_sections.pm $
-# $Date: 2013-06-25 14:14:21 -0400 (Tue, 25 Jun 2013) $
+# $Date: 2014-03-12 15:22:46 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -330,6 +330,10 @@ sub check_start_tag {
     if ( defined($attr{"role"}) && ($attr{"role"} ne "") ) {
         print "Found role attribute " . $attr{"role"} . "\n" if $debug;
         $marker_list .= " " . $attr{"role"};
+    }
+    if ( defined($attr{"property"}) && ($attr{"property"} ne "") ) {
+        print "Found property attribute " . $attr{"property"} . "\n" if $debug;
+        $marker_list .= " " . $attr{"property"};
     }
     $marker_list =~ s/^\s*//g;
 
