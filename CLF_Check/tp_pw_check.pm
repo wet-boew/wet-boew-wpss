@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 6395 $
+# $Revision: 6581 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2013-10-09 15:10:01 -0400 (Wed, 09 Oct 2013) $
+# $Date: 2014-03-12 15:21:11 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -1770,7 +1770,7 @@ sub TP_PW_Check {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
@@ -2982,7 +2982,7 @@ sub TP_PW_Check_Links {
     #
     # Save URL in global variable
     #
-    if ( $url =~ /^http/i ) {
+    if ( ($url =~ /^http/i) || ($url =~ /^file/i) ) {
         $current_url = $url;
     }
     else {
