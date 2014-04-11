@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 6561 $
+# $Revision: 6617 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2014-02-14 15:08:19 -0500 (Fri, 14 Feb 2014) $
+# $Date: 2014-04-07 14:06:24 -0400 (Mon, 07 Apr 2014) $
 #
 # Description:
 #
@@ -180,6 +180,7 @@ my %string_table_en = (
     "images",                         "images",
     "image",                          "image",
     "in",                             " in ",
+    "or",                             " or ",
     "in URL",                         " in URL ",
     "Missing content section markers for", "Missing content section markers for ",
     "GC navigation bar",              "GC navigation bar",
@@ -269,6 +270,7 @@ my %string_table_fr = (
     "images",                         "images",
     "image",                          "image",
     "in",                             " dans ",
+    "or",                             " ou ",
     "in URL",                         " dans URL ",
     "Missing content section markers for", "Manquantes marqueurs section de contenu pour les ",
     "GC navigation bar",              "la barre de navigation du GC",
@@ -2565,10 +2567,11 @@ sub Link_Tag_Handler {
     # Are we
     #  1) in the head section
     #  2) have an href
-    #  3) have a rel attribute with the value "shortcut icon"
+    #  3) have a rel attribute with the value "shortcut icon" or "icon"
     #
     if ( $in_head_section && defined($attr{"href"}) && defined($attr{"rel"}) ) {
-        if ( $attr{"rel"} =~ /^shortcut icon$/i ) {
+        if ( ($attr{"rel"} =~ /^shortcut icon$/i) ||
+             ($attr{"rel"} =~ /^icon$/i) ) {
             #
             # We have a favicon, make sure we don't have more than one
             #
@@ -3792,7 +3795,7 @@ sub Perform_SWU_Checks {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
@@ -4231,7 +4234,6 @@ sub Check_Expected_Links {
                           String_Value("expecting") . $expected_link_count);
         }
         else {
-
             #
             # Check values of the anchor text for each expected item.
             #
@@ -4389,6 +4391,7 @@ sub Check_Expected_Link_Count {
         $optional_href_list_addr, $tcid, $optional_tcid, $section) = @_;
 
     my ($link, $link_count, $expected_link_count, $optional_link_count);
+    my ($links);
 
     #
     # Check that a set of links appear with the correct
@@ -4402,9 +4405,11 @@ sub Check_Expected_Link_Count {
         # of links in the content subsection.
         #
         $link_count = 0;
+        $links = "";
         foreach $link (@$link_list_addr) {
             if ( $link->link_type eq "a" ) {
                 $link_count++;
+                $links .= "\"" . $link->anchor . "\" -> " . $link->abs_url . "\n";
             }
         }
         print "Actual link count = $link_count\n" if $debug;
@@ -4425,18 +4430,19 @@ sub Check_Expected_Link_Count {
             print "No optional link list address defined\n" if $debug;
         }
         print "Expected link count = $expected_link_count, optional link count = $optional_link_count\n" if $debug;
-        
-        #
-        # Does the actual link count exceed the expected plus optional
-        # links ?
-        #
-        if ( $link_count > ($expected_link_count + $optional_link_count) ) {
-            Record_Result($tcid, -1, -1, "",
-                          String_Value("Extra links in") . " $section. " .
-                          String_Value("Found") . " $link_count " .
-                          String_Value("expecting") . 
-                          ($expected_link_count + $optional_link_count));
-        }
+
+#        #
+#        # Does the actual link count exceed the expected plus optional
+#        # links ?
+#        #
+#        if ( $link_count > ($expected_link_count + $optional_link_count) ) {
+#            Record_Result($tcid, -1, -1, "",
+#                          String_Value("Extra links in") . " $section. " .
+#                          String_Value("Found") . " $link_count " .
+#                          String_Value("expecting") . 
+#                          ($expected_link_count + $optional_link_count) .
+#                          "\n$links");
+#        }
     }
 }
 
@@ -4461,7 +4467,7 @@ sub Check_Expected_Images {
     my ($url, $link_list_addr, $expected_link_list_addr, $tcid, $section) = @_;
 
     my ($link, $link_count, $link_no, @links, $expected_link_count);
-    my ($alt_text, $message, %attr);
+    my ($alt_text, $message, %attr, $aria_label);
 
     #
     # Check that a set of image links appear with the correct
@@ -4515,22 +4521,38 @@ sub Check_Expected_Images {
         }
         else {
             #
-            # Check values of the alt text for each item.
+            # Check values of the alt text and aria-label for each item.
             #
             for ($link_no = 0; $link_no < $expected_link_count; $link_no++) {
                 $link = $links[$link_no];
-                print "Check image # $link_no, have " . $link->alt .
-                      " expecting " . $$expected_link_list_addr[$link_no] . "\n" if $debug;
+                %attr = $link->attr;
+                if ( defined($attr{"aria-label"}) ) {
+                    $aria_label = $attr{"aria-label"};
+                }
+                else {
+                    $aria_label = "";
+                }
+                print "Check image # $link_no, have alt=\"" . $link->alt .
+                      "\" and aria-label=\"$aria_label\" expecting " .
+                      $$expected_link_list_addr[$link_no] . "\n" if $debug;
 
                 #
-                # Does the alt text match what is expected ?
+                # Does the alt text or aria-label match what is expected ?
                 #
                 $alt_text = Trim_Whitespace($link->alt);
                 $alt_text = encode_entities($alt_text);
-                if ( lc($alt_text) ne
+                if ( lc($alt_text) eq
                      lc($$expected_link_list_addr[$link_no]) ) {
+                    print "Alt matches expected value\n" if $debug;
+                }
+                elsif ( lc($aria_label) eq
+                     lc($$expected_link_list_addr[$link_no]) ) {
+                    print "aria-label matches expected value\n" if $debug;
+                }
+                else {
                     $message = String_Value("Invalid alt text") .
                                 " '" . $link->alt . "'" .
+                                String_Value("or") . "aria-label=\"$aria_label\"" .
                                 String_Value("in") . " $section " .
                                 String_Value("image") . " # " . ($link_no + 1) .
                                 " " . String_Value("expecting") .
@@ -6677,6 +6699,14 @@ sub Get_WET_Version {
                 }
 
                 #
+                # If we didn't find a version, look for v?.?
+                # (i.e. v<digit>.<digit>)
+                #
+                if ( ! defined($version) ) {
+                    ($lead, $version) = $line =~ /^([\s\*]*)v([\d\.]*).*$/io;
+                }
+
+                #
                 # Did we find a version ?
                 #
                 if ( defined($version) ) {
@@ -6855,7 +6885,7 @@ sub SWU_Check_Links {
     #
     # Save URL in global variable
     #
-    if ( $url =~ /^http/i ) {
+    if ( ($url =~ /^http/i) || ($url =~ /^file/i) ) {
         $current_url = $url;
     }
     else {
