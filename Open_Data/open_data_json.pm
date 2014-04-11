@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 6496 $
+# $Revision: 6586 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_json.pm $
-# $Date: 2013-12-03 12:50:58 -0500 (Tue, 03 Dec 2013) $
+# $Date: 2014-03-12 15:32:43 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -360,7 +360,7 @@ sub Open_Data_JSON_Check_API {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
