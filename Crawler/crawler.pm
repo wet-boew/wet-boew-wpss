@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 6551 $
+# $Revision: 6616 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2014-01-30 08:56:53 -0500 (Thu, 30 Jan 2014) $
+# $Date: 2014-04-07 14:04:33 -0400 (Mon, 07 Apr 2014) $
 #
 # Description:
 #
@@ -1799,7 +1799,7 @@ sub Clean_URL_Arguments {
             # Get the URL arguments and split them on the &
             #
             $url_arguments = $this_link;
-            $url_arguments =~ s/.*?\?//g;
+            $url_arguments =~ s/^.*?\?//g;
             @argument_list = split(/&/, $url_arguments);
 
             #
@@ -2547,7 +2547,7 @@ sub Do_Site_Login {
 
     my ($req, $resp, $response_url, $header, $count);
     my ($protocol, $domain, $file_path, $query, $new_url);
-    my ($dir_path);
+    my ($dir_path, $action_url);
 
     #
     # Get components of login URL
@@ -2562,27 +2562,27 @@ sub Do_Site_Login {
     #
     # Get the form action URL
     #
-    $response_url = $form->action();
-    print "Form action URL = $response_url\n" if $debug;
+    $action_url = $form->action();
+    print "Form action URL = $action_url\n" if $debug;
 
     #
     # Does URL have a leading http ?
     #
-    if ( ! ($response_url =~ /^http/) ) {
+    if ( ! ($action_url =~ /^http/) ) {
         #
         # If we have a leading //, use protocol from
         # previous request.
         #
-        if ( $response_url =~ /^\/\// ) {
+        if ( $action_url =~ /^\/\// ) {
             print "Add protocol to URL\n" if $debug;
-            $response_url = "$protocol$response_url";
+            $action_url = "$protocol$action_url";
         }
         else {
             #
             # Add protocol and domain from previous request.
             #
             print "Add protocol & domain to URL\n" if $debug;
-            $response_url = "$protocol//$domain$response_url";
+            $action_url = "$protocol//$domain$action_url";
         }
     }
 
@@ -2668,7 +2668,7 @@ sub Do_Site_Login {
         $req->header(Accept => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
         print "Request  = " . $req->as_string . "\n" if $debug;
         $resp = $user_agent->request($req);
-        print "Response  = " . $resp->as_string . "\n" if $debug;
+        #print "Response  = " . $resp->as_string . "\n" if $debug;
     }
 
     #
@@ -2798,7 +2798,7 @@ sub Is_Site_Login {
     #
     # Return list of link hrefs
     #
-    return(@link_href);
+    return($response_url, @link_href);
 }
 
 #***********************************************************************
@@ -3034,9 +3034,9 @@ sub Crawl_Site {
     my (@links, $link, @link_href);
     my ($resp, $content, $url, %url_referer_map, @urls_to_crawl);
     my ($n_links, $i, $header, $day, $month, $year, $last_modified);
-    my ($rewritten_url, %visited_urls, %urls_to_crawl_map, $content_type);
+    my ($rewritten_url, %urls_to_crawl_map, $content_type);
     my (%url_list_map, %url_checksum_map, $checksum, $list_length);
-    my ($size, $lang, $base);
+    my ($size, $lang, $base, $login_url);
     my ($logged_in) = 0;
 
     #
@@ -3132,6 +3132,8 @@ sub Crawl_Site {
         $list_length = @urls_to_crawl;
         print "URLs to crawl list length is $list_length\n" if $debug;
         $url = pop(@urls_to_crawl);
+        $urls_to_crawl_map{$url} = 1;
+        print "URL to crawl = $url\n" if $debug;
 
         #
         # Get HTTP::Response object for the URL.
@@ -3168,19 +3170,13 @@ sub Crawl_Site {
         }
 
         #
-        # Add URL to the list of URLs we have visited
-        #
-        $visited_urls{$rewritten_url} = 1;
-        $visited_urls{$url} = 1;
-
-        #
         # Did we get the document ?
         #
         if ( defined($resp) && $resp->is_success ) {
             # 
             # Do we already have this URL in the list ?
             # 
-            if ( defined($url_list_map{$rewritten_url}) ) {
+            if ( defined($url_list_map{$url}) ) {
                 next;
             } 
 
@@ -3194,12 +3190,15 @@ sub Crawl_Site {
             # there may be multiple URLs for the same document.
             #
             if ( defined($url_checksum_map{$checksum}) ) {
+$url_checksum_map{$checksum} . "\n";
                 print "Duplicate content, previously seen at\n  --> " .
                       $url_checksum_map{$checksum} . "\n" if $debug;
                 next;
             }
             else {
                 $url_checksum_map{$checksum} = $rewritten_url;
+                $url_checksum_map{$checksum} = $url;
+                $url_list_map{$rewritten_url} = 1;
             }
 
             #
@@ -3211,8 +3210,8 @@ sub Crawl_Site {
             # Add URL and its attributes to the lists.
             #
             $header = $resp->headers;
-            push (@$url_list, $rewritten_url);
-            $url_list_map{$rewritten_url} = 1;
+            push (@$url_list, $url);
+            $url_list_map{$url} = 1;
             $content_type = $header->content_type;
             push (@$url_type, $content_type);
 
@@ -3239,7 +3238,7 @@ sub Crawl_Site {
             #
             # Call http response or content callbacks.
             #
-            if ( ! Call_Callback_Functions($rewritten_url,
+            if ( ! Call_Callback_Functions($url,
                       $url_referer_map{$url}, $resp) ) {
                     #
                     # Exit crawler
@@ -3271,7 +3270,7 @@ sub Crawl_Site {
                 #
                 # Get links from page
                 #
-                print "Crawl_Site: extract links from $rewritten_url\n" if $debug;
+                print "Crawl_Site: extract links from $url\n" if $debug;
                 if ( $content_type =~ /text\/css/ ) {
                     $base = $rewritten_url;
                 }
@@ -3305,8 +3304,19 @@ sub Crawl_Site {
                 # the login, that new page must be added to the crawl
                 # list.
                 #
-                @link_href = Is_Site_Login($url, $site_dir_e, $site_dir_f,
-                                           $resp, @link_href);
+                ($login_url, @link_href) = Is_Site_Login($url, $site_dir_e,
+                                                         $site_dir_f,
+                                                         $resp, @link_href);
+
+                #
+                # If we have a login URL, add it to the list of URL's
+                # that have already been crawled
+                #
+                if ( defined($login_url) && 
+                     (! defined($url_list_map{$login_url})) ) {
+                    $url_list_map{$login_url} = 1;
+                    push (@$url_list, $login_url);
+                }
 
                 #
                 # Set the referer for all links found in this document
@@ -3315,13 +3325,21 @@ sub Crawl_Site {
                     if ( ! defined($url_referer_map{$_}) ) {
                         $url_referer_map{$_} = $rewritten_url;
                     }
-                    if ( ! defined($urls_to_crawl_map{$_}) ) {
+
+                    #
+                    # Is the URL already in one of the lists being
+                    # processed ?
+                    #
+                    if ( defined($urls_to_crawl_map{$_}) ) {
+                        print "Not adding to crawl list \"$_\"\n" if $debug;
+                    }
+                    elsif ( defined($url_list_map{$_}) ) {
+                        print "Not adding to crawl list \"$_\"\n" if $debug;
+                    }
+                    else {
                         push (@urls_to_crawl, $_);
                         $urls_to_crawl_map{$_} = 1;
                         print "Add to crawl list \"$_\"\n" if $debug;
-                    }
-                    else {
-                        print "Not adding to crawl list \"$_\"\n" if $debug;
                     }
                 }
             }
