@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 6374 $
+# $Revision: 6609 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
-# $Date: 2013-08-28 09:15:21 -0400 (Wed, 28 Aug 2013) $
+# $Date: 2014-04-02 11:44:42 -0400 (Wed, 02 Apr 2014) $
 #
 # Description:
 #
@@ -1861,11 +1861,11 @@ sub Link_Checker_Get_Link_Status {
         return($link, $resp);
     }
     #
-    # Does the URL have a leading http ?
+    # Does the URL have a leading http for file ?
     # If not it may be a JavaScript link, which we ignore
     #
-    elsif ( ! ($this_link =~ /^http[s]?:/i ) ) {
-        print "Skip non http link\n" if $debug;
+    elsif ( ! (($this_link =~ /^http[s]?:/i) || ($this_link =~ /^file:/i)) ) {
+        print "Skip non http or file: link\n" if $debug;
         return($link, $resp);
     }
     #
@@ -1909,15 +1909,24 @@ sub Link_Checker_Get_Link_Status {
             #
             # Get link status
             #
+            print "Get link $request_url\n" if $debug;
             ($is_broken_link, $is_redirected_link, $is_firewall_blocked,
              $resp_url, $resp) = Link_Status($referrer_url, $request_url, $link);
 
             #
-            # If the link is valid, save the mime type of the content
+            # If the link is valid, save the mime type and length
+            # of the content
             #
             if ( $resp->is_success ) {
                 $header = $resp->headers;
                 $link->mime_type($header->content_type);
+                if ( defined($header->content_length) ) {
+                    $link->content_length($header->content_length);
+                }
+                else {
+                    $link->content_length(length($resp->content));
+                }
+                print "Target URL length " . $link->content_length . "\n" if $debug;
 
                 #
                 # If the mime type is text/html, check to see if the 
@@ -2195,7 +2204,7 @@ sub Link_Checker {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
