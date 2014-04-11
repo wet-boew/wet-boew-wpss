@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 6569 $
+# $Revision: 6598 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2014-02-21 08:52:24 -0500 (Fri, 21 Feb 2014) $
+# $Date: 2014-03-28 13:14:26 -0400 (Fri, 28 Mar 2014) $
 #
 # Description:
 #
@@ -355,7 +355,7 @@ sub Record_Result {
 sub Check_First_Data_Row {
     my ($dictionary, @fields) = @_;
 
-    my ($count, $term, $field, @unmatched_fields);
+    my ($count, $field, @unmatched_fields);
     
     #
     # Do we have any dictionary terms ?
@@ -371,8 +371,13 @@ sub Check_First_Data_Row {
     print "Check for terms in first row of CSV file\n" if $debug;
     $count = 0;
     foreach $field (@fields) {
+        #
+        # Convert field value to lower case and check to see if it
+        # matches a dictionary entry.
+        #
+        $field = lc($field);
         if ( defined($$dictionary{$field}) ) {
-            print "Found term/field match for $term\n" if $debug;
+            print "Found term/field match for \"$field\"\n" if $debug;
             $count++;
         }
         else {
@@ -451,7 +456,7 @@ sub Open_Data_CSV_Check_Data {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
