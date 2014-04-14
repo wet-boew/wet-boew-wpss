@@ -2,9 +2,9 @@
 #
 # Name:   url_check.pm
 #
-# $Revision: 6510 $
+# $Revision: 6589 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/url_check.pm $
-# $Date: 2013-12-13 15:15:04 -0500 (Fri, 13 Dec 2013) $
+# $Date: 2014-03-12 15:34:39 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -237,8 +237,18 @@ sub URL_Check_Parse_URL {
         #   file://drive:/path
         #
         ($protocol, $domain, $file_path) =
-          $url =~ /^(file:)\/\/*(\w+):\/([\/\w\-\.\%]*)$/io;
-        $query = "";
+          $url =~ /^(file:)\/\/*(\w)+:\/([\/\w\-\.\%]*)$/io;
+        ($protocol, $domain, $file_path, $query) = $url =~
+                /^(file:)\/\/*(\w*):\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+
+        #
+        # Add trailing : to the domain/drive letter
+        #
+        if ( $domain ne "" ) {
+            $domain .= ":";
+        }
+
+        #$query = "";
     }
     elsif ( $url =~ /^ftp:\// ) {
         #
@@ -746,7 +756,28 @@ sub URL_Check_Make_URL_Absolute {
     print "URL_Check_Make_URL_Absolute:\n" if $debug;
     print "  url  = $url\n" if $debug;
     print "  base = $base\n" if $debug;
-    ($protocol, $domain, $dir, $query) = $base =~ /^(http[s]?:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+    if ( $base =~ /^http/i ) {
+        ($protocol, $domain, $dir, $query) = $base =~
+                /^(http[s]?:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+    }
+    elsif ( $base =~ /^file/i ) {
+        print "Got file URL\n" if $debug;
+        ($protocol, $domain, $dir, $query) = $base =~
+                /^(file:)\/\/*(\w*):\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+
+        #
+        # Add trailing : to the domain/drive letter
+        #
+        if ( $domain ne "" ) {
+            $domain .= ":";
+        }
+    }
+    else {
+        $protocol = "";
+        $domain = "";
+        $dir = "";
+        $query = "";
+    }
     print "Protocol = $protocol, domain = $domain, dir = $dir, query = $query\n" if $debug;
 
     #
@@ -1335,7 +1366,7 @@ sub URL_Check {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
