@@ -2,9 +2,9 @@
 #
 # Name:   open_data_txt.pm
 #
-# $Revision: 6526 $
+# $Revision: 6599 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_txt.pm $
-# $Date: 2014-01-06 11:29:39 -0500 (Mon, 06 Jan 2014) $
+# $Date: 2014-03-28 13:15:19 -0400 (Fri, 28 Mar 2014) $
 #
 # Description:
 #
@@ -436,8 +436,8 @@ sub Parse_Text_Dictionary {
                 #
                 $in_term = 0;
                 $found_term = 1;
-                $term = $current_text;
-                print "Found term $term on line $line_no\n" if $debug;
+                $term = lc($current_text);
+                print "Found term \"$term\" on line $line_no\n" if $debug;
 
                 #
                 # Have we seen this term before ?
@@ -682,7 +682,7 @@ sub Open_Data_TXT_Check_Dictionary {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
