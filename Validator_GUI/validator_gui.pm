@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6572 $
+# $Revision: 6622 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2014-02-21 13:37:25 -0500 (Fri, 21 Feb 2014) $
+# $Date: 2014-04-11 14:09:38 -0400 (Fri, 11 Apr 2014) $
 #
 # Description:
 #
@@ -302,12 +302,13 @@ my %string_table_en = (
     "Close Browser",            "Close Browser",
     "Press Ok to close browser", "Press Ok to close browser",
     "Ignore PDF pages",          "Ignore PDF pages",
-    "Process PDF pages",         "Process PDF pages",
-    "Open Data",     "Open Data",
-    "Dictionary Files",  "Dictionary Files",
-    "Data Files",        "Data Files",
-    "Resource Files",    "Resource Files",
-    "API URLs",          "API URLs",
+    "Process PDF pages",        "Process PDF pages",
+    "Open Data",                "Open Data",
+    "Description URL",          "Description URL",
+    "Dictionary Files",         "Dictionary Files",
+    "Data Files",               "Data Files",
+    "Resource Files",           "Resource Files",
+    "API URLs",                 "API URLs",
 );
 
 my %string_table_fr = (
@@ -400,10 +401,11 @@ my %string_table_fr = (
     "Ignore PDF pages",          "Ignorer les pages PDF",
     "Process PDF pages",         "Traiter les pages PDF",
     "Open Data",       "Données Ouvertes",
-    "Dictionary Files",  "xxDictionary Files",
-    "Data Files",        "xxData Files",
-    "Resource Files",    "xxResource Files",
-    "API URLs",          "API URLs",
+    "Description URL",          "Description URL",
+    "Dictionary Files",         "Fichiers de dictionnaire",
+    "Data Files",               "Les fichers de données",
+    "Resource Files",           "Fichiers de ressources",
+    "API URLs",                 "API URLs",
 );
 
 my ($string_table) = \%string_table_en;
@@ -4624,9 +4626,18 @@ sub GUI_Do_Open_Data_Click {
     my ($tabid);
 
     #
-    # Get data dictionary URL list
+    # Get open data description URL
     #
     print "GUI_Do_Open_Data_Click\n" if $debug;
+    $tab_field_name = "description$open_data_tabid";
+    $value = $main_window->ConfigTabs->$tab_field_name->Text();
+    if ( defined($value) && ( ! ($value =~ /^\s*$/)) ) {
+        $dataset_urls{"DESCRIPTION"} = $value;
+    }
+
+    #
+    # Get data dictionary URL list
+    #
     $tab_field_name = "data_dictionaries$open_data_tabid";
     $value = $main_window->ConfigTabs->$tab_field_name->Text();
     $dataset_urls{"DICTIONARY"} = $value;
@@ -4638,12 +4649,12 @@ sub GUI_Do_Open_Data_Click {
     $value = $main_window->ConfigTabs->$tab_field_name->Text();
     $dataset_urls{"DATA"} = $value;
 
-    #
-    # Get resource URL list
-    #
-    $tab_field_name = "resource_files$open_data_tabid";
-    $value = $main_window->ConfigTabs->$tab_field_name->Text();
-    $dataset_urls{"RESOURCE"} = $value;
+#    #
+#    # Get resource URL list
+#    #
+#    $tab_field_name = "resource_files$open_data_tabid";
+#    $value = $main_window->ConfigTabs->$tab_field_name->Text();
+#    $dataset_urls{"RESOURCE"} = $value;
 
     #
     # Get API URL list
@@ -4721,6 +4732,7 @@ sub Load_Open_Data_Config {
 
     my ($filename, $line, $field_name, $value, $name, $type, $url);
     my ($data_list, $dictionary_list, $resource_list, $api_list);
+    my ($description_url);
 
     #
     # Get name of file to read configuration from
@@ -4752,6 +4764,7 @@ sub Load_Open_Data_Config {
             $dictionary_list = "";
             $resource_list = "";
             $api_list = "";
+            $description_url = "";
 
             #
             # Read all lines from the file looking for the configuration
@@ -4818,6 +4831,12 @@ sub Load_Open_Data_Config {
                     $data_list .=  "$value\r\n";
                 }
                 #
+                # Description URL ?
+                #
+                elsif ( $field_name =~ /^DESCRIPTION$/i ) {
+                    $description_url =  "$value";
+                }
+                #
                 # Dictionary file URL ?
                 #
                 elsif ( $field_name =~ /^DICTIONARY$/i ) {
@@ -4841,12 +4860,14 @@ sub Load_Open_Data_Config {
             #
             # Set URL lists in main window
             #
+            $name = "description$open_data_tabid";
+            $main_window->ConfigTabs->$name->Text("$description_url");
             $name = "data_dictionaries$open_data_tabid";
             $main_window->ConfigTabs->$name->Text("$dictionary_list");
             $name = "data_files$open_data_tabid";
             $main_window->ConfigTabs->$name->Text("$data_list");
-            $name = "resource_files$open_data_tabid";
-            $main_window->ConfigTabs->$name->Text("$resource_list");
+#            $name = "resource_files$open_data_tabid";
+#            $main_window->ConfigTabs->$name->Text("$resource_list");
             $name = "api$open_data_tabid";
             $main_window->ConfigTabs->$name->Text("$api_list");
 
@@ -4913,6 +4934,15 @@ sub Save_Open_Data_Config {
             }
 
             #
+            # Get description URL
+            #
+            $tab_field_name = "description$open_data_tabid";
+            $value = $main_window->ConfigTabs->$tab_field_name->Text();
+            if ( defined($value) && (! ($value =~ /^\s*$/)) ) {
+                print FILE "DESCRIPTION $value\n";
+            }
+
+            #
             # Get data dictionary URL list
             #
             $tab_field_name = "data_dictionaries$open_data_tabid";
@@ -4930,14 +4960,14 @@ sub Save_Open_Data_Config {
                 print FILE "DATA $_\n";
             }
 
-            #
-            # Get resource URL list
-            #
-            $tab_field_name = "resource_files$open_data_tabid";
-            $value = $main_window->ConfigTabs->$tab_field_name->Text();
-            foreach (split(/\n/, $value)) {
-                print FILE "RESOURCE $_\n";
-            }
+#            #
+#            # Get resource URL list
+#            #
+#            $tab_field_name = "resource_files$open_data_tabid";
+#            $value = $main_window->ConfigTabs->$tab_field_name->Text();
+#            foreach (split(/\n/, $value)) {
+#                print FILE "RESOURCE $_\n";
+#            }
 
             #
             # Get API URL list
@@ -4974,6 +5004,7 @@ sub Add_Open_Data_Fields {
     my ($current_pos) = 40;
     my ($tabid, $name, $h, $w, $dictionary_field_name);
     my ($datafile_field_name, $resource_field_name, $api_field_name);
+    my ($description_field_name);
 
     #
     # Add title to the tab and increment tab count
@@ -4999,6 +5030,27 @@ sub Add_Open_Data_Fields {
     # Add label text
     #
     $main_window->ConfigTabs->AddLabel(
+        -name => "Label_Description" . $tabid,
+        -text => String_Value("Description URL"),
+        -pos => [20,$current_pos],
+    );
+    $current_pos += 15;
+
+    #
+    # Add scrolling text field for data dictionary URL list
+    #
+    $description_field_name = "description$tabid";
+    $main_window->ConfigTabs->AddTextfield(
+        -name => $description_field_name,
+        -pos => [5,$current_pos],
+        -size => [$w - 40,20],
+    );
+    $current_pos += 25;
+
+    #
+    # Add label text
+    #
+    $main_window->ConfigTabs->AddLabel(
         -name => "Label_Dictionary" . $tabid,
         -text => String_Value("Dictionary Files"),
         -pos => [20,$current_pos],
@@ -5006,7 +5058,7 @@ sub Add_Open_Data_Fields {
     $current_pos += 15;
 
     #
-    # Add scrolling text field for data dictionary URL list
+    # Add text field for data dictionary URL list
     #
     $dictionary_field_name = "data_dictionaries$tabid";
     $main_window->ConfigTabs->AddTextfield(
@@ -5061,38 +5113,38 @@ sub Add_Open_Data_Fields {
     #
     $main_window->ConfigTabs->$datafile_field_name->SetLimitText(10000);
 
-    #
-    # Add label text
-    #
-    $main_window->ConfigTabs->AddLabel(
-        -name => "Label_Resource" . $tabid,
-        -text => String_Value("Resource Files"),
-        -pos => [20,$current_pos],
-    );
-    $current_pos += 15;
+#    #
+#    # Add label text
+#    #
+#    $main_window->ConfigTabs->AddLabel(
+#        -name => "Label_Resource" . $tabid,
+#        -text => String_Value("Resource Files"),
+#        -pos => [20,$current_pos],
+#    );
+#    $current_pos += 15;
     
-    #
-    # Add scrolling text field for resource file URL list
-    #
-    $resource_field_name = "resource_files$tabid";
-    $main_window->ConfigTabs->AddTextfield(
-        -name => $resource_field_name,
-        -pos => [5,$current_pos],
-        -size => [$w - 40,$h],
-        -multiline => 1,
-        -hscroll   => 1,
-        -vscroll   => 1,
-        -autohscroll => 1,
-        -autovscroll => 1,
-        -keepselection => 1,
-        -wantreturn => 1,
-    );
-    $current_pos += $h + 15;
-
-    #
-    # Set maximum size for text area
-    #
-    $main_window->ConfigTabs->$resource_field_name->SetLimitText(10000);
+#    #
+#    # Add scrolling text field for resource file URL list
+#    #
+#    $resource_field_name = "resource_files$tabid";
+#    $main_window->ConfigTabs->AddTextfield(
+#        -name => $resource_field_name,
+#        -pos => [5,$current_pos],
+#        -size => [$w - 40,$h],
+#        -multiline => 1,
+#        -hscroll   => 1,
+#        -vscroll   => 1,
+#        -autohscroll => 1,
+#        -autovscroll => 1,
+#        -keepselection => 1,
+#        -wantreturn => 1,
+#    );
+#    $current_pos += $h + 15;
+#
+#    #
+#    # Set maximum size for text area
+#    #
+#    $main_window->ConfigTabs->$resource_field_name->SetLimitText(10000);
 
     #
     # Add label text
@@ -5139,9 +5191,10 @@ sub Add_Open_Data_Fields {
           -pos => [20, $current_pos],
           -tabstop => 1,
           -onClick => sub {
+                            $main_window->ConfigTabs->$description_field_name->Text("");
                             $main_window->ConfigTabs->$dictionary_field_name->Text("");
                             $main_window->ConfigTabs->$datafile_field_name->Text("");
-                            $main_window->ConfigTabs->$resource_field_name->Text("");
+#                            $main_window->ConfigTabs->$resource_field_name->Text("");
                             $main_window->ConfigTabs->$api_field_name->Text("");
                           }
     );
@@ -5294,7 +5347,7 @@ sub Create_Open_Data_Main_Window {
     $main_window_tab_count = -1;
 
     #
-    # Add tab for direct HTML input
+    # Add tab for direct open data URLs
     #
     $main_window_tab_count = Add_Open_Data_Fields($main_window,
                                                   $main_window_tab_count);
