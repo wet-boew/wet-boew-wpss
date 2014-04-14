@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6544 $
+# $Revision: 6603 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2014-01-21 11:23:08 -0500 (Tue, 21 Jan 2014) $
+# $Date: 2014-03-28 13:20:41 -0400 (Fri, 28 Mar 2014) $
 #
 # Description:
 #
@@ -2098,7 +2098,7 @@ sub Read_Open_Data_File {
 
     my (%report_options, $line, $field_name, $value, %dataset_urls);
     my ($data_list, $dictionary_list, $resource_list, $tab, $suffix);
-    my ($key, $api_list);
+    my ($key, $api_list, $description_url);
 
     #
     # Copy in default report options
@@ -2164,6 +2164,12 @@ sub Read_Open_Data_File {
             $data_list .=  "$value\r\n";
         }
         #
+        # Description URL ?
+        #
+        elsif ( $field_name =~ /^DESCRIPTION$/i ) {
+            $description_url =  "$value";
+        }
+        #
         # Dictionary file URL ?
         #
         elsif ( $field_name =~ /^DICTIONARY$/i ) {
@@ -2208,6 +2214,9 @@ sub Read_Open_Data_File {
     if ( defined($data_list) ) {
         $dataset_urls{"DATA"} = $data_list;
     }    
+    if ( defined($description_url) && ( ! ($description_url =~ /^\s*$/)) ) {
+        $dataset_urls{"DESCRIPTION"} = $description_url;
+    }
     if ( defined($dictionary_list) ) {
         $dataset_urls{"DICTIONARY"} = $dictionary_list;
     }    
