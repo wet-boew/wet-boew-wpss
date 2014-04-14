@@ -2,9 +2,9 @@
 #
 # Name:   csv_check.pm
 #
-# $Revision: 6392 $
+# $Revision: 6588 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/csv_check.pm $
-# $Date: 2013-10-03 15:21:15 -0400 (Thu, 03 Oct 2013) $
+# $Date: 2014-03-12 15:33:51 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -400,7 +400,7 @@ sub CSV_Check {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {

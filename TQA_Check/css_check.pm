@@ -2,9 +2,9 @@
 #
 # Name:   css_check.pm
 #
-# $Revision: 6550 $
+# $Revision: 6588 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/css_check.pm $
-# $Date: 2014-01-30 08:12:56 -0500 (Thu, 30 Jan 2014) $
+# $Date: 2014-03-12 15:33:51 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -1444,7 +1444,7 @@ sub CSS_Check {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {

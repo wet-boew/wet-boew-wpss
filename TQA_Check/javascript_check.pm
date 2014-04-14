@@ -2,9 +2,9 @@
 #
 # Name:   javascript_check.pm
 #
-# $Revision: 6331 $
+# $Revision: 6588 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/javascript_check.pm $
-# $Date: 2013-07-09 13:57:13 -0400 (Tue, 09 Jul 2013) $
+# $Date: 2014-03-12 15:33:51 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -515,7 +515,7 @@ sub JavaScript_Check {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {

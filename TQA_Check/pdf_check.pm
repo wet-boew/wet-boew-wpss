@@ -2,9 +2,9 @@
 #
 # Name:   pdf_check.pm
 #
-# $Revision: 6074 $
+# $Revision: 6590 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/pdf_check.pm $
-# $Date: 2012-10-31 14:59:06 -0400 (Wed, 31 Oct 2012) $
+# $Date: 2014-03-12 15:35:02 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -866,7 +866,7 @@ sub PDF_Check {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
 

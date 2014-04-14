@@ -2,9 +2,9 @@
 #
 # Name: pdf_files.pm
 #
-# $Revision: 5987 $
+# $Revision: 6587 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/PDF_Check/Tools/pdf_files.pm $
-# $Date: 2012-09-18 17:27:39 -0400 (Tue, 18 Sep 2012) $
+# $Date: 2014-03-12 15:33:00 -0400 (Wed, 12 Mar 2014) $
 #
 # Description
 #
@@ -750,7 +750,7 @@ sub PDF_Files_Validate_Properties {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
