@@ -2,9 +2,9 @@
 #
 # Name:   xml_check.pm
 #
-# $Revision: 6316 $
+# $Revision: 6588 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/xml_check.pm $
-# $Date: 2013-06-26 13:24:10 -0400 (Wed, 26 Jun 2013) $
+# $Date: 2014-03-12 15:33:51 -0400 (Wed, 12 Mar 2014) $
 #
 # Description:
 #
@@ -474,7 +474,7 @@ sub XML_Check {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
