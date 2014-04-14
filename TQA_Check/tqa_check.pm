@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6553 $
+# $Revision: 6596 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2014-01-30 14:26:58 -0500 (Thu, 30 Jan 2014) $
+# $Date: 2014-03-19 10:12:21 -0400 (Wed, 19 Mar 2014) $
 #
 # Description:
 #
@@ -140,10 +140,13 @@ my %string_table_en = (
     "Missing alt attribute in decorative image", "Missing alt attribute in decorative image. ",
     "Image URL in non-decorative list", "Image URL found in non-decorative image list",
     "Image URL in decorative list",     "Image URL found in decorative image list",
-    "Non null alt text",               "Non null alt text",
-    "in decorative image",             "in decorative image. ",
+    "Non null alt text",               "Non null 'alt' text",
+    "Non null",                        "Non null",
+    "in decorative image",             "in decorative image.",
+    "in non-decorative image",         "in non-decorative image",
     "Non-decorative image loaded via CSS", "Non-decorative image loaded via CSS. ",
-    "Non null title text",              "Non null title text",
+    "Non null title text",              "Non null 'title' text",
+    "Invalid role text value",          "Invalid 'role' text value",
     );
 
 
@@ -169,10 +172,13 @@ my %string_table_fr = (
     "Missing alt attribute in decorative image", "Attribut alt manquant dans l'image décoratives. ",
     "Image URL in non-decorative list", "URL de l'image son trouve dans la liste des images non décoratives.",
     "Image URL in decorative list",     "URL de l'image son trouve dans la liste des images décoratives.",
-    "Non null alt text",               "Non le texte alt nuls",
-    "in decorative image",             "dans l'image décoratives. ",
+    "Non null alt text",               "Non le texte 'alt' nuls",
+    "Non null",                        "Non nuls",
+    "in decorative image",             "dans l'image décoratives.",
+    "in non-decorative image",         "dans l'image non-décoratives.",
     "Non-decorative image loaded via CSS", "Non-décorative image chargée via CSS. ",
-    "Non null title text",             "Non le texte title nuls",
+    "Non null title text",             "Non le texte 'title' nuls",
+    "Invalid role text value",         "Valeur de texte 'role' est invalide",
     );
 
 #
@@ -961,7 +967,7 @@ sub Check_Link_Anchor_Alt_Title_Check {
             $link_type = $link->link_type;
             $in_list = $link->in_list;
             $list_heading = $link->list_heading;
-            print "Check link anchor = $anchor, lang = $lang, url = $link_url at $line_no:$column_no\n" if $debug;
+            print "Check link anchor = \"$anchor\", lang = $lang, alt = \"$alt\" url = $link_url at $line_no:$column_no\n" if $debug;
 
             #
             # Does the link text match any of those we should ignore
@@ -1379,7 +1385,7 @@ sub TQA_Check_Links {
     #
     # Save URL in global variable
     #
-    if ( $url =~ /^http/i ) {
+    if ( ($url =~ /^http/i) || ($url =~ /^file/i) ) {
         $current_url = $url;
     }
     else {
@@ -1498,7 +1504,7 @@ sub TQA_Check_Links {
 sub Check_Decorative_Image {
     my ($link, $decorative_images, $non_decorative_images) = @_;
         
-    my ($message, $href, $other_image);
+    my ($message, $href, $other_image, %attr);
     my ($protocol, $domain, $file_path, $query, $new_url);
 
     #
@@ -1507,6 +1513,7 @@ sub Check_Decorative_Image {
     # a protocol or domain, just the file path portion.
     #
     $href = $link->abs_url;
+    print "Check_Decorative_Image, href = $href\n" if $debug;
     ($protocol, $domain, $file_path, $query, $new_url) = 
         URL_Check_Parse_URL($href);
     $file_path = "/$file_path";
@@ -1522,7 +1529,83 @@ sub Check_Decorative_Image {
         $other_image = $$non_decorative_images{$file_path};
         print "Image in non decortive list, file_path = $file_path\n" if $debug;
     }
-    
+
+    #
+    # Check for null (empty) alt text.
+    #
+    print "Check decorative image alt text \"" . $link->alt . "\"\n" if $debug;
+    if ( $link->alt ne "" ) {
+        #
+        # Non-null alt text, it may be 1 or more spaces but it is not null
+        # e.g. "  " versus "".
+        #
+        Record_Result("WCAG_2.0-F39", $link->line_no, $link->column_no,
+                      $link->source_line, 
+                      String_Value("Non null alt text") . " \"" .
+                      $link->alt . "\" " . String_Value("in decorative image"));
+    }
+
+    #
+    # Check for null (empty) aria-label text.
+    #
+    print "Check decorative image aria-label\n" if $debug;
+    %attr = $link->attr();
+    if ( defined($attr{"aria-label"}) && ($attr{"aria-label"} ne "") ) {
+        #
+        # Non-null aria-label text
+        #
+        Record_Result("WCAG_2.0-F39", $link->line_no, $link->column_no,
+                      $link->source_line,
+                      String_Value("Non null") . " 'aria-label=\"" .
+                      $attr{"aria-label"} . "\"' " .
+                      String_Value("in decorative image"));
+    }
+
+    #
+    # Check for null (empty) aria-labelledby text.
+    #
+    print "Check decorative image aria-labelledby\n" if $debug;
+    if ( defined($attr{"aria-labelledby"}) && ($attr{"aria-labelledby"} ne "") ) {
+        #
+        # Non-null aria-labelledby text
+        #
+        Record_Result("WCAG_2.0-F39", $link->line_no, $link->column_no,
+                      $link->source_line,
+                      String_Value("Non null") . " 'aria-labelledby=\"" .
+                      $attr{"aria-labelledby"} . "\"' " .
+                      String_Value("in decorative image"));
+    }
+
+    #
+    # Check for null (empty) aria-describedby text.
+    #
+    print "Check decorative image aria-describedby\n" if $debug;
+    if ( defined($attr{"aria-describedby"}) && ($attr{"aria-describedby"} ne "") ) {
+        #
+        # Non-null aria-describedby text
+        #
+        Record_Result("WCAG_2.0-F39", $link->line_no, $link->column_no,
+                      $link->source_line,
+                      String_Value("Non null") . " 'aria-describedby=\"" .
+                      $attr{"aria-describedby"} . "\"' " .
+                      String_Value("in decorative image"));
+    }
+
+    #
+    # Check that if a role attribute is specified, it has the value "presentation".
+    #
+    print "Check decorative image role\n" if $debug;
+    if ( defined($attr{"role"}) && ($attr{"role"} ne "presentation") ) {
+        #
+        # Invalid role value
+        #
+        Record_Result("WCAG_2.0-F38", $link->line_no, $link->column_no,
+                      $link->source_line,
+                      String_Value("Invalid role text value") . " 'role=\"" .
+                      $attr{"role"} . "\"' " .
+                      String_Value("in decorative image"));
+    }
+
     #
     # This decorative image should not appear in the non-decorative
     # list.
@@ -1717,7 +1800,7 @@ sub Check_Decorative_Image {
 sub Check_Non_Decorative_Image {
     my ($link, $decorative_images, $non_decorative_images) = @_;
 
-    my ($message, $href, $other_image);
+    my ($message, $href, $other_image, %attr);
     my ($protocol, $domain, $file_path, $query, $new_url);
 
     #
@@ -1792,6 +1875,21 @@ sub Check_Non_Decorative_Image {
             $$non_decorative_images{$href} = $link;
         }
     }
+    
+    #
+    # Check that if a role attribute is specified, it has the value "presentation".
+    #
+    print "Check non-decorative image role\n" if $debug;
+    %attr = $link->attr();
+    if ( defined($attr{"role"}) && ($attr{"role"} eq "presentation") ) {
+        #
+        # Invalid role value
+        #
+        Record_Result("WCAG_2.0-F38", $link->line_no, $link->column_no,
+                      $link->source_line,
+                      String_Value("Invalid role text value") . " 'role=\"" .
+                      $attr{"role"} . "\"' " . String_Value("in non-decorative image"));
+    }
 }
 
 #***********************************************************************
@@ -1819,7 +1917,7 @@ sub TQA_Check_Images {
 
     my ($result_object, @local_tqa_results_list, $link);
     my ($is_decorative, $is_image, $href, $other_image);
-    my ($message, $resp);
+    my ($message, $resp, %attr);
 
     #
     # Do we have a valid profile ?
@@ -1839,7 +1937,7 @@ sub TQA_Check_Images {
     #
     # Save URL in global variable
     #
-    if ( $url =~ /^http/i ) {
+    if ( ($url =~ /^http/i) || ($url =~ /^file/i) ) {
         $current_url = $url;
     }
     else {
@@ -1906,16 +2004,21 @@ sub TQA_Check_Images {
             if ( defined($link->mime_type) &&
                 ($link->mime_type =~ /^image/i) ) {
                 #
-                # If the image has no alt text it is decorative, otherwise
-                # it is non decorative
+                # If the image has no alt, aria-label, aria-labelledby,
+                # or aria-describedby attribue it is
+                # decorative, otherwise it is non decorative
                 #
-                if ( $link->alt eq "" ) {
+                %attr = $link->attr();
+                if ( ($link->alt =~ /^\s*$/) &&
+                     (! defined($attr{"aria-label"})) &&
+                     (! defined($attr{"aria-labelledby"})) &&
+                     (! defined($attr{"aria-describedby"})) ) {
                     $is_decorative = 1;
-                    print "Decorative image has no alt text\n" if $debug;
+                    print "Decorative image\n" if $debug;
                 }
                 else {
                     $is_decorative = 0;
-                    print "Non-Decorative image has alt text\n" if $debug;
+                    print "Non-Decorative image\n" if $debug;
                 }
                 $is_image = 1;
             }
