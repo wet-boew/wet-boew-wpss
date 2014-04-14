@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 6513 $
+# $Revision: 6601 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2013-12-18 15:16:14 -0500 (Wed, 18 Dec 2013) $
+# $Date: 2014-03-28 13:18:12 -0400 (Fri, 28 Mar 2014) $
 #
 # Description:
 #
@@ -89,6 +89,17 @@ my (%testcase_description_en) = (
 #
 # WCAG 2.0
 #
+"WCAG_2.0-ARIA1", "2.4.2, 2.4.4, 3.3.2 ARIA1: Using the aria-describedby property to provide a descriptive label for user interface controls",
+"WCAG_2.0-ARIA2", "3.3.2, 3.3.3 ARIA2: Identifying a required field with the aria-required property",
+"WCAG_2.0-ARIA6", "1.1.1 ARIA6: Using aria-label to provide labels for objects",
+"WCAG_2.0-ARIA7", "2.4.4 ARIA7: Using aria-labelledby for link purpose",
+"WCAG_2.0-ARIA8", "2.4.4 ARIA8: Using aria-label for link purpose",
+"WCAG_2.0-ARIA9", "1.1.1, 3.3.2 ARIA9: Using aria-labelledby to concatenate a label from several text nodes",
+"WCAG_2.0-ARIA10", "1.1.1 ARIA10: Using aria-labelledby to provide a text alternative for non-text content",
+"WCAG_2.0-ARIA12", "1.3.1 ARIA12: Using role=heading to identify headings",
+"WCAG_2.0-ARIA13", "1.3.1 ARIA13: Using aria-labelledby to name regions and landmarks",
+"WCAG_2.0-ARIA15", "1.1.1 ARIA15: Using aria-describedby to provide descriptions of images",
+"WCAG_2.0-ARIA16", "1.3.1, 4.1.2 ARIA16: Using aria-labelledby to provide a name for user interface controls",
 # C12: Using percent for font sizes 
 #      Failures of this technique are reported under technique G142
 # C13: Using named font sizes
@@ -237,6 +248,17 @@ my (%testcase_description_fr) = (
 # WCAG 2.0
 #  Text taken from http://www.braillenet.org/accessibilite/comprendre-wcag20/CAT20110222/Overview.html
 #
+"WCAG_2.0-ARIA1", "2.4.2, 2.4.4, 3.3.2 ARIA1: Using the aria-describedby property to provide a descriptive label for user interface controls",
+"WCAG_2.0-ARIA2", "3.3.2, 3.3.3 ARIA2: Identifying a required field with the aria-required property",
+"WCAG_2.0-ARIA6", "1.1.1 ARIA6: Using aria-label to provide labels for objects",
+"WCAG_2.0-ARIA7", "2.4.4 ARIA7: Using aria-labelledby for link purpose",
+"WCAG_2.0-ARIA8", "2.4.4 ARIA8: Using aria-label for link purpose",
+"WCAG_2.0-ARIA9", "1.1.1, 3.3.2 ARIA9: Using aria-labelledby to concatenate a label from several text nodes",
+"WCAG_2.0-ARIA10", "1.1.1 ARIA10: Using aria-labelledby to provide a text alternative for non-text content",
+"WCAG_2.0-ARIA12", "1.3.1 ARIA12: Using role=heading to identify headings",
+"WCAG_2.0-ARIA13", "1.3.1 ARIA13: Using aria-labelledby to name regions and landmarks",
+"WCAG_2.0-ARIA15", "1.1.1 ARIA15: Using aria-describedby to provide descriptions of images",
+"WCAG_2.0-ARIA16", "1.3.1, 4.1.2 ARIA16: Using aria-labelledby to provide a name for user interface controls",
 # C12: Using percent for font sizes 
 #      Failures of this technique are reported under technique G142
 # C13: Using named font sizes
@@ -390,6 +412,17 @@ my ($testcase_description_table) = \%testcase_description_en;
 # This is a mapping of technique to success criterion for WCAG 2.0
 #
 my (%testcase_groups_table) = (
+"WCAG_2.0-ARIA1", "2.4.2, 2.4.4, 3.3.2",
+"WCAG_2.0-ARIA2", "3.3.2, 3.3.3",
+"WCAG_2.0-ARIA6", "1.1.1",
+"WCAG_2.0-ARIA7", "2.4.4",
+"WCAG_2.0-ARIA8", "2.4.4",
+"WCAG_2.0-ARIA9", "1.1.1, 3.3.2",
+"WCAG_2.0-ARIA10", "1.1.1",
+"WCAG_2.0-ARIA12", "1.3.1",
+"WCAG_2.0-ARIA13", "1.3.1",
+"WCAG_2.0-ARIA15", "1.1.1",
+"WCAG_2.0-ARIA16", "1.3.1, 4.1.2",
 "WCAG_2.0-C28", "1.4.4",
 "WCAG_2.0-F2", "1.3.1",
 "WCAG_2.0-F3", "1.1.1",
