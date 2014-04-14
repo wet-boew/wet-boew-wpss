@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6571 $
+# $Revision: 6623 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2014-02-21 08:58:27 -0500 (Fri, 21 Feb 2014) $
+# $Date: 2014-04-11 14:10:40 -0400 (Fri, 11 Apr 2014) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ]
@@ -3071,6 +3071,7 @@ sub Save_Content_To_File {
             print "Create text file $dir/$filename\n" if $debug;
             open(TXT, ">$dir/$filename") ||
                 die "Save_Content_To_File: Failed to open $dir/$filename for writing\n";
+            binmode TXT;
 
             #
             # Split the content on the <head tag
@@ -3114,6 +3115,7 @@ sub Save_Content_To_File {
             print "Create text file $dir/$filename\n" if $debug;
             open(TXT, ">$dir/$filename") ||
                 die "Save_Content_To_File: Failed to open $dir/$filename for writing\n";
+            binmode TXT;
             print TXT $content;
             close(TXT);
             $content_saved = 1;
@@ -4579,7 +4581,7 @@ sub Setup_Content_Saving {
             die "Error: Failed to create file $program_dir/results/content/index.html\n";
         print HTML "<html>
 <body>
-<ul>
+<ol>
 ";
         close(HTML);
     }
@@ -4605,7 +4607,7 @@ sub Finish_Content_Saving {
     if ( $save_content ) {
         open(HTML, ">> $program_dir/results/content/index.html") ||
         die "Error: Failed to open file $program_dir/results/content/index.html\n";
-        print HTML "</ul>
+        print HTML "</ol>
 </body>
 </html>
 ";
@@ -6415,9 +6417,7 @@ sub Perform_Link_Check {
 # Name: Record_Open_Data_Check_Results
 #
 # Parameters: url - dataset file URL
-#             data_file_type - type of dataset file
-#             resp - HTTP::Response object
-#             content - content
+#             results - list of testcase results
 #
 # Description:
 #
@@ -6502,6 +6502,7 @@ sub Record_Open_Data_Check_Results {
 # Name: Perform_Open_Data_Check
 #
 # Parameters: url - dataset file URL
+#             format - optional content format
 #             data_file_type - type of dataset file
 #             resp - HTTP::Response object
 #
@@ -6511,7 +6512,7 @@ sub Record_Open_Data_Check_Results {
 #
 #***********************************************************************
 sub Perform_Open_Data_Check {
-    my ( $url, $data_file_type, $resp ) = @_;
+    my ( $url, $format, $data_file_type, $resp ) = @_;
 
     my ($contents, $zip, @members, $member_name, $header, $mime_type);
     my (@results, $zip_file_name, $member_url);
@@ -6565,7 +6566,7 @@ sub Perform_Open_Data_Check {
                 # Create and a URL for the member of the ZIP
                 #
                 $member_url = "$url:$member_name";
-                push(@all_urls, $member_url);
+                push(@all_urls, "DATA $member_url");
                 $document_count{$crawled_urls_tab}++;
                 Validator_GUI_Start_URL($crawled_urls_tab, $member_url, "", 0,
                                         $document_count{$crawled_urls_tab});
@@ -6573,7 +6574,7 @@ sub Perform_Open_Data_Check {
                 #
                 # Perform checks on this content
                 #
-                @results = Open_Data_Check($member_url,
+                @results = Open_Data_Check($member_url, $format,
                                            $open_data_check_profile,
                                            $data_file_type, $resp,
                                            $contents, \%open_data_dictionary);
@@ -6591,10 +6592,10 @@ sub Perform_Open_Data_Check {
         # Treat URL as a single open data file
         #
         print "Single open data file\n" if $debug;
-            @results = Open_Data_Check($url, $open_data_check_profile,
-                               $data_file_type, $resp,
-                               $resp->content, \%open_data_dictionary);
-            Record_Open_Data_Check_Results($url, @results);
+        @results = Open_Data_Check($url, $format, $open_data_check_profile,
+                                   $data_file_type, $resp,
+                                   $resp->content, \%open_data_dictionary);
+        Record_Open_Data_Check_Results($url, @results);
     }
 }
 
@@ -6615,7 +6616,7 @@ sub Open_Data_Callback {
     my ($dataset_urls, %report_options) = @_;
 
     my (@url_list, $i, $key, $value, $resp_url, $resp, $header);
-    my ($data_file_type, $url, $tab);
+    my ($data_file_type, $item, $format, $url, $tab, @results);
 
     #
     # Initialize tool global variables
@@ -6644,6 +6645,39 @@ sub Open_Data_Callback {
     Print_Results_Header("","");
 
     #
+    # Is there a dataset description URL (i.e. the URL of
+    # a data.gc.ca JSON object to describe the dataset) ?
+    #
+    if ( defined($$dataset_urls{"DESCRIPTION"}) ) {
+        #
+        # Get the open data file
+        #
+        $url = $$dataset_urls{"DESCRIPTION"};
+        print "Process open data description url $url\n" if $debug;
+        ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
+        push(@all_urls, "DESCRIPTION $url");
+
+        #
+        # Print URL
+        #
+        $document_count{$crawled_urls_tab}++;
+        Validator_GUI_Start_URL($crawled_urls_tab, $url, "", 0,
+                                $document_count{$crawled_urls_tab});
+
+        #
+        # Extract the dataset URLs from the description
+        #
+        @results = Open_Data_Check_Read_JSON_Description($url,
+                                              $open_data_check_profile,
+                                              $resp, \$dataset_urls);
+
+        #
+        # Record results
+        #
+        Record_Open_Data_Check_Results($url, @results);
+    }
+
+    #
     # Loop through the data file types
     #
     foreach $data_file_type (@open_data_file_types) {
@@ -6651,12 +6685,14 @@ sub Open_Data_Callback {
         # Get list of URLs for this file type
         #
         if ( defined($$dataset_urls{"$data_file_type"}) ) {
+            print "Dataset URL type $data_file_type, url list = " .
+                  $$dataset_urls{"$data_file_type"} . "\n" if $debug;
             @url_list = split(/\n+/, $$dataset_urls{"$data_file_type"});
 
             #
             # Process each URL in the list
             #
-            foreach $url (@url_list) {
+            foreach $item (@url_list) {
                 #
                 # Are we aborting the URL analysis ? Check crawler module flag
                 # in case the abort was called from another thread
@@ -6664,6 +6700,15 @@ sub Open_Data_Callback {
                 #
                 if ( Crawler_Abort_Crawl_Status() == 1 ) {
                     last;
+                }
+
+                #
+                # The URL may include a format specifier (e.g. CSV)
+                #
+                ($format, $url) = split(/\t/, $item);
+                if ( ! defined($url) ) {
+                    $url = $item;
+                    $format = "";
                 }
 
                 #
@@ -6680,7 +6725,7 @@ sub Open_Data_Callback {
                 #
                 print "Process open data url $url\n" if $debug;
                 ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
-                push(@all_urls, $url);
+                push(@all_urls, "$data_file_type $url");
 
                 #
                 # Print URL
@@ -6692,7 +6737,7 @@ sub Open_Data_Callback {
                 #
                 # Perform Open Data checks.
                 #
-                Perform_Open_Data_Check($url, $data_file_type, $resp);
+                Perform_Open_Data_Check($url, $format, $data_file_type, $resp);
             }
         }
     }
