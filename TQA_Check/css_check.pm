@@ -2,9 +2,9 @@
 #
 # Name:   css_check.pm
 #
-# $Revision: 6588 $
+# $Revision: 6640 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/css_check.pm $
-# $Date: 2014-03-12 15:33:51 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-04-30 08:12:34 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -20,6 +20,7 @@
 #     CSS_Check
 #     CSS_Check_Get_Styles
 #     CSS_Check_Does_Style_Have_Emphasis
+#     CSS_Check_Style_Property_Value
 #
 # Terms and Conditions of Use
 # 
@@ -76,6 +77,7 @@ BEGIN {
                   CSS_Check
                   CSS_Check_Get_Styles
                   CSS_Check_Does_Style_Have_Emphasis
+                  CSS_Check_Style_Property_Value
                   );
     $VERSION = "1.0";
 }
@@ -1655,7 +1657,7 @@ sub CSS_Check_Get_Styles {
 # Name: CSS_Check_Does_Style_Have_Emphasis
 #
 # Parameters: style_name - name of style
-#             style_object - style object refernce
+#             style_object - style object reference
 #
 # Description:
 #
@@ -1670,13 +1672,9 @@ sub CSS_Check_Does_Style_Have_Emphasis {
     my ($has_emphasis) = 0;
 
     #
-    # Did we get any content ?
-    #
-    print "CSS_Check_Does_Style_Have_Emphasis for style $style_name\n" if $debug;
-
-    #
     # Get properties for this style
     #
+    print "CSS_Check_Does_Style_Have_Emphasis for style $style_name\n" if $debug;
     @properties = $style_object->properties;
     for $this_prop (@properties) {
         #
@@ -1743,6 +1741,63 @@ sub CSS_Check_Does_Style_Have_Emphasis {
     #
     print "Style has emphasis = $has_emphasis\n" if $debug;
     return($has_emphasis);
+}
+
+#***********************************************************************
+#
+# Name: CSS_Check_Style_Property_Value
+#
+# Parameters: style_name - name of style
+#             style_object - style object refernce
+#             property_name - name of property to check
+#             property_value - value to check for in property
+#
+# Description:
+#
+#   This function checks the properties of the style object to see
+# if the specified property exists and checks to see if the expected
+# value is present.
+#
+#***********************************************************************
+sub CSS_Check_Style_Property_Value {
+    my ($style_name, $style_object, $property_name, $property_value) = @_;
+
+    my (@properties, $this_prop, $hash, $property, $value);
+    my ($has_value) = 0;
+
+    #
+    # Get properties for this style
+    #
+    print "CSS_Check_Style_Property_Value style $style_name, for property $property_name with value $property_value\n" if $debug;
+    @properties = $style_object->properties;
+    for $this_prop (@properties) {
+        #
+        # Get the property name and its value
+        #
+        $hash = $$this_prop{"options"};
+        $property = $$hash{"property"};
+        $value = $$hash{"value"};
+        print "  $property: $value\n" if $debug;
+
+        #
+        # Is this the property name we want ?
+        #
+        if ( $property eq $property_name ) {
+            #
+            # Is the expected value in the property value ?
+            #
+            if ( $value eq $property_value ) {
+                $has_value = 1;
+                print "Found value in property\n" if $debug;
+            }
+        }
+    }
+
+    #
+    # Return status
+    #
+    print "Style has property and value = $has_value\n" if $debug;
+    return($has_value);
 }
 
 #***********************************************************************
