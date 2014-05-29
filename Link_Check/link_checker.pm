@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 6609 $
+# $Revision: 6631 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
-# $Date: 2014-04-02 11:44:42 -0400 (Wed, 02 Apr 2014) $
+# $Date: 2014-04-25 13:19:24 -0400 (Fri, 25 Apr 2014) $
 #
 # Description:
 #
@@ -117,7 +117,7 @@ my (%url_content_language, %url_content_language_hits);
 my (%visited_link_object_cache, %visited_url_http_status);
 my (%visited_url_http_resp, $results_list_addr, $current_url);
 my (%link_check_profile_map, $current_link_check_profile);
-my (%site_title_lang_map);
+my (%site_title_lang_map, $accepted_content_encodings);
 
 my ($max_redirects) = 10;
 my ($debug) = 0;
@@ -544,6 +544,7 @@ sub Link_Checker_Set_Proxy {
     #
     if ( ! defined($user_agent) ) {
         $user_agent = Crawler_Get_User_Agent();
+        eval {$accepted_content_encodings = HTTP::Message::decodable; };
     }
 
     #
@@ -578,6 +579,7 @@ sub Initialize_Link_Checker_Variables {
     #
     if ( ! defined($user_agent) ) {
         $user_agent = Crawler_Get_User_Agent();
+        eval {$accepted_content_encodings = HTTP::Message::decodable; };
     }
 }
 
@@ -975,6 +977,7 @@ sub Link_Status {
     #
     if ( ! defined($user_agent) ) {
         $user_agent = Crawler_Get_User_Agent();
+        eval {$accepted_content_encodings = HTTP::Message::decodable; };
     }
 
     #
@@ -1024,6 +1027,19 @@ sub Link_Status {
         print "GET $url\n" if $debug;
         $req = new HTTP::Request( GET => $url );
         $req->header(Accept => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        $req->header("Pragma" => "no-cache");
+        $req->header("Cache-Control" => "no-cache");
+
+        #
+        # Add accepted content encodings
+        #
+        if ( defined($accepted_content_encodings) ) {
+            $req->header("Accept-Encoding" => $accepted_content_encodings);
+        }
+
+        #
+        # Set referer and prepare the request
+        #
         $req->referrer("$referer_url");
         $user_agent->prepare_request($req);
 
@@ -1474,8 +1490,8 @@ sub Record_Result {
 #
 # Parameters: this_link - URL to check
 #             link_anchor - link anchor text
-#             referer_url - url of refering link
 #             language - language of referrer URL
+#             referer_url - url of refering link
 #             link - link result object
 #             resp - HTTP::Response object
 #
@@ -1926,6 +1942,7 @@ sub Link_Checker_Get_Link_Status {
                 else {
                     $link->content_length(length($resp->content));
                 }
+
                 print "Target URL length " . $link->content_length . "\n" if $debug;
 
                 #
