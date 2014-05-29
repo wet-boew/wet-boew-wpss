@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 6620 $
+# $Revision: 6653 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_check.pm $
-# $Date: 2014-04-11 14:08:18 -0400 (Fri, 11 Apr 2014) $
+# $Date: 2014-05-28 08:20:41 -0400 (Wed, 28 May 2014) $
 #
 # Description:
 #
@@ -1326,7 +1326,13 @@ sub Read_JSON_Open_Data_Description {
                #
                # Save dataset URL
                #
-               if ( $type eq "file" ) {
+               if ( $type eq "api" ) {
+                   $dataset_urls{"API"} .= "$format\t$url\n";
+               }
+               elsif ( $type eq "doc" ) {
+                   $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
+               }
+               elsif ( $type eq "file" ) {
                    $dataset_urls{"DATA"} .= "$format\t$url\n";
                }
                elsif ( $type eq "doc" ) {
