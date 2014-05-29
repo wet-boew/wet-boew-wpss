@@ -2,9 +2,9 @@
 #
 # Name:   javascript_check.pm
 #
-# $Revision: 6588 $
+# $Revision: 6659 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/javascript_check.pm $
-# $Date: 2014-03-12 15:33:51 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-05-28 11:26:26 -0400 (Wed, 28 May 2014) $
 #
 # Description:
 #
@@ -102,9 +102,12 @@ my ($javascript_check_fail)       = 1;
 #
 # List of content creation functions that should not be used
 #
-my (@illegal_document_creation_functions) = ("document.write", "innerHTML",
-                                             "outerHTML", "innerText",
-                                             "outerText");
+my (@illegal_document_creation_functions) = (
+#    "document.write", # Used in piwik web analytics
+    "innerHTML",
+    "outerHTML",
+    "innerText",
+    "outerText");
 
 #
 # String table for error strings.
