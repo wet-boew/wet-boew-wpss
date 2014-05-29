@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6596 $
+# $Revision: 6641 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2014-03-19 10:12:21 -0400 (Wed, 19 Mar 2014) $
+# $Date: 2014-04-30 09:08:43 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -27,6 +27,7 @@
 #     TQA_Check_Profile_Types
 #     TQA_Check_Set_Exemption_Markers
 #     TQA_Check_Exempt
+#     TQA_Check_Need_Validation
 #
 # Terms and Conditions of Use
 # 
@@ -90,6 +91,7 @@ BEGIN {
                   TQA_Check_Profile_Types
                   TQA_Check_Set_Exemption_Markers
                   TQA_Check_Exempt
+                  TQA_Check_Need_Validation
                   );
     $VERSION = "1.0";
 }
@@ -638,7 +640,7 @@ sub Check_Other_Tool_Results {
 sub TQA_Check {
     my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
 
-    my ($extracted_content, @tqa_results_list);
+    my ($extracted_content, @tqa_results_list, $do_tests);
     my (@other_tqa_results_list, $result_object, $fault_count);
 
     #
@@ -650,6 +652,18 @@ sub TQA_Check {
     # Initialize the test case pass/fail table.
     #
     Initialize_Test_Results($profile, \@tqa_results_list);
+
+    #
+    # Are any of the testcases defined in this testcase profile ?
+    #
+    $do_tests = 0;
+    if ( keys(%$current_tqa_check_profile) == 0 ) {
+        #
+        # No tests handled by this module
+        #
+        print "No tests handled by this module\n" if $debug;
+        return(@tqa_results_list);
+    }
 
     #
     # Is it HTML content?
@@ -875,7 +889,7 @@ sub Clean_Text {
 
 #***********************************************************************
 #
-# Name: Is_Leading_Substring
+# Name: Is_Substring
 #
 # Parameters: string1 - a string
 #             string2 - a string
@@ -883,12 +897,10 @@ sub Clean_Text {
 # Description:
 #
 #   This function checks to see if either string is a substring
-# of the other.  The string is only a substring if it contains extra
-# text at the end of the string.  It is not a substring if one appears
-# in the middle of the other.
+# of the other. 
 #
 #***********************************************************************
-sub Is_Leading_Substring {
+sub Is_Substring {
     my ($string1, $string2) = @_;
 
     my ($substring);
@@ -903,12 +915,12 @@ sub Is_Leading_Substring {
         # is the first string value a substring of the second
         # value (one value has additional content).
         #
-        if ( $string1 =~ /^$string2/ ) {
-            print "First sting is a substring of second anchor\n" if $debug;
+        if ( $string1 =~ /$string2/ ) {
+            print "First string is a substring of second string\n" if $debug;
             $substring = 1;
         }
-        elsif ( $string2 =~ /^$string1/ ) {
-            print "Second string is a substring of first anchor\n" if $debug;
+        elsif ( $string2 =~ /$string1/ ) {
+            print "Second string is a substring of first string\n" if $debug;
             $substring = 1;
         }
     }
@@ -1032,9 +1044,9 @@ sub Check_Link_Anchor_Alt_Title_Check {
                 #
                 if ( $string1 ne $string2 ) {
                     #
-                    # Is one string a leading substring of the other ?
+                    # Is one string a substring of the other ?
                     #
-                    if ( ! Is_Leading_Substring($string1, $string2) ) {
+                    if ( ! Is_Substring($string1, $string2) ) {
                         $different = 1;
                         $difference =
                           String_Value("Anchor values do not match for link to")
@@ -1055,9 +1067,9 @@ sub Check_Link_Anchor_Alt_Title_Check {
                     $string2 = Prepare_String_For_Comparison($title);
                     if ( $string1 ne $string2 ) {
                         #
-                        # Is one string a leading substring of the other ?
+                        # Is one string a substring of the other ?
                         #
-                        if ( ! Is_Leading_Substring($string1, $string2) ) {
+                        if ( ! Is_Substring($string1, $string2) ) {
                             $different = 1;
                             $difference =
                               String_Value("Title values do not match for link to")
@@ -1079,9 +1091,9 @@ sub Check_Link_Anchor_Alt_Title_Check {
                     $string2 = Prepare_String_For_Comparison($alt);
                     if ( $string1 ne $string2 ) {
                         #
-                        # Is one string a leading substring of the other ?
+                        # Is one string a substring of the other ?
                         #
-                        if ( ! Is_Leading_Substring($string1, $string2) ) {
+                        if ( ! Is_Substring($string1, $string2) ) {
                             $different = 1;
                             $difference =
                               String_Value("Alt values do not match for link to")
@@ -2548,6 +2560,48 @@ sub TQA_Check_Exempt {
     #
     print "Exemption = $is_exempt\n" if $debug;
     return($is_exempt);
+}
+
+#***********************************************************************
+#
+# Name: TQA_Check_Need_Validation
+#
+# Parameters: profile - testcase profile
+#
+# Description:
+#
+#   This function checks to see if markup validation results
+# are needed for the accessibility testcase profile specified.
+#
+#***********************************************************************
+sub TQA_Check_Need_Validation {
+    my ($profile) = @_;
+
+    my ($tqa_check_profile);
+    my ($need_validation) = 0;
+
+    #
+    # Is this a valid profile ?
+    #
+    print "TQA_Check_Need_Validation: profile = $profile\n" if $debug;
+    if ( defined($tqa_check_profile_map{$profile}) ) {
+        #
+        # Does the profile include the testcase id related to markup
+        # validation ?
+        #
+        $tqa_check_profile = $tqa_check_profile_map{$profile};
+        if ( defined($$tqa_check_profile{"WCAG_2.0-G134"}) ) {
+            $need_validation = 1;
+        }
+    }
+    else {
+        print "Invalid testcase profile \"$profile\" passed to TQA_Check_Need_Validation\n";
+    }
+
+    #
+    # Return flag indicating whether or not validation is required
+    #
+    return($need_validation);
 }
 
 #***********************************************************************
