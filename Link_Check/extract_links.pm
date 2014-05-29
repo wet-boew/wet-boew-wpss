@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6618 $
+# $Revision: 6630 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2014-04-08 11:22:14 -0400 (Tue, 08 Apr 2014) $
+# $Date: 2014-04-25 13:18:27 -0400 (Fri, 25 Apr 2014) $
 #
 # Description:
 #
@@ -82,11 +82,11 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($current_anchor_reference, @content_lines, $link_object_reference);
 my ($current_lang, @lang_stack, $current_resp_base, $have_text_handler);
 my ($content_section_handler, %subsection_links, @last_link_list);
-my (@lang_stack, @tag_lang_stack, $last_lang_tag, $in_head_section);
+my (@tag_lang_stack, $last_lang_tag, $in_head_section);
 my ($last_heading_text, $current_list_level, @inside_list_item);
 my ($have_text_handler, @text_handler_tag_list, @text_handler_text_list);
 my ($current_text_handler_tag, $inside_anchor, $last_image_link);
-my ($inside_figure, $have_figcaption, $figcaption_text);
+my ($inside_figure, $have_figcaption, $figcaption_text, $inside_noscript);
 my ($image_in_figure_with_no_alt, @object_reference_list);
 my ($last_url) = "";
 my (%html_tags_with_no_end_tag) = (
@@ -246,6 +246,7 @@ sub Initialize_Link_Parser_Variables {
     $current_list_level = -1;
     $current_text_handler_tag = "";
     $inside_anchor = 0;
+    $inside_noscript = 0;
     undef @text_handler_tag_list;
     @object_reference_list = ();
 
@@ -669,6 +670,7 @@ sub Anchor_Tag_Handler {
                                                          $lang, $line, $column,
                                                          $content_lines[$line - 1]);
             $current_anchor_reference->attr(%attr);
+            $current_anchor_reference->noscript($inside_noscript);
             push (@$link_object_reference, $current_anchor_reference);
             print " Anchor at $line, $column href = $href\n" if $debug;
 
@@ -753,7 +755,7 @@ sub Frame_Tag_Handler {
         #
         # Do we have a lang attribute
         #
-        $lang = Get_Lang("frame", %attr);
+        $lang = Get_Lang($tag, %attr);
     
         #
         # Save link details.
@@ -762,6 +764,7 @@ sub Frame_Tag_Handler {
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
+        $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
         print " Frame at $line, $column src = $src\n" if $debug;
 
@@ -835,6 +838,7 @@ sub Embed_Tag_Handler {
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
+        $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
         print " Embed at $line, $column src = $src\n" if $debug;
 
@@ -898,6 +902,7 @@ sub Area_Tag_Handler {
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
+        $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
         print " Area at $line, $column href = $href\n" if $debug;
 
@@ -954,6 +959,7 @@ sub Object_Tag_Handler {
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
+        $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
         print " Object at $line, $column data = $href\n" if $debug;
 
@@ -1068,6 +1074,7 @@ sub Link_Tag_Handler {
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
+        $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
         print " Link at $line, $column href = $href\n" if $debug;
 
@@ -1132,6 +1139,7 @@ sub Longdesc_Attribute_Handler {
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
+        $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
         print " Longdesc at $line, $column href = $href\n" if $debug;
 
@@ -1182,6 +1190,7 @@ sub Cite_Attribute_Handler {
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
+        $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
         print " cite at $line, $column href = $href\n" if $debug;
 
@@ -1197,7 +1206,6 @@ sub Cite_Attribute_Handler {
 # Name: Image_Tag_Handler
 #
 # Parameters: self - reference to this parser
-#             language - url language
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -1232,6 +1240,7 @@ sub Image_Tag_Handler {
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
+        $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
         print " Image at $line, $column src = $src\n" if $debug;
 
@@ -1297,7 +1306,6 @@ sub Image_Tag_Handler {
 # Name: Input_Tag_Handler
 #
 # Parameters: self - reference to this parser
-#             language - url language
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -1336,6 +1344,7 @@ sub Input_Tag_Handler {
                                      $line, $column,
                                      $content_lines[$line - 1]);
             $link->attr(%attr);
+            $link->noscript($inside_noscript);
             push (@$link_object_reference, $link);
             print " Image in input at $line, $column src = $src\n" if $debug;
 
@@ -1363,10 +1372,59 @@ sub Input_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Noscript_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the noscript tag.  It sets a flag to indicate
+# that we are inside a <noscript> .. </noscript> tag pair.
+#
+#***********************************************************************
+sub Noscript_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # We are inside a noscript section
+    #
+    $inside_noscript = 1;
+}
+
+#***********************************************************************
+#
+# Name: End_Noscript_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles the end noscript tag.  It resets a flag to indicate
+# that we are no longer inside a <noscript> .. </noscript> tag pair.
+#
+#***********************************************************************
+sub End_Noscript_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # We are no longer inside a noscript section
+    #
+    $inside_noscript = 0;
+}
+
+
+#***********************************************************************
+#
 # Name: Script_Tag_Handler
 #
 # Parameters: self - reference to this parser
-#             language - url language
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -1401,6 +1459,7 @@ sub Script_Tag_Handler {
                                  $line, $column,
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
+        $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
         print " Script at $line, $column src = $src\n" if $debug;
 
@@ -1430,7 +1489,6 @@ sub Script_Tag_Handler {
 # Name: Span_Tag_Handler
 #
 # Parameters: self - reference to this parser
-#             language - url language
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -2081,6 +2139,12 @@ sub Start_Handler {
         Link_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
     #
+    # Check noscript tag
+    #
+    elsif ( $tagname eq "noscript" ) {
+        Noscript_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
     # Check object tag
     #
     elsif ( $tagname eq "object" ) {
@@ -2234,6 +2298,12 @@ sub End_Handler {
         End_Li_Tag_Handler( $self, $line, $column, $text );
     }
     #
+    # Check noscript tags
+    #
+    elsif ( $tagname eq "noscript" ) {
+        End_Noscript_Tag_Handler($self, $line, $column, $text);
+    }
+    #
     # Check object tags
     #
     elsif ( $tagname eq "object" ) {
@@ -2336,7 +2406,7 @@ sub HTML_Extract_Links {
     #
     # Return array of link objects
     #
-    print "Found " . @link_objects . " links on HTML content\n" if $debug;
+    print "Found " . @link_objects . " links in HTML content\n" if $debug;
     return(@link_objects);
 }
 
@@ -2360,8 +2430,8 @@ sub Extract_Links {
     my ( $url, $base, $lang, $mime_type, $content ) = @_;
 
     my (@links, $link, $anchor_list, $extracted_content, @other_links);
-    my ($modified_content, $subsection_name, $link_addr);
-    my (%saved_subsection_links);
+    my ($modified_content, $subsection_name, $link_addr, $orig_link);
+    my (%saved_subsection_links, $mod_link, $i);
 
     #
     # Did we already extract links for this URL ?
@@ -2398,8 +2468,11 @@ sub Extract_Links {
             #
             $modified_content = $content;
             $modified_content =~ s/<!--\[if[^>]*>//g;
+            $modified_content =~ s/<!--if[^>]*>//g;
             $modified_content =~ s/<!--<!\[endif\]-->//g;
+            $modified_content =~ s/<!--<!endif-->//g;
             $modified_content =~ s/<!\[endif\]-->//g;
+            $modified_content =~ s/<!endif-->//g;
             $modified_content =~ s/<!-->//g;
 
             #
@@ -2417,6 +2490,52 @@ sub Extract_Links {
             #
             if ( @other_links > @links ) {
                 print "Use links from modified content\n" if $debug;
+                
+                #
+                # Set the modified_content flag for the extra links found
+                # in the modified content.
+                #
+                $i = 0;
+                foreach $mod_link (@other_links) {
+                    print "Check modified content link href = " .
+                          $mod_link->abs_url . "\n" if $debug;
+
+                    #
+                    # Do we have any links left in the original link list ?
+                    #
+                    if ( $i < @links ) {
+                        $orig_link = $links[$i];
+                        
+                        #
+                        # Do the href values match ?
+                        #
+                        if ( $mod_link->abs_url eq $orig_link->abs_url ) {
+                            #
+                            # Matching URLs, increment the counter for the original list of links
+                            #
+                            print "Found matching URL in original link list at position $i\n" if $debug;
+                            $i++;
+                        }
+                        else {
+                            #
+                            # Modified content link found
+                            #
+                            print "Modified content link found before original link list link # $i\n" if $debug;
+                            $mod_link->modified_content(1);
+                        }
+                    }
+                    else {
+                        #
+                        # Link from modified content
+                        #
+                        print "No more original list of links, set modified content flag\n" if $debug;
+                        $mod_link->modified_content(1);
+                    }
+                }
+                
+                #
+                # Save modified content list of links
+                #
                 @links = @other_links;
             }
             else {
