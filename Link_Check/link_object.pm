@@ -2,9 +2,9 @@
 #
 # Name: link_object.pm
 #
-# $Revision: 6608 $
+# $Revision: 6629 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_object.pm $
-# $Date: 2014-04-02 09:44:35 -0400 (Wed, 02 Apr 2014) $
+# $Date: 2014-04-25 13:17:09 -0400 (Fri, 25 Apr 2014) $
 #
 # Description:
 #
@@ -36,6 +36,8 @@
 #    list_heading - get/set the list_heading attribute
 #    message - get/set the testcase message
 #    mime_type - get/set mime-type value
+#    modified_content - get/set the modified content value
+#    noscript - get/set the noscript value
 #    query - get/set the query portion of the URL
 #    referer_url - get/set the referer URL
 #    source_line - get/set source value
@@ -173,6 +175,8 @@ sub new {
     $self->{"line_no"} = $line_no;
     $self->{"list_heading"} = "";
     $self->{"message"} = "";
+    $self->{"modified_content"} = 0;
+    $self->{"noscript"} = 0;
 
     #
     # Extract components of the URL, we save some pieces seperately
@@ -811,6 +815,64 @@ sub mime_type {
 
 #********************************************************
 #
+# Name: modified_content
+#
+# Parameters: self - class reference
+#             value - modified_content value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the modified_content
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub modified_content {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"modified_content"} = $value;
+    }
+    else {
+        return($self->{"modified_content"});
+    }
+}
+
+#********************************************************
+#
+# Name: noscript
+#
+# Parameters: self - class reference
+#             value - noscript value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the noscript
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub noscript {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"noscript"} = $value;
+    }
+    else {
+        return($self->{"noscript"});
+    }
+}
+
+#********************************************************
+#
 # Name: query
 #
 # Parameters: self - class reference
@@ -821,7 +883,7 @@ sub mime_type {
 #   This function either sets or returns the query
 # attribute of the link object. The query of an URL is the portion
 # following the file name, either an anchor reference or the URL
-# argument. If a value is supplied, it is saved in the object. 
+# argument. If a value is supplied, it is saved in the object.
 # If no value is supplied, the current value is returned.
 #
 #********************************************************
