@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 6616 $
+# $Revision: 6627 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2014-04-07 14:04:33 -0400 (Mon, 07 Apr 2014) $
+# $Date: 2014-04-25 13:15:07 -0400 (Fri, 25 Apr 2014) $
 #
 # Description:
 #
@@ -124,7 +124,7 @@ my ($domain_e, $domain_f, $content_callback_function, @site_ignore_patterns);
 my ($http_response_callback_function, $login_callback_function);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef, @login_url_patterns);
 my ($login_form_name, $http_401_callback_function, %http_401_credentials);
-my ($login_domain_e, $login_domain_f);
+my ($login_domain_e, $login_domain_f, $accepted_content_encodings);
 my (%domain_prod_dev_map, %domain_dev_prod_map);
 my ($login_interstitial_count, $logout_interstitial_count, $user_agent_hostname);
 my ($charset);
@@ -814,7 +814,13 @@ sub Create_User_Agent {
     #
     $cookie_jar = HTTP::Cookies->new;
     $ua->cookie_jar( $cookie_jar );
-    #print "HTTP::Message::decodable " . HTTP::Message::decodable . "\n" if $debug;
+
+    #
+    # Get list of acceptable encodings that this Perl installation
+    # can accept.
+    #
+    eval {$accepted_content_encodings = HTTP::Message::decodable; };
+    print "HTTP::Message::decodable = $accepted_content_encodings\n" if $debug;
 
     #
     # Allow POST methods to redirect. This is used if there is a login
@@ -1285,9 +1291,16 @@ sub Crawler_Get_HTTP_Response {
         #
         print "Crawler_Get_HTTP_Response GET url = $url\n" if $debug;
         $req = new HTTP::Request( GET => $url );
-        $req->header(Accept => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        $req->header(Pragma => "no-cache");
+        $req->header("Accept" => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        $req->header("Pragma" => "no-cache");
         $req->header("Cache-Control" => "no-cache");
+
+        #
+        # Add accepted content encodings
+        #
+        if ( defined($accepted_content_encodings) ) {
+            $req->header("Accept-Encoding" => $accepted_content_encodings);
+        }
 
         #
         # Set referer if we have one.
