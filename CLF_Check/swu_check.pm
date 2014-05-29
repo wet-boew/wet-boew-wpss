@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 6617 $
+# $Revision: 6649 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2014-04-07 14:06:24 -0400 (Mon, 07 Apr 2014) $
+# $Date: 2014-05-09 13:26:40 -0400 (Fri, 09 May 2014) $
 #
 # Description:
 #
@@ -6683,7 +6683,7 @@ sub Get_WET_Version {
             #
             # Get the revision number from the content (if there is one)
             #
-            $content = $resp->content;
+            $content = Crawler_Decode_Content($resp);
             foreach $line (split(/\n/, $content)) {
                 #
                 # Look for Version: ... Build line
