@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 6601 $
+# $Revision: 6650 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2014-03-28 13:18:12 -0400 (Fri, 28 Mar 2014) $
+# $Date: 2014-05-16 12:07:25 -0400 (Fri, 16 May 2014) $
 #
 # Description:
 #
@@ -100,6 +100,8 @@ my (%testcase_description_en) = (
 "WCAG_2.0-ARIA13", "1.3.1 ARIA13: Using aria-labelledby to name regions and landmarks",
 "WCAG_2.0-ARIA15", "1.1.1 ARIA15: Using aria-describedby to provide descriptions of images",
 "WCAG_2.0-ARIA16", "1.3.1, 4.1.2 ARIA16: Using aria-labelledby to provide a name for user interface controls",
+"WCAG_2.0-ARIA17", "1.3.1, 3.3.2 ARIA17: Using grouping roles to identify related form controls",
+"WCAG_2.0-ARIA18", "3.3.1, 3.3.3 ARIA18: Using aria-alertdialog to Identify Errors",
 # C12: Using percent for font sizes 
 #      Failures of this technique are reported under technique G142
 # C13: Using named font sizes
@@ -147,6 +149,7 @@ my (%testcase_description_en) = (
 #
 "WCAG_2.0-F87", "1.3.1 F87: Failure of Success Criterion 1.3.1 due to inserting non-decorative content by using :before and :after pseudo-elements and the 'content' property in CSS",
 "WCAG_2.0-F89", "2.4.4, 2.4.9, 4.1.2 F89: Failure of Success Criteria 2.4.4, 2.4.9 and 4.1.2 due to using null alt on an image where the image is the only content in a link",
+"WCAG_2.0-F92", "1.3.1 F92: Failure of Success Criterion 1.3.1 due to the use of role presentation on content which conveys semantic information",
 #
 # G4: Allowing the content to be paused and restarted from where it was paused
 #     Failures of this technique are reported under techniques F16
@@ -259,6 +262,8 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-ARIA13", "1.3.1 ARIA13: Using aria-labelledby to name regions and landmarks",
 "WCAG_2.0-ARIA15", "1.1.1 ARIA15: Using aria-describedby to provide descriptions of images",
 "WCAG_2.0-ARIA16", "1.3.1, 4.1.2 ARIA16: Using aria-labelledby to provide a name for user interface controls",
+"WCAG_2.0-ARIA17", "1.3.1, 3.3.2 ARIA17: Using grouping roles to identify related form controls",
+"WCAG_2.0-ARIA18", "3.3.1, 3.3.3 ARIA18: Using aria-alertdialog to Identify Errors",
 # C12: Using percent for font sizes 
 #      Failures of this technique are reported under technique G142
 # C13: Using named font sizes
@@ -306,6 +311,7 @@ my (%testcase_description_fr) = (
 #
 "WCAG_2.0-F87", "1.3.1 F87: Échec du critère de succès 1.3.1 consistant à utiliser les pseudo-éléments :before et :after et la propriété content en CSS",
 "WCAG_2.0-F89", "2.4.4, 2.4.9, 4.1.2 F89: Échec du critère de succès 2.4.4, 2.4.9 et 4.1.2 consistant à utiliser un attribut alt vide pour une image qui est le seul contenu d'un lien",
+"WCAG_2.0-F92", "1.3.1 F92: Failure of Success Criterion 1.3.1 due to the use of role presentation on content which conveys semantic information",
 #
 # G4: Allowing the content to be paused and restarted from where it was paused
 #     Failures of this technique are reported under techniques F16
@@ -423,6 +429,8 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-ARIA13", "1.3.1",
 "WCAG_2.0-ARIA15", "1.1.1",
 "WCAG_2.0-ARIA16", "1.3.1, 4.1.2",
+"WCAG_2.0-ARIA17", "1.3.1, 3.3.2",
+"WCAG_2.0-ARIA18", "3.3.1, 3.3.3",
 "WCAG_2.0-C28", "1.4.4",
 "WCAG_2.0-F2", "1.3.1",
 "WCAG_2.0-F3", "1.1.1",
@@ -449,6 +457,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-F77", "4.1.1",
 "WCAG_2.0-F87", "1.3.1",
 "WCAG_2.0-F89", "2.4.4, 4.1.2",
+"WCAG_2.0-F92", "1.3.1",
 "WCAG_2.0-G18", "1.4.3",
 "WCAG_2.0-G19", "2.3.1",
 #"WCAG_2.0-G94", "1.1.1",
