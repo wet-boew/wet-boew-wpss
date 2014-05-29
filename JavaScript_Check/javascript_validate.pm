@@ -2,9 +2,9 @@
 #
 # Name:   javascript_validate.pm
 #
-# $Revision: 5465 $
+# $Revision: 6636 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/JavaScript_Check/Tools/javascript_validate.pm $
-# $Date: 2011-09-08 10:37:22 -0400 (Thu, 08 Sep 2011) $
+# $Date: 2014-04-30 08:07:30 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -51,7 +51,7 @@ package javascript_validate;
 use strict;
 use File::Basename;
 use HTML::Parser;
-
+use File::Temp qw/ tempfile tempdir /;
 
 #***********************************************************************
 #
@@ -158,7 +158,7 @@ sub JavaScript_Validate_Content {
     my ($this_url, $profile, $content) = @_;
 
     my ($validator_output, $line, $filename, $cmnd);
-    my (@results_list, $result_object);
+    my (@results_list, $result_object, $fh);
 
     #
     # Do we have any content ?
@@ -167,11 +167,15 @@ sub JavaScript_Validate_Content {
         #
         # Write the content to a temporary file
         #
-        $filename = "javascript_content$$.js";
-        unlink($filename);
-        open(HTML_FILE, ">$filename");
-        print HTML_FILE $content;
-        close(HTML_FILE);
+        print "Create temporary JS file\n" if $debug;
+        ($fh, $filename) = tempfile( SUFFIX => '.js');
+        if ( ! defined($fh) ) {
+            print "Error: Failed to create temporary file in JavaScript_Validate_Content\n";
+            return(@results_list);
+        }
+        binmode $fh;
+        print $fh $content;
+        close($fh);
 
         #
         # Do we have a valid profile ?
@@ -204,7 +208,6 @@ sub JavaScript_Validate_Content {
                                                     $validator_output,
                                                     $this_url);
             push (@results_list, $result_object);
-
         }
 
         #

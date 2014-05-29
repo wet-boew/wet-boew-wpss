@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 6598 $
+# $Revision: 6638 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2014-03-28 13:14:26 -0400 (Fri, 28 Mar 2014) $
+# $Date: 2014-04-30 08:08:45 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -54,6 +54,7 @@ use strict;
 use URI::URL;
 use File::Basename;
 use Text::CSV;
+use File::Temp qw/ tempfile tempdir /;
 
 #***********************************************************************
 #
@@ -488,16 +489,21 @@ sub Open_Data_CSV_Check_Data {
         $content =~ s/^\xEF\xBB\xBF//;
 
         #
-        # Create a temporary file for the PDF content.
+        # Create a temporary file for the CSV content.
         #
-        $csv_file_name = "csv_text$$.csv";
-        unlink($csv_file_name);
-        print "Create temporary CSV file $csv_file_name\n" if $debug;
-        open($csv_file, ">$csv_file_name") ||
-            die "Open_Data_CSV_Check_Data: Failed to open $csv_file_name for writing\n";
+        print "Create temporary CSV file\n" if $debug;
+        ($csv_file, $csv_file_name) = tempfile( SUFFIX => '.css');
+        if ( ! defined($csv_file) ) {
+            print "Error: Failed to create temporary file in Open_Data_CSV_Check_Data\n";
+            return(@tqa_results_list);
+        }
         binmode $csv_file;
         print $csv_file $content;
         close($csv_file);
+
+        #
+        # Open the temporary file for reading.
+        #
         open($csv_file, "$csv_file_name") ||
             die "Open_Data_CSV_Check_Data: Failed to open $csv_file_name for reading\n";
 

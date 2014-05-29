@@ -2,9 +2,9 @@
 #
 # Name: pdf_extract_links.pm	
 #
-# $Revision: 6314 $
+# $Revision: 6648 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/PDF_Check/Tools/pdf_extract_links.pm $
-# $Date: 2013-06-26 11:53:02 -0400 (Wed, 26 Jun 2013) $
+# $Date: 2014-05-09 13:24:17 -0400 (Fri, 09 May 2014) $
 #
 # Description:
 #
@@ -50,6 +50,8 @@ use strict;
 use warnings;
 use File::Basename;
 use URI::URL;
+use File::Temp qw/ tempfile tempdir /;
+
 
 #***********************************************************************
 #
@@ -115,7 +117,7 @@ sub PDF_Extract_Links {
     my ( $url, $base, $language, $content ) = @_;
 
     my ($pdf_file_name, $html_file_name, $link, $href, $rc);
-    my (@link_objects, $abs_url);
+    my (@link_objects, $abs_url, $fh);
     my (@pdf_link_objects) = ();
 
     #
@@ -127,15 +129,21 @@ sub PDF_Extract_Links {
         #
         # Create temporary file for PDF content.
         #
-        $pdf_file_name = "pdf_text$$.pdf";
-        $html_file_name = "pdf_text$$.html";
-        unlink($pdf_file_name, $html_file_name);
-        print "Create temporary PDF file $pdf_file_name\n" if $debug;
-        open(PDF, ">$pdf_file_name") ||
-            die "PDF_Extract_Links: Failed to open $pdf_file_name for writing\n";
-        binmode PDF;
-        print PDF $content;
-        close(PDF);
+        ($fh, $pdf_file_name) = tempfile( SUFFIX => '.pdf');
+        if ( ! defined($fh) ) {
+            print "Error: Failed to create temporary file in PDF_Extract_Links\n";
+            return(@pdf_link_objects);
+        }
+        binmode $fh;
+        print $fh $content;
+        close($fh);
+
+        #
+        # Generate HTML file name from PDF file name
+        #
+        $html_file_name = $pdf_file_name;
+        $html_file_name =~ s/\.pdf$/.html/g;
+        unlink($html_file_name);
 
         #
         # Convert the PDF file to an HTML file
@@ -186,7 +194,7 @@ sub PDF_Extract_Links {
             # file name, it is a valid link
             #
             $href = $link->href;
-            if ( ($href =~ /^$html_file_name.*/) || ($href =~ /^\s*$/) ) {
+            if ( (index($href, $html_file_name) == 0) || ($href =~ /^\s*$/) ) {
                 #
                 # Ignore this link.
                 #

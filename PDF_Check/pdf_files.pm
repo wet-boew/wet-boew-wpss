@@ -2,9 +2,9 @@
 #
 # Name: pdf_files.pm
 #
-# $Revision: 6587 $
+# $Revision: 6637 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/PDF_Check/Tools/pdf_files.pm $
-# $Date: 2014-03-12 15:33:00 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-04-30 08:08:12 -0400 (Wed, 30 Apr 2014) $
 #
 # Description
 #
@@ -57,6 +57,7 @@ package pdf_files;
 use strict;
 use warnings;
 use File::Basename;
+use File::Temp qw/ tempfile tempdir /;
 
 #***********************************************************************
 #
@@ -367,7 +368,7 @@ sub PDF_Files_Get_Properties {
 sub PDF_Files_Get_Properties_From_Content {
     my ($content) = @_;
 
-    my ($pdf_file_name, %properties, $status);
+    my ($pdf_file_name, %properties, $status, $fh);
 
     #
     # Did we get any content ?
@@ -377,16 +378,14 @@ sub PDF_Files_Get_Properties_From_Content {
         #
         # Create temporary file for PDF content.
         #
-        $pdf_file_name = "pdf_text$$.pdf";
-        unlink($pdf_file_name);
-        print "Create temporary PDF file $pdf_file_name\n" if $debug;
-        if ( ! open(PDF, ">$pdf_file_name") ) {
-            print "Failed to open $pdf_file_name for writing\n";
+        ($fh, $pdf_file_name) = tempfile( SUFFIX => '.pdf');
+        if ( ! defined($fh) ) {
+            print "Error: Failed to create temporary file in PDF_Files_Get_Properties_From_Content\n";
             return(0, %properties);
         }
-        binmode PDF;
-        print PDF $content;
-        close(PDF);
+        binmode $fh;
+        print $fh $content;
+        close($fh);
 
         #
         # Get PDF file peroperties
@@ -472,7 +471,7 @@ sub PDF_Files_PDF_File_To_Text {
 sub PDF_Files_PDF_Content_To_Text {
     my ($content) = @_;
 
-    my ($text, $pdf_file_name);
+    my ($text, $pdf_file_name, $fh);
 
     #
     # Check content length
@@ -485,16 +484,14 @@ sub PDF_Files_PDF_Content_To_Text {
     #
     # Create temporary file for PDF content.
     #
-    $pdf_file_name = "pdf_text$$.pdf";
-    unlink($pdf_file_name);
-    print "Create temporary PDF file $pdf_file_name\n" if $debug;
-    if ( ! open(PDF, ">$pdf_file_name") ) {
-        print "PDF_Files_PDF_Content_To_Text: Failed to open $pdf_file_name for writing\n";
+    ($fh, $pdf_file_name) = tempfile( SUFFIX => '.pdf');
+    if ( ! defined($fh) ) {
+        print "Error: Failed to create temporary file in PDF_Files_PDF_Content_To_Text\n";
         return("");
     }
-    binmode PDF;
-    print PDF $content;
-    close(PDF);
+    binmode $fh;
+    print $fh $content;
+    close($fh);
 
     #
     # Convert PDF file into text

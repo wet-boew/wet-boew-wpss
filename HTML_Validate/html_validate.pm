@@ -2,9 +2,9 @@
 #
 # Name:   html_validate.pm
 #
-# $Revision: 5963 $
+# $Revision: 6635 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/html_validate.pm $
-# $Date: 2012-08-07 11:21:02 -0400 (Tue, 07 Aug 2012) $
+# $Date: 2014-04-30 08:06:35 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -50,7 +50,7 @@ package html_validate;
 use strict;
 use File::Basename;
 use HTML::Parser;
-
+use File::Temp qw/ tempfile tempdir /;
 
 #***********************************************************************
 #
@@ -204,17 +204,20 @@ sub Validate_XHTML_Content {
 
     my ($status) = $VALID_HTML;
     my ($validator_output, $line, $html_file_name, @results_list);
-    my ($result_object);
+    my ($result_object, $fh);
 
     #
     # Write the content to a temporary file
     #
-    $html_file_name = "html_content$$.htm";
-    unlink($html_file_name);
-    open(HTML_FILE, ">$html_file_name");
-    binmode HTML_FILE;
-    print HTML_FILE $content;
-    close(HTML_FILE);
+    print "Validate_XHTML_Content create temporary HTML file\n" if $debug;
+    ($fh, $html_file_name) = tempfile( SUFFIX => '.htm');
+    if ( ! defined($fh) ) {
+        print "Error: Failed to create temporary file in Validate_XHTML_Content\n";
+        return(@results_list);
+    }
+    binmode $fh;
+    print $fh $content;
+    close($fh);
 
     #
     # Do we have a charset ?
@@ -253,7 +256,6 @@ sub Validate_XHTML_Content {
     print "Validate_XHTML_Content status = $status\n" if $debug;
     return(@results_list);
 }
-
 
 #***********************************************************************
 #

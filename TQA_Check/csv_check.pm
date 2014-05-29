@@ -2,9 +2,9 @@
 #
 # Name:   csv_check.pm
 #
-# $Revision: 6588 $
+# $Revision: 6639 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/csv_check.pm $
-# $Date: 2014-03-12 15:33:51 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-04-30 08:09:47 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -55,6 +55,7 @@ use strict;
 use URI::URL;
 use File::Basename;
 use Text::CSV;
+use File::Temp qw/ tempfile tempdir /;
 
 #***********************************************************************
 #
@@ -425,16 +426,21 @@ sub CSV_Check {
     }
     else {
         #
-        # Create a temporary file for the PDF content.
+        # Create a temporary file for the CSV content.
         #
-        $csv_file_name = "csv_text$$.csv";
-        unlink($csv_file_name);
-        print "Create temporary CSV file $csv_file_name\n" if $debug;
-        open($csv_file, ">$csv_file_name") ||
-            die "CSV_Check: Failed to open $csv_file_name for writing\n";
+        print "Create temporary CSV file\n" if $debug;
+        ($csv_file, $csv_file_name) = tempfile( SUFFIX => '.css');
+        if ( ! defined($csv_file) ) {
+            print "Error: Failed to create temporary file in CSV_Check\n";
+            return(@tqa_results_list);
+        }
         binmode $csv_file;
         print $csv_file $content;
         close($csv_file);
+
+        #
+        # Open the temporary file for reading.
+        #
         open($csv_file, "$csv_file_name") ||
             die "CSV_Check: Failed to open $csv_file_name for reading\n";
 

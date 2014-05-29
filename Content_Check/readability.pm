@@ -2,9 +2,9 @@
 #
 # Name:   readability.pm
 #
-# $Revision: 5461 $
+# $Revision: 6633 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/readability.pm $
-# $Date: 2011-09-08 10:35:23 -0400 (Thu, 08 Sep 2011) $
+# $Date: 2014-04-30 08:05:30 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -74,6 +74,8 @@ use strict;
 use HTML::Parser;
 use File::Basename;
 use Lingua::EN::Fathom;
+use File::Temp qw/ tempfile tempdir /;
+
 
 #***********************************************************************
 #
@@ -149,7 +151,7 @@ sub Set_Readability_Debug {
 sub Analyse_Text {
     my ($content) = @_;
 
-    my ($temp_file_name);
+    my ($temp_file_name, $fh);
 
     #
     # Get rid of non-ASCII characters
@@ -159,12 +161,14 @@ sub Analyse_Text {
     #
     # Create temporary file for content.
     #
-    print "Text to analyse = \n$content\n" if $debug;
-    $temp_file_name = "temp_txt$$.txt";
-    unlink($temp_file_name);
-    open(TXT_FILE, "> $temp_file_name");
-    print TXT_FILE $content;
-    close(TXT_FILE);
+    ($fh, $pdf_file_name) = tempfile( SUFFIX => '.txt');
+    if ( ! defined($fh) ) {
+        print "Error: Failed to create temporary file in Analyse_Text\n";
+        return;
+    }
+    binmode $fh;
+    print $fh $content;
+    close($fh);
 
     #
     # Do we need to create the Lingua::EN::Fathom handler ?

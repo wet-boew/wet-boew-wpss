@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 6581 $
+# $Revision: 6632 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2014-03-12 15:21:11 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-04-30 08:05:00 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -59,6 +59,8 @@ use URI::URL;
 use File::Basename;
 use Digest::MD5 qw(md5_hex);
 use Encode;
+use File::Temp qw/ tempfile tempdir /;
+
 
 #***********************************************************************
 #
@@ -1863,17 +1865,19 @@ sub TP_PW_Check {
 sub Checksum {
     my ($content) = @_;
 
-    my ($filename, $checksum);
+    my ($filename, $checksum, $fh);
 
     #
     # Write the content to a file
     #
-    $filename = "checksum.$$";
-    unlink($filename);
-    open(FH, ">$filename");
-    binmode(FH);
-    print FH $content;
-    close(FH);
+    ($fh, $filename) = tempfile();
+    if ( ! defined($fh) ) {
+        print "Error: Failed to create temporary file in Checksum\n";
+        return($checksum);
+    }
+    binmode $fh;
+    print $fh $content;
+    close($fh);
 
     #
     # Open the file for reading, read the content and generate checksum
@@ -2314,6 +2318,9 @@ sub Verify_Template_Version {
             chop($local_version);
             $local_version =~ s/\r$//g;
             $local_version =~ s/\n$//g;
+            if ( length($local_version) > 100 ) {
+                 $local_version = substr($local_version, 0, 100);
+            }
 
             #
             # Get the repository version information.

@@ -2,9 +2,9 @@
 #
 # Name:   css_validate.pm
 #
-# $Revision: 5883 $
+# $Revision: 6634 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CSS_Validate/Tools/css_validate.pm $
-# $Date: 2012-06-13 16:49:52 -0400 (Wed, 13 Jun 2012) $
+# $Date: 2014-04-30 08:06:03 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -52,6 +52,7 @@ package css_validate;
 use strict;
 use File::Basename;
 use HTML::Parser;
+use File::Temp qw/ tempfile tempdir /;
 
 #***********************************************************************
 #
@@ -153,18 +154,22 @@ sub CSS_Validate_Content {
     my ($this_url, $content) = @_;
 
     my ($validator_output, $format, $temp_file_name);
-    my (@results_list, $result_object);
+    my (@results_list, $result_object, $fh);
     my ($in_error) = 0;
     my ($errors) = "";
 
     #
     # Create temporary file for CSS content.
     #
-    $temp_file_name = "temp_css$$.css";
-    unlink($temp_file_name);
-    open(CSS_FILE, "> $temp_file_name");
-    print CSS_FILE $content;
-    close(CSS_FILE);
+    print "CSS_Validate_Content create temporary css file\n" if $debug;
+    ($fh, $temp_file_name) = tempfile( SUFFIX => '.css');
+    if ( ! defined($fh) ) {
+        print "Error: Failed to create temporary file in CSS_Validate_Content\n";
+        return(@results_list);
+    }
+    binmode $fh;
+    print $fh $content;
+    close($fh);
 
     #
     # Set tool output language

@@ -2,9 +2,9 @@
 #
 # Name:   pdf_check.pm
 #
-# $Revision: 6590 $
+# $Revision: 6647 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/pdf_check.pm $
-# $Date: 2014-03-12 15:35:02 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-05-06 11:43:30 -0400 (Tue, 06 May 2014) $
 #
 # Description:
 #
@@ -54,6 +54,7 @@ package pdf_check;
 use strict;
 use File::Basename;
 use Image::ExifTool ':Public';
+use File::Temp qw/ tempfile tempdir /;
 
 #***********************************************************************
 #
@@ -550,7 +551,7 @@ sub Run_pdfchecker {
     my ($this_url, $language, $profile, $content) = @_;
 
     my ($is_protected, %image_alt_map, %image_actualtext_map, $title);
-    my ($output, $line, $filler, $page_count, $page_number);
+    my ($output, $line, $filler, $page_count, $page_number, $fh);
     my ($location, $sublocation, $value, $pdf_file, $title, $num_tables);
     my $is_protected = 0;
 
@@ -558,14 +559,14 @@ sub Run_pdfchecker {
     # Create a temporary file for the PDF content.
     #
     print "Run_pdfchecker $this_url\n" if $debug;
-    $pdf_file = "pdf_text$$.pdf";
-    unlink($pdf_file);
-    print "Create temporary PDF file $pdf_file\n" if $debug;
-    open(PDF, ">$pdf_file") ||
-        die "Run_pdfchecker: Failed to open $pdf_file for writing\n";
-    binmode PDF;
-    print PDF $content;
-    close(PDF);
+    ($fh, $pdf_file) = tempfile( SUFFIX => '.pdf');
+    if ( ! defined($fh) ) {
+        print "Error: Failed to create temporary file in Run_pdfchecker\n";
+        return;
+    }
+    binmode $fh;
+    print $fh $content;
+    close($fh);
 
     #
     # Run pdfchecker and capture the output
@@ -831,7 +832,6 @@ sub Run_pdfchecker {
                 $pdf_features{"pdf_table"} = $num_tables;
             }
         }
-
     }
 }
 
