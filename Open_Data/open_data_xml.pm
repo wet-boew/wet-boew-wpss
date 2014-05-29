@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 6496 $
+# $Revision: 6652 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2013-12-03 12:50:58 -0500 (Tue, 03 Dec 2013) $
+# $Date: 2014-05-28 08:19:47 -0400 (Wed, 28 May 2014) $
 #
 # Description:
 #
@@ -419,7 +419,7 @@ sub Open_Data_XML_Check_Data {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
@@ -439,7 +439,7 @@ sub Open_Data_XML_Check_Data {
     # Did we get any content ?
     #
     if ( length($content) == 0 ) {
-        print "No content passed to Open_Data_XML_Check_Dictionary\n" if $debug;
+        print "No content passed to Open_Data_XML_Check_Data\n" if $debug;
         Record_Result("OD_3", -1, 0, "",
                       String_Value("No content in file"));
     }
@@ -527,7 +527,7 @@ sub Open_Data_XML_Check_Dictionary {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
@@ -634,7 +634,7 @@ sub Open_Data_XML_Check_API {
     #
     # Save URL in global variable
     #
-    if ( $this_url =~ /^http/i ) {
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
     }
     else {
