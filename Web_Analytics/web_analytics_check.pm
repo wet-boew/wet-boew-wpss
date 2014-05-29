@@ -104,6 +104,7 @@ my ($check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
+    "Found Google Analytics",    "Found Google Analytics",
     "Missing Google Analytics IP anonymization", "Missing Google Analytics IP anonymization",
     );
 
@@ -111,6 +112,7 @@ my %string_table_en = (
 # String table for error strings (French).
 #
 my %string_table_fr = (
+    "Found Google Analytics",    "Trouvé des analytiques de Google",
     "Missing Google Analytics IP anonymization", "Manquantes Google Analytics anonymisation IP",
     );
 
@@ -138,10 +140,12 @@ my ($url_table) = \%testcase_url_en;
 # String tables for testcase ID to testcase descriptions
 #
 my (%testcase_description_en) = (
+"WA_GA",       "WA_GA: Google Analytics",
 "WA_ID",       "WA_ID: Web Analytics De-Identification",
 );
 
 my (%testcase_description_fr) = (
+"WA_GA",       "WA_GA: Analytiques de Google",
 "WA_ID",       "WA_ID: Web Analytique Anonymisation des renseignements",
 );
 
@@ -773,6 +777,13 @@ sub Check_JavaScript_Web_Analytics {
     if ( ($content =~ /_gaq\.push\s*\(/i) ||
          ($content =~ /_trackPageview/i) ||
          ($content =~ /ga\s*\(\s*'send',\s*'pageview'\s*/i) ) {
+
+         #
+         # Found google analytics
+         #
+         Record_Result("WA_GA", -1, -1, "",
+                       String_Value("Found Google Analytics"));
+
         #
         # Is there code to anonymize the IP address ?
         #

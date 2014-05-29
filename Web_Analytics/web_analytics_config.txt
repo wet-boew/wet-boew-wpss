@@ -38,6 +38,7 @@ Web_Analytics_Check_Profile_fra Web analytique de SCT
 #
 # Standard on Privacy and Web Analytics checkpoints
 #
+tcid WA_GA
 tcid WA_ID
 
 #
