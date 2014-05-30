@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6622 $
+# $Revision: 6656 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2014-04-11 14:09:38 -0400 (Fri, 11 Apr 2014) $
+# $Date: 2014-05-28 08:26:45 -0400 (Wed, 28 May 2014) $
 #
 # Description:
 #
@@ -156,7 +156,7 @@ BEGIN {
 #
 #***********************************************************************
 
-my (@paths, $this_path, $program_dir, $program_name, $paths);
+my (@paths, $this_path, $program_dir, $program_name, $paths, $tmp);
 my ($dos_window, $error_window, $login_window, $save_content);
 my ($content_callback, $site_crawl_callback, $open_data_callback, $stop_on_errors);
 my (@login_form_field_list, $login_window_open, %login_form_values );
@@ -5523,9 +5523,29 @@ binmode STDOUT, ":utf8";
 # the command window closes
 #
 unlink("$program_dir/stderr.txt");
-open( STDERR, ">$program_dir/stderr.txt");
 unlink("$program_dir/stdout.txt");
-open( STDOUT, ">$program_dir/stdout.txt");
+if ( open( STDERR, ">$program_dir/stderr.txt") ) {
+    open( STDOUT, ">$program_dir/stdout.txt");
+}
+else {
+    #
+    # Could not create files in program diectory, try the temp directory.
+    #
+    if ( defined($ENV{"TMP"}) ) {
+        $tmp = $ENV{"TMP"};
+    }
+    else {
+        $tmp = "/tmp";
+    }
+
+    #
+    # Save stdout & stderr files in /tmp
+    #
+    unlink("$tmp/stderr.txt");
+    unlink("$tmp/stdout.txt");
+    open( STDERR, ">$tmp/stderr.txt");
+    open( STDOUT, ">$tmp/stdout.txt");
+}
 
 #
 # Read version file to get program version

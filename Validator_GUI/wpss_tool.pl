@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6623 $
+# $Revision: 6658 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2014-04-11 14:10:40 -0400 (Fri, 11 Apr 2014) $
+# $Date: 2014-05-28 11:25:19 -0400 (Wed, 28 May 2014) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ]
@@ -71,6 +71,7 @@ use CGI;
 use Win32::TieRegistry;
 use HTML::Entities;
 use Archive::Zip;
+use File::Temp qw/ tempfile tempdir /;
 
 use strict;
 
@@ -82,8 +83,8 @@ use strict;
 
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($site_dir_e, $site_dir_f, $site_entry_e, $site_entry_f);
-my ($url, $report_fails_only, %crawler_config_vars, $save_content);
-my ($date_stamp, $this_tab, $lang, %is_valid_markup, $process_pdf);
+my ($url, $report_fails_only, %crawler_config_vars, $datetime_stamp);
+my ($this_tab, $lang, %is_valid_markup, $process_pdf);
 my (%login_form_values, $performed_login, %link_config_vars);
 my (@crawler_link_ignore_patterns, %document_count, %error_count);
 my (%fault_count, $user_agent_hostname, %url_list, $version);
@@ -92,19 +93,25 @@ my (%all_link_sets, %domain_prod_dev_map, @all_urls);
 my (%all_link_sets, %domain_prod_dev_map, $logged_in);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
 my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
+my ($shared_save_content_directory);
 my ($ui_pm_dir) = "GUI";
 
 #
 # Shared variables for use between treads
 #
-my ($shared_image_alt_text_report);
+my ($shared_image_alt_text_report, $shared_web_page_details_filename);
 my ($shared_site_dir_e, $shared_site_dir_f);
-my ($shared_headings_report);
+my ($shared_headings_report, %shared_url_content_length);
+my ($shared_save_content, $shared_save_content_directory);
 if ( $have_threads ) {
     share(\$shared_image_alt_text_report);
     share(\$shared_site_dir_e);
     share(\$shared_site_dir_f);
     share(\$shared_headings_report);
+    share(\%shared_url_content_length);
+    share(\$shared_web_page_details_filename);
+    share(\$shared_save_content);
+    share(\$shared_save_content_directory);
 }
 
 #
@@ -242,6 +249,17 @@ my (%link_error_url_count, %link_error_instance_count);
 my (%doc_features_profile_map, %doc_feature_list);
 my (@doc_features_profiles, $doc_profile_label, $current_doc_features_profile);
 my (%doc_features_metadata_profile_map, @doc_directory_paths);
+
+#
+# Mobile check variables
+#
+my ($mobile_check_profile);
+
+#
+# Web Page Details variables
+#
+my (@web_page_details_fields) = ("url", "title", "lang", "h1", "breadcrumb");
+my (%web_page_details_values, $web_page_details_fh);
 
 #
 # Other configuration items.
@@ -2112,6 +2130,7 @@ sub Set_Package_Debug_Flags {
     Set_Interop_Check_Debug($debug);
     HTML_Language_Debug($debug);
     Set_Open_Data_Check_Debug($debug);
+    Set_Mobile_Check_Debug($debug);
 }
 
 #***********************************************************************
@@ -2128,6 +2147,8 @@ sub Set_Package_Debug_Flags {
 #***********************************************************************
 sub Check_Debug_File {
 
+    my ($tmp);
+
     #
     # Only check if we did not have a command line debug option
     #
@@ -2139,9 +2160,30 @@ sub Check_Debug_File {
         if ( -f "$program_dir/debug.txt" ) {
             $debug = 1;
             unlink("$program_dir/stderr.txt");
-            open( STDERR, ">$program_dir/stderr.txt");
             unlink("$program_dir/stdout.txt");
-            open( STDOUT, ">$program_dir/stdout.txt");
+            if ( open( STDERR, ">$program_dir/stderr.txt") ) {
+                open( STDOUT, ">$program_dir/stdout.txt");
+            }
+            else {
+                #
+                # Could not create files in program diectory,
+                # try the temp directory.
+                #
+                if ( defined($ENV{"TMP"}) ) {
+                    $tmp = $ENV{"TMP"};
+                }
+                else {
+                    $tmp = "/tmp";
+                }
+
+                #
+                # Save stdout & stderr files in /tmp
+                #
+                unlink("$tmp/stderr.txt");
+                unlink("$tmp/stdout.txt");
+                open( STDERR, ">$tmp/stderr.txt");
+                open( STDOUT, ">$tmp/stdout.txt");
+            }
         }
         else {
             $debug = 0;
@@ -2179,10 +2221,11 @@ sub Initialize {
                           "metadata_result_object", "validate_markup",
                           "interop_check", "pdf_check", "dept_check",
                           "html_language", "open_data_check",
-                          "web_analytics_check");
-    my ($mday, $mon, $year, $key, $value, $metadata_profile);
+                          "web_analytics_check", "mobile_check");
+    my ($key, $value, $metadata_profile);
     my ($tag_required, $content_required, $content_type, $scheme_values);
     my ($invalid_content, $pdf_profile);
+    my ($sec, $min, $hour, $mday, $mon, $year);
 
     #
     # Remove any possible debug flag file
@@ -2407,24 +2450,10 @@ sub Initialize {
     Set_Link_Checker_Redirect_Ignore_Patterns(@redirect_ignore_patterns);
     
     #
-    # Get current time
+    # Get current date and time
     #
-    ( $mday, $mon, $year ) = ( localtime(time) )[ 3, 4, 5 ];
-
-    #
-    # Get full year number (not just offset from 1900).
-    #
-    $year = 1900 + $year;
-
-    #
-    # Adjust the month from 0 based (ie. Jan = 0) to 1 based (ie. Jan = 1).
-    #
-    $mon++;
-
-    #
-    # Get string values for date YYYY-MM-DD format
-    #
-    $date_stamp = sprintf( "%d-%02d-%02d", $year, $mon, $mday );
+    ($sec, $min, $hour, $mday, $mon, $year) = (localtime(time))[0, 1, 2, 3, 4, 5];
+    $datetime_stamp = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec);
 
     #
     # Make sure we have a profiles and results directory
@@ -2557,6 +2586,67 @@ sub Login_Callback {
 
 #***********************************************************************
 #
+# Name: Save_Web_Page_Details
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function saves the web page details in the details CSV file.
+#
+#***********************************************************************
+sub Save_Web_Page_Details {
+
+    my ($field, $value);
+    my ($printed_one) = 0;
+
+    #
+    # Quick check for url field, if we don't have this one we
+    # are not tracking values for the current URL (e.g. could be a 
+    # supporting file).
+    #
+    if ( ! defined($web_page_details_values{"url"}) ) {
+        return;
+    }
+
+    #
+    # Save the details in the file.
+    #
+    foreach $field (@web_page_details_fields) {
+        if ( defined($web_page_details_values{$field}) ) {
+            $value = $web_page_details_values{$field};
+
+            #
+            # Escape any quote characters
+            #
+            $value =~ s/"/\\"/g;
+        }
+        else {
+            $value = "";
+        }
+
+        #
+        # Do we print a comma before this field ?
+        #
+        if ( $printed_one ) {
+            print $web_page_details_fh ",";
+        }
+
+        #
+        # Print the field value
+        #
+        print $web_page_details_fh "\"$value\"";
+        $printed_one = 1;
+    }
+
+    #
+    # Print newline to end this record
+    #
+    print $web_page_details_fh "\n";
+}
+
+#***********************************************************************
+#
 # Name: HTTP_Response_Callback
 #
 # Parameters: url - document URL
@@ -2599,7 +2689,7 @@ sub HTTP_Response_Callback {
     %tqa_other_tool_results = ();
     %clf_other_tool_results = ();
     $is_archived = 0;
-    
+
     #
     # Is this a PDF document and are we ignoring them ?
     #
@@ -2622,6 +2712,11 @@ sub HTTP_Response_Callback {
     # Add URL to list of URLs
     #
     $url_list{$url} = $mime_type;
+
+    #
+    # Clear any existing web page details
+    #
+    %web_page_details_values = ();
 
     #
     # Check for UTF-8 content
@@ -2721,7 +2816,9 @@ sub HTTP_Response_Callback {
         #
         # Validate the content
         #
-        Perform_Markup_Validation($url, $mime_type, $charset, $content);
+        if ( TQA_Check_Need_Validation($tqa_check_profile) ) {
+            Perform_Markup_Validation($url, $mime_type, $charset, $content);
+        }
 
         #
         # If the file is HTML content, validate it and perform a link check.
@@ -2731,6 +2828,12 @@ sub HTTP_Response_Callback {
             # Get document language
             #
             $language = HTML_Document_Language($url, $content);
+
+            #
+            # Save web page details
+            #
+            $web_page_details_values{"url"} = $url;
+            $web_page_details_values{"lang"} = $language;
 
             #
             # Display content in browser window
@@ -2763,6 +2866,11 @@ sub HTTP_Response_Callback {
             Perform_Interop_Check($url, $content, $language, $mime_type, $resp);
 
             #
+            # Perform Mobile check
+            #
+            Perform_Mobile_Check($url, $mime_type, $resp);
+
+            #
             # Perform feature check
             #
             Perform_Feature_Check($url, $mime_type, $content);
@@ -2772,6 +2880,12 @@ sub HTTP_Response_Callback {
         # Do we have application/pdf mime type ?
         #
         elsif ( $mime_type =~ /application\/pdf/ ) {
+            #
+            # Save web page details
+            #
+            $web_page_details_values{"url"} = $url;
+            $web_page_details_values{"lang"} = "";
+
             #
             # Perform link check
             #
@@ -2904,6 +3018,12 @@ sub HTTP_Response_Callback {
                 print "Add to document feature list $key, url = $url\n" if $debug;
                 $$list_ref{$url} = 1;
             }
+
+            #
+            # Save web page details
+            #
+            $web_page_details_values{"url"} = $url;
+            $web_page_details_values{"lang"} = "";
         }
 
         #
@@ -2916,6 +3036,11 @@ sub HTTP_Response_Callback {
         #
         Validator_GUI_End_URL($crawled_urls_tab, $url, $referrer,
                               $supporting_file);
+
+        #
+        # Save web page details
+        #
+        Save_Web_Page_Details();
     }
     else {
         #
@@ -3030,17 +3155,16 @@ sub XML_Document_Language {
 sub Save_Content_To_File {
     my ($url, $mime_type, $content) = @_;
 
-    my ($dir, $filename, $content_saved, @lines, $n);
+    my ($filename, $content_saved, @lines, $n);
 
     #
     # Are we saving content ?
     #
-    if ( $save_content ) {
+    if ( $shared_save_content ) {
         #
         # Set file name
         #
         $content_file++;
-        $dir = "$program_dir/results/content/";
         $filename = sprintf("%03d", $content_file);
 
         #
@@ -3052,10 +3176,9 @@ sub Save_Content_To_File {
             #
             # Save content to file
             #
-            unlink($filename);
-            print "Create PDF file $dir/$filename\n" if $debug;
-            open(PDF, ">$dir/$filename") ||
-                die "Save_Content_To_File: Failed to open $dir/$filename for writing\n";
+            print "Create PDF file $shared_save_content_directory/$filename\n" if $debug;
+            open(PDF, ">$shared_save_content_directory/$filename") ||
+                die "Save_Content_To_File: Failed to open $shared_save_content_directory/$filename for writing\n";
             binmode PDF;
             print PDF $content;
             close(PDF);
@@ -3067,10 +3190,9 @@ sub Save_Content_To_File {
             #
             # Create HTML file
             #
-            unlink($filename);
-            print "Create text file $dir/$filename\n" if $debug;
-            open(TXT, ">$dir/$filename") ||
-                die "Save_Content_To_File: Failed to open $dir/$filename for writing\n";
+            print "Create text file $shared_save_content_directory/$filename\n" if $debug;
+            open(TXT, ">$shared_save_content_directory/$filename") ||
+                die "Save_Content_To_File: Failed to open $shared_save_content_directory/$filename for writing\n";
             binmode TXT;
 
             #
@@ -3088,7 +3210,7 @@ sub Save_Content_To_File {
                  #
                  # Insert <base after the first tag close
                  #
-                 $lines[1] =~ s/>/>\n<base href="$url" \/>\n/;
+                 $lines[1] =~ s/>/>\n<!-- Page content saved by wpss_tool.pl at $datetime_stamp -->\n<!-- The following base tag was inserted by the tool -->\n<base href="$url" \/>\n/;
 
                  #
                  # Print the rest of the content
@@ -3111,10 +3233,9 @@ sub Save_Content_To_File {
             #
             # Save content to file
             #
-            unlink($filename);
-            print "Create text file $dir/$filename\n" if $debug;
-            open(TXT, ">$dir/$filename") ||
-                die "Save_Content_To_File: Failed to open $dir/$filename for writing\n";
+            print "Create text file $shared_save_content_directory/$filename\n" if $debug;
+            open(TXT, ">$shared_save_content_directory/$filename") ||
+                die "Save_Content_To_File: Failed to open $shared_save_content_directory/$filename for writing\n";
             binmode TXT;
             print TXT $content;
             close(TXT);
@@ -3131,8 +3252,8 @@ sub Save_Content_To_File {
         # Add to index file for URL to local file mapping.
         #
         if ( $content_saved ) {
-            open(HTML, ">> $program_dir/results/content/index.html") ||
-            die "Error: Failed to open file $program_dir/results/content/index.html\n";
+            open(HTML, ">> $shared_save_content_directory/index.html") ||
+            die "Error: Failed to open file $shared_save_content_directory/index.html\n";
             print HTML "<li><a href=\"$filename\">$url</li>\n";
             close(HTML);
         }
@@ -3162,7 +3283,7 @@ sub Direct_HTML_Input_Callback {
     # Initialize tool global variables
     #
     Initialize_Tool_Globals(%report_options);
-    $save_content = 0;
+    $shared_save_content = 0;
 
     #
     # URL is direct input.
@@ -3696,10 +3817,10 @@ sub URL_List_Callback {
     Print_Results_Footer(0);
 
     #
-    # Finish content saving option
+    # Close the web page details list
     #
-    Finish_Content_Saving($save_content);
-    
+    close ($web_page_details_fh);
+
     #
     # Save Image, Atl text & title report
     #
@@ -3868,6 +3989,27 @@ sub Save_Headings_Report {
 
 #***********************************************************************
 #
+# Name: Save_Web_Page_Size_details
+#
+# Parameters: filename - directory and filename prefix
+#
+# Description:
+#
+#   This function saves web page size details gathered by the Mobile
+# check module.
+#
+#***********************************************************************
+sub Save_Web_Page_Size_details {
+    my ($filename) = @_;
+
+    #
+    # Save web page size details in a CSV file
+    #
+    Mobile_Check_Save_Web_Page_Size_Details($filename, \%shared_url_content_length);
+}
+
+#***********************************************************************
+#
 # Name: Results_Save_Callback
 #
 # Parameters: filename - directory and filename prefix
@@ -3883,6 +4025,8 @@ sub Save_Headings_Report {
 sub Results_Save_Callback {
     my ($filename) = @_;
 
+    my ($save_filename);
+
     #
     # Save the URL, Image, Alt report.
     #
@@ -3892,6 +4036,24 @@ sub Results_Save_Callback {
     # Save the Headings report
     #
     Save_Headings_Report($filename);
+    
+    #
+    # Save web page size details
+    #
+    Save_Web_Page_Size_details($filename);
+
+    #
+    # Save and saved web page content
+    #
+    Finish_Content_Saving($filename);
+
+    #
+    # Copy the web page details CSV to the results directory.
+    #
+    $save_filename = $filename . "_pages.csv";
+    unlink($save_filename);
+    copy($shared_web_page_details_filename, $save_filename);
+    unlink($shared_web_page_details_filename);
 }
 
 #***********************************************************************
@@ -4542,43 +4704,20 @@ sub Check_Page_URL {
 #
 #***********************************************************************
 sub Setup_Content_Saving {
-    my ($save_content) = @_;
-
-    my (@files);
+    my ($shared_save_content) = @_;
 
     #
-    # Are we saving content ? if so increment directory name
+    # Are we saving content ? if so create a temporary directory
     #
-    if ( $save_content ) {
-        #
-        # Do we already have a directory ?
-        #
-        print "Content directory = $program_dir/results/content\n" if $debug;
-        if ( -d "$program_dir/results/content" ) {
-            #
-            # Remove any only files
-            #
-            print "Remove file from $program_dir/results/content\n" if $debug;
-            opendir (DIR, "$program_dir/results/content");
-            @files = readdir(DIR);
-            foreach (@files) {
-                if ( -f "$program_dir/results/content/$_" ) {
-                    unlink("$program_dir/results/content/$_");
-                }
-            }
-            closedir(DIR);
-        }
-        else {
-            print "Create directory $program_dir/results/content\n" if $debug;
-            mkdir("$program_dir/results/content", 0755);
-        }
+    if ( $shared_save_content ) {
+        $shared_save_content_directory = tempdir();
 
         #
         # Create index file for URL to local file mapping.
         #
-        unlink("$program_dir/results/content/index.html");
-        open(HTML, "> $program_dir/results/content/index.html") ||
-            die "Error: Failed to create file $program_dir/results/content/index.html\n";
+        unlink("$shared_save_content_directory/index.html");
+        open(HTML, "> $shared_save_content_directory/index.html") ||
+            die "Error: Failed to create file $shared_save_content_directory/index.html\n";
         print HTML "<html>
 <body>
 <ol>
@@ -4591,7 +4730,7 @@ sub Setup_Content_Saving {
 #
 # Name: Finish_Content_Saving
 #
-# Parameters: save_content - save content flag
+# Parameters: filename - directory and filename prefix
 #
 # Description:
 #
@@ -4599,19 +4738,76 @@ sub Setup_Content_Saving {
 #
 #***********************************************************************
 sub Finish_Content_Saving {
-    my ($save_content) = @_;
+    my ($filename) = @_;
+
+    my ($saved_content_directory, @files, $path);
 
     #
     # Finish off index file for URL to local file mapping.
     #
-    if ( $save_content ) {
-        open(HTML, ">> $program_dir/results/content/index.html") ||
-        die "Error: Failed to open file $program_dir/results/content/index.html\n";
+    if ( $shared_save_content ) {
+        open(HTML, ">> $shared_save_content_directory/index.html") ||
+        die "Error: Failed to open file $shared_save_content_directory/index.html\n";
         print HTML "</ol>
 </body>
 </html>
 ";
         close(HTML);
+    }
+
+    #
+    # Create the saved content directory path
+    #
+    $saved_content_directory = $filename . "_content";
+
+    #
+    # Do we already have a directory ?
+    #
+    print "Content directory = $saved_content_directory\n" if $debug;
+    if ( -d "$saved_content_directory" ) {
+        #
+        # Remove any old files
+        #
+        print "Remove files from $saved_content_directory\n" if $debug;
+        opendir (DIR, "$saved_content_directory");
+        @files = readdir(DIR);
+        foreach $path (@files) {
+            if ( -f "$saved_content_directory/$path" ) {
+                unlink("$saved_content_directory/$path");
+            }
+        }
+        closedir(DIR);
+    }
+    else {
+        print "Create directory $saved_content_directory\n" if $debug;
+        if ( ! mkdir("$saved_content_directory", 0755) ) {
+            print "Failed to create saved content directory $saved_content_directory, error = $!\n" if $debug;
+        }
+    }
+
+    #
+    # Copy files from the temporary saved content directory to the
+    # final directory
+    #
+    if ( -d "$shared_save_content_directory" ) {
+        #
+        # Copy file
+        #
+        print "Copy files from $shared_save_content_directory\n" if $debug;
+        opendir (DIR, "$shared_save_content_directory");
+        @files = readdir(DIR);
+        foreach $path (@files) {
+            if ( -f "$shared_save_content_directory/$path" ) {
+                copy("$shared_save_content_directory/$path", "$saved_content_directory/$path");
+                unlink("$shared_save_content_directory/$path");
+            }
+        }
+        closedir(DIR);
+
+        #
+        # Remove the temporary directory
+        #
+        rmdir($shared_save_content_directory);
     }
 }
 
@@ -4692,13 +4888,13 @@ sub Initialize_Tool_Globals {
     # Set global report_fails_only flag
     #
     $report_fails_only = $options{"report_fails_only"};
-    $save_content = $options{"save_content"};
+    $shared_save_content = $options{"save_content"};
     $process_pdf = $options{"process_pdf"};
 
     #
     # Setup content saving option
     #
-    Setup_Content_Saving($save_content);
+    Setup_Content_Saving($shared_save_content);
 
     #
     # Get link check profile name
@@ -4797,6 +4993,7 @@ sub Initialize_Tool_Globals {
     $is_archived = 0;
     $tqa_check_exempted = 0;
     %url_list = ();
+    %shared_url_content_length = ();
     @web_feed_list = ();
     $logged_in = 0;
 
@@ -4818,6 +5015,17 @@ sub Initialize_Tool_Globals {
         $doc_feature_list{$html_feature_id} = \%new_doc_feature_list;
     }
 
+    #
+    # Create web page details temporary file
+    #
+    ($web_page_details_fh, $shared_web_page_details_filename) =
+       tempfile( SUFFIX => '.csv');
+    if ( ! defined($web_page_details_fh) ) {
+        print "Error: Failed to create temporary file in Initialize_Tool_Globals\n";
+        return;
+    }
+    binmode $web_page_details_fh;
+    print $web_page_details_fh join(",", @web_page_details_fields) . "\n";
 }
 
 #***********************************************************************
@@ -5005,7 +5213,7 @@ sub Perform_Site_Crawl {
         print "                   site_entry_e = $site_entry_e\n";
         print "                   site_entry_f = $site_entry_f\n";
         print "                   report_fails_only = $report_fails_only\n";
-        print "                   save_content = $save_content\n";
+        print "                   save_content = $shared_save_content\n";
         print "                   process_pdf = $process_pdf\n";
     }
     $rc = Crawl_Site($site_dir_e, $site_dir_f, $site_entry_e, $site_entry_f,
@@ -5067,10 +5275,10 @@ sub Perform_Site_Crawl {
     }
 
     #
-    # Finish content saving option
+    # Close the web page details file
     #
-    Finish_Content_Saving($save_content);
-    
+    close ($web_page_details_fh);
+
     #
     # Save Image, Atl text & title report
     #
@@ -5357,7 +5565,7 @@ sub Perform_Metadata_Check {
         $title = "";
     }
     $html_titles{$url} = $title;
-
+    $web_page_details_values{"title"} = $title;
 }
 
 #***********************************************************************
@@ -5482,6 +5690,7 @@ sub Perform_PDF_Properties_Check {
         $title = "";
     }
     $pdf_titles{$url} = $title;
+    $web_page_details_values{"title"} = $title;
 }
 
 #***********************************************************************
@@ -6031,7 +6240,7 @@ sub Perform_Department_Check {
 
     my ($url_status, $key, $status, $message);
     my (@content_results_list, $result_object, $output_line);
-    my (%local_error_url_count, @headings);
+    my (%local_error_url_count, @headings, $first_h1, $h);
 
     #
     # Is this URL marked as archived on the web ?
@@ -6058,6 +6267,34 @@ sub Perform_Department_Check {
         if ( $mime_type =~ /text\/html/ ) {
             @headings = Content_Check_Get_Headings();
             $headings_table{$url} = \@headings;
+
+            #
+            # Get first H1 heading
+            #
+            if ( @headings > 0 ) {
+                #
+                # Take first heading incase we don't find a h1
+                #
+                $first_h1 = $headings[0];
+                foreach $h (@headings) {
+                    #
+                    # Is this a h1 ?
+                    #
+                    if ( $h =~ /^1:/ ) {
+                        $first_h1 = $h;
+                        last;
+                    }
+                }
+
+                #
+                # Strip off heading level number
+                #
+                $first_h1 =~ s/^\d://g;
+            }
+            else {
+                $first_h1 = "";
+            }
+            $web_page_details_values{"h1"} = $first_h1;
         }
 
         #
@@ -6222,6 +6459,115 @@ sub Perform_Feature_Check {
 
 #***********************************************************************
 #
+# Name: Perform_Mobile_Check
+#
+# Parameters: url - url of document to check
+#             mime_type - mime-type of document
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function runs the mobile checker on the URL
+#
+#***********************************************************************
+sub Perform_Mobile_Check {
+    my ( $url, $mime_type, $resp ) = @_;
+
+    my ($url_status, $content, @mobile_results_list);
+    my ($result_object, $status, %local_mobile_error_url_count);
+
+    #
+    # Is this URL marked as archived on the web ?
+    #
+    if ( $is_archived ) {
+        #
+        # We don't report any faults
+        #
+        print "Archived document, skip mobile check\n" if $debug;
+#        Increment_Counts_and_Print_URL($mobile_tab, $url, 0);
+    }
+    else {
+        #
+        # Check for UTF-8 content
+        #
+        $content = Crawler_Decode_Content($resp);
+
+        #
+        # Run mobile check on links, this will also get the size of the
+        # document
+        #
+        Mobile_Check_Links($url, $mobile_check_profile, $content,
+                           \%all_link_sets, \%shared_url_content_length);
+
+#        #
+#        # Determine overall URL status
+#        #
+#        $url_status = $tool_success;
+#        foreach $result_object (@mobile_results_list) {
+#            if ( $result_object->status != 0 ) {
+#                #
+#                # Error, we can stop looking for more errors
+#                #
+#                $url_status = $tool_error;
+#                last;
+#            }
+#        }
+#
+#        #
+#        # Increment document & error counters
+#        #
+#        Increment_Counts_and_Print_URL($mobile_tab, $url,
+#                                       ($url_status == $tool_error));
+#
+#        #
+#        # Print results if it is a failure.
+#        #
+#        if ( $url_status == $tool_error ) {
+#            #
+#            # Print failures
+#            #
+#            foreach $result_object (@mobile_results_list) {
+#                $status = $result_object->status;
+#                if ( defined($status) && ($status != 0) ) {
+#                    #
+#                    # Increment error instance count
+#                    #
+#                    if ( ! defined($mobile_error_instance_count{$result_object->description}) ) {
+#                        $mobile_error_instance_count{$result_object->description} = 1;
+#                    }
+#                    else {
+#                        $mobile_error_instance_count{$result_object->description}++;
+#                    }
+#
+#                    #
+#                    # Set URL error count
+#                    #
+#                    $local_mobile_error_url_count{$result_object->description} = 1;
+#
+#                    #
+#                    # Print error
+#                    #
+#                    Validator_GUI_Print_TQA_Result($mobile_tab, $result_object);
+#                }
+#            }
+#
+#            #
+#            # Add blank line in report
+#            #
+#            Validator_GUI_Update_Results($mobile_tab, "");
+#        }
+#
+#        #
+#        # Set global URL error count
+#        #
+#        foreach (keys %local_mobile_error_url_count) {
+#            $mobile_error_url_count{$_}++;
+#        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Perform_Link_Check
 #
 # Parameters: url - url of document to check
@@ -6236,8 +6582,8 @@ sub Perform_Feature_Check {
 sub Perform_Link_Check {
     my ( $url, $mime_type, $resp ) = @_;
 
-    my ($url_status, $format, $message, $content, @link_results_list);
-    my ($n_links, $i, $language, $status, $output_line, $link);
+    my ($url_status, $content, @link_results_list);
+    my ($i, $language, $status, $link, $breadcrumb, $list_addr);
     my ($result_object, $base, %local_link_error_url_count);
 
     #
@@ -6317,6 +6663,27 @@ sub Perform_Link_Check {
         # Get links from all document subsections
         #
         %all_link_sets = Extract_Links_Subsection_Links("ALL");
+
+        #
+        # Construct breadcrumb trail from the set of breadcrumb links
+        #
+        $breadcrumb = "";
+        if ( defined($all_link_sets{"BREADCRUMB"}) ) {
+            $list_addr = $all_link_sets{"BREADCRUMB"};
+            foreach $link (@$list_addr) {
+                if ( $breadcrumb ne "" ) {
+                    $breadcrumb .= "," . $link->anchor;
+                }
+                else {
+                    $breadcrumb = $link->anchor;
+                }
+            }
+        }
+
+        #
+        # Save breadcrumb details for web page
+        #
+        $web_page_details_values{"breadcrumb"} = "$breadcrumb";
 
         #
         # Check links
@@ -6515,7 +6882,7 @@ sub Perform_Open_Data_Check {
     my ( $url, $format, $data_file_type, $resp ) = @_;
 
     my ($contents, $zip, @members, $member_name, $header, $mime_type);
-    my (@results, $zip_file_name, $member_url);
+    my (@results, $zip_file_name, $member_url, $content);
 
     #
     # Check for possible ZIP content (a zip file containing the 
@@ -6592,9 +6959,10 @@ sub Perform_Open_Data_Check {
         # Treat URL as a single open data file
         #
         print "Single open data file\n" if $debug;
+        $content = Crawler_Decode_Content($resp);
         @results = Open_Data_Check($url, $format, $open_data_check_profile,
                                    $data_file_type, $resp,
-                                   $resp->content, \%open_data_dictionary);
+                                   $content, \%open_data_dictionary);
         Record_Open_Data_Check_Results($url, @results);
     }
 }

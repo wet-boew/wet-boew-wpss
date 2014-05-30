@@ -2,9 +2,9 @@
 #
 # Name:   feed_validate.pm
 #
-# $Revision: 6306 $
+# $Revision: 6646 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Feed_Validate/Tools/feed_validate.pm $
-# $Date: 2013-06-25 14:46:42 -0400 (Tue, 25 Jun 2013) $
+# $Date: 2014-04-30 12:12:37 -0400 (Wed, 30 Apr 2014) $
 #
 # Description:
 #
@@ -156,8 +156,8 @@ sub Run_Web_Feed_Validator {
     # Run the validator on the supplied URL
     #
     print "Run validator\n --> $validate_cmnd $this_url 2>\&1\n" if $debug;
-    $validator_output = `$validate_cmnd $this_url 2>\&1`;
-print "Validator output\n$validator_output\n" if $debug;
+    $validator_output = `$validate_cmnd \"$this_url\" 2>\&1`;
+    print "Validator output\n$validator_output\n" if $debug;
 
     #
     # Do we have no errors or warnings ?
