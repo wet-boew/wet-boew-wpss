@@ -1,24 +1,22 @@
-WPSS Validation Tool version 4.4.0
+WPSS Validation Tool version 4.5.0
 -----------------------------------
 
 The WPSS Validation Tool provides web developers and quality assurance testers the ability to perform a number of web site and web page validation tasks at one time. The tool crawls a site to find all of the documents then analyses each document with a number of validation tools.
 
-Version 4.4.0 contains the following updates and additions
+Version 4.5.0 contains the following updates and additions
 
 WPSS_Tool
 ---------
 
-  - Accept compressed (e.g. gzip) HTTP content from web servers.
-  - Create temporary files in user's temp folder rather than the program folder to avoid possible permissions problems.
-  - Skip markup validation if it not required for accessibility testing.
-  - Don't include table cell or script  content when checking for whitespace spacing in content.
-  - Check for styling and markup used to hide content and suppress some WCAG errors (e.g. missing frame title) if it is hidden.
-  - Check for aria-label or aria-labelledby in tag with role = group or role = radiogroup - WCAG_2.0-ARIA17
-  - Check for aria-label or aria-labelledby in tag with role = alertdialog - WCAG_2.0-ARIA18.
-  - Check for role="presentation" on tags that convey information or relationships - WCAG_2.0-F92
-  - Support for WET 4.0 based Web usability pages.
-  - Report error if Google analytics is found.  Previously this was reported as information only, however since google analytics is not acceptable after June 30, 2014, an error is now reported.
-
+  - Don't report WCAG_2.0-ARIA12 error for tags that have role="heading" if it also has an aria-level attribute greater than 6.
+  - Include external style sheets when performing style based checks (e.g. hidden labels, pseudo headings).
+  - Check for details tag that only includes a summary - WCAG_2.0-G115
+  - Check for tags other than area, img & input that contain an alt attribute and that load an image via CSS - WCAG_2.0-F3
+  - Check for styling and markup used to move content off screen for some WCAG errors (e.g. H44 - visible labels).
+  - Generate page inventory containing page details (URL, title, H1, breadcrumb, etc).
+  - Update anchor text and href values for GC Web Usability theme to match Canada.ca domain - SWU.
+  - Include last heading in labels and legends to distinguish similar labels - WCAG_2.0-H44 and WCAG_2.0-H71.
+ 
 
 Reminder: The WPSS Tool DOES NOT validate HTML5 markup.
 
@@ -26,9 +24,6 @@ Reminder: The WPSS Tool DOES NOT validate HTML5 markup.
 Open Data Tool
 --------------
 
-  - Create temporary files in user's temp folder rather than the program folder to avoid possible permissions problems.
-  - Accept compressed (e.g. gzip) HTTP content from web servers.
-  - Handle resource type "api" in JSON description.
 
 
 WPSS_Tool Installer
@@ -51,4 +46,4 @@ The WPSS_Tool has been tested on the following platforms
 - Windows 7 (64 bit), Strawberry Perl 5.18 (32 bit), Python 2.7.3
 
 The WPSS Tool installer is available as a release in this repository
-  - https://github.com/wet-boew/wet-boew-wpss/releases/download/4.4.0/WPSS_Tool.exe
+  - https://github.com/wet-boew/wet-boew-wpss/releases/download/4.5.0/WPSS_Tool.exe
