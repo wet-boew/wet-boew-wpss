@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6630 $
+# $Revision: 6686 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2014-04-25 13:18:27 -0400 (Fri, 25 Apr 2014) $
+# $Date: 2014-06-27 11:09:37 -0400 (Fri, 27 Jun 2014) $
 #
 # Description:
 #
@@ -249,11 +249,6 @@ sub Initialize_Link_Parser_Variables {
     $inside_noscript = 0;
     undef @text_handler_tag_list;
     @object_reference_list = ();
-
-    #
-    # Empty the section links table
-    #
-    %subsection_links = ();
 }
 
 #***********************************************************************
@@ -2446,6 +2441,7 @@ sub Extract_Links {
     #
     # Did we get any content ?
     #
+    %subsection_links = ();
     if ( length($content) > 0 ) {
     
         #
@@ -2480,6 +2476,7 @@ sub Extract_Links {
             # We don't do this the first time through in case removing
             # the conditional code fails and corrupts the HTML input.
             #
+            %subsection_links = ();
             @other_links = HTML_Extract_Links($url, $base, $lang,
                                               $modified_content);
 
@@ -2490,7 +2487,7 @@ sub Extract_Links {
             #
             if ( @other_links > @links ) {
                 print "Use links from modified content\n" if $debug;
-                
+
                 #
                 # Set the modified_content flag for the extra links found
                 # in the modified content.
@@ -2505,7 +2502,7 @@ sub Extract_Links {
                     #
                     if ( $i < @links ) {
                         $orig_link = $links[$i];
-                        
+
                         #
                         # Do the href values match ?
                         #
@@ -2532,7 +2529,7 @@ sub Extract_Links {
                         $mod_link->modified_content(1);
                     }
                 }
-                
+
                 #
                 # Save modified content list of links
                 #
