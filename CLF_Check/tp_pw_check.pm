@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 6632 $
+# $Revision: 6666 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2014-04-30 08:05:00 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-05-30 14:30:29 -0400 (Fri, 30 May 2014) $
 #
 # Description:
 #
@@ -1050,33 +1050,32 @@ sub Frame_Tag_Handler {
 
 #***********************************************************************
 #
-# Name: Start_H_Tag_Handler
+# Name: Check_Heading_Level
 #
-# Parameters: self - reference to this parser
-#             tagname - heading tag name
+# Parameters: tagname - heading tag name
+#             level - heading level
 #             line - line number
 #             column - column number
 #             text - text from tag
-#             level - heading level
-#             attr - hash table of attributes
 #
 # Description:
 #
-#   This function handles the h tag, it checks to see if headings
-# are created in order (h1, h2, h3, ...).
+#   This function checks heading levels, it checks to see if they appear
+# in order (h1, h2, h3, ...).
 #
 #***********************************************************************
-sub Start_H_Tag_Handler {
-    my ( $self, $tagname, $line, $column, $text, %attr ) = @_;
+sub Check_Heading_Level {
+    my ($tagname, $level, $line, $column, $text) = @_;
 
-    my ($level, $section);
+    my ($section);
 
     #
-    # Get heading level number from the tag
+    # Is the heading level a number ?
     #
-    $level = $tagname;
-    $level =~ s/^h//g;
-    print "Found heading $tagname\n" if $debug;
+    if ( ! ($level =~ /^\d+$/) ) {
+        print "Non numeric heading level \"$level\"\n" if $debug;
+        return;
+    }
 
     #
     # Do we have a previous heading level ?
@@ -1100,7 +1099,7 @@ sub Start_H_Tag_Handler {
     }
 
     #
-    # Is this an H1 ?
+    # Is this an H1 or aria-level="1" ?
     #
     if ( $level == 1 ) {
         #
@@ -1133,6 +1132,41 @@ sub Start_H_Tag_Handler {
     # Save new heading level and line number
     #
     $current_heading_level = $level;
+}
+
+#***********************************************************************
+#
+# Name: Start_H_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - heading tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the h tag, it checks to see if headings
+# are created in order (h1, h2, h3, ...).
+#
+#***********************************************************************
+sub Start_H_Tag_Handler {
+    my ( $self, $tagname, $line, $column, $text, %attr ) = @_;
+
+    my ($level, $section);
+
+    #
+    # Get heading level number from the tag
+    #
+    $level = $tagname;
+    $level =~ s/^h//g;
+    print "Found heading $tagname\n" if $debug;
+
+    #
+    # Check heading level
+    #
+    Check_Heading_Level($tagname, $level, $line, $column, $text);
 }
 
 #***********************************************************************
@@ -1329,6 +1363,49 @@ sub Input_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Check_Attributes
+#
+# Parameters: self - reference to this parser
+#             tagname - tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attrseq - reference to an array of attributes
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks common attributes for tags.
+#
+#***********************************************************************
+sub Check_Attributes {
+    my ($self, $tagname, $line, $column, $text, $attrseq, %attr) = @_;
+
+    my ($level);
+
+    #
+    # Do we have a role attribute with the value heading ?
+    #
+    if ( defined($attr{"role"}) && ($attr{"role"} eq "heading") ) {
+        #
+        # Do we have a aria-level attribute to set the level of this
+        # heading ?
+        #
+        if ( defined($attr{"aria-level"}) ) {
+            $level = $attr{"aria-level"};
+            $level =~ s/^\s*//g;
+            $level =~ s/s*$//g;
+
+            #
+            # Check heading level
+            #
+            Check_Heading_Level($tagname, $level, $line, $column, $text);
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -1338,7 +1415,7 @@ sub Input_Tag_Handler {
 #             text - text from tag
 #             skipped_text - text since the last tag
 #             attrseq - reference to an array of attributes
-#             attr - hash table of attributes
+#             attr_hash - hash table of attributes
 #
 # Description:
 #
@@ -1348,9 +1425,8 @@ sub Input_Tag_Handler {
 #***********************************************************************
 sub Start_Handler {
     my ( $self, $tagname, $line, $column, $text, $skipped_text,
-         $attrseq, @attr ) = @_;
+         $attrseq, %attr_hash ) = @_;
 
-    my (%attr_hash) = @attr;
     my ($id);
 
     #
@@ -1370,6 +1446,11 @@ sub Start_Handler {
             print "Found template marker $id\n" if $debug;
         }
     }
+
+    #
+    # Check tag attributes (e.g. role="heading")
+    #
+    Check_Attributes($self, $tagname, $line, $column, $text, $attrseq, %attr_hash);
 
     #
     # Check anchor tags
