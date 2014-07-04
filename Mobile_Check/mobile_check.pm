@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 6643 $
+# $Revision: 6667 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2014-04-30 09:13:52 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-06-03 10:47:50 -0400 (Tue, 03 Jun 2014) $
 #
 # Description:
 #
@@ -20,7 +20,8 @@
 #     Mobile_Check
 #     Mobile_Check_Links
 #     Mobile_Check_Testcase_URL
-#     Mobile_Check_Save_Web_Page_Size_Details
+#     Mobile_Check_Compute_Page_Size
+#     Mobile_Check_Save_Web_Page_Size
 #
 # Terms and Conditions of Use
 #
@@ -56,6 +57,7 @@ package mobile_check;
 
 use strict;
 use File::Basename;
+use File::Temp qw/ tempfile tempdir /;
 
 #***********************************************************************
 #
@@ -75,7 +77,8 @@ BEGIN {
                   Mobile_Check
                   Mobile_Check_Links
                   Mobile_Check_Testcase_URL
-                  Mobile_Check_Save_Web_Page_Size_Details
+                  Mobile_Check_Compute_Page_Size
+                  Mobile_Check_Save_Web_Page_Size
                   );
     $VERSION = "1.0";
 }
@@ -297,8 +300,6 @@ sub Mobile_Check {
 #             content - web page content
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
-#             url_size_table - address of a table to track URL
-#               size details
 #
 # Description:
 #
@@ -308,9 +309,35 @@ sub Mobile_Check {
 #
 #***********************************************************************
 sub Mobile_Check_Links {
-    my ($url, $profile, $content, $link_sets, $url_size_table) = @_;
+    my ($url, $profile, $content, $link_sets) = @_;
+
+    #
+    # Perform Mobile link checks.
+    #
+    print "Mobile_Check_Links: profile = $profile\n" if $debug;
+}
+
+#***********************************************************************
+#
+# Name: Mobile_Check_Compute_Page_Size
+#
+# Parameters: url - URL
+#             content - page content
+#             link_sets - table of lists of link objects (1 list per
+#               document section)
+#
+# Description:
+#
+#    This function computes a number of size values of a web page.
+# The sizes include the overall page size as well as the size of
+# a number of components (e.g. images, CSS, etc).
+#
+#***********************************************************************
+sub Mobile_Check_Compute_Page_Size {
+    my ($url, $content, $link_sets) = @_;
 
     my ($size, $html_size, $link, $section, $links_addr, $link_type);
+    my ($size_string);
     my ($css_size) = 0;
     my ($js_size) = 0;
     my ($img_size) = 0;
@@ -321,13 +348,9 @@ sub Mobile_Check_Links {
     my ($other_count) = 0;
 
     #
-    # Perform Mobile link checks.
-    #
-    print "Mobile_Check_Links: profile = $profile\n" if $debug;
-
-    #
     # Get total document size
     #
+    print "Mobile_Check_Compute_Page_Size\n" if $debug;
     $html_size = length($content);
 
     #
@@ -392,60 +415,63 @@ sub Mobile_Check_Links {
     #
     $size = $html_size + $css_size + $js_size + $img_size + $other_size;
     print "Total page size = $size\n" if $debug;
-    $$url_size_table{$url} = "$size,$html_size,$css_count,$css_size,$js_count,$js_size,$img_count,$img_size,$other_count,$other_size";
+    $size_string = "$size,$html_size,$css_count,$css_size,$js_count,$js_size,$img_count,$img_size,$other_count,$other_size";
     print "Total page size = $size HTML = $html_size, CSS = $css_size, JS = $js_size, IMG = $img_size, OTHER = $other_size\n" if $debug;
     print "Link type count CSS = $css_count, JS = $js_count, IMG = $img_count, OTHER = $other_count\n" if $debug;
+    
+    #
+    # Return sizes as a string
+    #
+    return($size_string);
 }
 
 #***********************************************************************
 #
-# Name: Mobile_Check_Save_Web_Page_Size_Details
+# Name: Mobile_Check_Save_Web_Page_Size
 #
-# Parameters: filename - directory and filename prefix
-#             url_size_table - address of a table to track URL
-#               size details
+# Parameters: file_handle - a file handle
+#             file_name - name of file
+#             url - a URL
+#             size_string - string os sizes
 #
 # Description:
 #
-#   This function saves the URL, title, heading report.
+#   This function saves web page size details as a CSV file.  If
+# the file_handle variable is undefind, a temporary file is created.
 #
 #***********************************************************************
-sub Mobile_Check_Save_Web_Page_Size_Details {
-    my ($filename, $url_size_table) = @_;
-
-    my ($csv_filename, $url, $details);
+sub Mobile_Check_Save_Web_Page_Size {
+    my ($file_handle, $file_name, $url, $size_string) = @_;
 
     #
-    # Create CSV file for web page size details
+    # Do we have a file handle ? or do we create a temporary file ?
     #
-    $csv_filename = $filename . "_size.csv";
-    unlink($csv_filename);
-    print "Mobile_Check_Save_Web_Page_Size_Details, file = $csv_filename\n" if $debug;
-    if ( open (CSV, "> $csv_filename") ) {
-        binmode CSV;
-        
+    print "Mobile_Check_Save_Web_Page_Size_Details\n" if $debug;
+    if ( ! defined($file_handle) ) {
+        print "Create temporary CSV file\n" if $debug;
+        ($file_handle, $file_name) = tempfile( SUFFIX => '.css');
+        if ( ! defined($file_handle) ) {
+            print "Error: Failed to create temporary file in Mobile_Check_Save_Web_Page_Size\n";
+            return;
+        }
+        print "CSC file name = $file_name\n" if $debug;
+        binmode $file_handle;
+
         #
         # Print header row for CSV file
         #
-        print CSV "url,size,html_size,css_count,css_size,js_count,js_size,img_count,img_size,other_count,other_size\n";
-
-        #
-        # Loop through each URL in the table and print out the details
-        #
-        while ( ($url, $details) = each %$url_size_table ) {
-            $url =~ s/,/\\,/g;
-            print CSV "\"$url\",$details\n";
-            print "\"$url\",$details\n" if $debug;
-        }
-
-        #
-        # Close the csv file
-        #
-        close(CSV);
+        print $file_handle "url,size,html_size,css_count,css_size,js_count,js_size,img_count,img_size,other_count,other_size\n";
     }
-    else {
-        print "Error, failed to create file in Mobile_Check_Save_Web_Page_Size_Details, file = $csv_filename\n";
-    }
+
+    #
+    # print size string to file
+    #
+    print $file_handle "$url,$size_string\n";
+
+    #
+    # Return file handle and file name
+    #
+    return($file_handle, $file_name);
 }
 
 #***********************************************************************
