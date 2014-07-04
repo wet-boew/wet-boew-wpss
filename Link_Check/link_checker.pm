@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 6631 $
+# $Revision: 6670 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
-# $Date: 2014-04-25 13:19:24 -0400 (Fri, 25 Apr 2014) $
+# $Date: 2014-06-06 14:14:18 -0400 (Fri, 06 Jun 2014) $
 #
 # Description:
 #
@@ -2164,11 +2164,60 @@ sub IPV4_Link {
 
 #***********************************************************************
 #
+# Name: Check_CSS_Links
+#
+# Parameters: this_url - a URL
+#             links - pointer to a list of link objects
+#
+# Description:
+#
+#   This function checks the list of links for <link> tags
+# that reference CSS files.  The style information in the CSS
+# files is parsed and cached for use in WCAG checking.
+#
+#***********************************************************************
+sub Check_CSS_Links {
+    my ($this_url, $links) = @_;
+
+    my ($link, $resp, $content, %styles);
+
+    #
+    # Check each link to see if the tag is <link> and it is
+    # not in a <noscript> tag nor in modified content.
+    #
+    foreach $link (@$links) {
+        if (    ($link->link_type eq "link")
+             && (! $link->noscript)
+             && (! $link->modified_content) ) {
+            #
+            # Get the link
+            #
+            ($link, $resp) = Link_Checker_Get_Link_Status($this_url, $link);
+
+            #
+            # Did we get the link and is it CSS content ?
+            #
+            if ( defined($resp) && ($link->mime_type =~ /text\/css/) ) {
+                #
+                # Parse the CSS content to get styles
+                #
+                $content = Crawler_Decode_Content($resp);
+                %styles = CSS_Check_Get_Styles_From_Content($link->abs_url,
+                                                            $content,
+                                                            $link->mime_type);
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Link_Checker
 #
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - testcase profile
+#             mime_type - mime-type of the URL
 #             links - pointer to a list of link objects
 #
 # Description:
@@ -2177,12 +2226,22 @@ sub IPV4_Link {
 #
 #***********************************************************************
 sub Link_Checker {
-    my ( $this_url, $language, $profile, $links ) = @_;
+    my ( $this_url, $language, $profile, $mime_type, $links ) = @_;
 
     my ($i, $n_links, $this_link, $is_broken_link, $is_redirected_link );
     my ($domain, $referer_networkscope, $is_firewall_blocked);
     my ($link_check_status, $link, $resp, $header, $cache_link, $resp_url);
     my ($request_url, @link_results_list, $do_tests, $tcid, $do_ipv4_check);
+
+    #
+    # Regardless whether we plan to do link checking or not, check
+    # the list of links for references to CSS files.  We need to 
+    # get those files in order to extract style information that
+    # may be used in WCAG checking.
+    #
+    if ( $mime_type =~ /text\/html/ ) {
+        Check_CSS_Links($this_url, $links);
+    }
 
     #
     # Do we have a valid profile ?
@@ -2422,7 +2481,8 @@ sub Import_Packages {
     my ($package);
     my (@package_list) = ("url_check", "textcat", "pdf_files", "crawler",
                           "extract_anchors", "tqa_result_object",
-                          "clf_check", "metadata", "extract_links");
+                          "clf_check", "metadata", "extract_links",
+                          "css_check");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
