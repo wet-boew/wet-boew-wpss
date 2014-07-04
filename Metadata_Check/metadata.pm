@@ -2,9 +2,9 @@
 #
 # Name:   metadata.pm
 #
-# $Revision: 6585 $
+# $Revision: 6668 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Metadata_Check/Tools/metadata.pm $
-# $Date: 2014-03-12 15:25:21 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-06-03 10:48:25 -0400 (Tue, 03 Jun 2014) $
 #
 # Description:
 #
@@ -2332,11 +2332,13 @@ sub Validate_Metadata {
     # Dump out metadata tag values
     #
     if ( $debug ) {
+        print "Metadata dump\n";
         foreach $key (keys %$metadata_table) {
             $result_object = $$metadata_table{$key};
-            printf("%20s status %d message %s\n",
+            printf("%20s status %d message %s content %s\n",
                    $result_object->tag, $result_object->status,
-                   $result_object->message);
+                   $result_object->message,
+                   $result_object->content);
         }
     }
 
