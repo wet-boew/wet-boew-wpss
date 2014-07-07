@@ -2,9 +2,9 @@
 #
 # Name: wpss_strings.pm
 #
-# $Revision: 6488 $
+# $Revision: 6680 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_strings.pm $
-# $Date: 2013-11-29 15:21:47 -0500 (Fri, 29 Nov 2013) $
+# $Date: 2014-06-16 11:17:11 -0400 (Mon, 16 Jun 2014) $
 #
 # Description:
 #
@@ -181,6 +181,7 @@ Site:
     "Malformed URL",                    "Malformed URL",
     "Analysis Aborted",                 "**** Analysis Aborted ****",
     "Not reviewed",                     "**** Not reviewed ****",
+    "Runtime Error Analysis Aborted",   "**** Runtime Error Analysis Aborted ****",
     );
 
 my %string_table_fr = (
@@ -302,6 +303,7 @@ Site :
     "Malformed URL",                    "URL incorrecte",
     "Analysis Aborted",	                "**** Analyse abandonné ****",
     "Not reviewed",                     "**** Non révisé ****",
+    "Runtime Error Analysis Aborted",   "**** Erreur D'Exécution Analyse abandonné ****",
 );
 
 #
