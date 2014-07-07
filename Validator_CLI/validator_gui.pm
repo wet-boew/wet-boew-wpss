@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6603 $
+# $Revision: 6687 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2014-03-28 13:20:41 -0400 (Fri, 28 Mar 2014) $
+# $Date: 2014-06-27 11:11:51 -0400 (Fri, 27 Jun 2014) $
 #
 # Description:
 #
@@ -41,6 +41,7 @@
 #     Validator_GUI_Debug
 #     Validator_GUI_Report_Option_Labels
 #     Validator_GUI_Open_Data_Setup
+#     Validator_GUI_Runtime_Error_Callback
 #
 # Terms and Conditions of Use
 # 
@@ -117,6 +118,7 @@ BEGIN {
                   Validator_GUI_Debug
                   Validator_GUI_Report_Option_Labels
                   Validator_GUI_Open_Data_Setup
+                  Validator_GUI_Runtime_Error_Callback
                   );
     $VERSION = "1.0";
 }
@@ -131,7 +133,7 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($content_callback, $site_crawl_callback, $stop_on_errors);
 my ($url_list_callback, $version, %default_report_options);
 my (%report_options_labels, $results_file_name, $open_data_callback);
-my (%results_file_suffixes, $first_results_tab);
+my (%results_file_suffixes, $first_results_tab, $runtime_error_callback);
 my (%login_credentials, $results_save_callback);
 my (%url_401_user, %url_401_password);
 
@@ -1021,13 +1023,14 @@ sub Validator_GUI_End_Analysis {
     }
 
     #
-    # Do we have a Save Results call back function ?
+    # Do we have a Save Results call back function ? Call only once.
     #
-    if ( defined($results_save_callback) && defined($results_file_name) ) {
-        print "Call Results_Save_As callback function\n" if $debug;
-        &$results_save_callback($results_file_name);
+    if ( $tab_label eq $first_results_tab ) {
+        if ( defined($results_save_callback) && defined($results_file_name) ) {
+            print "Call Results_Save_As callback function\n" if $debug;
+            &$results_save_callback($results_file_name);
+        }
     }
-
 }
 
 #***********************************************************************
@@ -1077,12 +1080,26 @@ sub Run_Direct_HTML_Input_Callback {
 sub Run_URL_List_Callback {
     my ($url_list, %report_options) = @_;
 
+    my ($eval_output);
+
     #
     # Call the URL list callback function
     #
     print "Call url_list_callback\n" if $debug;
     if ( defined($url_list_callback) ) {
-        &$url_list_callback($url_list, %report_options);
+        $eval_output = eval { &$url_list_callback($url_list, %report_options); 1 };
+        if ( ! $eval_output ) {
+            print STDERR "url_list_callback fail, eval_output = \"$@\"\n";
+            print "url_list_callback fail, eval_output = \"$@\"\n" if $debug;
+
+            #
+            # Report run time error to parent thread
+            #
+            if ( defined($runtime_error_callback) ) {
+                &$runtime_error_callback($@);
+           }
+        }
+
         print "Return from url_list_callback\n" if $debug;
     }
     else {
@@ -1106,16 +1123,30 @@ sub Run_URL_List_Callback {
 sub Run_Site_Crawl {
     my (%crawl_details) = @_;
 
+    my ($eval_output);
+
     #
     # Call the site crawl callback function
     #
     print "Call site_crawl_callback\n" if $debug;
     if ( defined($site_crawl_callback) ) {
-        &$site_crawl_callback(%crawl_details);
+        $eval_output = eval { &$site_crawl_callback(%crawl_details); 1 };
+        if ( ! $eval_output ) {
+            print STDERR "site_crawl_callback fail, eval_output = \"$@\"\n";
+            print "site_crawl_callback fail, eval_output = \"$@\"\n" if $debug;
+
+            #
+            # Report run time error to parent thread
+            #
+            if ( defined($runtime_error_callback) ) {
+                &$runtime_error_callback($@);
+           }
+        }
+
         print "Return from site_crawl_callback\n" if $debug;
     }
     else {
-        print "Error: Missing crawller callback function in Run_Site_Crawl\n";
+        print "Error: Missing crawler callback function in Run_Site_Crawl\n";
         exit(1);
     }
 }
@@ -1530,6 +1561,7 @@ sub Read_Crawl_File {
     # Report failures only
     #
     $crawl_details{"report_fails_only"} = 1;
+    $crawl_details{"process_pdf"} = 1;
 
     #
     # Copy in default report options
@@ -1751,6 +1783,7 @@ sub Read_URL_File {
     # Report failures only
     #
     $report_options{"report_fails_only"} = 1;
+    $report_options{"process_pdf"} = 1;
 
     #
     # Open the url file
@@ -1909,6 +1942,7 @@ sub Read_HTML_File {
     # Report failures only
     #
     $report_options{"report_fails_only"} = 1;
+    $report_options{"process_pdf"} = 1;
 
     #
     # Open the HTML file
@@ -2111,6 +2145,7 @@ sub Read_Open_Data_File {
     # Report failures only
     #
     $report_options{"report_fails_only"} = 1;
+    $report_options{"process_pdf"} = 1;
 
     #
     # Open the url file
@@ -2492,6 +2527,31 @@ sub Validator_GUI_Open_Data_Setup {
         #
         $string_table = \%string_table_en;
     }
+}
+
+#***********************************************************************
+#
+# Name: Validator_GUI_Runtime_Error_Callback
+#
+# Parameters: callback - address of a function
+#
+# Description:
+#
+#   This function sets a callback function to be called in the event
+# there is a runtime error with the tool.
+#
+# The callback prototype is
+#  callback($message)
+#    where message is the runtime error message
+#
+#***********************************************************************
+sub Validator_GUI_Runtime_Error_Callback {
+    my ($callback) = @_;
+
+    #
+    # Save callback function addresses
+    #
+    $runtime_error_callback = $callback;
 }
 
 #***********************************************************************

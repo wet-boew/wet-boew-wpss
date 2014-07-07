@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6656 $
+# $Revision: 6689 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2014-05-28 08:26:45 -0400 (Wed, 28 May 2014) $
+# $Date: 2014-06-27 11:13:14 -0400 (Fri, 27 Jun 2014) $
 #
 # Description:
 #
@@ -39,6 +39,7 @@
 #     Validator_GUI_Debug
 #     Validator_GUI_Report_Option_Labels
 #     Validator_GUI_Open_Data_Setup
+#     Validator_GUI_Runtime_Error_Callback
 #
 # Exported functions - these are required by the Win32::GUI package
 # and should not be used by anyone else.
@@ -137,6 +138,7 @@ BEGIN {
                   Validator_GUI_Debug
                   Validator_GUI_Report_Option_Labels
                   Validator_GUI_Open_Data_Setup
+                  Validator_GUI_Runtime_Error_Callback
 
                   Validator_GUI_Browser_Terminate
                   Validator_GUI_Continue_Terminate
@@ -170,7 +172,7 @@ my ($site_login_logout_config_tabid, $version, $ignore_401_code);
 my ($results_save_callback, %report_options_labels, $ie, $browser_close_window);
 my ($browser_close_window_open, %report_options_field_names);
 my (%report_options_config_options, %url_401_user, %url_401_password);
-my ($process_pdf);
+my ($process_pdf, $runtime_error_callback);
 
 my ($xml_output_mode) = 0;
 my ($xml_tab_label) = "";
@@ -1450,6 +1452,8 @@ sub Close_Browser_Window {
 sub Run_URL_List_Callback {
     my ($url_list, %report_options) = @_;
 
+    my ($eval_output);
+
     #
     # Add a signal handler to exit a thread.
     #
@@ -1478,7 +1482,18 @@ sub Run_URL_List_Callback {
     # Call the URL list callback function
     #
     print "Child: Call url_list_callback\n" if $debug;
-    &$url_list_callback($url_list, %report_options);
+    $eval_output = eval { &$url_list_callback($url_list, %report_options); 1 };
+    if ( ! $eval_output ) {
+        print STDERR "url_list_callback fail, eval_output = \"$@\"\n";
+        print "url_list_callback fail, eval_output = \"$@\"\n" if $debug;
+
+        #
+        # Report run time error to parent thread
+        #
+        if ( defined($runtime_error_callback) ) {
+            &$runtime_error_callback($@);
+       }
+    }
     print "Child: Return from url_list_callback\n" if $debug;
 
     #
@@ -1623,6 +1638,8 @@ sub Get_Field_Value {
 sub Run_Site_Crawl {
     my (%crawl_details) = @_;
 
+    my ($eval_output);
+
     #
     # Add a signal handler to exit a thread.
     #
@@ -1652,7 +1669,18 @@ sub Run_Site_Crawl {
     # Child, call the site crawl callback function
     #
     print "Child: Call site_crawl_callback\n" if $debug;
-    &$site_crawl_callback(%crawl_details);
+    $eval_output = eval { &$site_crawl_callback(%crawl_details); 1 };
+    if ( ! $eval_output ) {
+        print STDERR "site_crawl_callback fail, eval_output = \"$@\"\n";
+        print "site_crawl_callback fail, eval_output = \"$@\"\n" if $debug;
+
+        #
+        # Report run time error to parent thread
+        #
+        if ( defined($runtime_error_callback) ) {
+            &$runtime_error_callback($@);
+       }
+    }
     print "Child: Return from site_crawl_callback\n" if $debug;
 
     #
@@ -5441,6 +5469,31 @@ sub Validator_GUI_Open_Data_Setup {
 
 #***********************************************************************
 #
+# Name: Validator_GUI_Runtime_Error_Callback
+#
+# Parameters: callback - address of a function
+#
+# Description:
+#
+#   This function sets a callback function to be called in the event 
+# there is a runtime error with the tool.
+#
+# The callback prototype is
+#  callback($message)
+#    where message is the runtime error message
+#
+#***********************************************************************
+sub Validator_GUI_Runtime_Error_Callback {
+    my ($callback) = @_;
+
+    #
+    # Save callback function addresses
+    #
+    $runtime_error_callback = $callback;
+}
+
+#***********************************************************************
+#
 # Name: Import_Packages
 #
 # Parameters: none
@@ -5512,13 +5565,6 @@ if ( $program_dir eq "." ) {
 Import_Packages;
 
 #
-# Handle STDERR & STDOUT output
-# Allow UTF-8 output for STDERR & STDOUT
-#
-binmode STDERR, ":utf8";
-binmode STDOUT, ":utf8";
-
-#
 # Redirect STDERR and STDOUT to a file so it isn't lost when 
 # the command window closes
 #
@@ -5529,7 +5575,7 @@ if ( open( STDERR, ">$program_dir/stderr.txt") ) {
 }
 else {
     #
-    # Could not create files in program diectory, try the temp directory.
+    # Could not create files in program directory, try the temp directory.
     #
     if ( defined($ENV{"TMP"}) ) {
         $tmp = $ENV{"TMP"};
@@ -5546,6 +5592,13 @@ else {
     open( STDERR, ">$tmp/stderr.txt");
     open( STDOUT, ">$tmp/stdout.txt");
 }
+
+#
+# Handle STDERR & STDOUT output
+# Allow UTF-8 output for STDERR & STDOUT
+#
+binmode STDERR, ":utf8";
+binmode STDOUT, ":utf8";
 
 #
 # Read version file to get program version
