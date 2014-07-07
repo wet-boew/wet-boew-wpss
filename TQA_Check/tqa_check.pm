@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6641 $
+# $Revision: 6681 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2014-04-30 09:08:43 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-06-16 13:02:27 -0400 (Mon, 16 Jun 2014) $
 #
 # Description:
 #
@@ -19,7 +19,6 @@
 #     Set_TQA_Check_Test_Profile
 #     Set_TQA_Check_Valid_Markup
 #     TQA_Check
-#     TQA_Check_Other_Tool_Results
 #     TQA_Check_Links
 #     TQA_Check_Images
 #     TQA_Check_Add_To_Image_List
@@ -83,7 +82,6 @@ BEGIN {
                   Set_TQA_Check_Test_Profile
                   Set_TQA_Check_Valid_Markup
                   TQA_Check
-                  TQA_Check_Other_Tool_Results
                   TQA_Check_Links
                   TQA_Check_Images
                   TQA_Check_Add_To_Image_List
@@ -107,7 +105,7 @@ my (%testcase_data, $current_url);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my (%tqa_check_profile_map, $current_tqa_check_profile);
-my ($results_list_addr, %other_tool_results);
+my ($results_list_addr);
 my (%tqa_testcase_profile_types, %exemption_markers);
 my ($have_exemption_markers) = 0;
 
@@ -631,6 +629,7 @@ sub Check_Other_Tool_Results {
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
 #             content - content
+#             links - address of a list of link objects
 #
 # Description:
 #
@@ -638,7 +637,8 @@ sub Check_Other_Tool_Results {
 #
 #***********************************************************************
 sub TQA_Check {
-    my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
+    my ($this_url, $language, $profile, $mime_type, $resp, 
+        $content, $links) = @_;
 
     my ($extracted_content, @tqa_results_list, $do_tests);
     my (@other_tqa_results_list, $result_object, $fault_count);
@@ -670,7 +670,7 @@ sub TQA_Check {
     #
     if ( $mime_type =~ /text\/html/ ) {
         @tqa_results_list = HTML_Check($this_url, $language, $profile,
-                                       $resp, $content);
+                                       $resp, $content, $links);
         $fault_count = @tqa_results_list;
         print "HTML faults detected = $fault_count\n" if $debug;
 
@@ -774,12 +774,6 @@ sub TQA_Check {
 #    foreach $result_object (@other_tqa_results_list) {
 #        push(@tqa_results_list, $result_object);
 #    }
-
-    #
-    # Clear other tool results values so we don't
-    # carry them over from this document to the next.
-    #
-    %other_tool_results = ();
 
     #
     # Check for errors using the HTTP::Response object
@@ -903,23 +897,22 @@ sub Clean_Text {
 sub Is_Substring {
     my ($string1, $string2) = @_;
 
-    my ($substring);
+    my ($substring) = 0;
 
     #
     # Is one string a substring of the other (check only if
     # both strings are not empty)
     #
-    $substring = 0;
     if ( ($string1 ne "") && ($string2 ne "") ) {
         #
         # is the first string value a substring of the second
         # value (one value has additional content).
         #
-        if ( $string1 =~ /$string2/ ) {
+        if ( index($string2, $string1) > -1 ) {
             print "First string is a substring of second string\n" if $debug;
             $substring = 1;
         }
-        elsif ( $string2 =~ /$string1/ ) {
+        elsif ( index($string1, $string2) > -1 ) {
             print "Second string is a substring of first string\n" if $debug;
             $substring = 1;
         }
@@ -930,7 +923,6 @@ sub Is_Substring {
     #
     return($substring);
 }
-
 
 #***********************************************************************
 #
@@ -1139,28 +1131,6 @@ sub Check_Link_Anchor_Alt_Title_Check {
             }
         }
     }
-}
-
-#***********************************************************************
-#
-# Name: TQA_Check_Other_Tool_Results
-#
-# Parameters: tool_results - hash table of tool & results
-#
-# Description:
-#
-#   This function copies the tool/results hash table into a global
-# variable.  The key is a tool name (e.g. "link check") and the
-# value is a pass (0) or fail (1).
-#
-#***********************************************************************
-sub TQA_Check_Other_Tool_Results {
-    my (%tool_results) = @_;
-
-    #
-    # Copy value to global variable
-    #
-    %other_tool_results = %tool_results;
 }
 
 #***********************************************************************
