@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 6660 $
+# $Revision: 6692 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2014-05-28 11:52:02 -0400 (Wed, 28 May 2014) $
+# $Date: 2014-07-03 11:38:29 -0400 (Thu, 03 Jul 2014) $
 #
 # Description:
 #
@@ -107,10 +107,10 @@ my ($current_a_href,
     %id_attribute_values, $have_metadata, $results_list_addr,
     $content_heading_count, $total_heading_count,
     $last_radio_checkbox_name, $content_section_handler,
-    $current_a_title, %content_section_found, $last_tag, $last_open_tag,
+    $current_a_title, %content_section_found, $last_close_tag, $last_open_tag,
     $current_content_lang_code, $inside_label, %last_label_attributes,
     $text_between_tags, $in_head_tag, @tag_order_stack, $wcag_2_0_h74_reported,
-    @param_lists, $inside_anchor, $last_label_text,
+    @param_lists, $inside_anchor, $last_label_text, $last_tag,
     $image_found_inside_anchor, $wcag_2_0_f70_reported,
     %html_tags_allowed_only_once_location, $last_a_href, $last_a_contains_image,
     %abbr_acronym_text_title_lang_map, $current_lang, $abbr_acronym_title,
@@ -131,7 +131,8 @@ my ($current_a_href,
     %aria_labelledby_location, %fieldset_input_count,
     $current_a_arialabel, %last_option_attributes, $tag_is_visible,
     @visible_tag_stack, $current_tag_styles, @tag_style_stack,
-    $modified_content, $first_html_tag_lang,
+    $modified_content, $first_html_tag_lang, $summary_tag_content,
+    $tag_is_hidden, @hidden_tag_stack,
 );
 
 my ($is_valid_html) = -1;
@@ -674,15 +675,18 @@ my (%html_block_tags_text_subcontainer) = (
 my (%html_phrasing_tags) = (
     "a", 1,
     "abbr", 1,
+    "acronym", 1,
     "area", 1,
     "applet", 1,
     "audio", 1,
     "b", 1,
     "bdi", 1,
     "bdo", 1,
+    "big", 1,
     "br", 1,
     "button", 1,
     "canvas", 1,
+    "center", 1,
     "cite", 1,
     "code", 1,
     "data", 1,
@@ -719,8 +723,10 @@ my (%html_phrasing_tags) = (
     "samp", 1,
     "script", 1,
     "select", 1,
+    "shadow", 1,
     "small", 1,
     "span", 1,
+    "strike", 1,
     "strong", 1,
     "sub", 1,
     "sup", 1,
@@ -728,6 +734,7 @@ my (%html_phrasing_tags) = (
     "template", 1,
     "textarea", 1,
     "time", 1,
+    "tt", 1,
     "u", 1,
     "var", 1,
     "video", 1,
@@ -945,8 +952,11 @@ my %string_table_en = (
     "Unable to determine content language, possible languages are", "Unable to determine content language, possible languages are",
     "Content referenced by",           "Content referenced by",
     "Label referenced by",             "<label> referenced by",
-    "is not visible",                  "is not visible",
+    "is hidden",                       "is hidden",
     "in tag used to convey information or relationships", "in tag used to convey information or relationships",
+    "Non-decorative image loaded via CSS with", "Non-decorative image loaded via CSS with",
+    "Alt attribute not allowed on this tag", "'alt' attribute not allowed on this tag.",
+    "is not visible",                  "is not visible",
 );
 
 
@@ -1105,8 +1115,11 @@ my %string_table_fr = (
     "Unable to determine content language, possible languages are", "Impossible de déterminer la langue du contenu, les langues possibles sont",
     "Content referenced by",           "Contenu référencé par",
     "Label referenced by",             "<label> référencé par",
-    "is not visible",                  "n'est pas visible",
+    "is hidden",                       "est caché",
     "in tag used to convey information or relationships", "dans la balise utilisée pour transmettre des informations ou des relations",
+    "Non-decorative image loaded via CSS with", "Image non-décoratif chargé par CSS avec",
+    "Alt attribute not allowed on this tag", "L'attribut 'alt' pas autorisés sur cette balise.",
+    "is not visible",                  "est pas visible",
 );
 
 #
@@ -1363,6 +1376,7 @@ sub Initialize_Test_Results {
     $current_content_lang_code = "";
     $inside_label          = 0;
     $last_tag              = "";
+    $last_close_tag        = "";
     $last_open_tag         = "";
     %last_label_attributes = ();
     $last_label_text       = "";
@@ -1402,10 +1416,13 @@ sub Initialize_Test_Results {
     %last_option_attributes = ();
     $tag_is_visible         = 1;
     @visible_tag_stack      = ();
+    $tag_is_hidden          = 0;
+    @hidden_tag_stack       = ();
     $current_tag_styles     = "";
     @tag_style_stack        = ();
     $modified_content       = 0;
     undef($first_html_tag_lang);
+    undef($summary_tag_content);
 
     #
     # Initialize content section found flags to false
@@ -1873,7 +1890,7 @@ sub Check_Character_Spacing {
     # Check for 4 or more single character words in the
     # text string.
     #
-    if ( $tag_is_visible && 
+    if ( $tag_is_visible &&
          ($text =~ /\s+[a-z]\s+[a-z]\s+[a-z]\s+[a-z]\s+/i) ) {
         ($i1, $t, $i2) = $text =~ /^(.*)(\s+[a-z]\s+[a-z]\s+[a-z]\s+[a-z]\s+)(.*)$/io;
         Record_Result("WCAG_2.0-F32", $line, $column, $text,
@@ -2333,7 +2350,7 @@ sub Check_Label_Id_and_Title {
 
     my ($id, $title, $label, $last_seen_text, $complete_title);
     my ($aria_describedby, $aria_labelledby, $aid, $clean_text);
-    my ($label_line, $label_column, $label_is_visiable);
+    my ($label_line, $label_column, $label_is_visible, $label_is_hidden);
     my ($found_label) = 0;
     my ($found_fieldset) = 0;
 
@@ -2355,7 +2372,6 @@ sub Check_Label_Id_and_Title {
         $id = $attr{"id"};
         $id =~ s/^\s*//g;
         $id =~ s/\s*$//g;
-        print "Have id = \"$id\"\n" if $debug;
 
         #
         # Do we have content for the id attribute ?
@@ -2420,7 +2436,7 @@ sub Check_Label_Id_and_Title {
         # after this input).
         #
         if ( defined($label_for_location{$id}) ) {
-            ($label_line, $label_column, $label_is_visiable) = split(/:/,
+            ($label_line, $label_column, $label_is_visible, $label_is_hidden) = split(/:/,
                  $label_for_location{$id});
             print "Have label with id = $id at $label_line:$label_column\n" if $debug;
 
@@ -2447,6 +2463,29 @@ sub Check_Label_Id_and_Title {
                                       $tag);
                     }
                 }
+            }
+
+            #
+            # Is the label hidden ?
+            #
+            if (  $label_is_hidden ) {
+                Record_Result("WCAG_2.0-H44", $line, $column, "",
+                              String_Value("Label referenced by") .
+                              " 'id=\"$id\"' " .
+                              String_Value("is hidden") . ". <label> " .
+                              String_Value("started at line:column") .
+                              " $label_line:$label_column");
+            }
+            #
+            # Is the label not visible ?
+            #
+            elsif (  ! $label_is_visible ) {
+                Record_Result("WCAG_2.0-H44", $line, $column, "",
+                              String_Value("Label referenced by") .
+                              " 'id=\"$id\"' " .
+                              String_Value("is not visible") . ". <label> " .
+                              String_Value("started at line:column") .
+                              " $label_line:$label_column");
             }
         }
         #
@@ -2585,7 +2624,7 @@ sub Check_Label_Id_and_Title {
     # If the last tag was a <label>, check the last label
     # for a "for" attribute.
     #
-    if ( (! $found_label) && ($last_tag eq "label") ) {
+    if ( (! $found_label) && ($last_close_tag eq "label") ) {
         print "Last tag is label, text_between_tags = \"$text_between_tags\"\n" if $debug;
 
         #
@@ -2759,7 +2798,7 @@ sub Input_Tag_Handler {
 
     my ($input_type, $id, $value, $input_tag_type, $label_location);
     my ($label_error, $clean_text, $label_line, $label_column);
-    my ($label_is_visible);
+    my ($label_is_visible, $label_is_hidden);
     my ($found_label) = 0;
 
     #
@@ -2782,6 +2821,10 @@ sub Input_Tag_Handler {
     # Is this a read only or disabled input ?
     #
     if ( defined($attr{"readonly"}) || defined($attr{"disabled"}) ) {
+        #
+        # Don't need to check for a label as screen readers will skip over
+        # these inputs.
+        #
         print "Readonly or disabled input\n" if $debug;
         return;
     }
@@ -2887,7 +2930,7 @@ sub Input_Tag_Handler {
                 # Do we already have a label for this id value ?
                 #
                 if ( defined($label_for_location{$id}) ) {
-                    ($label_line, $label_column, $label_is_visible) = 
+                    ($label_line, $label_column, $label_is_visible, $label_is_hidden) =
                         split(/:/, $label_for_location{$id});
                     $label_location = "$label_line:$label_column";
                     $label_error = 0;
@@ -3210,7 +3253,7 @@ sub Label_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
     my ($label_for, $input_tag_type, $input_line, $input_column);
-    my ($label_line, $label_column, $label_is_visible);
+    my ($label_line, $label_column, $label_is_visible, $label_is_hidden);
 
     #
     # We are inside a label
@@ -3237,7 +3280,7 @@ sub Label_Tag_Handler {
             # Have we seen this label id before ?
             #
             if ( defined($label_for_location{"$label_for"}) ) {
-                ($label_line, $label_column, $label_is_visible) = split(/:/,
+                ($label_line, $label_column, $label_is_visible, $label_is_hidden) = split(/:/,
                                      $label_for_location{"$label_for"});
                 Record_Result("WCAG_2.0-F17", $line, $column,
                               $text, String_Value("Duplicate label id") .
@@ -3263,8 +3306,8 @@ sub Label_Tag_Handler {
             #
             # Save label location and visibility
             #
-            print "Save label location $line:$column:$tag_is_visible\n" if $debug;
-            $label_for_location{"$label_for"} = "$line:$column:$tag_is_visible";
+            print "Save label location $line:$column:$tag_is_visible:$tag_is_hidden\n" if $debug;
+            $label_for_location{"$label_for"} = "$line:$column:$tag_is_visible:$tag_is_hidden";
         }
     }
 }
@@ -3332,7 +3375,7 @@ sub End_Label_Tag_Handler {
             print "Inside fieldset index $fieldset_tag_index, legend = \"" .
                   $legend_text_value{$fieldset_tag_index} . "\"\n" if $debug;
             $complete_label = $legend_text_value{$fieldset_tag_index} .
-                                $clean_text;
+                                " $clean_text";
         }
         else {
             $complete_label = $clean_text;
@@ -3360,6 +3403,13 @@ sub End_Label_Tag_Handler {
                 $complete_label .= " " . $$attr{"headers"};
             }
         }
+
+        #
+        # Add last heading text to the label.  Screen readers can provide
+        # users with the last heading when identifying the label of an
+        # input.
+        #
+        $complete_label = $last_heading_text . " $complete_label";
 
         #
         # Have we seen this label before ?
@@ -3527,7 +3577,7 @@ sub Legend_Tag_Handler {
 sub End_Legend_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $last_line, $last_column, $clean_text);
+    my ($this_text, $last_line, $last_column, $clean_text, $complete_legend);
 
     #
     # Get all the text found within the legend tag
@@ -3564,8 +3614,11 @@ sub End_Legend_Tag_Handler {
     #
     else {
         #
-        # Save legend text
+        # Save legend text.  First add the previous heading value to the
+        # legend text, a screen reader can announce the heading and legend
+        # text if it is used as an input label.
         #
+        $complete_legend = "$last_heading_text $clean_text";
         if ( $fieldset_tag_index > 0 ) {
             $legend_text_value{$fieldset_tag_index} = $clean_text;
             print "Legend for fieldset index $fieldset_tag_index = \"$clean_text\"\n" if $debug;
@@ -3574,18 +3627,18 @@ sub End_Legend_Tag_Handler {
         #
         # Have we seen this legend before in this for ?
         #
-        if ( defined($form_legend_value{lc($clean_text)}) ) {
+        if ( defined($form_legend_value{lc($complete_legend)}) ) {
             Record_Result("WCAG_2.0-H71", $line, $column,
                           $text, String_Value("Duplicate") .
                           " <legend> \"$clean_text\" " .
                           String_Value("Previous instance found at") .
-                          $form_legend_value{lc($clean_text)});
+                          $form_legend_value{lc($complete_legend)});
         }
         else {
             #
             # Save legend location
             #
-            $form_legend_value{lc($clean_text)} = "$line:$column"
+            $form_legend_value{lc($complete_legend)} = "$line:$column"
         }
     }
 }
@@ -6787,6 +6840,155 @@ sub End_Figure_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Details_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles details tags.
+#
+#***********************************************************************
+sub Details_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Clear any summary tag content
+    #
+    undef($summary_tag_content);
+}
+
+#***********************************************************************
+#
+# Name: End_Details_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end details tag.
+#
+#***********************************************************************
+sub End_Details_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    my ($clean_text);
+
+    #
+    # Get all the text found within the details tag
+    #
+    if ( ! $have_text_handler ) {
+        print "End details tag found without corresponding open tag at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Get the details text as a string, remove all white space and convert
+    # to lowercase
+    #
+    $clean_text = Clean_Text(Get_Text_Handler_Content($self, ""));
+    print "End_Details_Tag_Handler: text = \"$clean_text\"\n" if $debug;
+
+    #
+    # Do we have any <summary> text ?
+    #
+    if ( defined($summary_tag_content) ) {
+        #
+        # Remove the summary content to see if we have any additional details
+        # content.
+        #
+        $clean_text =~ s/$summary_tag_content//;
+    }
+
+    #
+    # Is there any details text ?
+    #
+    $clean_text =~ s/\s//g;
+    if ( $clean_text eq "" ) {
+        if ( $tag_is_visible ) {
+            Record_Result("WCAG_2.0-G115", $line, $column,
+                          $text, String_Value("Missing text in") . "<details>");
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Summary_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles summary tags.
+#
+#***********************************************************************
+sub Summary_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+}
+
+#***********************************************************************
+#
+# Name: End_Summary_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end summary tag.
+#
+#***********************************************************************
+sub End_Summary_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    my ($clean_text);
+
+    #
+    # Get all the text found within the summary tag
+    #
+    if ( ! $have_text_handler ) {
+        print "End summary tag found without corresponding open tag at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Get the summary text as a string, remove all white space and convert
+    # to lowercase
+    #
+    $summary_tag_content = Clean_Text(Get_Text_Handler_Content($self, ""));
+    print "End_Summary_Tag_Handler: text = \"$summary_tag_content\"\n" if $debug;
+
+    #
+    # Is there any summary text ?
+    #
+    $clean_text = $summary_tag_content;
+    $clean_text =~ s/\s//g;
+    if ( $clean_text eq "" ) {
+        if ( $tag_is_visible ) {
+            Record_Result("WCAG_2.0-G115", $line, $column,
+                          $text, String_Value("Missing text in") . "<summary>");
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Check_Event_Handlers
 #
 # Parameters: tagname - tag name
@@ -7028,7 +7230,7 @@ sub End_Form_Tag_Handler {
     #
     # Did we see a button inside the form ?
     #
-    if ( $tag_is_visible && 
+    if ( $tag_is_visible &&
          ((! $found_input_button) && ($number_of_writable_inputs > 0)) ) {
         #
         # Missing submit button (input type="submit", input type="image",
@@ -7700,7 +7902,7 @@ sub Check_Cite_Attribute {
                 #
                 # Is this a valid URI ?
                 #
-                if ( $tag_is_visible && 
+                if ( $tag_is_visible &&
                      ((! defined($resp)) || (! $resp->is_success)) ) {
                     Record_Result($tcid, $line, $column, $text,
                                   String_Value("Broken link in cite for") .
@@ -8187,7 +8389,7 @@ sub End_Dl_Tag_Handler {
 sub Check_ID_Attribute {
     my ( $tagname, $line, $column, $text, $attrseq, %attr ) = @_;
 
-    my ($id, $id_line, $id_column, $id_is_visible);
+    my ($id, $id_line, $id_column, $id_is_visible, $id_is_hidden);
 
     #
     # Do we have an id attribute ?
@@ -8203,7 +8405,7 @@ sub Check_ID_Attribute {
         # Have we seen this id before ?
         #
         if ( defined($id_attribute_values{$id}) ) {
-            ($id_line, $id_column, $id_is_visible) = split(/:/, $id_attribute_values{$id});
+            ($id_line, $id_column, $id_is_visible, $id_is_hidden) = split(/:/, $id_attribute_values{$id});
             Record_Result("WCAG_2.0-F77", $line, $column,
                           $text, String_Value("Duplicate id") .
                           "'$id'" .  " " .
@@ -8214,7 +8416,7 @@ sub Check_ID_Attribute {
         #
         # Save id location
         #
-        $id_attribute_values{$id} = "$line:$column:$tag_is_visible";
+        $id_attribute_values{$id} = "$line:$column:$tag_is_visible:$tag_is_hidden";
     }
 }
 
@@ -8406,14 +8608,17 @@ sub Check_Lang_Attribute {
 #   This function checks for styles that hide content.  It checks for
 # - display:none
 # - visibility:hidden
+# - width or heigth of 0
+# - clip: rect(1px, 1px, 1px, 1px)
 #
 #***********************************************************************
 sub Check_Style_to_Hide_Content {
     my ($tagname, $line, $column, $text, $style_names) = @_;
 
-    my ($style, $style_object);
+    my ($style, $style_object, $value);
     my ($found_hide_style) = 0;
-    
+    my ($found_off_screen_style) = 0;
+
     #
     # Check all possible style names
     #
@@ -8423,22 +8628,62 @@ sub Check_Style_to_Hide_Content {
             $style_object = $css_styles{$style};
 
             #
+            # Do we have clip: rect(1px, 1px, 1px, 1px) ?
+            #
+            $value = CSS_Check_Style_Get_Property_Value($style, $style_object,
+                                                        "clip");
+            if ( defined($value)
+                 && ( $value =~ /rect\s*\(1px\s*[,]?\s*1px\s*[,]?\s*1px\s*[,]?\s*1px\s*[,]?\s*\)/ ) ) {
+                #
+                # Do we also have position: absolute ?
+                #
+                $value = CSS_Check_Style_Get_Property_Value($style,
+                                                            $style_object,
+                                                            "position");
+                if ( $value =~ /absolute/ ) {
+                    $found_off_screen_style = 1;
+                    print "Found rect(1px, 1px, 1px, 1px) in style $style\n" if $debug;
+                    last;
+                }
+            }
+
+            #
             # Do we have display:none ?
             #
-            if ( CSS_Check_Style_Property_Value($style, $style_object,
-                                                "display", "none") ) {
+            if ( CSS_Check_Style_Has_Property_Value($style, $style_object,
+                                                    "display", "none") ) {
                 $found_hide_style = 1;
                 print "Found display:none in style $style\n" if $debug;
                 last;
             }
 
             #
+            # Do we have heigth: 0px ?
+            #
+            if ( CSS_Check_Style_Has_Property_Value($style, $style_object,
+                                                    "heigth", "0px") ) {
+                $found_hide_style = 1;
+                print "Found heigth: 0px in style $style\n" if $debug;
+                last;
+            }
+
+            #
             # Do we have visibility:hidden ?
             #
-            if ( CSS_Check_Style_Property_Value($style, $style_object,
-                                                "visibility", "hidden") ) {
+            if ( CSS_Check_Style_Has_Property_Value($style, $style_object,
+                                                    "visibility", "hidden") ) {
                 $found_hide_style = 1;
                 print "Found visibility:hidden in style $style\n" if $debug;
+                last;
+            }
+            
+            #
+            # Do we have width: 0px ?
+            #
+            if ( CSS_Check_Style_Has_Property_Value($style, $style_object,
+                                                    "width", "0px") ) {
+                $found_hide_style = 1;
+                print "Found width: 0px in style $style\n" if $debug;
                 last;
             }
         }
@@ -8450,10 +8695,22 @@ sub Check_Style_to_Hide_Content {
     #
     if ( $found_hide_style ) {
         #
-        # Set global tag visibility flag
+        # Set global tag hidden and tag visible flags
+        #
+        $tag_is_hidden = 1;
+        $tag_is_visible = 0;
+        print "Tag is hidden\n" if $debug;
+    }
+    #
+    # Did we find a class that hides content ?  If we didn't we use the
+    # value from the parent tag.
+    #
+    elsif ( $found_off_screen_style ) {
+        #
+        # Set global tag visible flags
         #
         $tag_is_visible = 0;
-        print "Tag is not visible\n" if $debug;
+        print "Tag is offscreen\n" if $debug;
     }
 }
 
@@ -8479,6 +8736,8 @@ sub Check_Style_to_Hide_Content {
 # accessibility issues are not applicable if the content is not
 # available to screen readers.
 #
+# See http://webaim.org/techniques/css/invisiblecontent/ for details.
+#
 #***********************************************************************
 sub Check_Presentation_Attributes {
     my ($tagname, $line, $column, $text, $attrseq, %attr) = @_;
@@ -8488,11 +8747,12 @@ sub Check_Presentation_Attributes {
 
     #
     # Save the current style names in the style stack
-    # Save the current tag visibility in the visible tag stack
+    # Save the current tag visibility and tag hidden values
     #
     print "Check_Presentation_Attributes for tag $tagname\n" if $debug;
     push(@tag_style_stack, $current_tag_styles);
     push(@visible_tag_stack, $tag_is_visible);
+    push(@hidden_tag_stack, $tag_is_hidden);
     print "Push tag_is_visible = $tag_is_visible prior to tag $tagname\n" if $debug;
 
     #
@@ -8505,8 +8765,9 @@ sub Check_Presentation_Attributes {
         $inline_style_count++;
         $style_names = "inline_" . $inline_style_count . "_$tagname";
         print "Found inline style in tag $tagname, generated class = $style_names\n" if $debug;
-        %style_map = CSS_Check_Get_Styles($current_url,
-                                          "$style_names {" . $attr{"style"} . "}");
+        %style_map = CSS_Check_Get_Styles_From_Content($current_url,
+                                      "$style_names {" . $attr{"style"} . "}",
+                                                       "text/html");
 
         #
         # Add this style to the CSS styles for this URL
@@ -8533,9 +8794,22 @@ sub Check_Presentation_Attributes {
     #
     if ( defined($attr{"hidden"}) ) {
         #
-        # Set global tag visibility flag
+        # Set global tag hidden and tag visibility flag
         #
         print "Found attribute 'hidden' on tag\n" if $debug;
+        $tag_is_hidden = 1;
+        $tag_is_visible = 0;
+    }
+
+    #
+    # Check for a aria-hidden attribute
+    #
+    if ( defined($attr{"aria-hidden"}) && ($attr{"aria-hidden"} eq "true") ) {
+        #
+        # Set global tag hidden and tag visibility flag
+        #
+        print "Found attribute 'aria-hidden' on tag\n" if $debug;
+        $tag_is_hidden = 1;
         $tag_is_visible = 0;
     }
 
@@ -8631,10 +8905,27 @@ sub Check_Aria_Role_Attribute {
         #
         print "Check for heading in role=\"$role\" attribute\n" if $debug;
         if ( ($role eq "heading") && (! ($tagname =~ /^h[0-9]?$/)) ) {
-            Record_Result("WCAG_2.0-ARIA12", $line, $column, $text,
-                          String_Value("Found") .
-                          " role=\"heading\" " . 
-                          String_Value("in tag") . "<$tagname>");
+
+            #
+            # Check for a possible aria-level attribute.  If
+            # we have one and it's value is greater than 6, we
+            # don't report an error as there is no <h7>, or higher, tag.
+            #
+            if ( defined($attr{"aria-level"}) && ($attr{"aria-level"} > 6) ) {
+                #
+                # Found aria-level greater than 6, this heading role is
+                # acceptable
+                #
+            }
+            else {
+                #
+                # Either no aria-level or the value is less than 7
+                #
+                Record_Result("WCAG_2.0-ARIA12", $line, $column, $text,
+                              String_Value("Found") .
+                              " role=\"heading\" " . 
+                              String_Value("in tag") . "<$tagname>");
+            }
         }
 
         #
@@ -8784,6 +9075,98 @@ sub Check_Aria_Attributes {
 
 #***********************************************************************
 #
+# Name: Check_Alt_Attribute
+#
+# Parameters: tagname - tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attrseq - reference to an array of attributes
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks for the alt attribute on tags that should not
+# have an alt.  If an attribute is found, it then checks for a class
+# attribute that specifies a CSS style that loads an image.
+#
+#***********************************************************************
+sub Check_Alt_Attribute {
+    my ($tagname, $line, $column, $text, $attrseq, %attr) = @_;
+
+    my ($alt, $tcid, $style, $value, $style_object);
+
+    #
+    # Check for alt attribute on a tag that should not have alt and if
+    # we havve styles for this tag
+    #
+    print "Check_Alt_Attribute\n" if $debug;
+    if ( defined($attr{"alt"}) 
+         && ($attr{"alt"} ne "")
+         && ($current_tag_styles ne "")
+         && (! defined($tags_allowed_alt_attribute{$tagname})) ) {
+        #
+        # We have alt content on a tag that should not have alt
+        #
+        $alt = $attr{"alt"};
+        print "Found alt=\"$alt\" on tag $tagname\n" if $debug;
+
+        #
+        # Check all possible style names
+        #
+        foreach $style (split(/\s+/, $current_tag_styles)) {
+            if ( defined($css_styles{$style}) ) {
+                $style_object = $css_styles{$style};
+
+                #
+                # Do we have a 'background-image' property ?
+                #
+                $value = CSS_Check_Style_Get_Property_Value($style,
+                                                            $style_object,
+                                                            "background-image");
+
+                #
+                # Do we have a url value ?
+                #
+                if ( $value =~ /url\s*\(/i ) {
+                    #
+                    # Image loaded via CSS
+                    #
+                    Record_Result("WCAG_2.0-F3", $line, $column, $text,
+                                  String_Value("Non-decorative image loaded via CSS with") .
+                                  " alt=\"$alt\" " .
+                                  String_Value("for tag") . "<$tagname>" .
+                                  " CSS property: background-image. " .
+                                  String_Value("Alt attribute not allowed on this tag"));
+                    last;
+                }
+
+                #
+                # Do we have a 'background' property ?
+                #
+                $value = CSS_Check_Style_Get_Property_Value($style,
+                                                            $style_object,
+                                                            "background");
+
+                #
+                # Do we have a url value ?
+                #
+                if ( $value =~ /url\s*\(/i ) {
+                    Record_Result("WCAG_2.0-F3", $line, $column, $text,
+                                  String_Value("Non-decorative image loaded via CSS with") .
+                                  " alt=\"$alt\" " .
+                                  String_Value("for tag") . "<$tagname>" .
+                                  " CSS property: background-image. " .
+                                  String_Value("Alt attribute not allowed on this tag"));
+                    last;
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Check_Attributes
 # 
 # Parameters: self - reference to this parser
@@ -8825,6 +9208,11 @@ sub Check_Attributes {
     # Check for presentation (e.g. style) attributes
     #
     Check_Presentation_Attributes($tagname, $line, $column, $text, $attrseq, %attr);
+
+    #
+    # Check for alt attribute on tags that should not have alt
+    #
+    Check_Alt_Attribute($tagname, $line, $column, $text, $attrseq, %attr);
 
     #
     # Check onfocus attribute
@@ -9310,6 +9698,13 @@ sub Start_Handler {
     }
 
     #
+    # Check details tag
+    #
+    elsif ( $tagname eq "details" ) {
+        Details_Tag_Handler($self, $line, $column, $text, %attr_hash);
+    }
+
+    #
     # Check div tag
     #
     elsif ( $tagname eq "div" ) {
@@ -9552,6 +9947,14 @@ sub Start_Handler {
     }
 
     #
+    # Check summary tag
+    #
+    elsif ( $tagname eq "summary" ) {
+        Summary_Tag_Handler($self, $line, $column, $text, %attr_hash);
+    }
+
+    #
+    #
     # Check table tag
     #
     elsif ( $tagname eq "table" ) {
@@ -9626,12 +10029,22 @@ sub Start_Handler {
     # seen value here rather than in the End_Handler function.
     #
     if ( defined ($html_tags_with_no_end_tag{$tagname}) ) {
-        $last_tag = $tagname;
+        $last_close_tag = $tagname;
 
         #
         # Remove any style information from the style stack for this tag.
         #
         $current_tag_styles = pop(@tag_style_stack);
+
+        #
+        # Remove any tag hidden value for this tag
+        #
+        if ( @hidden_tag_stack > 0 ) {
+            $tag_is_hidden = pop(@hidden_tag_stack);
+        }
+        else {
+            $tag_is_hidden = 0;
+        }
 
         #
         # Remove any tag visibility value for this tag
@@ -9657,6 +10070,7 @@ sub Start_Handler {
     # Set last open tag seen
     #
     $last_open_tag = $tagname;
+    $last_tag = $tagname;
 }
 
 #***********************************************************************
@@ -9685,7 +10099,7 @@ sub Check_Click_Here_Link {
     $link_text =~ s/^\s*//g;
     $link_text =~ s/\s*$//g;
     $link_text =~ s/\.*$//g;
-    if ( $tag_is_visible && 
+    if ( $tag_is_visible &&
          (index($click_here_patterns, " $link_text ") != -1) ) {
         Record_Result("WCAG_2.0-H30", $line, $column, $text,
                       String_Value("click here link found"));
@@ -9832,7 +10246,7 @@ sub End_Anchor_Tag_Handler {
         # Same href, does exactly 1 of the anchors contain an image ?
         #
         print "Adjacent links to same href\n" if $debug;
-        if ( $tag_is_visible && 
+        if ( $tag_is_visible &&
              ($image_found_inside_anchor xor $last_a_contains_image) ) {
             #
             # One anchor contains an image.
@@ -10271,6 +10685,7 @@ sub Check_End_Tag_Order {
     #
     # Save last tag name
     #
+    $last_close_tag = $tagname;
     $last_tag = $tagname;
 }
 
@@ -10363,6 +10778,14 @@ sub End_Handler {
         End_Caption_Tag_Handler($self, $line, $column, $text);
     }
 
+    #
+    # Check details tag
+    #
+    elsif ( $tagname eq "details" ) {
+        End_Details_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
     #
     # Check div tag
     #
@@ -10511,6 +10934,14 @@ sub End_Handler {
     }
 
     #
+    # Check summary tag
+    #
+    elsif ( $tagname eq "summary" ) {
+        End_Summary_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    #
     # Check table tag
     #
     elsif ( $tagname eq "table" ) {
@@ -10633,6 +11064,16 @@ sub End_Handler {
     }
 
     #
+    # Remove any tag hidden value for this tag
+    #
+    if ( @hidden_tag_stack > 0 ) {
+        $tag_is_hidden = pop(@hidden_tag_stack);
+    }
+    else {
+        $tag_is_hidden = 0;
+    }
+
+    #
     # Get the tag visibility value for parent tag from the stack
     #
     if ( @visible_tag_stack > 0 ) {
@@ -10690,7 +11131,8 @@ sub Check_Baseline_Technologies {
 #***********************************************************************
 sub Check_Missing_And_Extra_Labels_In_Form {
 
-    my ($label_id, $line, $column, $comment, $found, $label_for, $visible);
+    my ($label_id, $line, $column, $comment, $found, $label_for);
+    my ($is_visible, $is_hidden);
 
     #
     # Check that a label is defined for each one referenced
@@ -10708,12 +11150,26 @@ sub Check_Missing_And_Extra_Labels_In_Form {
                           " <input>");
         }
         #
-        # Is the label visible ?
+        # Have a label
         #
         else {
-            ($line, $column, $visible) = split(/:/, $label_for_location{"$label_id"});
-            print "Check label id = $label_id, $line:$column:$visible\n" if $debug;
-            if ( ! $visible ) {
+            ($line, $column, $is_visible, $is_hidden) = split(/:/, $label_for_location{"$label_id"});
+            print "Check label id = $label_id, $line:$column:$is_visible:$is_hidden\n" if $debug;
+            #
+            # Is the label hidden ?
+            #
+            if ( $is_hidden ) {
+                Record_Result("WCAG_2.0-H44", $line, $column, "",
+                              String_Value("Label referenced by") .
+                              " 'id=\"$label_id\"' " .
+                              String_Value("is hidden") . ". <label> " .
+                              String_Value("started at line:column") .
+                              " $line:$column");
+            }
+            #
+            # Is the label visible ?
+            #
+            elsif ( ! $is_visible ) {
                 Record_Result("WCAG_2.0-H44", $line, $column, "",
                               String_Value("Label referenced by") .
                               " 'id=\"$label_id\"' " .
@@ -10723,7 +11179,6 @@ sub Check_Missing_And_Extra_Labels_In_Form {
             }
         }
     }
-
 
 #
 # ****************************************
@@ -10743,7 +11198,7 @@ sub Check_Missing_And_Extra_Labels_In_Form {
 #            # id= matching the value) ?
 #            #
 #            if ( ! defined($input_id_location{"$label_for"}) ) {
-#                ($line, $column) = split(/:/, $label_for_location{"$label_for"});
+#                ($line, $column, $is_visible, $is_hidden) = split(/:/, $label_for_location{"$label_for"});
 #                Record_Result("WCAG_2.0-H44", $line, $column, "",
 #                              String_Value("Unused label, for attribute") .
 #                              "'$label_for'" . String_Value("at line:column") .
@@ -10840,7 +11295,7 @@ sub Check_Language_Spans {
 sub Check_Missing_Aria_Id {
 
     my ($aria_id, $line, $column, $tag, $tcid);
-    my ($id_line, $id_column, $id_is_visible);
+    my ($id_line, $id_column, $id_is_visible, $id_is_hidden);
 
     #
     # Are we checking for missing ARIA aria-describedby values ?
@@ -10867,12 +11322,12 @@ sub Check_Missing_Aria_Id {
 #                #
 #                # Is the target visible ?
 #                #
-#                ($id_line, $id_column, $id_is_visible) = split(/:/, $id_attribute_values{$aria_id});
-#                if ( ! $id_is_visible ) {
+#                ($id_line, $id_column, $id_is_visible, $id_is_hidden) = split(/:/, $id_attribute_values{$aria_id});
+#                if ( $id_is_hidden ) {
 #                    Record_Result($tcid, $line, $column, "",
 #                                  String_Value("Content referenced by") .
 #                                  " 'aria-describedby=\"$aria_id\"' " .
-#                                  String_Value("is not visible") . ", " .
+#                                  String_Value("is hidden") . ", " .
 #                                  String_Value("id defined at") .
 #                                  " $id_line:$id_column");
 #                }
@@ -10901,12 +11356,12 @@ sub Check_Missing_Aria_Id {
 #            #
 #            # Is the target visible ?
 #            #
-#            ($id_line, $id_column, $id_is_visible) = split(/:/, $id_attribute_values{$aria_id});
-#            if ( ! $id_is_visible ) {
+#            ($id_line, $id_column, $id_is_visible, $id_is_hidden) = split(/:/, $id_attribute_values{$aria_id});
+#            if ( ! $id_is_not_hidden ) {
 #                Record_Result($tcid, $line, $column, "",
 #                              String_Value("Content referenced by") .
 #                                  " 'aria-labelledby=\"$aria_id\"' " .
-#                                  String_Value("is not visible") . ", " .
+#                                  String_Value("is hidden") . ", " .
 #                                  String_Value("id defined at") .
 #                                  " $id_line:$id_column");
 #            }
@@ -11089,6 +11544,7 @@ sub Modified_Content_HTML_Check {
 #             profile - testcase profile
 #             resp - HTTP::Response object
 #             content - HTML content
+#             links - address of a list of link objects
 #
 # Description:
 #
@@ -11096,10 +11552,11 @@ sub Modified_Content_HTML_Check {
 #
 #***********************************************************************
 sub HTML_Check {
-    my ( $this_url, $language, $profile, $resp, $content ) = @_;
+    my ($this_url, $language, $profile, $resp, $content, $links) = @_;
 
     my ($parser, @tqa_results_list, $result_object, $testcase);
-    my ($lang_code, $lang, $status, $css_content);
+    my ($lang_code, $lang, $status, $css_content, %on_page_styles);
+    my ($selector, $style);
 
     #
     # Do we have a valid profile ?
@@ -11170,6 +11627,11 @@ sub HTML_Check {
         }
 
         #
+        # Get CSS styles from linked style sheets
+        #
+        %css_styles = CSS_Check_Get_All_Styles($links);
+        
+        #
         # Extract any inline CSS from the HTML
         #
         print "Check for inline CSS\n" if $debug;
@@ -11180,7 +11642,16 @@ sub HTML_Check {
         # Get styles from the CSS content
         #
         if ( $css_content ne "" ) {
-            %css_styles = CSS_Check_Get_Styles($this_url, $css_content);
+            %on_page_styles = CSS_Check_Get_Styles_From_Content($this_url,
+                                                            $css_content,
+                                                            "text/html");
+
+            #
+            # Copy styles into CSS styles table
+            #
+            while ( ($selector, $style) = each %on_page_styles ) {
+                $css_styles{$selector} = $style;
+            }
         }
 
         #
