@@ -2,9 +2,9 @@
 #
 # Name:   css_check.pm
 #
-# $Revision: 6640 $
+# $Revision: 6684 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/css_check.pm $
-# $Date: 2014-04-30 08:12:34 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-06-27 11:03:34 -0400 (Fri, 27 Jun 2014) $
 #
 # Description:
 #
@@ -18,9 +18,11 @@
 #     Set_CSS_Check_Test_Profile
 #     Set_CSS_Check_Valid_Markup
 #     CSS_Check
-#     CSS_Check_Get_Styles
+#     CSS_Check_Get_All_Styles
+#     CSS_Check_Get_Styles_From_Content
 #     CSS_Check_Does_Style_Have_Emphasis
-#     CSS_Check_Style_Property_Value
+#     CSS_Check_Style_Has_Property_Value
+#     CSS_Check_Style_Get_Property_Value
 #
 # Terms and Conditions of Use
 # 
@@ -75,9 +77,11 @@ BEGIN {
                   Set_CSS_Check_Test_Profile
                   Set_CSS_Check_Valid_Markup
                   CSS_Check
-                  CSS_Check_Get_Styles
+                  CSS_Check_Get_All_Styles
+                  CSS_Check_Get_Styles_From_Content
                   CSS_Check_Does_Style_Have_Emphasis
-                  CSS_Check_Style_Property_Value
+                  CSS_Check_Style_Has_Property_Value
+                  CSS_Check_Style_Get_Property_Value
                   );
     $VERSION = "1.0";
 }
@@ -93,19 +97,12 @@ my (%testcase_data, $foreground_color, $background_color);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my (%css_check_profile_map, $current_css_check_profile, $current_url);
-my ($results_list_addr);
+my ($results_list_addr, %url_css_styles_cache, %url_css_styles_hits);
+my ($url_css_styles_count) = 0;
 
 my ($relative_font_sizes) = " xx-small x-small small medium large x-large xx-large xsmaller larger ";
 
 my ($is_valid_markup) = -1;
-
-my ($max_error_message_string)= 2048;
-
-#
-# Status values
-#
-my ($css_check_pass)       = 0;
-my ($css_check_fail)       = 1;
 
 #
 # Color keyword to RGB value map
@@ -149,9 +146,6 @@ my %string_table_en = (
     "non-decorative content in class", "non-decorative content in class ",
     "not specified in em units",    "not specified in 'em' units for (class : value) ",
     );
-
-
-
 
 my %string_table_fr = (
     "Fails validation",             "Échoue la validation, voir les résultats de validation pour plus de détails.",
@@ -444,7 +438,7 @@ sub Record_Result {
         #
         # Create result object and save details
         #
-        $result_object = tqa_result_object->new($testcase, $css_check_fail,
+        $result_object = tqa_result_object->new($testcase, 1,
                                                 TQA_Testcase_Description($testcase),
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
@@ -1127,6 +1121,18 @@ sub Content_Property {
         #
         if ( (length($value) > 2) && 
              (($value =~ /^'/) || ($value =~ /^"/)) ) {
+
+            #
+            # Remove any character encodings
+            #
+            $value =~ s/\\[0-9a-z]*//gi;
+
+            #
+            # Remove any calls to the attr function to get
+            # tag attributes.
+            #
+            $value =~ s/attr\s*\([a-z]*\)//gi;
+
             #
             # Remove all non alphanumeric characters (e.g. punctuation,
             # white space)
@@ -1144,7 +1150,7 @@ sub Content_Property {
                 #
                 Record_Result("WCAG_2.0-F87", -1, 0, "",
                               String_Value("non-decorative content in class") .
-                              $name);
+                              $name . " content: \"$value\"");
             }
         }
     }
@@ -1513,10 +1519,72 @@ sub CSS_Check {
 
 #***********************************************************************
 #
-# Name: CSS_Check_Get_Styles
+# Name: CSS_Check_Get_All_Styles
+#
+# Parameters: links - a list of link objects
+#
+# Description:
+#
+#   This function scan the list of links provided to find all <link>
+# tags the reference CSS code.  It then gets the style information for
+# each CSS reference to generate a single table of merged style information.
+# If the same selector appears in multiple CSS files, the last one is
+# used.
+#
+#***********************************************************************
+sub CSS_Check_Get_All_Styles {
+    my ($links) = @_;
+
+    my (%styles, $link, $selector, $style, $addr);
+
+    #
+    # Check each link to see if the tag is <link> and it is
+    # not in a <noscript> tag nor in modified content.
+    #
+    foreach $link (@$links) {
+        if (    ($link->link_type eq "link")
+             && (! $link->noscript)
+             && (! $link->modified_content) ) {
+            #
+            # Is the link to CSS content ?
+            #
+            if ( $link->mime_type =~ /text\/css/ ) {
+                #
+                # Get the CSS style information from the styles cache
+                #
+                if ( defined($url_css_styles_cache{$link->abs_url}) ) {
+                    print "cached style information for " . $link->abs_url .
+                          "\n" if $debug;
+                    $addr = $url_css_styles_cache{$link->abs_url};
+                    
+                    #
+                    # Merge these styles with those we already have
+                    #
+                    while ( ($selector, $style) = each %$addr ) {
+                        $styles{$selector} = $style;
+                    }
+                }
+                else {
+                    print "No cached style information for " .
+                          $link->abs_url . "\n" if $debug;
+                }
+            }
+        }
+    }
+
+    #
+    # Return all the styles
+    #
+    return(%styles);
+}
+
+#***********************************************************************
+#
+# Name: CSS_Check_Get_Styles_From_Content
 #
 # Parameters: this_url - a URL
 #             content - CSS content
+#             mime_type - mime type of content
 #
 # Description:
 #
@@ -1524,17 +1592,27 @@ sub CSS_Check {
 # a hash table of style objects, indexed by the style name.
 #
 #***********************************************************************
-sub CSS_Check_Get_Styles {
-    my ( $this_url, $content ) = @_;
+sub CSS_Check_Get_Styles_From_Content {
+    my ($this_url, $content, $mime_type) = @_;
 
-    my ($parser, %style_hash, $style, $css, $selector, $name);
+    my ($parser, %style_hash, $style, $css, $selector, $name, $addr);
     my (@properties, $this_prop, $property, $value, $hash);
-    my ($first_style, $previous_prop, %previous_hash, $previous_value);
+    my ($first_style, $previous_prop, $previous_hash, $previous_value);
+
+    #
+    # Do we already have style information for this URL ?
+    #
+    if ( defined($url_css_styles_cache{$this_url}) ) {
+        print "CSS_Check_Get_Styles_From_Content: Return cached style information\n" if $debug;
+        $addr = $url_css_styles_cache{$this_url};
+        $url_css_styles_hits{$this_url}++;
+        return(%$addr);
+    }
 
     #
     # Did we get any content ?
     #
-    print "CSS_Check_Get_Styles\n" if $debug;
+    print "CSS_Check_Get_Styles_From_Content\n" if $debug;
     if ( length($content) > 0 ) {
         #
         # Remove any comments from the CSS content
@@ -1602,11 +1680,21 @@ sub CSS_Check_Get_Styles {
                         #
                         $previous_prop = $first_style->get_property_by_name($property);
                         if ( $previous_prop != 0 ) {
-                            print "Style already has property $property\n";
+                            #
+                            # Is the value different ?
+                            #
+                            $previous_hash = $$previous_prop{"options"};
+                            $previous_value = $$previous_hash{"value"};
+                            if ( $value ne $previous_value ) {
+                                print "Style $name already has property $property\n" if $debug;
+                                print "  Previous $property: $previous_value\n" if $debug;
+                                print "  new      $property: $value\n" if $debug;
+                            }
                         }
                         else {
                             #
-                            # Add this property to the first instance of the style
+                            # Add this property to the first instance of
+                            # the style
                             #
                             print "Add property to first instance of style\n" if $debug;
                             $first_style->add_property($this_prop);
@@ -1643,7 +1731,16 @@ sub CSS_Check_Get_Styles {
         }
     }
     else {
-        print "No content passed to CSS_Check_Get_Styles\n" if $debug;
+        print "No content passed to CSS_Check_Get_Styles_From_Content\n" if $debug;
+    }
+
+    #
+    # Save style information in cache in case we need it again.
+    #
+    if ( $mime_type =~ /text\/css/ ) {
+        $url_css_styles_cache{$this_url} = \%style_hash;
+        $url_css_styles_count++;
+        $url_css_styles_hits{$this_url} = 1;
     }
 
     #
@@ -1745,7 +1842,7 @@ sub CSS_Check_Does_Style_Have_Emphasis {
 
 #***********************************************************************
 #
-# Name: CSS_Check_Style_Property_Value
+# Name: CSS_Check_Style_Has_Property_Value
 #
 # Parameters: style_name - name of style
 #             style_object - style object refernce
@@ -1759,7 +1856,7 @@ sub CSS_Check_Does_Style_Have_Emphasis {
 # value is present.
 #
 #***********************************************************************
-sub CSS_Check_Style_Property_Value {
+sub CSS_Check_Style_Has_Property_Value {
     my ($style_name, $style_object, $property_name, $property_value) = @_;
 
     my (@properties, $this_prop, $hash, $property, $value);
@@ -1768,7 +1865,7 @@ sub CSS_Check_Style_Property_Value {
     #
     # Get properties for this style
     #
-    print "CSS_Check_Style_Property_Value style $style_name, for property $property_name with value $property_value\n" if $debug;
+    print "CSS_Check_Style_Has_Property_Value style $style_name, for property $property_name with value $property_value\n" if $debug;
     @properties = $style_object->properties;
     for $this_prop (@properties) {
         #
@@ -1798,6 +1895,59 @@ sub CSS_Check_Style_Property_Value {
     #
     print "Style has property and value = $has_value\n" if $debug;
     return($has_value);
+}
+
+#***********************************************************************
+#
+# Name: CSS_Check_Style_Get_Property_Value
+#
+# Parameters: style_name - name of style
+#             style_object - style object refernce
+#             property_name - name of property to check
+#
+# Description:
+#
+#   This function checks the properties of the style object to see
+# if the specified property exists.  If it does the value of the property
+# is returned.
+#
+#***********************************************************************
+sub CSS_Check_Style_Get_Property_Value {
+    my ($style_name, $style_object, $property_name) = @_;
+
+    my (@properties, $this_prop, $hash, $property, $value);
+    my ($has_value) = 0;
+
+    #
+    # Get properties for this style
+    #
+    print "CSS_Check_Style_Get_Property_Value style $style_name, for property $property_name\n" if $debug;
+    @properties = $style_object->properties;
+    for $this_prop (@properties) {
+        #
+        # Get the property name
+        #
+        $hash = $$this_prop{"options"};
+        $property = $$hash{"property"};
+        print "  Property: $property\n" if $debug;
+
+        #
+        # Is this the property name we want ?
+        #
+        if ( $property eq $property_name ) {
+            #
+            # Get the property value
+            #
+            $value = $$hash{"value"};
+            print "  Value: $value\n" if $debug;
+            last;
+        }
+    }
+
+    #
+    # Return property value
+    #
+    return($value);
 }
 
 #***********************************************************************
