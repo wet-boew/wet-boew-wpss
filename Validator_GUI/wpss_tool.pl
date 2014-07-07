@@ -4,12 +4,12 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6658 $
+# $Revision: 6693 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2014-05-28 11:25:19 -0400 (Wed, 28 May 2014) $
+# $Date: 2014-07-03 11:40:42 -0400 (Thu, 03 Jul 2014) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
-#                        [ -xml ] [ -open_data ]
+#                        [ -xml ] [ -open_data ] [ -monitor ]
 #
 # Where: -debug enables program debugging.
 #        -fra use French interface
@@ -18,6 +18,7 @@
 #        -cli enter Command Line mode
 #        -xml generate XML output
 #        -open_data run tool for open data files rather than web files
+#        -monitor enable program resource usage monitoring
 #
 # Description:
 #
@@ -25,33 +26,33 @@
 # user to analyse an entire site, a list of URLs or paste in HTML code.
 #
 # Terms and Conditions of Use
-# 
+#
 # Unless otherwise noted, this computer program source code
-# is covered under Crown Copyright, Government of Canada, and is 
+# is covered under Crown Copyright, Government of Canada, and is
 # distributed under the MIT License.
-# 
+#
 # MIT License
-# 
+#
 # Copyright (c) 2011 Government of Canada
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
 # to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-# and/or sell copies of the Software, and to permit persons to whom the 
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
 # Software is furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included
 # in all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
 # OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR 
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
 # OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR 
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
-# 
+#
 #***********************************************************************
 
 my $have_threads = eval 'use threads; 1';
@@ -89,8 +90,7 @@ my (%login_form_values, $performed_login, %link_config_vars);
 my (@crawler_link_ignore_patterns, %document_count, %error_count);
 my (%fault_count, $user_agent_hostname, %url_list, $version);
 my (@links, @ui_args, %image_alt_text_table, @web_feed_list);
-my (%all_link_sets, %domain_prod_dev_map, @all_urls);
-my (%all_link_sets, %domain_prod_dev_map, $logged_in);
+my (%all_link_sets, %domain_prod_dev_map, @all_urls, $logged_in);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
 my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
 my ($shared_save_content_directory);
@@ -101,14 +101,14 @@ my ($ui_pm_dir) = "GUI";
 #
 my ($shared_image_alt_text_report, $shared_web_page_details_filename);
 my ($shared_site_dir_e, $shared_site_dir_f);
-my ($shared_headings_report, %shared_url_content_length);
+my ($shared_headings_report, $shared_web_page_size_filename);
 my ($shared_save_content, $shared_save_content_directory);
 if ( $have_threads ) {
     share(\$shared_image_alt_text_report);
     share(\$shared_site_dir_e);
     share(\$shared_site_dir_f);
     share(\$shared_headings_report);
-    share(\%shared_url_content_length);
+    share(\$shared_web_page_size_filename);
     share(\$shared_web_page_details_filename);
     share(\$shared_save_content);
     share(\$shared_save_content_directory);
@@ -133,6 +133,8 @@ my ($cli_mode) = 0;
 my ($open_data_mode) = 0;
 
 my ($debug) = 0;
+my ($monitoring) = 0;
+my ($monitoring_file_name);
 my ($command_line_debug) = 0;
 my ($max_urls_between_sleeps) = 2;
 my ($user_agent_name) = "wpss_test.pl";
@@ -174,7 +176,7 @@ my (%pdf_property_profile_tag_required_map,
 my (@metadata_profiles, $metadata_profile_label);
 my (%metadata_profile_tag_required_map,
     %metadata_profile_content_required_map,
-    %metadata_profile_content_type_map, 
+    %metadata_profile_content_type_map,
     %metadata_profile_scheme_values_map,
     %metadata_profile_invalid_content_map,
     $metadata_profile);
@@ -194,7 +196,7 @@ my (%headings_table, %content_section_markers);
 #
 # TQA Check variables
 #
-my (%tqa_check_profile_map, %tqa_testcase_data, %tqa_other_tool_results);
+my (%tqa_check_profile_map, %tqa_testcase_data);
 my (@tqa_check_profiles, $tqa_profile_label, $tqa_check_profile);
 my (%tqa_error_url_count, %tqa_error_instance_count);
 my ($tqa_testcase_url_help_file_name, %site_navigation_links);
@@ -253,12 +255,15 @@ my (%doc_features_metadata_profile_map, @doc_directory_paths);
 #
 # Mobile check variables
 #
-my ($mobile_check_profile);
+my ($mobile_check_profile, $web_page_size_file_handle);
 
 #
 # Web Page Details variables
 #
-my (@web_page_details_fields) = ("url", "title", "lang", "h1", "breadcrumb");
+my (@web_page_details_fields) = ("url", "title", "lang", "h1", "breadcrumb",
+                                 "dcterms.issued", "dcterms.modified",
+                                 "dcterms.subject", "dcterms.creator", 
+                                 "content size");
 my (%web_page_details_values, $web_page_details_fh);
 
 #
@@ -266,7 +271,7 @@ my (%web_page_details_values, $web_page_details_fh);
 #
 my (@robots_options, $robots_label);
 my (@status_401_options, $status_401_label);
- 
+
 
 #**********************************************************************
 #
@@ -297,7 +302,7 @@ sub Set_Language {
     #
     if ( ! $cgi_mode ) {
         #
-        # If this is a Windows workstation, get the 
+        # If this is a Windows workstation, get the
         # registry key for language setting of the current user
         #
         if ($^O =~ m/MSWin32/){
@@ -1682,9 +1687,9 @@ sub Read_Dept_Check_Config_File {
 #***********************************************************************
 sub Read_Content_Section_Value {
     my ($line, $list_addr) = @_;
-    
+
     my ($config_type, $value);
-    
+
     #
     # Split line on white space, we want everything after the first
     # whitespace.
@@ -1723,7 +1728,7 @@ sub Read_Content_Check_Config_File {
 
     my (@fields, $config_type);
     my ($in_content_marker_section) = 0;
-    
+
     #
     # Open configuration file at specified path
     #
@@ -1941,7 +1946,7 @@ sub Read_Config_File {
         print " --> $config_file\n";
         exit(1);
     }
-    
+
     #
     # Open configuration file at specified path
     #
@@ -2188,7 +2193,7 @@ sub Check_Debug_File {
         else {
             $debug = 0;
         }
-        
+
         #
         # Set debug flag in supporting packages
         #
@@ -2211,7 +2216,7 @@ sub Check_Debug_File {
 sub Initialize {
 
     my ($package, $host);
-    my (@package_list) = ("extract_links", "crawler", 
+    my (@package_list) = ("extract_links", "crawler",
                           "textcat", "metadata", "tqa_check", "pdf_files",
                           "link_checker", "html_features", "html_validate",
                           "css_validate", "robots_check", "content_check",
@@ -2224,7 +2229,7 @@ sub Initialize {
                           "web_analytics_check", "mobile_check");
     my ($key, $value, $metadata_profile);
     my ($tag_required, $content_required, $content_type, $scheme_values);
-    my ($invalid_content, $pdf_profile);
+    my ($invalid_content, $pdf_profile, $tmp);
     my ($sec, $min, $hour, $mday, $mon, $year);
 
     #
@@ -2232,7 +2237,7 @@ sub Initialize {
     #
     chdir($program_dir);
     unlink("$program_dir/debug.txt");
-    
+
     #
     # Import packages, we don't use a 'use' statement as these packages
     # may not be in the INC path.
@@ -2313,7 +2318,7 @@ sub Initialize {
     while ( ($key,$value) =  each %dept_check_profile_map) {
         Set_Dept_Check_Test_Profile($key, $value);
     }
-    
+
     #
     # Set message language.
     #
@@ -2387,7 +2392,7 @@ sub Initialize {
     while ( ($key,$value) = each %open_data_check_profile_map) {
         Set_Open_Data_Check_Test_Profile($key, $value);
     }
-    
+
     #
     # Set required metadata tags, metadata content and content type for
     # each metadata profile.
@@ -2448,7 +2453,7 @@ sub Initialize {
     Set_Link_Checker_Domain_Networkscope_Map(%networkscope_map);
     Set_Link_Checker_Domain_Alias_Map(%domain_alias_map);
     Set_Link_Checker_Redirect_Ignore_Patterns(@redirect_ignore_patterns);
-    
+
     #
     # Get current date and time
     #
@@ -2473,6 +2478,44 @@ sub Initialize {
         $version = <VERSION>;
         chomp($version);
         close(VERSION);
+    }
+
+    #
+    # Are we doing resource monitoring ?
+    #
+    if ( $monitoring ) {
+        $monitoring_file_name = "$program_dir/wpss_tool_resource_usage.txt";
+        unlink($monitoring_file_name);
+        if ( ! open( RESOURCE, ">$monitoring_file_name") ) {
+            #
+            # Could not create files in program directory, try 
+            # the temp directory.
+            #
+            if ( defined($ENV{"TMP"}) ) {
+                $tmp = $ENV{"TMP"};
+            }
+            else {
+                $tmp = "/tmp";
+            }
+            $monitoring_file_name = "$tmp/wpss_tool_resource_usage.txt";
+
+            #
+            # Open the resource monitoring file
+            #
+            if ( ! open( RESOURCE, ">$monitoring_file_name") ) {
+                print STDERR "Error: Failed to create resource monitoring file\n";
+                print STDERR " -> $monitoring_file_name\n";
+                $monitoring = 0;
+            }
+        }
+    }
+
+    #
+    # Print resource usage monitoring header
+    #
+    if ( $monitoring ) {
+        print RESOURCE "Resource usage monitoring started at $datetime_stamp\n";
+        close(RESOURCE);
     }
 }
 
@@ -2554,14 +2597,14 @@ sub Login_Callback {
                 }
                 print "\n";
             }
-            if ( ( ! ($this_input->readonly) ) && 
+            if ( ( ! ($this_input->readonly) ) &&
                  (
                    ($this_input->type eq "text") ||
                    ($this_input->type eq "password")
                  ) ) {
                 $login_fields{$this_input->name} = $this_input->type;
             }
-        }    
+        }
 
         #
         # Call on the validator GUI to present the login form
@@ -2602,7 +2645,7 @@ sub Save_Web_Page_Details {
 
     #
     # Quick check for url field, if we don't have this one we
-    # are not tracking values for the current URL (e.g. could be a 
+    # are not tracking values for the current URL (e.g. could be a
     # supporting file).
     #
     if ( ! defined($web_page_details_values{"url"}) ) {
@@ -2617,13 +2660,20 @@ sub Save_Web_Page_Details {
             $value = $web_page_details_values{$field};
 
             #
-            # Escape any quote characters
+            # Remove any quote characters. Excel has problems importing
+            # fields with imbedded quotes (even if they are escaped).
             #
-            $value =~ s/"/\\"/g;
+            $value =~ s/"//g;
         }
         else {
             $value = "";
         }
+
+        #
+        # Convert new line into whitespace
+        #
+        $value =~ s/\n/ /g;
+        $value =~ s/\r/ /g;
 
         #
         # Do we print a comma before this field ?
@@ -2635,6 +2685,7 @@ sub Save_Web_Page_Details {
         #
         # Print the field value
         #
+        print "Web page details $field = \"$value\"\n" if $debug;
         print $web_page_details_fh "\"$value\"";
         $printed_one = 1;
     }
@@ -2643,6 +2694,56 @@ sub Save_Web_Page_Details {
     # Print newline to end this record
     #
     print $web_page_details_fh "\n";
+}
+
+#***********************************************************************
+#
+# Name: Print_Resource_Usage
+#
+# Parameters: url - document URL
+#
+# Description:
+#
+#   This function prints a number of resource usage statistics to
+# a resource monitoring log.  This function is used for debugging
+# purposes.
+#
+#***********************************************************************
+sub Print_Resource_Usage {
+    my ($url) = @_;
+
+    my ($mem_string);
+    my ($sec, $min, $hour, $mday, $mon, $year, $datetime_stamp);
+
+    #
+    # Get current date and time
+    #
+    ($sec, $min, $hour, $mday, $mon, $year) = (localtime(time))[0, 1, 2, 3, 4, 5];
+    $datetime_stamp = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $year+1900, $mon+1, $mday, $hour, $min, $sec);
+
+    #
+    # Print time stamp and URL
+    #
+    open( RESOURCE, ">>$monitoring_file_name");
+    print RESOURCE "$datetime_stamp before URL $url\n";
+
+    #
+    # Are we running under Windows ?
+    #
+    if ( $^O =~ /MSWin32/ ) {
+        $mem_string = `tasklist /FI "PID eq $$"`;
+        print RESOURCE "tasklist /FI \"PID eq $$\"\n";
+        print RESOURCE "$mem_string\n";
+    }
+    #
+    # Assume linux
+    #
+    else {
+        $mem_string = `ps -p $$ -F`;
+        print RESOURCE "ps -p $$ -F\n";
+        print RESOURCE "$mem_string\n";
+    }
+    close(RESOURCE);
 }
 
 #***********************************************************************
@@ -2674,6 +2775,14 @@ sub HTTP_Response_Callback {
     Check_Debug_File();
 
     #
+    # If we are doing process monitoring, print out some resource
+    # usage statistics
+    #
+    if ( $monitoring ) {
+        Print_Resource_Usage($url);
+    }
+
+    #
     # Check for logout page
     #
     if ( ($url eq $logoutpagee) || ($url eq $logoutpagef) ) {
@@ -2686,7 +2795,6 @@ sub HTTP_Response_Callback {
     #
     print "HTTP_Response_Callback url = $url, mime-type = $mime_type\n" if $debug;
     %is_valid_markup = ();
-    %tqa_other_tool_results = ();
     %clf_other_tool_results = ();
     $is_archived = 0;
 
@@ -2695,7 +2803,7 @@ sub HTTP_Response_Callback {
     #
     if ( ($mime_type =~ /application\/pdf/) && (! $process_pdf) ) {
         $document_count{$crawled_urls_tab}++;
-        Validator_GUI_Start_URL($crawled_urls_tab, 
+        Validator_GUI_Start_URL($crawled_urls_tab,
                                 String_Value("Not reviewed") . " $url",
                                 $referrer, $supporting_file,
                                 $document_count{$crawled_urls_tab});
@@ -2794,7 +2902,7 @@ sub HTTP_Response_Callback {
         #
         # Determine TQA Check exemption status
         #
-        $tqa_check_exempted = TQA_Check_Exempt($url, $mime_type, $is_archived, 
+        $tqa_check_exempted = TQA_Check_Exempt($url, $mime_type, $is_archived,
                                                $content, \%url_list);
 
         #
@@ -2834,6 +2942,7 @@ sub HTTP_Response_Callback {
             #
             $web_page_details_values{"url"} = $url;
             $web_page_details_values{"lang"} = $language;
+            $web_page_details_values{"content size"} = length($content);
 
             #
             # Display content in browser window
@@ -2859,7 +2968,7 @@ sub HTTP_Response_Callback {
             # Perform CLF check
             #
             Perform_CLF_Check($url, $content, $language, $mime_type, $resp);
-            
+
             #
             # Perform Interoperability check
             #
@@ -2885,6 +2994,7 @@ sub HTTP_Response_Callback {
             #
             $web_page_details_values{"url"} = $url;
             $web_page_details_values{"lang"} = "";
+            $web_page_details_values{"content size"} = length($content);
 
             #
             # Perform link check
@@ -2915,7 +3025,6 @@ sub HTTP_Response_Callback {
             # Perform Link check
             #
             Perform_Link_Check($url, $mime_type, $resp);
-            #CSS_Check_Get_Styles($url, $content);
 
             #
             # Perform TQA check of CSS content
@@ -2941,6 +3050,13 @@ sub HTTP_Response_Callback {
         elsif ( ($mime_type =~ /text\/x-comma-separated-values/) ||
                 ($mime_type =~ /text\/csv/) ||
                 ($url =~ /\.csv$/i) ) {
+            #
+            # Save web page details
+            #
+            $web_page_details_values{"url"} = $url;
+            $web_page_details_values{"lang"} = "";
+            $web_page_details_values{"content size"} = length($content);
+
             #
             # Perform TQA check of CSV content
             #
@@ -3024,6 +3140,7 @@ sub HTTP_Response_Callback {
             #
             $web_page_details_values{"url"} = $url;
             $web_page_details_values{"lang"} = "";
+            $web_page_details_values{"content size"} = length($content);
         }
 
         #
@@ -3276,7 +3393,7 @@ sub Save_Content_To_File {
 #***********************************************************************
 sub Direct_HTML_Input_Callback {
     my ($content, %report_options) = @_;
-    
+
     my ($resp);
 
     #
@@ -3304,7 +3421,7 @@ sub Direct_HTML_Input_Callback {
     #
     # Determine TQA Check exemption status
     #
-    $tqa_check_exempted = TQA_Check_Exempt("Direct Input", "text/html", 
+    $tqa_check_exempted = TQA_Check_Exempt("Direct Input", "text/html",
                                            $is_archived, $content, \%url_list);
 
     #
@@ -3351,7 +3468,7 @@ sub Direct_HTML_Input_Callback {
     # Perform Feature check
     #
     Perform_Feature_Check("Direct Input", "text/html", $content);
-    
+
     #
     # Print document feature report
     #
@@ -3378,7 +3495,7 @@ sub Print_Content_Results {
     my (@content_results_list) = @_;
 
     my ($result_object, $status, $output_line, $message);
-    
+
     #
     # Print results
     #
@@ -3701,7 +3818,7 @@ sub All_Document_Checks {
 #***********************************************************************
 sub URL_List_Callback {
     my ($url_list, %report_options) = @_;
-    
+
     my ($this_url, @urls, $tab);
     my ($resp_url, $resp, $header, $content_type, $error);
 
@@ -3748,7 +3865,7 @@ sub URL_List_Callback {
 
         #
         # Get web page
-        # 
+        #
         print "Process url $this_url\n" if $debug;
         ($resp_url, $resp) = Crawler_Get_HTTP_Response($this_url, "");
 
@@ -3779,7 +3896,7 @@ sub URL_List_Callback {
             else {
                 $error = String_Value("Malformed URL");
             }
-            Validator_GUI_Print_URL_Error($crawled_urls_tab, $this_url, 
+            Validator_GUI_Print_URL_Error($crawled_urls_tab, $this_url,
                                           $document_count{$crawled_urls_tab},
                                           $error);
         }
@@ -3805,7 +3922,7 @@ sub URL_List_Callback {
     # Perform checks information gathered on all documents analysed.
     #
     All_Document_Checks();
-    
+
     #
     # Print document feature report
     #
@@ -3820,6 +3937,78 @@ sub URL_List_Callback {
     # Close the web page details list
     #
     close ($web_page_details_fh);
+
+    #
+    # Close the web page size file
+    #
+    if ( defined($web_page_size_file_handle) ) {
+        close($web_page_size_file_handle);
+    }
+
+    #
+    # Save Image, Atl text & title report
+    #
+    $shared_image_alt_text_report = Alt_Text_Check_Generate_Report(\%image_alt_text_table);
+}
+
+#***********************************************************************
+#
+# Name: Runtime_Error_Callback
+#
+# Parameters: message - runtime error message
+#
+# Description:
+#
+#   This function is a callback function used by the validator package.
+# It is called when the validator engine has a runtime error and
+# aborts.  The result tabs are updated with an error message.
+#
+#***********************************************************************
+sub Runtime_Error_Callback {
+    my ($message) = @_;
+
+    my ($tab);
+
+    #
+    # Add a note to all tabs indicating that analysis failed due
+    # runtime error.
+    #
+    foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
+                  $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
+                  $doc_list_tab, $doc_features_tab, $interop_tab) {
+        Validator_GUI_Update_Results($tab, "", 0);
+        Validator_GUI_Update_Results($tab,
+                                     String_Value("Runtime Error Analysis Aborted"),
+                                     0);
+        Validator_GUI_Update_Results($tab, $message, 0);
+    }
+
+    #
+    # Perform checks information gathered on all documents analysed.
+    #
+    All_Document_Checks();
+
+    #
+    # Print document feature report
+    #
+    Print_Document_Features_Report();
+
+    #
+    # Site analysis complete, print report footer
+    #
+    Print_Results_Footer(0);
+
+    #
+    # Close the web page details list
+    #
+    close ($web_page_details_fh);
+
+    #
+    # Close the web page size file
+    #
+    if ( defined($web_page_size_file_handle) ) {
+        close($web_page_size_file_handle);
+    }
 
     #
     # Save Image, Atl text & title report
@@ -3989,27 +4178,6 @@ sub Save_Headings_Report {
 
 #***********************************************************************
 #
-# Name: Save_Web_Page_Size_details
-#
-# Parameters: filename - directory and filename prefix
-#
-# Description:
-#
-#   This function saves web page size details gathered by the Mobile
-# check module.
-#
-#***********************************************************************
-sub Save_Web_Page_Size_details {
-    my ($filename) = @_;
-
-    #
-    # Save web page size details in a CSV file
-    #
-    Mobile_Check_Save_Web_Page_Size_Details($filename, \%shared_url_content_length);
-}
-
-#***********************************************************************
-#
 # Name: Results_Save_Callback
 #
 # Parameters: filename - directory and filename prefix
@@ -4036,11 +4204,16 @@ sub Results_Save_Callback {
     # Save the Headings report
     #
     Save_Headings_Report($filename);
-    
+
     #
     # Save web page size details
     #
-    Save_Web_Page_Size_details($filename);
+    $save_filename = $filename . "_page_size.csv";
+    print "Page size file name = $save_filename\n" if $debug;
+    unlink($save_filename);
+    print "Copy $shared_web_page_size_filename, $save_filename\n" if $debug;
+    copy($shared_web_page_size_filename, $save_filename);
+    unlink($shared_web_page_size_filename);
 
     #
     # Save and saved web page content
@@ -4050,8 +4223,9 @@ sub Results_Save_Callback {
     #
     # Copy the web page details CSV to the results directory.
     #
-    $save_filename = $filename . "_pages.csv";
+    $save_filename = $filename . "_page_inventory.csv";
     unlink($save_filename);
+    print "Copy $shared_web_page_details_filename, $save_filename\n" if $debug;
     copy($shared_web_page_details_filename, $save_filename);
     unlink($shared_web_page_details_filename);
 }
@@ -4082,7 +4256,7 @@ sub Print_Results_Header {
                   $doc_list_tab, $doc_features_tab, $interop_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Clear_Results($tab);
-            Validator_GUI_Update_Results($tab, 
+            Validator_GUI_Update_Results($tab,
                 "$program_name Version: $version");
         }
     }
@@ -4097,11 +4271,11 @@ sub Print_Results_Header {
         #
         # Output header to each results tab
         #
-        Validator_GUI_Update_Results($crawled_urls_tab, 
+        Validator_GUI_Update_Results($crawled_urls_tab,
                                      String_Value("Crawled URL report header") .
                                      $site_entries);
 
-        Validator_GUI_Update_Results($validation_tab, 
+        Validator_GUI_Update_Results($validation_tab,
                                      String_Value("Validation report header") .
                                      $site_entries);
 
@@ -4109,7 +4283,7 @@ sub Print_Results_Header {
                                      String_Value("Link report header") .
                                      $site_entries);
 
-        Validator_GUI_Update_Results($metadata_tab, 
+        Validator_GUI_Update_Results($metadata_tab,
                                     String_Value("Metadata report header") .
                                      $site_entries);
 
@@ -4124,7 +4298,7 @@ sub Print_Results_Header {
         Validator_GUI_Update_Results($interop_tab,
                                      String_Value("Interop report header") .
                                      $site_entries);
-        
+
         Validator_GUI_Update_Results($dept_tab,
                                      String_Value("Department report header") .
                                      $site_entries);
@@ -4133,7 +4307,7 @@ sub Print_Results_Header {
                                String_Value("Document Features report header") .
                                      $site_entries);
 
-        Validator_GUI_Update_Results($doc_list_tab, 
+        Validator_GUI_Update_Results($doc_list_tab,
                                String_Value("Document List report header") .
                                      $site_entries);
     }
@@ -4197,7 +4371,7 @@ sub Print_Results_Header {
                   $doc_list_tab, $doc_features_tab, $interop_tab, $open_data_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
-            Validator_GUI_Start_Analysis($tab, $date, 
+            Validator_GUI_Start_Analysis($tab, $date,
                                          String_Value("Analysis started"));
         }
     }
@@ -4366,7 +4540,7 @@ sub Print_Results_Summary_Table {
             Validator_GUI_Update_Results($interop_tab, $line);
             Validator_GUI_Update_Results($interop_tab, "");
         }
-    } 
+    }
 
     #
     # Print summary results table for department Check
@@ -4471,7 +4645,7 @@ sub Print_Results_Footer {
     #
     # Print footer on each tab
     #
-    foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab, 
+    foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $dept_tab, $doc_features_tab,
                   $clf_tab, $interop_tab, $open_data_tab, $doc_list_tab) {
         if ( defined($tab) ) {
@@ -4491,10 +4665,10 @@ sub Print_Results_Footer {
             #
             if ( defined($document_count{$tab}) ) {
                 Validator_GUI_Update_Results($tab, "");
-                Validator_GUI_Update_Results($tab, 
+                Validator_GUI_Update_Results($tab,
                     String_Value("Documents Checked") . $document_count{$tab});
                 if ( defined($error_count{$tab}) ) {
-                    Validator_GUI_Update_Results($tab, 
+                    Validator_GUI_Update_Results($tab,
                         String_Value("Documents with errors") .
                         $error_count{$tab});
                 }
@@ -4549,7 +4723,7 @@ sub Print_Document_Features_Report {
             Validator_GUI_Update_Results($doc_features_tab,
                                          String_Value("List of URLs with Document Feature")
                                          . $feature_id . " ($count)\n");
-        
+
             #
             # Print sorted list of URLs
             #
@@ -4648,9 +4822,9 @@ sub Check_Page_URL {
 
         #
         # Determine the abse URL for any relative URLs.  Usually this is
-        # the base field from the HTTP Response object (Location field 
+        # the base field from the HTTP Response object (Location field
         # in HTTP packet).  If the response code is 200 (OK), we don't use the
-        # the base field in case the Location field is set (which it should 
+        # the base field in case the Location field is set (which it should
         # not be).
         #
         if ( $resp->code == 200 ) {
@@ -4675,7 +4849,7 @@ sub Check_Page_URL {
         %all_link_sets = Extract_Links_Subsection_Links("ALL");
         TQA_Check_Links(\@tqa_results_list, $url, $tqa_check_profile,
                         $language, \%all_link_sets, \%site_navigation_links);
-                        
+
         #
         # Check links from all navigation sections.  We do this here, not
         # to detect error rather to initialize the site links structure.
@@ -4753,61 +4927,61 @@ sub Finish_Content_Saving {
 </html>
 ";
         close(HTML);
-    }
 
-    #
-    # Create the saved content directory path
-    #
-    $saved_content_directory = $filename . "_content";
+        #
+        # Create the saved content directory path
+        #
+        $saved_content_directory = $filename . "_content";
 
-    #
-    # Do we already have a directory ?
-    #
-    print "Content directory = $saved_content_directory\n" if $debug;
-    if ( -d "$saved_content_directory" ) {
         #
-        # Remove any old files
+        # Do we already have a directory ?
         #
-        print "Remove files from $saved_content_directory\n" if $debug;
-        opendir (DIR, "$saved_content_directory");
-        @files = readdir(DIR);
-        foreach $path (@files) {
-            if ( -f "$saved_content_directory/$path" ) {
-                unlink("$saved_content_directory/$path");
+        print "Content directory = $saved_content_directory\n" if $debug;
+        if ( -d "$saved_content_directory" ) {
+            #
+            # Remove any old files
+            #
+            print "Remove files from $saved_content_directory\n" if $debug;
+            opendir (DIR, "$saved_content_directory");
+            @files = readdir(DIR);
+            foreach $path (@files) {
+                if ( -f "$saved_content_directory/$path" ) {
+                    unlink("$saved_content_directory/$path");
+                }
+            }
+            closedir(DIR);
+        }
+        else {
+            print "Create directory $saved_content_directory\n" if $debug;
+            if ( ! mkdir("$saved_content_directory", 0755) ) {
+                print "Failed to create saved content directory $saved_content_directory, error = $!\n" if $debug;
             }
         }
-        closedir(DIR);
-    }
-    else {
-        print "Create directory $saved_content_directory\n" if $debug;
-        if ( ! mkdir("$saved_content_directory", 0755) ) {
-            print "Failed to create saved content directory $saved_content_directory, error = $!\n" if $debug;
-        }
-    }
 
-    #
-    # Copy files from the temporary saved content directory to the
-    # final directory
-    #
-    if ( -d "$shared_save_content_directory" ) {
         #
-        # Copy file
+        # Copy files from the temporary saved content directory to the
+        # final directory
         #
-        print "Copy files from $shared_save_content_directory\n" if $debug;
-        opendir (DIR, "$shared_save_content_directory");
-        @files = readdir(DIR);
-        foreach $path (@files) {
-            if ( -f "$shared_save_content_directory/$path" ) {
-                copy("$shared_save_content_directory/$path", "$saved_content_directory/$path");
-                unlink("$shared_save_content_directory/$path");
+        if ( -d "$shared_save_content_directory" ) {
+            #
+            # Copy file
+            #
+            print "Copy files from $shared_save_content_directory\n" if $debug;
+            opendir (DIR, "$shared_save_content_directory");
+            @files = readdir(DIR);
+            foreach $path (@files) {
+                if ( -f "$shared_save_content_directory/$path" ) {
+                    copy("$shared_save_content_directory/$path", "$saved_content_directory/$path");
+                    unlink("$shared_save_content_directory/$path");
+                }
             }
-        }
-        closedir(DIR);
+            closedir(DIR);
 
-        #
-        # Remove the temporary directory
-        #
-        rmdir($shared_save_content_directory);
+            #
+            # Remove the temporary directory
+            #
+            rmdir($shared_save_content_directory);
+        }
     }
 }
 
@@ -4921,12 +5095,12 @@ sub Initialize_Tool_Globals {
     #
     $clf_check_profile = $options{$clf_profile_label};
     Set_Link_Check_CLF_Profile($clf_check_profile);
-    
+
     #
     # Get Web Analytics Check profile name
     #
     $wa_check_profile = $options{$wa_profile_label};
-    
+
     #
     # Get Interoperability Check profile name
     #
@@ -4969,7 +5143,6 @@ sub Initialize_Tool_Globals {
     # Initialize markup validity flags and other tool results
     #
     %is_valid_markup = ();
-    %tqa_other_tool_results = ();
     %clf_other_tool_results = ();
     %image_alt_text_table = ();
     %html_titles = ();
@@ -4993,7 +5166,6 @@ sub Initialize_Tool_Globals {
     $is_archived = 0;
     $tqa_check_exempted = 0;
     %url_list = ();
-    %shared_url_content_length = ();
     @web_feed_list = ();
     $logged_in = 0;
 
@@ -5002,7 +5174,7 @@ sub Initialize_Tool_Globals {
     # configuration to their respective lists.
     #
     TQA_Check_Add_To_Image_List(\%decorative_images, @decorative_image_urls);
-    TQA_Check_Add_To_Image_List(\%non_decorative_images, 
+    TQA_Check_Add_To_Image_List(\%non_decorative_images,
                                 @non_decorative_image_urls);
 
     #
@@ -5024,7 +5196,7 @@ sub Initialize_Tool_Globals {
         print "Error: Failed to create temporary file in Initialize_Tool_Globals\n";
         return;
     }
-    binmode $web_page_details_fh;
+    binmode $web_page_details_fh, ":utf8";
     print $web_page_details_fh join(",", @web_page_details_fields) . "\n";
 }
 
@@ -5065,7 +5237,7 @@ sub Perform_Site_Crawl {
 
     #
     # Initialize tool global variables
-    # 
+    #
     Initialize_Tool_Globals(%crawl_details);
 
     #
@@ -5087,7 +5259,7 @@ sub Perform_Site_Crawl {
     #
     # Make sure we can get at the English entry page before we start
     # the crawl.
-    #   
+    #
     $resp_url = Check_Page_URL("$site_dir_e/$site_entry_e", 1);
     if ( $resp_url eq "" ) {
         return;
@@ -5098,9 +5270,9 @@ sub Perform_Site_Crawl {
     # fail.
     #
     if ( index($resp_url, $site_dir_e) != 0 ) {
-        Validator_GUI_Print_Error($crawled_urls_tab, 
+        Validator_GUI_Print_Error($crawled_urls_tab,
                                   String_Value("Entry page") .
-                                  "$site_dir_e/$site_entry_e" . 
+                                  "$site_dir_e/$site_entry_e" .
                                   String_Value("rewritten to") .
                                   $resp_url);
 
@@ -5132,9 +5304,9 @@ sub Perform_Site_Crawl {
     # fail.
     #
     if ( index($resp_url, $site_dir_f) != 0 ) {
-        Validator_GUI_Print_Error($crawled_urls_tab, 
+        Validator_GUI_Print_Error($crawled_urls_tab,
                                   String_Value("Entry page") .
-                                  "$site_dir_f/$site_entry_f" . 
+                                  "$site_dir_f/$site_entry_f" .
                                   String_Value("rewritten to") .
                                   $resp_url);
 
@@ -5155,7 +5327,7 @@ sub Perform_Site_Crawl {
     #
     # Make sure we can get at the English login page before we start
     # the crawl.
-    #   
+    #
     if ( ! Check_Login_Page($loginpagee, $site_dir_e) ) {
        return;
     }
@@ -5198,8 +5370,8 @@ sub Perform_Site_Crawl {
     # crawler about it.
     #
     if ( defined($loginpagee) && ($loginpagee ne "") ) {
-        Set_Crawler_Login_Logout($loginpagee, $logoutpagee, $loginpagef, 
-                                 $logoutpagef, $loginformname, 
+        Set_Crawler_Login_Logout($loginpagee, $logoutpagee, $loginpagef,
+                                 $logoutpagef, $loginformname,
                                  \&Login_Callback,
                                  $logininterstitialcount, $logoutinterstitialcount);
     }
@@ -5246,7 +5418,7 @@ sub Perform_Site_Crawl {
     # Print document feature report
     #
     Print_Document_Features_Report();
- 
+
     #
     # Site crawl is complete, print sorted list of URLs in URLs tab.
     #
@@ -5280,6 +5452,13 @@ sub Perform_Site_Crawl {
     close ($web_page_details_fh);
 
     #
+    # Close the web page size file
+    #
+    if ( defined($web_page_size_file_handle) ) {
+        close($web_page_size_file_handle);
+    }
+
+    #
     # Save Image, Atl text & title report
     #
     $shared_image_alt_text_report = Alt_Text_Check_Generate_Report(\%image_alt_text_table);
@@ -5303,7 +5482,7 @@ sub Perform_Site_Crawl {
 #***********************************************************************
 sub Print_URL_To_Tab {
     my ($tab, $url, $number) = @_;
-    
+
     #
     # Print URL and date to results tab.
     #
@@ -5455,7 +5634,7 @@ sub Perform_Metadata_Check {
     my ( $url, $content, $language ) = @_;
 
     my ($url_status, $status, $result_object, @metadata_results_list);
-    my (%local_metadata_error_url_count, $title);
+    my (%local_metadata_error_url_count, $title, $value, $name);
 
     #
     # Is this URL marked as archived on the web ?
@@ -5538,7 +5717,7 @@ sub Perform_Metadata_Check {
             #
             Validator_GUI_Update_Results($metadata_tab, "");
         }
-        
+
         #
         # Set global URL error count
         #
@@ -5565,7 +5744,35 @@ sub Perform_Metadata_Check {
         $title = "";
     }
     $html_titles{$url} = $title;
-    $web_page_details_values{"title"} = $title;
+
+    #
+    # Save metadata web page details
+    #
+    foreach $name ("title", "dcterms.issued", "dcterms.modified", "dcterms.subject") {
+        if ( defined($metadata_results{$name}) ) {
+            $result_object = $metadata_results{$name};
+            $web_page_details_values{$name} = decode_entities($result_object->content);
+        }
+        else {
+            $web_page_details_values{$name} = "";
+        }
+    }
+
+    #
+    # Check for dcterms.creator or dc.creator
+    #
+    $name = "dcterms.creator";
+    if ( defined($metadata_results{$name}) ) {
+        $result_object = $metadata_results{$name};
+        $web_page_details_values{$name} = $result_object->content;
+    }
+    elsif ( defined($metadata_results{"dc.creator"}) ) {
+        $result_object = $metadata_results{"dc.creator"};
+        $web_page_details_values{$name} = $result_object->content;
+    }
+    else {
+        $web_page_details_values{$name} = "";
+    }
 }
 
 #***********************************************************************
@@ -5670,7 +5877,7 @@ sub Perform_PDF_Properties_Check {
             #
             Validator_GUI_Update_Results($metadata_tab, "");
         }
-        
+
         #
         # Set global URL error count
         #
@@ -5736,7 +5943,7 @@ sub Perform_TQA_Check {
             $title = $pdf_titles{$url};
             if ( defined($title_html_url{$title}) ) {
                 print "PDF document has HTML equivalent " .
-                      $title_html_url{$title} . 
+                      $title_html_url{$title} .
                       " skipping TQA check\n" if $debug;
 
                 #
@@ -5781,16 +5988,11 @@ sub Perform_TQA_Check {
     Set_TQA_Check_Valid_Markup($url, %is_valid_markup);
 
     #
-    # Tell TQA Check module the results of other tools
-    #
-    TQA_Check_Other_Tool_Results(%tqa_other_tool_results);
-
-    #
     # Check the document
     #
     @tqa_results_list = TQA_Check($url, $language, $tqa_check_profile,
-                                  $mime_type, $resp, $content);
-                                  
+                                  $mime_type, $resp, $content, \@links);
+
     #
     # If the document is an HTML document, check content and
     # navigation links
@@ -5798,7 +6000,7 @@ sub Perform_TQA_Check {
     if ( $mime_type =~ /text\/html/ ) {
         TQA_Check_Links(\@tqa_results_list, $url, $tqa_check_profile, $language,
                         \%all_link_sets, \%site_navigation_links);
-                                   
+
         #
         # Check images
         #
@@ -5806,7 +6008,7 @@ sub Perform_TQA_Check {
                          \%decorative_images, \%non_decorative_images);
 
     }
-    
+
     #
     # Determine overall URL status
     #
@@ -6243,6 +6445,50 @@ sub Perform_Department_Check {
     my (%local_error_url_count, @headings, $first_h1, $h);
 
     #
+    # Check the document
+    #
+    print "Perform_Department_Check on URL\n  --> $url\n" if $debug;
+    @content_results_list = Dept_Check($url, $language, $dept_check_profile,
+                                       $mime_type, $resp, $content);
+
+    #
+    # Get list of headings from the document and save them in a
+    # global table indexed by URL
+    #
+    if ( $mime_type =~ /text\/html/ ) {
+        @headings = Content_Check_Get_Headings();
+        $headings_table{$url} = \@headings;
+
+        #
+        # Get first H1 heading
+        #
+        if ( @headings > 0 ) {
+            #
+            # Take first heading incase we don't find a h1
+            #
+            $first_h1 = $headings[0];
+            foreach $h (@headings) {
+                #
+                # Is this a h1 ?
+                #
+                if ( $h =~ /^1:/ ) {
+                    $first_h1 = $h;
+                    last;
+                }
+            }
+
+            #
+            # Strip off heading level number
+            #
+            $first_h1 =~ s/^\d://g;
+        }
+        else {
+            $first_h1 = "";
+        }
+        $web_page_details_values{"h1"} = decode_entities($first_h1);
+    }
+
+    #
     # Is this URL marked as archived on the web ?
     #
     if ( $is_archived ) {
@@ -6253,50 +6499,6 @@ sub Perform_Department_Check {
         Increment_Counts_and_Print_URL($dept_tab, $url, 0);
     }
     else {
-        #
-        # Check the document
-        #
-        print "Perform_Department_Check on URL\n  --> $url\n" if $debug;
-        @content_results_list = Dept_Check($url, $language, $dept_check_profile,
-                                           $mime_type, $resp, $content);
-
-        #
-        # Get list of headings from the document and save them in a
-        # global table indexed by URL
-        #
-        if ( $mime_type =~ /text\/html/ ) {
-            @headings = Content_Check_Get_Headings();
-            $headings_table{$url} = \@headings;
-
-            #
-            # Get first H1 heading
-            #
-            if ( @headings > 0 ) {
-                #
-                # Take first heading incase we don't find a h1
-                #
-                $first_h1 = $headings[0];
-                foreach $h (@headings) {
-                    #
-                    # Is this a h1 ?
-                    #
-                    if ( $h =~ /^1:/ ) {
-                        $first_h1 = $h;
-                        last;
-                    }
-                }
-
-                #
-                # Strip off heading level number
-                #
-                $first_h1 =~ s/^\d://g;
-            }
-            else {
-                $first_h1 = "";
-            }
-            $web_page_details_values{"h1"} = $first_h1;
-        }
-
         #
         # If the document is an HTML document, check links
         #
@@ -6447,7 +6649,7 @@ sub Perform_Feature_Check {
             print "Add to document feature list $key, url = $url\n" if $debug;
             $$list_ref{$url} = $html_feature_count{$key};
         }
-        
+
         if ( $debug) {
             print "doc_feature_list\n";
             foreach $key (sort(keys(%doc_feature_list))) {
@@ -6475,6 +6677,7 @@ sub Perform_Mobile_Check {
 
     my ($url_status, $content, @mobile_results_list);
     my ($result_object, $status, %local_mobile_error_url_count);
+    my ($size_string);
 
     #
     # Is this URL marked as archived on the web ?
@@ -6490,14 +6693,21 @@ sub Perform_Mobile_Check {
         #
         # Check for UTF-8 content
         #
-        $content = Crawler_Decode_Content($resp);
+        #$content = Crawler_Decode_Content($resp);
 
         #
-        # Run mobile check on links, this will also get the size of the
-        # document
+        # Compute web page size
         #
-        Mobile_Check_Links($url, $mobile_check_profile, $content,
-                           \%all_link_sets, \%shared_url_content_length);
+        $size_string = Mobile_Check_Compute_Page_Size($url, $resp->content,
+                                                      \%all_link_sets);
+
+        #
+        # Save web page size values
+        #
+        ($web_page_size_file_handle, $shared_web_page_size_filename) =
+              Mobile_Check_Save_Web_Page_Size($web_page_size_file_handle,
+                                              $shared_web_page_size_filename,
+                                              $url, $size_string);
 
 #        #
 #        # Determine overall URL status
@@ -6594,6 +6804,87 @@ sub Perform_Link_Check {
     }
 
     #
+    # Check for UTF-8 content
+    #
+    $content = Crawler_Decode_Content($resp);
+
+    #
+    # Is this an HTML document ?
+    #
+    if ( $mime_type =~ /text\/html/ ) {
+        #
+        # Get document language.
+        #
+        $language = HTML_Document_Language($url, $content);
+    }
+    #
+    # Is it CSS ?
+    #
+    elsif ( $mime_type =~ /text\/css/ ) {
+        #
+        # Language is unknown and does not matter
+        #
+        $language = "";
+    }
+    #
+    # Is it PDF ?
+    #
+    elsif ( $mime_type =~ /application\/pdf/ ) {
+        #
+        # Get document language.
+        #
+        $language = URL_Check_GET_URL_Language($url);
+    }
+
+    #
+    # Determine the abse URL for any relative URLs.  Usually this is
+    # the base field from the HTTP Response object (Location field
+    # in HTTP packet).  If the response code is 200 (OK), we don't use the
+    # the base field in case the Location field is set (which it should
+    # not be).
+    #
+    if ( $resp->code == 200 ) {
+        $base = $url;
+    }
+    else {
+        $base = $resp->base;
+    }
+
+    #
+    # Get links from document, save list in the global @links variable.
+    # We need the list of links (and mime-types) in the document features
+    # check.
+    #
+    print "Extract links from document\n  --> $url\n" if $debug;
+    @links = Extract_Links($url, $base, $language, $mime_type, $content);
+
+    #
+    # Get links from all document subsections
+    #
+    %all_link_sets = Extract_Links_Subsection_Links("ALL");
+
+    #
+    # Construct breadcrumb trail from the set of breadcrumb links
+    #
+    $breadcrumb = "";
+    if ( defined($all_link_sets{"BREADCRUMB"}) ) {
+        $list_addr = $all_link_sets{"BREADCRUMB"};
+        foreach $link (@$list_addr) {
+            if ( $breadcrumb ne "" ) {
+                $breadcrumb .= " | " . $link->anchor;
+            }
+            else {
+                $breadcrumb = $link->anchor;
+            }
+        }
+    }
+
+    #
+    # Save breadcrumb details for web page
+    #
+    $web_page_details_values{"breadcrumb"} = decode_entities($breadcrumb);
+
+    #
     # Is this URL marked as archived on the web ?
     #
     if ( $is_archived ) {
@@ -6605,92 +6896,11 @@ sub Perform_Link_Check {
     }
     else {
         #
-        # Check for UTF-8 content
-        #
-        $content = Crawler_Decode_Content($resp);
-
-        #
-        # Is this an HTML document ?
-        #
-        if ( $mime_type =~ /text\/html/ ) {
-            #
-            # Get document language.
-            #
-            $language = HTML_Document_Language($url, $content);
-        }
-        #
-        # Is it CSS ?
-        #
-        elsif ( $mime_type =~ /text\/css/ ) {
-            #
-            # Language is unknown and does not matter
-            #
-            $language = "";
-        }
-        #
-        # Is it PDF ?
-        #
-        elsif ( $mime_type =~ /application\/pdf/ ) {
-            #
-            # Get document language.
-            #
-            $language = URL_Check_GET_URL_Language($url);
-        }
-
-        #
-        # Determine the abse URL for any relative URLs.  Usually this is
-        # the base field from the HTTP Response object (Location field 
-        # in HTTP packet).  If the response code is 200 (OK), we don't use the
-        # the base field in case the Location field is set (which it should 
-        # not be).
-        #
-        if ( $resp->code == 200 ) {
-            $base = $url;
-        }
-        else {
-            $base = $resp->base;
-        }
-
-        #
-        # Get links from document, save list in the global @links variable.
-        # We need the list of links (and mime-types) in the document features
-        # check.
-        #
-        print "Extract links from document\n  --> $url\n" if $debug;
-        @links = Extract_Links($url, $base, $language, $mime_type, $content);
-        
-        #
-        # Get links from all document subsections
-        #
-        %all_link_sets = Extract_Links_Subsection_Links("ALL");
-
-        #
-        # Construct breadcrumb trail from the set of breadcrumb links
-        #
-        $breadcrumb = "";
-        if ( defined($all_link_sets{"BREADCRUMB"}) ) {
-            $list_addr = $all_link_sets{"BREADCRUMB"};
-            foreach $link (@$list_addr) {
-                if ( $breadcrumb ne "" ) {
-                    $breadcrumb .= "," . $link->anchor;
-                }
-                else {
-                    $breadcrumb = $link->anchor;
-                }
-            }
-        }
-
-        #
-        # Save breadcrumb details for web page
-        #
-        $web_page_details_values{"breadcrumb"} = "$breadcrumb";
-
-        #
         # Check links
         #
         print "Check links in URL\n  --> $url\n" if $debug;
         @link_results_list = Link_Checker($url, $language, $link_check_profile,
-                                          \@links);
+                                          $mime_type, \@links);
 
         #
         # Determine overall URL status
@@ -6885,7 +7095,7 @@ sub Perform_Open_Data_Check {
     my (@results, $zip_file_name, $member_url, $content);
 
     #
-    # Check for possible ZIP content (a zip file containing the 
+    # Check for possible ZIP content (a zip file containing the
     # open data files).
     #
     print "Perform_Open_Data_Check check for ZIP content\n" if $debug;
@@ -6906,8 +7116,8 @@ sub Perform_Open_Data_Check {
     if ( ($mime_type =~ /application\/zip/) ||
          ($url =~ /\.zip$/i) ) {
         print "Open data ZIP file\n" if $debug;
-        ($zip, $zip_file_name, @results) = Open_Data_Check_Zip_Content($url, 
-                                                      $open_data_check_profile, 
+        ($zip, $zip_file_name, @results) = Open_Data_Check_Zip_Content($url,
+                                                      $open_data_check_profile,
                                                        $data_file_type,
                                                        $resp);
 
@@ -7109,7 +7319,7 @@ sub Open_Data_Callback {
             }
         }
     }
- 
+
     #
     # Was the crawl aborted ?
     #
@@ -7233,6 +7443,7 @@ sub Setup_HTML_Tool_GUI {
     Validator_GUI_Setup($lang, \&Direct_HTML_Input_Callback,
                         \&Perform_Site_Crawl, \&URL_List_Callback,
                         %report_options);
+    Validator_GUI_Runtime_Error_Callback(\&Runtime_Error_Callback);
 
     #
     # Add result tabs
@@ -7272,7 +7483,7 @@ sub Setup_Open_Data_Tool_GUI {
     $open_data_profile_label = String_Value("Open Data Testcase Profile");
     %report_options = ($open_data_profile_label,
                        \@open_data_check_profiles);
-    %report_options_labels = ("open_data_profile", 
+    %report_options_labels = ("open_data_profile",
                               $open_data_profile_label);
 
     #
@@ -7352,6 +7563,9 @@ while ( @ARGV > 0 ) {
     }
     elsif ( $ARGV[0] eq "-fra" ) {
         $lang = "fra";
+    }
+    elsif ( $ARGV[0] eq "-monitor" ) {
+        $monitoring = 1;
     }
     elsif ( $ARGV[0] eq "-open_data" ) {
         $open_data_mode = 1;
