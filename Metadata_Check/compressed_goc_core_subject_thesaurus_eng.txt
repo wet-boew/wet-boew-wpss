@@ -7,7 +7,7 @@
 # text delimited file.  It contains only the prefered subject terms.
 # This file was generated as follows
 #    compress_thesaurus_file.pl goc_core_subject_thesaurus_eng.txt
-# at: 12:52 2013-10-11
+# at:  9:46 2014-07-22
 #
 # This file should not be modified.
 #
@@ -885,6 +885,7 @@ fruit crops
 fruits
 fuel supply
 fuels
+fugitives from justice
 full-time employment
 functional foods
 funding
@@ -914,6 +915,7 @@ genetically modified organisms
 genetics
 genomics
 geochemistry
+geochronology
 geodesy
 geographic data
 geographic information systems
@@ -967,6 +969,7 @@ handling
 harassment
 harbour authorities
 harbours
+hard rocks
 harmonized sales tax
 harvest
 hatcheries
@@ -1045,6 +1048,7 @@ hunger
 hunting (sport)
 hunting permits
 hydroelectric plants
+hydrogeology
 hydrography
 hydrology
 hydroponics
@@ -1056,6 +1060,7 @@ icebreakers
 ichthyology
 identification
 idioms
+igneous rocks
 illustrations
 immigrants
 immigration
@@ -1329,6 +1334,7 @@ merit
 metadata
 metals
 metalworking industry
+metamorphic rocks
 meteorological data
 meteorology
 methadone
@@ -1479,6 +1485,7 @@ oil spills
 old age
 olympic games
 ombudsman
+open government
 operations
 oral communication
 oral health
@@ -1499,6 +1506,7 @@ packaging
 pain
 painting
 palaeontology
+paleobotany
 panamerican games
 parasites
 parenting
@@ -1546,6 +1554,7 @@ pesticides
 pests
 petroleum
 petroleum industry
+petrology
 pharmaceutical industry
 pharmacology
 philately
@@ -1839,8 +1848,10 @@ sector analysis
 securities
 security intelligence
 security investigations
+sedimentary rocks
 sedimentology
 sediments
+seismology
 seizure (of property)
 selection
 self employment
@@ -1955,6 +1966,7 @@ strategies
 stratigraphy
 streams
 street gangs
+structural geology
 student labour
 student loans
 students
@@ -1970,6 +1982,7 @@ supplies
 supply
 support businesses
 surface water
+surficial geology
 surplus
 surveying
 surveys

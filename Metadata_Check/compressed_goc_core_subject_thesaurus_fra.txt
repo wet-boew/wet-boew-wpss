@@ -7,7 +7,7 @@
 # text delimited file.  It contains only the prefered subject terms.
 # This file was generated as follows
 #    compress_thesaurus_file.pl goc_core_subject_thesaurus_fra.txt
-# at: 12:52 2013-10-11
+# at:  9:46 2014-07-22
 #
 # This file should not be modified.
 #
@@ -940,6 +940,7 @@ fromage
 frontière
 fruit
 fruits de mer
+fugitif recherché par la justice
 fumier
 fuseau horaire
 fusion
@@ -963,9 +964,11 @@ génie mécanique
 génie militaire
 génomique
 géochimie
+géochronologie
 géodésie
 géographie
 géologie
+géologie des dépôts meubles
 géomatique
 géomorphologie
 géophysique
@@ -1010,6 +1013,7 @@ gouvernement
 gouvernement autochtone
 gouvernement en ligne
 gouvernement fédéral
+gouvernement ouvert
 gouvernement provincial
 gouvernement territorial
 gouverneur général
@@ -1059,6 +1063,7 @@ huiles et gras comestibles
 humidité
 humour
 hydroélectricité
+hydrogéologie
 hydrographie
 hydrologie
 hygiène
@@ -1464,6 +1469,7 @@ ozone
 paiement de transfert
 paiement étranger
 paix
+paléobotanique
 paléontologie
 papillon
 parasite
@@ -1524,6 +1530,7 @@ personnel militaire
 pesticide
 petite entreprise
 pétrole
+pétrologie
 phare
 pharmacologie
 philatélie
@@ -1859,6 +1866,10 @@ risque pour l'environnement
 risque pour la santé
 rivière
 robotique
+roche dure
+roche ignée
+roche métamorphique
+roche sédimentaire
 rodenticide
 rôle
 rongeur
@@ -1957,6 +1968,7 @@ sida
 siège social
 signalisation
 silo à grains
+sismologie
 site contaminé
 site web
 ski
@@ -2063,6 +2075,7 @@ technologie nucléaire
 technologie numérique
 technologie propre
 technologie spatiale
+tectonique
 télécommunications
 télécommunications internationales
 téléconférence
