@@ -2,9 +2,9 @@
 #
 # Name:   javascript_check.pm
 #
-# $Revision: 6659 $
+# $Revision: 6717 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/javascript_check.pm $
-# $Date: 2014-05-28 11:26:26 -0400 (Wed, 28 May 2014) $
+# $Date: 2014-07-22 12:33:59 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -450,7 +450,7 @@ sub Check_Illegal_Function_Calls {
 #
 # Name: Parse_JavaScript_Content
 #
-# Parameters: content - JavaScript content
+# Parameters: content_ptr - JavaScript content pointer
 #
 # Description:
 #
@@ -458,13 +458,14 @@ sub Check_Illegal_Function_Calls {
 #
 #***********************************************************************
 sub Parse_JavaScript_Content {
-    my ($content) = @_;
+    my ($content_ptr) = @_;
 
-    my ($line_no, $line);
+    my ($line_no, $line, $content);
 
     #
     # Remove any comments from the JavaScript content
     #
+    $content = $$content_ptr;
     $content =~ s/\s+i\/\/.*$//gs;
 
     #
@@ -493,7 +494,7 @@ sub Parse_JavaScript_Content {
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - testcase profile
-#             content - JavaScript content
+#             content - JavaScript content pointer
 #
 # Description:
 #
@@ -501,7 +502,7 @@ sub Parse_JavaScript_Content {
 #
 #***********************************************************************
 sub JavaScript_Check {
-    my ( $this_url, $language, $profile, $content ) = @_;
+    my ($this_url, $language, $profile, $content) = @_;
 
     my (@urls, $url);
     my (@tqa_results_list, $result_object, $testcase);
@@ -537,7 +538,7 @@ sub JavaScript_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Parse the content and check for errors
         #

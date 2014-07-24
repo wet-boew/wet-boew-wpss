@@ -2,9 +2,9 @@
 #
 # Name:   interop_xml_check.pm
 #
-# $Revision: 6584 $
+# $Revision: 6710 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_xml_check.pm $
-# $Date: 2014-03-12 15:23:47 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-07-22 12:19:13 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -1401,7 +1401,7 @@ sub Check_Entry_Link_Value {
                 #
                 # Extract metadata from content
                 #
-                %metadata = Extract_Metadata($link_text, $content);
+                %metadata = Extract_Metadata($link_text, \$content);
                 
                 #
                 # If we have an author and dcterms.creator, check that they
@@ -2349,7 +2349,7 @@ sub Check_Encoding {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -2405,7 +2405,7 @@ sub Interop_XML_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Create a document parser
         #
@@ -2422,7 +2422,7 @@ sub Interop_XML_Check {
         #
         # Parse the content.
         #
-        $eval_output = eval { $parser->parse($content); 1 } ;
+        $eval_output = eval { $parser->parse($$content); 1 } ;
         
         #
         # Did the parsing fail ?

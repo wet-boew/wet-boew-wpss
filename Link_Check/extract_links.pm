@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6686 $
+# $Revision: 6712 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2014-06-27 11:09:37 -0400 (Fri, 27 Jun 2014) $
+# $Date: 2014-07-22 12:20:01 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -917,6 +917,70 @@ sub Area_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Audio_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the audio tag.
+#
+#***********************************************************************
+sub Audio_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    my ($src, $link, $lang, $abs_url, $subsection, $subsection_link_list);
+
+    #
+    # Do we have a src attribute
+    #
+    if ( defined( $attr{"src"} ) ) {
+        $src = $attr{"src"};
+        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+
+        #
+        # Do we have a lang attribute
+        #
+        $lang = Get_Lang("audio", %attr);
+
+        #
+        # Save link details.
+        #
+        $link = link_object->new($src, $abs_url, "", "audio", $lang,
+                                 $line, $column,
+                                 $content_lines[$line - 1]);
+        $link->attr(%attr);
+        $link->noscript($inside_noscript);
+        push (@$link_object_reference, $link);
+        print " Audio at $line, $column src = $src\n" if $debug;
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
+
+        #
+        # Do we have alt text ?
+        #
+        if ( defined($attr{"alt"}) ) {
+            $link->alt($attr{"alt"});
+        }
+
+        #
+        # Do we have a title ?
+        #
+        if ( defined($attr{"title"}) ) {
+            $link->title($attr{"title"});
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Object_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -1481,6 +1545,70 @@ sub Script_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Source_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the source tag.
+#
+#***********************************************************************
+sub Source_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    my ($src, $link, $lang, $abs_url, $subsection, $subsection_link_list);
+
+    #
+    # Do we have a src attribute
+    #
+    if ( defined( $attr{"src"} ) ) {
+        $src = $attr{"src"};
+        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+
+        #
+        # Do we have a lang attribute
+        #
+        $lang = Get_Lang("source", %attr);
+
+        #
+        # Save link details.
+        #
+        $link = link_object->new($src, $abs_url, "", "source", $lang,
+                                 $line, $column,
+                                 $content_lines[$line - 1]);
+        $link->attr(%attr);
+        $link->noscript($inside_noscript);
+        push (@$link_object_reference, $link);
+        print " Source at $line, $column src = $src\n" if $debug;
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
+
+        #
+        # Do we have alt text ?
+        #
+        if ( defined($attr{"alt"}) ) {
+            $link->alt($attr{"alt"});
+        }
+
+        #
+        # Do we have a title ?
+        #
+        if ( defined($attr{"title"}) ) {
+            $link->title($attr{"title"});
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Span_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -1531,6 +1659,178 @@ sub Span_Tag_Handler {
     print "Span tag, new current language = $lang\n" if $debug;
     push(@lang_stack, $current_lang);
     $current_lang = $lang;
+}
+
+#***********************************************************************
+#
+# Name: Track_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the track tag.
+#
+#***********************************************************************
+sub Track_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    my ($src, $link, $lang, $abs_url, $subsection, $subsection_link_list);
+
+    #
+    # Do we have a src attribute
+    #
+    if ( defined( $attr{"src"} ) ) {
+        $src = $attr{"src"};
+        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+
+        #
+        # Do we have a lang attribute
+        #
+        $lang = Get_Lang("track", %attr);
+
+        #
+        # Save link details.
+        #
+        $link = link_object->new($src, $abs_url, "", "track", $lang,
+                                 $line, $column,
+                                 $content_lines[$line - 1]);
+        $link->attr(%attr);
+        $link->noscript($inside_noscript);
+        push (@$link_object_reference, $link);
+        print " Track at $line, $column src = $src\n" if $debug;
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
+
+        #
+        # Do we have alt text ?
+        #
+        if ( defined($attr{"alt"}) ) {
+            $link->alt($attr{"alt"});
+        }
+
+        #
+        # Do we have a title ?
+        #
+        if ( defined($attr{"title"}) ) {
+            $link->title($attr{"title"});
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Video_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the video tag.
+#
+#***********************************************************************
+sub Video_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    my ($src, $link, $lang, $abs_url, $subsection, $subsection_link_list);
+    my ($poster);
+
+    #
+    # Do we have a src attribute
+    #
+    if ( defined( $attr{"src"} ) ) {
+        $src = $attr{"src"};
+        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+
+        #
+        # Do we have a lang attribute
+        #
+        $lang = Get_Lang("video", %attr);
+
+        #
+        # Save link details.
+        #
+        $link = link_object->new($src, $abs_url, "", "video", $lang,
+                                 $line, $column,
+                                 $content_lines[$line - 1]);
+        $link->attr(%attr);
+        $link->noscript($inside_noscript);
+        push (@$link_object_reference, $link);
+        print " Video at $line, $column src = $src\n" if $debug;
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
+
+        #
+        # Do we have alt text ?
+        #
+        if ( defined($attr{"alt"}) ) {
+            $link->alt($attr{"alt"});
+        }
+
+        #
+        # Do we have a title ?
+        #
+        if ( defined($attr{"title"}) ) {
+            $link->title($attr{"title"});
+        }
+    }
+
+    #
+    # Do we have a poster attribute
+    #
+    if ( defined( $attr{"poster"} ) ) {
+        $poster = $attr{"poster"};
+        $abs_url = URL_Check_Make_URL_Absolute($poster, $current_resp_base);
+
+        #
+        # Do we have a lang attribute
+        #
+        $lang = Get_Lang("video", %attr);
+
+        #
+        # Save link details.
+        #
+        $link = link_object->new($poster, $abs_url, "", "video", $lang,
+                                 $line, $column,
+                                 $content_lines[$line - 1]);
+        $link->attr(%attr);
+        $link->noscript($inside_noscript);
+        push (@$link_object_reference, $link);
+        print " Video at $line, $column poster = $poster\n" if $debug;
+
+        #
+        # Save link object in subsection list
+        #
+        Save_Link_In_Subsection_List($link);
+
+        #
+        # Do we have alt text ?
+        #
+        if ( defined($attr{"alt"}) ) {
+            $link->alt($attr{"alt"});
+        }
+
+        #
+        # Do we have a title ?
+        #
+        if ( defined($attr{"title"}) ) {
+            $link->title($attr{"title"});
+        }
+    }
 }
 
 #***********************************************************************
@@ -2051,6 +2351,12 @@ sub Start_Handler {
         Area_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
     #
+    # Check audio tag
+    #
+    elsif ( $tagname eq "audio" ) {
+        Audio_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
     # Check body tag
     #
     elsif ( $tagname eq "body" ) {
@@ -2158,10 +2464,28 @@ sub Start_Handler {
         Script_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
     #
+    # Check source tag
+    #
+    elsif ( $tagname eq "source" ) {
+        Source_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
+    # Check track tag
+    #
+    elsif ( $tagname eq "track" ) {
+        Track_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
     # Check ul tag
     #
     elsif ( $tagname eq "ul" ) {
         Ol_Ul_Tag_Handler( $self, $tagname, $line, $column, $text, %attr_hash );
+    }
+    #
+    # Check video tag
+    #
+    elsif ( $tagname eq "video" ) {
+        Video_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
 
     #
@@ -2335,7 +2659,7 @@ sub End_Handler {
 # Parameters: this_url - URL of document to extract links from
 #             this_base - the base value from the response object (resp->base)
 #             this_lang - language of URL
-#             content - content of HTML document to extract links from
+#             content - content pointer
 #
 # Description:
 #
@@ -2351,8 +2675,7 @@ sub HTML_Extract_Links {
     #
     # Save addresses of link object array in a global variable.
     #
-    print "HTML_Extract_Links: Checking URL $this_url, content length = " .
-          length($content) . "\n" if $debug;
+    print "HTML_Extract_Links\n" if $debug;
     $link_object_reference = \@link_objects;
     
     #
@@ -2369,7 +2692,7 @@ sub HTML_Extract_Links {
     #
     # Split the content into lines
     #
-    @content_lines = split( /\n/, $content );
+    @content_lines = split( /\n/, $$content );
 
     #
     # Create a document parser
@@ -2396,7 +2719,7 @@ sub HTML_Extract_Links {
     #
     # Parse the content.
     #
-    $parser->parse($content);
+    $parser->parse($$content);
 
     #
     # Return array of link objects
@@ -2413,7 +2736,7 @@ sub HTML_Extract_Links {
 #             base - the base value from the response object (resp->base)
 #             lang - language of URL
 #             mime_type - mime-type of content
-#             content - content of document to extract links from
+#             content - content pointer
 #
 # Description:
 #
@@ -2422,7 +2745,7 @@ sub HTML_Extract_Links {
 #
 #***********************************************************************
 sub Extract_Links {
-    my ( $url, $base, $lang, $mime_type, $content ) = @_;
+    my ($url, $base, $lang, $mime_type, $content) = @_;
 
     my (@links, $link, $anchor_list, $extracted_content, @other_links);
     my ($modified_content, $subsection_name, $link_addr, $orig_link);
@@ -2431,8 +2754,7 @@ sub Extract_Links {
     #
     # Did we already extract links for this URL ?
     #
-    print "Extract_Links: Checking URL $url, content length = " .
-          length($content) . ", mime-type = $mime_type\n" if $debug;
+    print "Extract_Links: Checking URL $url, mime-type = $mime_type\n" if $debug;
     if ( $url eq $last_url ) {
         print "Return previously extracted links\n" if $debug;
         return(@last_link_list);
@@ -2442,7 +2764,7 @@ sub Extract_Links {
     # Did we get any content ?
     #
     %subsection_links = ();
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
     
         #
         # Is this HTML content ?
@@ -2462,7 +2784,7 @@ sub Extract_Links {
             # Remove conditional comments from the content that control
             # IE file inclusion (conditionals found in WET template files).
             #
-            $modified_content = $content;
+            $modified_content = $$content;
             $modified_content =~ s/<!--\[if[^>]*>//g;
             $modified_content =~ s/<!--if[^>]*>//g;
             $modified_content =~ s/<!--<!\[endif\]-->//g;
@@ -2478,7 +2800,7 @@ sub Extract_Links {
             #
             %subsection_links = ();
             @other_links = HTML_Extract_Links($url, $base, $lang,
-                                              $modified_content);
+                                              \$modified_content);
 
             #
             # If we get more links with the conditional code removed, use
@@ -2552,7 +2874,8 @@ sub Extract_Links {
                                                                     $content);
             if ( length($extracted_content) > 0 ) {
                 print "CSS_Extract_Links from inline CSS\n" if $debug;
-                @other_links = CSS_Extract_Links($url, $base, $lang, $content);
+                @other_links = CSS_Extract_Links($url, $base, $lang, 
+                                                 \$extracted_content);
 
                 #
                 # Add results from CSS link extraction to those 

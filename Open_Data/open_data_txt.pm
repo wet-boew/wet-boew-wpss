@@ -2,9 +2,9 @@
 #
 # Name:   open_data_txt.pm
 #
-# $Revision: 6599 $
+# $Revision: 6702 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_txt.pm $
-# $Date: 2014-03-28 13:15:19 -0400 (Fri, 28 Mar 2014) $
+# $Date: 2014-07-22 12:15:17 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -239,13 +239,13 @@ sub Set_Open_Data_TXT_Testcase_Data {
 #
 # Name: Set_Open_Data_TXT_Test_Profile
 #
-# Parameters: profile - CSV check test profile
+# Parameters: profile - open data check test profile
 #             testcase_names - hash table of testcase name
 #
 # Description:
 #
 #   This function copies the passed table to unit global variables.
-# The hash table is indexed by CSV testcase name.
+# The hash table is indexed by open data testcase name.
 #
 #***********************************************************************
 sub Set_Open_Data_TXT_Test_Profile {
@@ -266,7 +266,7 @@ sub Set_Open_Data_TXT_Test_Profile {
 #
 # Name: Initialize_Test_Results
 #
-# Parameters: profile - CSV check test profile
+# Parameters: profile - open data check test profile
 #             local_results_list_addr - address of results list.
 #
 # Description:
@@ -353,7 +353,7 @@ sub Record_Result {
 #
 # Name: Parse_Text_Dictionary
 #
-# Parameters: content - text content
+# Parameters: content - text content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -407,7 +407,7 @@ sub Parse_Text_Dictionary {
     #
     # Split the content on newline
     #
-    foreach $line (split(/\n/, $content)) {
+    foreach $line (split(/\n/, $$content)) {
         $line_no++;
 
         #
@@ -657,7 +657,7 @@ sub Parse_Text_Dictionary {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - text content
+#             content - text content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -669,6 +669,7 @@ sub Open_Data_TXT_Check_Dictionary {
     my ( $this_url, $profile, $content, $dictionary ) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
+    my ($local_content);
 
     #
     # Do we have a valid profile ?
@@ -701,7 +702,7 @@ sub Open_Data_TXT_Check_Dictionary {
     #
     # Did we get any content ?
     #
-    if ( length($content) == 0 ) {
+    if ( length($$content) == 0 ) {
         print "No content passed to Open_Data_TXT_Check_Dictionary\n" if $debug;
         Record_Result("OD_3", -1, 0, "",
                       String_Value("No content in file"));
@@ -711,13 +712,15 @@ sub Open_Data_TXT_Check_Dictionary {
         # Remove BOM from UTF-8 content ($EF $BB $BF)
         #  Byte Order Mark - http://en.wikipedia.org/wiki/Byte_order_mark
         #
-        $content =~ s/^\xEF\xBB\xBF//;
+        $local_content = $$content;
+        $local_content =~ s/^\xEF\xBB\xBF//;
+        $local_content .= "\n";
 
         #
         # Parse the text looking for terms and definitions.
         # Make sure there is a blank line at the end of the content.
         #
-        Parse_Text_Dictionary("$content\n", $dictionary);
+        Parse_Text_Dictionary(\$local_content, $dictionary);
     }
 
     #

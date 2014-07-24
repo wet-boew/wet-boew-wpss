@@ -2,9 +2,9 @@
 #
 # Name: pdf_extract_links.pm	
 #
-# $Revision: 6648 $
+# $Revision: 6716 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/PDF_Check/Tools/pdf_extract_links.pm $
-# $Date: 2014-05-09 13:24:17 -0400 (Fri, 09 May 2014) $
+# $Date: 2014-07-22 12:33:12 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -105,7 +105,7 @@ sub PDF_Extract_Links_Debug {
 # Parameters: url - URL of document to extract links from
 #             base - base for converting relative to absolute url
 #             language - language of URL
-#             content - content of PDF document to extract links from
+#             content - content pointer
 #
 # Description:
 #
@@ -117,14 +117,14 @@ sub PDF_Extract_Links {
     my ( $url, $base, $language, $content ) = @_;
 
     my ($pdf_file_name, $html_file_name, $link, $href, $rc);
-    my (@link_objects, $abs_url, $fh);
+    my (@link_objects, $abs_url, $fh, $html_content);
     my (@pdf_link_objects) = ();
 
     #
     # Did we get any content ?
     #
     print "PDF_Extract_Links: URL $url\n" if $debug;
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
 
         #
         # Create temporary file for PDF content.
@@ -135,7 +135,7 @@ sub PDF_Extract_Links {
             return(@pdf_link_objects);
         }
         binmode $fh;
-        print $fh $content;
+        print $fh $$content;
         close($fh);
 
         #
@@ -166,9 +166,9 @@ sub PDF_Extract_Links {
         #
         # Read the HTML file content
         #
-        $content = "";
+        $html_content = "";
         while ( <HTML> ) {
-            $content .= $_ . "\n";
+            $html_content .= $_ . "\n";
         }
         close(HTML);
 
@@ -181,7 +181,7 @@ sub PDF_Extract_Links {
         # Extract links from the HTML content
         #
         @link_objects = Extract_Links($url, $base, $language, "text/html",
-                                      $content);
+                                      \$html_content);
 
         #
         # Eliminate links to sections of the document (e.g. from

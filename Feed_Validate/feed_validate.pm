@@ -2,9 +2,9 @@
 #
 # Name:   feed_validate.pm
 #
-# $Revision: 6646 $
+# $Revision: 6708 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Feed_Validate/Tools/feed_validate.pm $
-# $Date: 2014-04-30 12:12:37 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-07-22 12:18:10 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -138,16 +138,15 @@ sub Feed_Validate_Language {
 # Name: Run_Web_Feed_Validator
 #
 # Parameters: this_url - a URL
-#             content - HTML content
 #
 # Description:
 #
-#   This function runs the Feed validator on the supplied content
+#   This function runs the Feed validator on the supplied url
 # and returns the validation status result.
 #
 #***********************************************************************
 sub Run_Web_Feed_Validator {
-    my ($this_url, $content) = @_;
+    my ($this_url) = @_;
 
     my ($status) = $VALID_FEED;
     my ($validator_output, $line, $result_object, @results_list);
@@ -322,7 +321,7 @@ sub Feed_Validate_Is_Web_Feed {
 # Name: Feed_Validate_Content
 #
 # Parameters: this_url - a URL
-#             content - XML content
+#             content - XML content pointer
 #
 # Description:
 #
@@ -339,11 +338,11 @@ sub Feed_Validate_Content {
     # Do we have any content ?
     #
     print "Feed_Validate_Content, validate $this_url\n" if $debug;
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Run the web feed validator.
         #
-        @results_list = Run_Web_Feed_Validator($this_url, $content);
+        @results_list = Run_Web_Feed_Validator($this_url);
     }
     else {
         #

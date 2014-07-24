@@ -2,9 +2,9 @@
 #
 # Name:   interop_check.pm
 #
-# $Revision: 6499 $
+# $Revision: 6710 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_check.pm $
-# $Date: 2013-12-05 14:56:01 -0500 (Thu, 05 Dec 2013) $
+# $Date: 2014-07-22 12:19:13 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -250,7 +250,7 @@ sub Set_Interop_Check_Test_Profile {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -266,7 +266,7 @@ sub Interop_Check {
     # Did we get any content ?
     #
     print "Interop_Check: URL $this_url, mime-type = $mime_type, lanugage = $language, profile = $profile\n" if $debug;
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Is this HTML content
         #

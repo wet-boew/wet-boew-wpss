@@ -2,9 +2,9 @@
 #
 # Name:   dept_check.pm
 #
-# $Revision: 6372 $
+# $Revision: 6707 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Dept_Check/Tools/dept_check.pm $
-# $Date: 2013-08-22 09:52:06 -0400 (Thu, 22 Aug 2013) $
+# $Date: 2014-07-22 12:17:21 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -259,7 +259,7 @@ sub Set_Dept_Check_Test_Profile {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -267,7 +267,7 @@ sub Set_Dept_Check_Test_Profile {
 #
 #***********************************************************************
 sub Dept_Check {
-    my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
+    my ($this_url, $language, $profile, $mime_type, $resp, $content) = @_;
 
     my (@tqa_results_list, $result_object, @other_tqa_results_list);
 
@@ -275,7 +275,7 @@ sub Dept_Check {
     # Did we get any content ?
     #
     print "Dept_Check: URL $this_url, mime-type = $mime_type, lanugage = $language, profile = $profile\n" if $debug;
-    if ( ($mime_type =~ /text\/html/) && (length($content) > 0) ) {
+    if ( ($mime_type =~ /text\/html/) && (length($$content) > 0) ) {
         #
         # Perform PWGSC checks.
         #
@@ -287,7 +287,7 @@ sub Dept_Check {
         #
         print "Perform_Content_Check on URL\n  --> $this_url\n" if $debug;
         @other_tqa_results_list = Content_Check($this_url, $profile,
-                                              $mime_type, $content);
+                                                $mime_type, $content);
 
         #
         # Add results from content check into those from PWGSC to get

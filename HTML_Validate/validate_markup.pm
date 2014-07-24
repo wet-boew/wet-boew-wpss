@@ -2,9 +2,9 @@
 #
 # Name:   validate_markup.pm
 #
-# $Revision: 6552 $
+# $Revision: 6709 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/validate_markup.pm $
-# $Date: 2014-01-30 14:25:24 -0500 (Thu, 30 Jan 2014) $
+# $Date: 2014-07-22 12:18:41 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -154,7 +154,7 @@ sub Validate_Markup_Language {
 # Parameters: this_url - a URL
 #             mime_type - mime type of content
 #             charset - character set of content
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -171,7 +171,7 @@ sub Validate_Markup {
     #
     # Do we have any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Select the validator that is appropriate for the content type
         #
@@ -189,7 +189,7 @@ sub Validate_Markup {
             # code for validation.
             #
             $other_content = CSS_Validate_Extract_CSS_From_HTML($this_url,
-                                                              $content);
+                                                                $content);
             if (  length($other_content) > 0 ) {
                 #
                 #
@@ -197,7 +197,7 @@ sub Validate_Markup {
                 #
                 print "Validate inline CSS content\n" if $debug;
                 @other_results_list = CSS_Validate_Content($this_url,
-                                                           $other_content);
+                                                           \$other_content);
 
                 #
                 # Merge CSS validation results into HTML validation results
@@ -240,7 +240,7 @@ sub Validate_Markup {
             #
             # Determine if the XML document is a Web Feed.
             #
-            if ( Feed_Validate_Is_Web_Feed($this_url, $content) ) {
+            if ( Feed_Validate_Is_Web_Feed($this_url, $$content) ) {
                 print "Validate XML Web feed content\n" if $debug;
                 @results_list = Feed_Validate_Content($this_url, $content);
             }

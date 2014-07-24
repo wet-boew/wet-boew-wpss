@@ -2,9 +2,9 @@
 #
 # Name: html_language.pm
 #
-# $Revision: 6307 $
+# $Revision: 6709 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/html_language.pm $
-# $Date: 2013-06-25 14:54:26 -0400 (Tue, 25 Jun 2013) $
+# $Date: 2014-07-22 12:18:41 -0400 (Tue, 22 Jul 2014) $
 #
 # Description
 #
@@ -160,7 +160,7 @@ sub Start_Handler {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -182,7 +182,7 @@ sub HTML_Language {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Create a document parser
         #
@@ -199,7 +199,7 @@ sub HTML_Language {
         #
         # Parse the content.
         #
-        $parser->parse($content);
+        $parser->parse($$content);
     }
     else {
         print "No content passed to HTML_Language\n" if $debug;

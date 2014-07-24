@@ -2,9 +2,9 @@
 #
 # Name:   xml_check.pm
 #
-# $Revision: 6588 $
+# $Revision: 6718 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/xml_check.pm $
-# $Date: 2014-03-12 15:33:51 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-07-22 12:34:18 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -449,7 +449,7 @@ sub End_Handler {
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - testcase profile
-#             content - XML content
+#             content - XML content pointer
 #
 # Description:
 #
@@ -457,7 +457,7 @@ sub End_Handler {
 #
 #***********************************************************************
 sub XML_Check {
-    my ( $this_url, $language, $profile, $content ) = @_;
+    my ($this_url, $language, $profile, $content) = @_;
 
     my ($parser, @urls, $url, @tqa_results_list, $result_object, $testcase);
     my ($eval_output, @feed_results);
@@ -493,7 +493,7 @@ sub XML_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) == 0 ) {
+    if ( length($$content) == 0 ) {
         print "No content passed to XML_Check\n" if $debug;
         return(@tqa_results_list);
     }
@@ -513,7 +513,7 @@ sub XML_Check {
         # Parse the content.
         #
         #$eval_output = eval { $parser->parse($content, ErrorContext => 2); } ;
-        eval { $parser->parse($content, ErrorContext => 2); };
+        eval { $parser->parse($$content, ErrorContext => 2); };
         $eval_output = $@ if $@;
 
         #
@@ -552,7 +552,7 @@ sub XML_Check {
     #
     # Is this a web feed ? if so perform additional checks
     #
-    if ( Feed_Validate_Is_Web_Feed($this_url, $content) ) {
+    if ( Feed_Validate_Is_Web_Feed($this_url, $$content) ) {
         @feed_results = Feed_Check($this_url, $language, $profile, $content);
         
         #

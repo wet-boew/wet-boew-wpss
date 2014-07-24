@@ -2,9 +2,9 @@
 #
 # Name: textcat.pm
 #
-# $Revision: 6558 $
+# $Revision: 6732 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/textcat.pm $
-# $Date: 2014-02-14 15:05:25 -0500 (Fri, 14 Feb 2014) $
+# $Date: 2014-07-24 11:21:19 -0400 (Thu, 24 Jul 2014) $
 #
 # Description
 #
@@ -108,7 +108,7 @@ my ($verbose) = 0;
 # Minimum and maximum number of characters to analyse
 #
 my ($MINIMUM_INPUT_LENGTH) = 1000;
-my ($MAXIMUM_INPUT_LENGTH) = 100000;
+my ($MAXIMUM_INPUT_LENGTH) = 25000;
 
 #
 # Status values from text catagorization
@@ -386,7 +386,7 @@ sub HTML_End_Handler {
 #
 # Name: TextCat_Extract_Text_From_HTML
 #
-# Parameters: html_input - block of HTML text
+# Parameters: html_input - pointer to block of HTML text
 #
 # Description:
 #
@@ -402,15 +402,6 @@ sub TextCat_Extract_Text_From_HTML {
     my ($parser, $lang, $content);
 
     #
-    # Do we have any content ?
-    #
-    if ( ! defined($html_input) || ($html_input eq "") ) {
-        print "TextCat_Extract_Text_From_HTML: No content\n" if $debug;
-    }
-    print "TextCat_Extract_Text_From_HTML, content length = " . length($html_input) .
-          "\n" if $debug;
-
-    #
     # Initialize global variables
     #
     %language_text = ();
@@ -424,6 +415,18 @@ sub TextCat_Extract_Text_From_HTML {
     $last_lang_tag = "top";
     $save_text = 1;
     $table_depth = 0;
+
+    #
+    # Do we have any content ?
+    #
+    if ( (! defined($html_input))
+         || (! defined($$html_input))
+         || ($$html_input eq "") ) {
+        print "TextCat_Extract_Text_From_HTML: No content\n" if $debug;
+        return($all_text);
+    }
+    print "TextCat_Extract_Text_From_HTML, content length = " . length($$html_input) .
+          "\n" if $debug;
 
     #
     # Create a parser to parse the HTML content.
@@ -449,7 +452,7 @@ sub TextCat_Extract_Text_From_HTML {
     # Parse the HTML to extract the text
     #
     print "Parse the HTML content\n" if $debug;
-    $parser->parse($html_input);
+    $parser->parse($$html_input);
 
     #
     # Print content by language
@@ -804,7 +807,7 @@ sub TextCat_All_Language_Spans {
 #
 # Name: TextCat_HTML_Language
 #
-# Parameters: html_input - block of HTML text
+# Parameters: html_input - pointer to block of HTML text
 #
 # Description:
 #
@@ -837,7 +840,7 @@ sub TextCat_HTML_Language {
     #
     # Return the language of this text
     #
-    return(TextCat_Text_Language($content));
+    return(TextCat_Text_Language(\$content));
 }
 
 #********************************************************
@@ -877,7 +880,7 @@ sub TextCat_XML_Language {
     #
     # Return the language of this text
     #
-    return(TextCat_Text_Language($content));
+    return(TextCat_Text_Language(\$content));
 }
 
 #********************************************************
@@ -924,7 +927,7 @@ sub TextCat_Verbose {
 #
 # Name: TextCat_Text_Language
 #
-# Parameters: input - block of text
+# Parameters: content - pointer to a block of text
 #
 # Description:
 #
@@ -937,23 +940,24 @@ sub TextCat_Verbose {
 #
 #********************************************************
 sub TextCat_Text_Language {
-    my ($input) = @_;
+    my ($content) = @_;
 
     my (%results, @unknown, $language, @results, $i, $p, $ngram);
-    my (@answers, $lang1, $lang2, $text_input, $rc);
+    my (@answers, $lang1, $lang2, $text_input, $rc, $input);
     my $maxp    = $opt_t;
 
     #
     # Check content length, if it is too short, return unknown language
     # (we run the risk of guessing the wrong language).
     #
-    if ( defined($input) ) {
+    if ( defined($content) && (defined($$content)) ) {
         #
         # Get rid of non-ASCII characters. Leaving them has strange 
         # side effects on later text catagorizations.  Execute the
         # cleaning in an eval block to prevent this thread from exiting
         # if there are malformed characters in the string.
         #
+        $input = $$content;
         print "TextCat_Text_Language original content length= " . length($input) . "\n" if $debug;
         eval { $input =~ s/[^[:ascii:]]+//g; };
         $rc = $@;
@@ -1002,7 +1006,7 @@ sub TextCat_Text_Language {
     #
     # create ngrams for input.
     #
-    @unknown = Create_LM($input);
+    @unknown = Create_LM(\$input);
 
     #
     # scan each language model and count matches
@@ -1138,7 +1142,7 @@ sub TextCat_Supported_Language {
 #
 # Name: Create_LM
 #
-# Parameters: content
+# Parameters: content pointer
 #
 # Description:
 #
@@ -1154,11 +1158,17 @@ sub Create_LM {
     #
     # Split content into words
     #
-    foreach $word ( split("[$non_word_characters]+", $content) ) {
+    foreach $word ( split("[$non_word_characters]+", $$content) ) {
         $word = "_" . $word . "_";
         $len  = length($word);
         $flen = $len;
 
+        #
+        # Skip words that have more than 25 characters
+        #
+        if ( $len > 25 ) {
+            next;
+        }
         for ( $i = 0 ; $i < $flen ; $i++ ) {
             $ngram{ substr( $word, $i, 5 ) }++ if $len > 4;
             $ngram{ substr( $word, $i, 4 ) }++ if $len > 3;
@@ -1195,7 +1205,6 @@ sub Create_LM {
     # Return list
     #
     return @sorted;
-
 }
 
 #******************************************************************

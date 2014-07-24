@@ -2,9 +2,9 @@
 #
 # Name:   html_features.pm
 #
-# $Revision: 6337 $
+# $Revision: 6717 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_features.pm $
-# $Date: 2013-07-17 10:11:39 -0400 (Wed, 17 Jul 2013) $
+# $Date: 2014-07-22 12:33:59 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -570,7 +570,7 @@ sub End_Handler {
 #               source column numbers
 #             this_html_feature_count - reference to hash to contain HTML
 #                feature counts
-#             content - HTML content
+#             content - HTML content pointer
 #
 # Description:
 #
@@ -602,12 +602,12 @@ sub HTML_Feature_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
 
         #
         # Split the content into lines
         #
-        @content_lines = split( /\n/, $content );
+        @content_lines = split( /\n/, $$content );
 
         #
         # Create a document parser
@@ -634,7 +634,7 @@ sub HTML_Feature_Check {
         #
         # Parse the content.
         #
-        $parser->parse($content);
+        $parser->parse($$content);
         undef $content_section_handler;
 
         #
@@ -798,7 +798,7 @@ sub Check_Metadata_Expression {
 #               source column numbers
 #             this_html_feature_count - reference to hash to contain HTML
 #                feature counts
-#             content - HTML content
+#             content - HTML content pointer
 #
 # Description:
 #
@@ -830,7 +830,7 @@ sub HTML_Feature_Metadata_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Get metadata from the document
         #

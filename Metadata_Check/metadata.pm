@@ -2,9 +2,9 @@
 #
 # Name:   metadata.pm
 #
-# $Revision: 6668 $
+# $Revision: 6714 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Metadata_Check/Tools/metadata.pm $
-# $Date: 2014-06-03 10:48:25 -0400 (Tue, 03 Jun 2014) $
+# $Date: 2014-07-22 12:23:16 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -2201,7 +2201,7 @@ sub Check_Required_Metadata_Tags {
 # Name: Extract_Metadata
 #
 # Parameters: url - a URL
-#             content - HTML content
+#             content - content pointer
 #
 # Description:
 #
@@ -2242,7 +2242,7 @@ sub Extract_Metadata {
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - metadata tag profile
-#             content - HTML content
+#             content - content pointer
 #             metadata_table - address of hash table to contain
 #                metadata content
 #
@@ -2290,12 +2290,12 @@ sub Validate_Metadata {
     #
     # Do we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
 
         #
         # Split the content into lines
         #
-        @content_lines = split( /\n/, $content );
+        @content_lines = split( /\n/, $$content );
 
         #
         # Create a document parser
@@ -2317,7 +2317,7 @@ sub Validate_Metadata {
         #
         # Parse the content.
         #
-        $parser->parse($content);
+        $parser->parse($$content);
     }
     else {
         print "No content passed to Validate_Metadata\n" if $debug;

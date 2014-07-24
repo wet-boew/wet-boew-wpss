@@ -2,9 +2,9 @@
 #
 # Name:   pdf_check.pm
 #
-# $Revision: 6647 $
+# $Revision: 6725 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/pdf_check.pm $
-# $Date: 2014-05-06 11:43:30 -0400 (Tue, 06 May 2014) $
+# $Date: 2014-07-22 13:59:01 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -445,7 +445,7 @@ sub Check_Title_Value {
 # Name: Check_PDF_Properties
 #
 # Parameters: this_url - a URL
-#             content - PDF content
+#             content - PDF content pointer
 #
 # Description:
 #
@@ -454,7 +454,7 @@ sub Check_Title_Value {
 #
 #***********************************************************************
 sub Check_PDF_Properties {
-    my ( $this_url, $content ) = @_;
+    my ($this_url, $content) = @_;
 
     my ($info, $tcid, $invalid_title, $title_text, %properties);
     my ($protocol, $domain, $file_path, $query, $url, $property_status);
@@ -471,7 +471,7 @@ sub Check_PDF_Properties {
     # We have to get the properties 2 different ways because one technique
     # or the other may fail due to the version of the PDF file.
     #
-    $info = ImageInfo(\$content);
+    $info = ImageInfo($content);
     if ( defined($info->{"Error"}) ) {
         $imageinfo_status = 0;
         print "Error property = " . $info->{"Error"} . "\n" if $debug;
@@ -540,7 +540,7 @@ sub Check_PDF_Properties {
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - testcase profile
-#             content - PDF content
+#             content - PDF content pointer
 #
 # Description:
 #
@@ -565,7 +565,7 @@ sub Run_pdfchecker {
         return;
     }
     binmode $fh;
-    print $fh $content;
+    print $fh $$content;
     close($fh);
 
     #
@@ -842,7 +842,7 @@ sub Run_pdfchecker {
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - testcase profile
-#             content - PDF content
+#             content - PDF content pointer
 #
 # Description:
 #
@@ -850,7 +850,7 @@ sub Run_pdfchecker {
 #
 #***********************************************************************
 sub PDF_Check {
-    my ( $this_url, $language, $profile, $content ) = @_;
+    my ($this_url, $language, $profile, $content) = @_;
 
     my (@tqa_results_list, $result_object, $testcase);
 
@@ -915,7 +915,7 @@ sub PDF_Check {
 #               source column numbers
 #             this_feature_count - reference to hash to contain 
 #                feature counts
-#             content - PDF content
+#             content - PDF content pointer
 #
 # Description:
 #

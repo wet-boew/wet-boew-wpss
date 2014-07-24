@@ -2,9 +2,9 @@
 #
 # Name:   css_check.pm
 #
-# $Revision: 6684 $
+# $Revision: 6717 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/css_check.pm $
-# $Date: 2014-06-27 11:03:34 -0400 (Fri, 27 Jun 2014) $
+# $Date: 2014-07-22 12:33:59 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -1226,7 +1226,7 @@ sub Width_Property {
 #
 # Name: Parse_CSS_Content
 #
-# Parameters: content - css content
+# Parameters: content_ptr - css content pointer
 #
 # Description:
 #
@@ -1234,15 +1234,16 @@ sub Width_Property {
 #
 #***********************************************************************
 sub Parse_CSS_Content {
-    my ($content) = @_;
+    my ($content_ptr) = @_;
 
     my ($css, $style, @properties, $property, $value, $hash, $this_prop);
-    my ($selector, $name);
+    my ($selector, $name, $content);
 
     #
     # Remove any comments from the CSS content
     #
     print "Parse_CSS_Content\n" if $debug;
+    $content = $$content_ptr;
     $content =~ s/<!--.+?-->//gs;
     $content =~ s!/\*.+?\*/!!gs;
 
@@ -1428,7 +1429,7 @@ sub Check_Flickering_Image {
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - testcase profile
-#             content - CSS content
+#             content - CSS content pointer
 #
 # Description:
 #
@@ -1436,7 +1437,7 @@ sub Check_Flickering_Image {
 #
 #***********************************************************************
 sub CSS_Check {
-    my ( $this_url, $language, $profile, $content ) = @_;
+    my ($this_url, $language, $profile, $content) = @_;
 
     my ($parser, @urls, $url, @tqa_results_list, $result_object, $testcase );
 
@@ -1471,7 +1472,7 @@ sub CSS_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Parse the content and check for errors
         #

@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 6638 $
+# $Revision: 6702 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2014-04-30 08:08:45 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-07-22 12:15:17 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -430,7 +430,7 @@ sub Check_First_Data_Row {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - CSV content
+#             content - CSV content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -443,7 +443,7 @@ sub Open_Data_CSV_Check_Data {
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($line, @fields, $line_no, $status, $found_fields, $field_count);
-    my ($csv_file, $csv_file_name, $rows, $message);
+    my ($csv_file, $csv_file_name, $rows, $message, $local_content);
 
     #
     # Do we have a valid profile ?
@@ -476,7 +476,7 @@ sub Open_Data_CSV_Check_Data {
     #
     # Did we get any content ?
     #
-    if ( length($content) == 0 ) {
+    if ( length($$content) == 0 ) {
         print "No content passed to Open_Data_CSV_Check_Data\n" if $debug;
         Record_Result("OD_3", -1, 0, "",
                       String_Value("No content in file"));
@@ -486,7 +486,8 @@ sub Open_Data_CSV_Check_Data {
         # Remove BOM from UTF-8 content ($EF $BB $BF)
         #  Byte Order Mark - http://en.wikipedia.org/wiki/Byte_order_mark
         #
-        $content =~ s/^\xEF\xBB\xBF//;
+        $local_content = $$content;
+        $local_content =~ s/^\xEF\xBB\xBF//;
 
         #
         # Create a temporary file for the CSV content.
@@ -498,8 +499,9 @@ sub Open_Data_CSV_Check_Data {
             return(@tqa_results_list);
         }
         binmode $csv_file;
-        print $csv_file $content;
+        print $csv_file $local_content;
         close($csv_file);
+        $local_content = "";
 
         #
         # Open the temporary file for reading.

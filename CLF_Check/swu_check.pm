@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 6649 $
+# $Revision: 6703 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2014-05-09 13:26:40 -0400 (Fri, 09 May 2014) $
+# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -7041,7 +7041,7 @@ sub SWU_Check_Archive_Check {
         #
         # Check for archived on the web markers
         #
-        $message = CLF_Archive_Archive_Check($profile, $this_url, $content);
+        $message = CLF_Archive_Archive_Check($profile, $this_url, \$content);
         
         #
         # Did we get messages (implying the check failed) ?

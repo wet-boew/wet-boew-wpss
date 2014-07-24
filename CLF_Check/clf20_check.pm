@@ -2,9 +2,9 @@
 #
 # Name:   clf20_check.pm
 #
-# $Revision: 6581 $
+# $Revision: 6703 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf20_check.pm $
-# $Date: 2014-03-12 15:21:11 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -2030,7 +2030,7 @@ sub CLF20_Check_Archive_Check {
         #
         # Check for archived on the web markers
         #
-        $message = CLF_Archive_Archive_Check($profile, $this_url, $content);
+        $message = CLF_Archive_Archive_Check($profile, $this_url, \$content);
 
         #
         # Did we get messages (implying the check failed) ?

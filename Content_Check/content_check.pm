@@ -2,9 +2,9 @@
 #
 # Name:   content_check.pm
 #
-# $Revision: 6276 $
+# $Revision: 6719 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/content_check.pm $
-# $Date: 2013-05-28 09:52:05 -0400 (Tue, 28 May 2013) $
+# $Date: 2014-07-22 12:34:37 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -99,7 +99,7 @@ BEGIN {
 my ($debug) = 0;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%content_check_profile_map, $current_testcase_profile);
-my ($html_lang, @content_lines, $current_url, $found_content_section);
+my ($html_lang, $current_url, $found_content_section);
 my (%parent_subsection_heading_value, %parent_subsection_heading_location);
 my (%peer_subsection_heading_value, %peer_subsection_heading_location);
 my ($current_heading_level, $results_list_addr);
@@ -1299,7 +1299,7 @@ sub End_Handler {
 #
 # Parameters: this_url - document URL
 #             mime_type - mime type
-#             content
+#             content - content pointer
 #
 # Description:
 #
@@ -1312,6 +1312,7 @@ sub Check_Content_Language {
     my ($this_url, $mime_type, $content) = @_;
 
     my ($url_language, $content_language, $lang, $lang_code, $status);
+    my ($pdf_content);
 
     #
     # Are we checking content language in this testcase profile ?
@@ -1364,8 +1365,8 @@ sub Check_Content_Language {
                 # Extract text from PDF content and determine its language
                 #
                 print "Convert PDF to text\n" if $debug;
-                $content = PDF_Files_PDF_Content_To_Text($content);
-                ($lang_code, $lang, $status) = TextCat_Text_Language($content);
+                $pdf_content = PDF_Files_PDF_Content_To_Text($content);
+                ($lang_code, $lang, $status) = TextCat_Text_Language(\$pdf_content);
             }
             #
             # Do we have text/text mime type ?
@@ -1420,7 +1421,7 @@ sub Check_Content_Language {
 #
 # Name: HTML_Content_Check
 #
-# Parameters: content - content
+# Parameters: content - content pointer
 #
 # Description:
 #
@@ -1433,14 +1434,9 @@ sub HTML_Content_Check {
     my ($parser);
 
     #
-    # Split the content into lines
-    #
-    print "HTML_Content_Check\n" if $debug;
-    @content_lines = split( /\n/, $content );
-    
-    #
     # Create a document parser
     #
+    print "HTML_Content_Check\n" if $debug;
     $parser = HTML::Parser->new;
 
     #
@@ -1469,7 +1465,7 @@ sub HTML_Content_Check {
     #
     # Parse the content.
     #
-    $parser->parse($content);
+    $parser->parse($$content);
 }
 
 #***********************************************************************
@@ -1479,7 +1475,7 @@ sub HTML_Content_Check {
 # Parameters: this_url - a URL
 #             profile - testcase profile
 #             mime_type - mime type of document
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -1487,7 +1483,7 @@ sub HTML_Content_Check {
 #
 #***********************************************************************
 sub Content_Check {
-    my ( $this_url, $profile, $mime_type, $content ) = @_;
+    my ($this_url, $profile, $mime_type, $content) = @_;
 
     my (@content_results_list, $result_object, $testcase);
 
@@ -1516,7 +1512,7 @@ sub Content_Check {
         #
         # Did we get any content ?
         #
-        if ( length($content) > 0 ) {
+        if ( length($$content) > 0 ) {
             #
             # Which content type do we have ?
             #
@@ -1525,7 +1521,7 @@ sub Content_Check {
                 # HTML/XHTML content
                 #
                 HTML_Content_Check($content);
-                
+
                 #
                 # Check title and dc.title
                 #

@@ -2,9 +2,9 @@
 #
 # Name:   javascript_validate.pm
 #
-# $Revision: 6636 $
+# $Revision: 6711 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/JavaScript_Check/Tools/javascript_validate.pm $
-# $Date: 2014-04-30 08:07:30 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-07-22 12:19:33 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -146,7 +146,7 @@ sub JavaScript_Validate_JSL_Config {
 #
 # Parameters: this_url - a URL
 #             profile - name of JSL configuration profile
-#             content - JavaScript content
+#             content - JavaScript content pointer
 #
 # Description:
 #
@@ -163,7 +163,7 @@ sub JavaScript_Validate_Content {
     #
     # Do we have any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Write the content to a temporary file
         #
@@ -174,7 +174,7 @@ sub JavaScript_Validate_Content {
             return(@results_list);
         }
         binmode $fh;
-        print $fh $content;
+        print $fh $$content;
         close($fh);
 
         #
@@ -424,7 +424,7 @@ sub End_Handler {
 # Name: JavaScript_Validate_Extract_JavaScript_From_HTML
 #
 # Parameters: this_url - a URL
-#             content - HTML content
+#             content - HTML content pointer
 #
 # Description:
 #
@@ -441,7 +441,7 @@ sub JavaScript_Validate_Extract_JavaScript_From_HTML {
     #
     print "JavaScript_Validate_Extract_JavaScript_From_HTML: Extract JavaScript from $this_url\n" if $debug;
     $extracted_javascript_content = "";
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Create a document parser
         #
@@ -468,7 +468,7 @@ sub JavaScript_Validate_Extract_JavaScript_From_HTML {
         # Parse the content.
         #
         $have_text_handler = 0;
-        $parser->parse($content);
+        $parser->parse($$content);
         print "Extracted JavaScript content\n$extracted_javascript_content\n" if $debug;
     }
     else {

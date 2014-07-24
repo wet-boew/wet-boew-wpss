@@ -2,9 +2,9 @@
 #
 # Name:   clf_archive.pm
 #
-# $Revision: 6399 $
+# $Revision: 6703 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf_archive.pm $
-# $Date: 2013-10-24 07:44:42 -0400 (Thu, 24 Oct 2013) $
+# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -459,7 +459,7 @@ sub Check_Headings_Marker {
 #
 # Parameters: profile - archived markers profile
 #             url - URL
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -501,8 +501,7 @@ sub CLF_Archive_Is_Archived {
     # headings in the document.  We don't care about the
     # content check results.
     #
-    @content_results_list = Content_Check($url, "", "text/html",
-                                          $content);
+    @content_results_list = Content_Check($url, "", "text/html", $content);
 
     #
     #
@@ -644,7 +643,7 @@ sub CLF_Archive_Is_Archived {
             #
             # Get the text contents of the page.
             #
-            $extracted_content = Content_Check_Extract_Content_From_HTML($content);
+            $extracted_content = Content_Check_Extract_Content_From_HTML($$content);
 
             #
             # Check to see if the marker text is in the content
@@ -788,7 +787,7 @@ sub Check_Metadata_Content {
 #
 # Parameters: profile - archived markers profile
 #             url - URL
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -913,8 +912,7 @@ sub CLF_Archive_Archive_Check {
     # headings in the document.  We don't care about the
     # content check results.
     #
-    @content_results_list = Content_Check($url, "", "text/html",
-                                          $content);
+    @content_results_list = Content_Check($url, "", "text/html", $content);
 
     #
     #
@@ -961,7 +959,7 @@ sub CLF_Archive_Archive_Check {
         #
         # Get the text contents of the page.
         #
-        $extracted_content = Content_Check_Extract_Content_From_HTML($content);
+        $extracted_content = Content_Check_Extract_Content_From_HTML($$content);
 
         #
         # Check to see if the marker text is in the content

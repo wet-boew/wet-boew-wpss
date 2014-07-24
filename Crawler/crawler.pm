@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 6627 $
+# $Revision: 6705 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2014-04-25 13:15:07 -0400 (Fri, 25 Apr 2014) $
+# $Date: 2014-07-22 12:16:37 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -2992,7 +2992,7 @@ sub Content_Checksum {
         # Extract text from HTML markup
         #
         print "Content_Checksum: Extract text from HTML\n" if $debug;
-        $content = TextCat_Extract_Text_From_HTML($content);
+        $content = TextCat_Extract_Text_From_HTML(\$content);
         print "Extracted content length = " . length($content) . "\n" if $debug;
     }
     else {
@@ -3303,7 +3303,7 @@ $url_checksum_map{$checksum} . "\n";
                     }
                 }
                 @links = Extract_Links($rewritten_url, $base,
-                                       $lang, $content_type, $content);
+                                       $lang, $content_type, \$content);
 
                 #
                 # Filter the links to remove any that are not from

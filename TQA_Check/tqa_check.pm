@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6681 $
+# $Revision: 6718 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2014-06-16 13:02:27 -0400 (Mon, 16 Jun 2014) $
+# $Date: 2014-07-22 12:34:18 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -628,7 +628,7 @@ sub Check_Other_Tool_Results {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #             links - address of a list of link objects
 #
 # Description:
@@ -683,7 +683,7 @@ sub TQA_Check {
         if ( length($extracted_content) > 0 ) {
             print "CSS_Check on URL\n  --> $this_url\n" if $debug;
             @other_tqa_results_list = CSS_Check($this_url, $language, $profile,
-                                                $extracted_content);
+                                                \$extracted_content);
             $fault_count = @other_tqa_results_list;
             print "CSS faults detected = $fault_count\n" if $debug;
 
@@ -705,7 +705,7 @@ sub TQA_Check {
             print "JavaScript on URL\n  --> $this_url\n" if $debug;
             @other_tqa_results_list = JavaScript_Check($this_url, $language,
                                                        $profile,
-                                                       $extracted_content);
+                                                       \$extracted_content);
             $fault_count = @other_tqa_results_list;
             print "JavaScript faults detected = $fault_count\n" if $debug;
 
@@ -2331,7 +2331,7 @@ sub Check_Metadata_Expression {
 # Parameters: url - URL
 #             is_archived - flag to inticate if content is
 #                           marked "Archived on the Web"
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -2408,7 +2408,7 @@ sub Check_HTML_Exempt {
 # Parameters: url - URL
 #             is_archived - flag to inticate if content is
 #                           marked "Archived on the Web"
-#             content - content
+#             content - content pointer
 #             url_list - address of a table of URLs
 #
 # Description:
@@ -2487,7 +2487,7 @@ sub Check_PDF_Exempt {
 #             mime_type - mime-type of content
 #             is_archived - flag to inticate if content is
 #                           marked "Archived on the Web"
-#             content - content
+#             content - content pointer
 #             url_list - address of a table of URLs
 #
 # Description:

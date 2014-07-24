@@ -2,9 +2,9 @@
 #
 # Name:   html_validate.pm
 #
-# $Revision: 6635 $
+# $Revision: 6709 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/html_validate.pm $
-# $Date: 2014-04-30 08:06:35 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-07-22 12:18:41 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -191,7 +191,7 @@ sub String_Value {
 #
 # Parameters: this_url - a URL
 #             charset - character set of content
-#             content - HTML content
+#             content - HTML content pointer
 #
 # Description:
 #
@@ -216,7 +216,7 @@ sub Validate_XHTML_Content {
         return(@results_list);
     }
     binmode $fh;
-    print $fh $content;
+    print $fh $$content;
     close($fh);
 
     #
@@ -320,7 +320,7 @@ sub Declaration_Handler {
 #
 # Name: Get_Doctype
 #
-# Parameters: content - HTML content
+# Parameters: content - HTML content pointer
 #
 # Description:
 #
@@ -356,7 +356,7 @@ sub Get_Doctype {
     #
     # Parse the content.
     #
-    $parser->parse($content);
+    $parser->parse($$content);
 }
 
 #***********************************************************************
@@ -365,7 +365,7 @@ sub Get_Doctype {
 #
 # Parameters: this_url - a URL
 #             charset - character set of content
-#             content - HTML content
+#             content - HTML content pointer
 #
 # Description:
 #
@@ -381,7 +381,7 @@ sub HTML_Validate_Content {
     #
     # Do we have any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
 
         #
         # Determine the HTML/XHTML language of the content.

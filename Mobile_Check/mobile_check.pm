@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 6667 $
+# $Revision: 6715 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2014-06-03 10:47:50 -0400 (Tue, 03 Jun 2014) $
+# $Date: 2014-07-22 12:23:44 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -272,7 +272,7 @@ sub Set_Mobile_Check_Test_Profile {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -280,7 +280,7 @@ sub Set_Mobile_Check_Test_Profile {
 #
 #***********************************************************************
 sub Mobile_Check {
-    my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
+    my ($this_url, $language, $profile, $mime_type, $resp, $content) = @_;
 
     my (@tqa_results_list, $result_object);
 
@@ -297,7 +297,7 @@ sub Mobile_Check {
 #
 # Parameters: url - URL
 #             profile - testcase profile
-#             content - web page content
+#             content - web page content pointer
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
 #
@@ -322,7 +322,7 @@ sub Mobile_Check_Links {
 # Name: Mobile_Check_Compute_Page_Size
 #
 # Parameters: url - URL
-#             content - page content
+#             resp - HTTP Response object
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
 #
@@ -334,7 +334,7 @@ sub Mobile_Check_Links {
 #
 #***********************************************************************
 sub Mobile_Check_Compute_Page_Size {
-    my ($url, $content, $link_sets) = @_;
+    my ($url, $resp, $link_sets) = @_;
 
     my ($size, $html_size, $link, $section, $links_addr, $link_type);
     my ($size_string);
@@ -351,7 +351,7 @@ sub Mobile_Check_Compute_Page_Size {
     # Get total document size
     #
     print "Mobile_Check_Compute_Page_Size\n" if $debug;
-    $html_size = length($content);
+    $html_size = length($resp->content);
 
     #
     # Check the links in each document section

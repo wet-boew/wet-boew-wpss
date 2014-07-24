@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 6670 $
+# $Revision: 6720 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
-# $Date: 2014-06-06 14:14:18 -0400 (Fri, 06 Jun 2014) $
+# $Date: 2014-07-22 12:34:54 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -742,7 +742,7 @@ sub Get_URL_Title {
     my ($url, $link, $resp) = @_;
 
     my ($metadata_object, %metadata, $header, %pdf_properties);
-    my ($title, $status);
+    my ($title, $status, $content);
     
     #
     # Get response header, it tells us the content type
@@ -756,7 +756,8 @@ sub Get_URL_Title {
     #
     if ( $header->content_type =~ /text\/html/ ) {
         print "Extract metadata from HTML content\n" if $debug;
-        %metadata = Extract_Metadata($url, Crawler_Decode_Content($resp));
+        $content = Crawler_Decode_Content($resp);
+        %metadata = Extract_Metadata($url, \$content);
 
         #
         # Get title, if one was found
@@ -768,7 +769,8 @@ sub Get_URL_Title {
     }
     elsif ( $header->content_type =~ /application\/pdf/ ) {
         print "Extract properties from PDF content\n" if $debug;
-        ($status, %pdf_properties) = PDF_Files_Get_Properties_From_Content(Crawler_Decode_Content($resp));
+        $content = Crawler_Decode_Content($resp);
+        ($status, %pdf_properties) = PDF_Files_Get_Properties_From_Content(\$content);
 
         #
         # Get Title property, if there was one.
@@ -839,7 +841,7 @@ sub Get_Site_Title {
 
     my ($protocol, $domain, $new_url, $file_path, $query, $list_addr);
     my ($site_title_addr, %site_title_hash, $base, %link_sets, $header);
-    my ($this_link, @links, $content, $mime_type);
+    my ($this_link, @links, $content, $mime_type, $content);
 
     #
     # Get the domain name of the URL
@@ -892,9 +894,9 @@ sub Get_Site_Title {
         #
         $header = $resp->headers;
         $mime_type = $header->content_type;
-        #$content = Crawler_Decode_Content($resp);
         print "Extract links from document\n  --> $url\n" if $debug;
-        @links = Extract_Links($url, $base, $lang, $mime_type, Crawler_Decode_Content($resp));
+        $content = Crawler_Decode_Content($resp);
+        @links = Extract_Links($url, $base, $lang, $mime_type, \$content);
 
         #
         # Get all the links, this includes any Site Banner links.
@@ -1378,7 +1380,7 @@ sub Get_Content_Language {
                 #
                 # Determine language of HTML page
                 #
-                ($lang_code, $lang, $status) = TextCat_HTML_Language($content);
+                ($lang_code, $lang, $status) = TextCat_HTML_Language(\$content);
             }
 
             #
@@ -1388,7 +1390,7 @@ sub Get_Content_Language {
                 #
                 # Determine language of text page
                 #
-                ($lang_code, $lang, $status) = TextCat_Text_Language($content);
+                ($lang_code, $lang, $status) = TextCat_Text_Language(\$content);
             }
 
             #
@@ -1398,12 +1400,12 @@ sub Get_Content_Language {
                 #
                 # Extract text from PDF document
                 #
-                $content = PDF_Files_PDF_Content_To_Text($content);
+                $content = PDF_Files_PDF_Content_To_Text(\$content);
 
                 #
                 # Determine language of PDF page
                 #
-                ($lang_code, $lang, $status) = TextCat_Text_Language($content);
+                ($lang_code, $lang, $status) = TextCat_Text_Language(\$content);
             }
             else {
                 #
@@ -1803,7 +1805,7 @@ sub Anchor_In_HTML {
         # Check to see if this anchor is in the list of anchors in the
         # document.
         #
-        $anchor_list = Extract_Anchors($url, $content);
+        $anchor_list = Extract_Anchors($url, \$content);
         $anchor =~ s/^.*#//g;
         if ( ($anchor ne "" ) &&
              (index($anchor_list, " $anchor ") == -1) ) {
@@ -1849,7 +1851,7 @@ sub Link_Checker_Get_Link_Status {
 
     my ($this_link, $is_broken_link, $is_redirected_link, $request_url );
     my ($is_firewall_blocked, $resp, $header, $cache_link, $resp_url);
-    my ($title);
+    my ($title, $content);
 
     #
     # Get absolute URL for link.
@@ -1950,9 +1952,10 @@ sub Link_Checker_Get_Link_Status {
                 # target document is archived on the web.
                 #
                 if ( $header->content_type =~ /text\/html/ ) {
+                    $content = Crawler_Decode_Content($resp);
                     $link->is_archived(CLF_Check_Is_Archived($clf_profile,
                                                              $request_url,
-                                                             $resp->content));
+                                                             \$content));
                 }
             }
 

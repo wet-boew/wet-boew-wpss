@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 6652 $
+# $Revision: 6702 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2014-05-28 08:19:47 -0400 (Wed, 28 May 2014) $
+# $Date: 2014-07-22 12:15:17 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -228,13 +228,13 @@ sub Set_Open_Data_XML_Testcase_Data {
 #
 # Name: Set_Open_Data_XML_Test_Profile
 #
-# Parameters: profile - CSV check test profile
+# Parameters: profile - open data check test profile
 #             testcase_names - hash table of testcase name
 #
 # Description:
 #
 #   This function copies the passed table to unit global variables.
-# The hash table is indexed by CSV testcase name.
+# The hash table is indexed by open data testcase name.
 #
 #***********************************************************************
 sub Set_Open_Data_XML_Test_Profile {
@@ -255,7 +255,7 @@ sub Set_Open_Data_XML_Test_Profile {
 #
 # Name: Initialize_Test_Results
 #
-# Parameters: profile - CSV check test profile
+# Parameters: profile - open data check test profile
 #             local_results_list_addr - address of results list.
 #
 # Description:
@@ -393,7 +393,7 @@ sub End_Handler {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - XML content
+#             content - XML content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -438,7 +438,7 @@ sub Open_Data_XML_Check_Data {
     #
     # Did we get any content ?
     #
-    if ( length($content) == 0 ) {
+    if ( length($$content) == 0 ) {
         print "No content passed to Open_Data_XML_Check_Data\n" if $debug;
         Record_Result("OD_3", -1, 0, "",
                       String_Value("No content in file"));
@@ -459,7 +459,7 @@ sub Open_Data_XML_Check_Data {
         #
         # Parse the content.
         #
-        $eval_output = eval { $parser->parse($content); 1 } ;
+        $eval_output = eval { $parser->parse($$content); 1 } ;
 
         #
         # Did the parse fail ?
@@ -501,7 +501,7 @@ sub Open_Data_XML_Check_Data {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - XML content
+#             content - XML content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -546,7 +546,7 @@ sub Open_Data_XML_Check_Dictionary {
     #
     # Did we get any content ?
     #
-    if ( length($content) == 0 ) {
+    if ( length($$content) == 0 ) {
         print "No content passed to Open_Data_XML_Check_Dictionary\n" if $debug;
         Record_Result("OD_3", -1, 0, "",
                       String_Value("No content in file"));
@@ -567,7 +567,7 @@ sub Open_Data_XML_Check_Dictionary {
         #
         # Parse the content.
         #
-        $eval_output = eval { $parser->parse($content); 1 } ;
+        $eval_output = eval { $parser->parse($$content); 1 } ;
 
         #
         # Did the parse fail ?
@@ -609,7 +609,7 @@ sub Open_Data_XML_Check_Dictionary {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - XML content
+#             content - XML content pointer
 #
 # Description:
 #
@@ -653,7 +653,7 @@ sub Open_Data_XML_Check_API {
     #
     # Did we get any content ?
     #
-    if ( length($content) == 0 ) {
+    if ( length($$content) == 0 ) {
         print "No content passed to Open_Data_XML_Check_API\n" if $debug;
         Record_Result("OD_3", -1, 0, "",
                       String_Value("No content in API"));
@@ -674,7 +674,7 @@ sub Open_Data_XML_Check_API {
         #
         # Parse the content.
         #
-        $eval_output = eval { $parser->parse($content); 1 } ;
+        $eval_output = eval { $parser->parse($$content); 1 } ;
 
         #
         # Did the parse fail ?

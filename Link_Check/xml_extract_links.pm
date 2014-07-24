@@ -2,9 +2,9 @@
 #
 # Name:   xml_extract_links.pm
 #
-# $Revision: 6255 $
+# $Revision: 6712 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/xml_extract_links.pm $
-# $Date: 2013-05-14 10:14:17 -0400 (Tue, 14 May 2013) $
+# $Date: 2014-07-22 12:20:01 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -636,7 +636,7 @@ sub End_Handler {
 # Parameters: this_url - URL of document to extract links from
 #             this_base - the base value from the response object (resp->base)
 #             this_lang - language of URL
-#             content - content of HTML document to extract links from
+#             content - content pointer
 #
 # Description:
 #
@@ -652,8 +652,7 @@ sub XML_Extract_Links {
     #
     # Save addresses of link object array in a global variable.
     #
-    print "XML_Extract_Links: Checking URL $this_url, content length = " .
-          length($content) . "\n" if $debug;
+    print "XML_Extract_Links: Checking URL $this_url\n" if $debug;
     $link_object_reference = \@link_objects;
 
     #
@@ -670,7 +669,7 @@ sub XML_Extract_Links {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Create a document parser
         #
@@ -685,7 +684,7 @@ sub XML_Extract_Links {
         #
         # Parse the content.
         #
-        $eval_output = eval { $parser->parse($content); }
+        $eval_output = eval { $parser->parse($$content); }
     }
 
     #

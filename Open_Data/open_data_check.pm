@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 6653 $
+# $Revision: 6702 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_check.pm $
-# $Date: 2014-05-28 08:20:41 -0400 (Wed, 28 May 2014) $
+# $Date: 2014-07-22 12:15:17 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -59,6 +59,8 @@ use Encode;
 use File::Basename;
 use Archive::Zip qw(:ERROR_CODES);
 use JSON;
+use File::Temp qw/ tempfile tempdir /;
+
 
 #***********************************************************************
 #
@@ -442,7 +444,7 @@ sub Record_Result {
 #
 # Name: Check_Content_Encoding
 #
-# Parameters: content - content
+# Parameters: content - content pointer
 #             tcid - testcase identifier
 #
 # Description:
@@ -453,22 +455,23 @@ sub Record_Result {
 sub Check_Content_Encoding {
     my ($content, $tcid) = @_;
 
-    my ($output);
+    my ($output, $local_content);
 
     #
     # Does the string look like UTF-8 ?
     #
-    if ( eval { utf8::is_utf8($content); } ) {
+    $local_content = $$content;
+    if ( eval { utf8::is_utf8($local_content); } ) {
             print "UTF-8 content\n" if $debug;
     }
     #
     # Try decoding it as UTF-8
     #
-    elsif ( ! eval { decode('utf8', $content, Encode::FB_CROAK); 1} ) {
+    elsif ( ! eval { decode('utf8', $local_content, Encode::FB_CROAK); 1} ) {
         #
         # Not UTF 8 content
         #
-        $output =  eval { decode('utf8', $content, Encode::FB_WARN);};
+        $output =  eval { decode('utf8', $local_content, Encode::FB_WARN);};
         Record_Result($tcid, 0, -1, "$output",
                       String_Value("Character encoding is not UTF-8"));
     }
@@ -479,7 +482,7 @@ sub Check_Content_Encoding {
 # Name: Check_Encoding
 #
 # Parameters: resp - HTTP response object
-#             content - content
+#             content - content pointer
 #             tcid - testcase identifier
 #
 # Description:
@@ -491,7 +494,7 @@ sub Check_Content_Encoding {
 sub Check_Encoding {
     my ($resp, $content, $tcid) = @_;
 
-    my ($header, $mime_type);
+    my ($header, $mime_type, $content_ptr, $resp_content);
 
     #
     # Do we have a HTTP::Response object ?
@@ -511,10 +514,19 @@ sub Check_Encoding {
             #
             $header = $resp->headers;
             $mime_type = $header->content_type;
+
+            #
+            # Check to see if the HTTP content is compressed, if so it
+            # must be uncompressed before analysing the character set.
+            #
             if ( ! ($mime_type =~ /application\/zip/) ) {
-                $content = $resp->decoded_content(charset => 'none');
+                $resp_content = $resp->decoded_content(charset => 'none');
+                $content_ptr = \$resp_content;
             }
-            Check_Content_Encoding($content, $tcid);
+            else {
+                $content_ptr = $content;
+            }
+            Check_Content_Encoding($content_ptr, $tcid);
         }
     }
     else {
@@ -600,7 +612,7 @@ sub Check_Open_Data_API_URL {
 # Parameters: url - open data file URL
 #             format - optional content format
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -703,7 +715,7 @@ sub Check_Dictionary_URL {
 #
 # Parameters: url - open data file URL
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -729,7 +741,7 @@ sub Check_Resource_URL {
 # Parameters: url - open data file URL
 #             format - optional content format
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -849,6 +861,7 @@ sub Check_API_URL {
     my ($url, $resp) = @_;
 
     my ($result_object, @other_results, $header, $mime_type);
+    my ($content);
 
     #
     # Data dictionary files are expected to be either XML or TXT
@@ -866,7 +879,8 @@ sub Check_API_URL {
             #
             # Check for UTF-8 encoding
             #
-            Check_Encoding($resp, $resp->content, "OD_API_2");
+            $content = $resp->content;
+            Check_Encoding($resp, \$content, "OD_API_2");
 
             #
             # Check JSON API
@@ -874,7 +888,7 @@ sub Check_API_URL {
             print "JSON API URL\n" if $debug;
             @other_results = Open_Data_JSON_Check_API($url,
                                                $current_open_data_profile_name,
-                                                            $resp->content);
+                                                      \$content);
         }
         #
         # Is this XML ?
@@ -885,7 +899,8 @@ sub Check_API_URL {
             #
             # Check for UTF-8 encoding
             #
-            Check_Encoding($resp, $resp->content, "OD_API_2");
+            $content = $resp->content;
+            Check_Encoding($resp, \$content, "OD_API_2");
 
             #
             # Check XML API
@@ -893,7 +908,7 @@ sub Check_API_URL {
             print "XML API URL\n" if $debug;
             @other_results = Open_Data_XML_Check_API($url,
                                                $current_open_data_profile_name,
-                                                            $resp->content);
+                                                     \$content);
         }
         else {
             #
@@ -923,7 +938,7 @@ sub Check_API_URL {
 #             profile - testcase profile
 #             data_file_type - type of dataset file
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -1069,7 +1084,7 @@ sub Open_Data_Check {
 sub Open_Data_Check_Zip_Content {
     my ($url, $profile, $data_file_type, $resp) = @_;
 
-    my (@tqa_results_list, $zip, $zip_file_name, $zip_status);
+    my (@tqa_results_list, $zip, $zip_file_name, $zip_status, $zip_fh);
     my (@members, $member_name, %file_types, $base, $suffix);
 
     #
@@ -1103,13 +1118,12 @@ sub Open_Data_Check_Zip_Content {
     # Have to write the HTTP::Response content to a file in order
     # to read it into an Archive:Zip object.
     #
-    $zip_file_name = "open_data_$$.zip";
-    unlink($zip_file_name);
+    ($zip_fh, $zip_file_name) = tempfile( SUFFIX => '.zip');
     print "Create temporary ZIP file $zip_file_name\n" if $debug;
-    open (ZIP, ">$zip_file_name") || die "Error: Failed to create temporary file $zip_file_name\n";
-    binmode ZIP;
-    print ZIP $resp->content;
-    close(ZIP);
+    open ($zip_fh, ">$zip_file_name") || die "Error: Failed to create temporary file $zip_file_name\n";
+    binmode $zip_fh;
+    print $zip_fh $resp->content;
+    close($zip_fh);
 
     #
     # Read the ZIP file content into the Archive:Zip object
@@ -1185,7 +1199,7 @@ sub Open_Data_Check_Zip_Content {
 sub Check_Open_Data_Description_URL {
     my ($url, $resp) = @_;
 
-    my ($message);
+    my ($message, $content);
 
     #
     # Check unsuccessful GET operation
@@ -1205,7 +1219,8 @@ sub Check_Open_Data_Description_URL {
         #
         # Check for UTF-8 encoding
         #
-        Check_Encoding($resp, $resp->content, "OD_2");
+        $content = $resp->content;
+        Check_Encoding($resp, \$content, "OD_2");
     }
 }
 

@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 6692 $
+# $Revision: 6717 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2014-07-03 11:38:29 -0400 (Thu, 03 Jul 2014) $
+# $Date: 2014-07-22 12:33:59 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -11257,7 +11257,7 @@ sub Check_Language_Spans {
             #
             # Get language of this content section
             #
-            ($content_lang, $lang, $status) = TextCat_Text_Language($content);
+            ($content_lang, $lang, $status) = TextCat_Text_Language(\$content);
 
             #
             # Does the lang attribute match the content language ?
@@ -11266,7 +11266,6 @@ sub Check_Language_Spans {
             if ( ($status == 0 ) && ($content_lang ne "" ) &&
                  ($span_lang ne $content_lang) ) {
                 print "Span language error\n" if $debug;
-                #print "Content = $content\n" if $debug;
                 Record_Result("WCAG_2.0-H58", -1, -1, "",
                               String_Value("Span language attribute") .
                               " '$span_lang' " .
@@ -11483,7 +11482,7 @@ sub Modified_Content_Start_Handler {
 #
 # Parameters: this_url - a URL
 #             resp - HTTP::Response object
-#             content - HTML content
+#             content - HTML content pointer
 #
 # Description:
 #
@@ -11494,10 +11493,9 @@ sub Modified_Content_Start_Handler {
 #
 #***********************************************************************
 sub Modified_Content_HTML_Check {
-    my ( $this_url, $resp, $content ) = @_;
+    my ($this_url, $resp, $content) = @_;
 
-    my ($parser, @tqa_results_list, $result_object, $testcase);
-    my ($lang_code, $lang, $status, $css_content);
+    my ($parser, $mod_content);
 
     #
     # Create a document parser
@@ -11520,19 +11518,20 @@ sub Modified_Content_HTML_Check {
     # Remove conditional comments from the content that control
     # IE file inclusion (conditionals found in WET template files).
     #
-    $content =~ s/<!--\[if[^>]*>//g;
-    $content =~ s/<!--if[^>]*>//g;
-    $content =~ s/<!--<!\[endif\]-->//g;
-    $content =~ s/<!--<!endif-->//g;
-    $content =~ s/<!\[endif\]-->//g;
-    $content =~ s/<!endif-->//g;
-    $content =~ s/<!-->//g;
+    $mod_content = $$content;
+    $mod_content =~ s/<!--\[if[^>]*>//g;
+    $mod_content =~ s/<!--if[^>]*>//g;
+    $mod_content =~ s/<!--<!\[endif\]-->//g;
+    $mod_content =~ s/<!--<!endif-->//g;
+    $mod_content =~ s/<!\[endif\]-->//g;
+    $mod_content =~ s/<!endif-->//g;
+    $mod_content =~ s/<!-->//g;
     $modified_content = 1;
 
     #
     # Parse the content.
     #
-    $parser->parse($content);
+    $parser->parse($mod_content);
 }
 
 #***********************************************************************
@@ -11543,7 +11542,7 @@ sub Modified_Content_HTML_Check {
 #             language - URL language
 #             profile - testcase profile
 #             resp - HTTP::Response object
-#             content - HTML content
+#             content - HTML content pointer
 #             links - address of a list of link objects
 #
 # Description:
@@ -11589,7 +11588,7 @@ sub HTML_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Get content language
         #
@@ -11683,7 +11682,7 @@ sub HTML_Check {
         #
         # Parse the content.
         #
-        $parser->parse($content);
+        $parser->parse($$content);
         
         #
         # Run checks on modified HTML content (i.e. remove

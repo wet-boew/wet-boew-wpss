@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 6586 $
+# $Revision: 6702 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_json.pm $
-# $Date: 2014-03-12 15:32:43 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-07-22 12:15:17 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -220,13 +220,13 @@ sub Set_Open_Data_JSON_Testcase_Data {
 #
 # Name: Set_Open_Data_JSON_Test_Profile
 #
-# Parameters: profile - CSV check test profile
+# Parameters: profile - open data check test profile
 #             testcase_names - hash table of testcase name
 #
 # Description:
 #
 #   This function copies the passed table to unit global variables.
-# The hash table is indexed by CSV testcase name.
+# The hash table is indexed by open data testcase name.
 #
 #***********************************************************************
 sub Set_Open_Data_JSON_Test_Profile {
@@ -247,7 +247,7 @@ sub Set_Open_Data_JSON_Test_Profile {
 #
 # Name: Initialize_Test_Results
 #
-# Parameters: profile - CSV check test profile
+# Parameters: profile - open data check test profile
 #             local_results_list_addr - address of results list.
 #
 # Description:
@@ -336,7 +336,7 @@ sub Record_Result {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - JSON content
+#             content - JSON content pointer
 #
 # Description:
 #
@@ -379,7 +379,7 @@ sub Open_Data_JSON_Check_API {
     #
     # Did we get any content ?
     #
-    if ( length($content) == 0 ) {
+    if ( length($$content) == 0 ) {
         print "No content passed to Open_Data_JSON_Check_API\n" if $debug;
         Record_Result("OD_API_3", -1, 0, "",
                       String_Value("No content in API"));
@@ -388,7 +388,7 @@ sub Open_Data_JSON_Check_API {
         #
         # Parse the content.
         #
-        $eval_output = eval { $ref = decode_json($content); 1 } ;
+        $eval_output = eval { $ref = decode_json($$content); 1 } ;
 
         #
         # Did the parse fail ?

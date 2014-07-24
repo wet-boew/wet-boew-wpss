@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 6666 $
+# $Revision: 6703 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2014-05-30 14:30:29 -0400 (Fri, 30 May 2014) $
+# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -94,7 +94,7 @@ my ($debug) = 0;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my (%clf_check_profile_map, $current_clf_check_profile);
-my ($results_list_addr, $content_section_handler, @content_lines);
+my ($results_list_addr, $content_section_handler);
 my ($doctype_line, $doctype_column, $doctype_text, $doctype_label);
 my ($doctype_version, $doctype_language, $doctype_class, $found_frame_tag);
 my ($current_url, %template_integrity, %template_version, %site_inc_version);
@@ -1709,7 +1709,7 @@ sub End_Handler {
 #
 # Name: Check_Server_Side_Include_Errors
 #
-# Parameters: content - page content
+# Parameters: content - page content pointer
 #
 # Description:
 #
@@ -1807,7 +1807,7 @@ sub Check_Template_Markers {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -1815,7 +1815,7 @@ sub Check_Template_Markers {
 #
 #***********************************************************************
 sub TP_PW_Check {
-    my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
+    my ($this_url, $language, $profile, $mime_type, $resp, $content) = @_;
 
     my (@tqa_results_list, $parser, $result_object, @other_tqa_results_list);
     my ($tcid, $do_tests);
@@ -1867,12 +1867,7 @@ sub TP_PW_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
-        #
-        # Split the content into lines
-        #
-        @content_lines = split( /\n/, $content );
-
+    if ( length($$content) > 0 ) {
         #
         # Create a document parser
         #
@@ -1902,7 +1897,7 @@ sub TP_PW_Check {
         #
         # Parse the content.
         #
-        $parser->parse($content);
+        $parser->parse($$content);
 
         #
         # Check baseline technologies

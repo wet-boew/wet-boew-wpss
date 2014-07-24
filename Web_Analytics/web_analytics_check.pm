@@ -760,7 +760,7 @@ sub Record_Result {
 #
 # Name: Check_JavaScript_Web_Analytics
 #
-# Parameters: content - content
+# Parameters: content - content pointer
 #
 # Description:
 #
@@ -774,9 +774,9 @@ sub Check_JavaScript_Web_Analytics {
     #
     # Check for possible google analytics code
     #
-    if ( ($content =~ /_gaq\.push\s*\(/i) ||
-         ($content =~ /_trackPageview/i) ||
-         ($content =~ /ga\s*\(\s*'send',\s*'pageview'\s*/i) ) {
+    if ( ($$content =~ /_gaq\.push\s*\(/i) ||
+         ($$content =~ /_trackPageview/i) ||
+         ($$content =~ /ga\s*\(\s*'send',\s*'pageview'\s*/i) ) {
 
          #
          # Found google analytics
@@ -787,7 +787,7 @@ sub Check_JavaScript_Web_Analytics {
         #
         # Is there code to anonymize the IP address ?
         #
-        if ( ! ( $content =~ /anonymizeIp/i ) ) {
+        if ( ! ( $$content =~ /anonymizeIp/i ) ) {
             Record_Result("WA_ID", -1, -1, "",
                           String_Value("Missing Google Analytics IP anonymization"));
         }
@@ -802,8 +802,8 @@ sub Check_JavaScript_Web_Analytics {
     #
     # Look for Piwik analytics code
     #
-    elsif ( ($content =~ /\.trackPageView\s*\(/i) ||
-            ($content =~ /\['trackPageView'\]/i) ) {
+    elsif ( ($$content =~ /\.trackPageView\s*\(/i) ||
+            ($$content =~ /\['trackPageView'\]/i) ) {
         #
         # Set flag to indicate we found Piwik Analytics code
         #
@@ -814,7 +814,7 @@ sub Check_JavaScript_Web_Analytics {
     #
     # Look for Urchin analytics code
     #
-    elsif ( $content =~ /urchinTracker\s*\(/i ) {
+    elsif ( $$content =~ /urchinTracker\s*\(/i ) {
         #
         # Set flag to indicate we found Urchin Analytics code
         #
@@ -833,7 +833,7 @@ sub Check_JavaScript_Web_Analytics {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -888,7 +888,7 @@ sub Web_Analytics_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Check mime-type of content
         #
@@ -903,7 +903,7 @@ sub Web_Analytics_Check {
             #
             # Check for Web Analytics
             #
-            Check_JavaScript_Web_Analytics($javascript_content);
+            Check_JavaScript_Web_Analytics(\$javascript_content);
         }
         #
         # Is this JavaScript code ?

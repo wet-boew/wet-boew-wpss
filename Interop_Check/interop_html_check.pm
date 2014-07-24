@@ -2,9 +2,9 @@
 #
 # Name:   interop_html_check.pm
 #
-# $Revision: 6600 $
+# $Revision: 6710 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_html_check.pm $
-# $Date: 2014-03-28 13:16:59 -0400 (Fri, 28 Mar 2014) $
+# $Date: 2014-07-22 12:19:13 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -1467,7 +1467,7 @@ sub Check_HTML_Data_Type {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -1527,11 +1527,11 @@ sub Interop_HTML_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Split the content into lines
         #
-        @content_lines = split( /\n/, $content );
+        @content_lines = split( /\n/, $$content );
 
         #
         # Create a document parser
@@ -1557,7 +1557,7 @@ sub Interop_HTML_Check {
         #
         # Parse the content.
         #
-        $parser->parse($content);
+        $parser->parse($$content);
     }
     else {
         print "No content passed to Interop_HTML_Check\n" if $debug;

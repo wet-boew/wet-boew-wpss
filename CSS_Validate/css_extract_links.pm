@@ -2,9 +2,9 @@
 #
 # Name:   css_extract_links.pm
 #
-# $Revision: 6360 $
+# $Revision: 6713 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CSS_Validate/Tools/css_extract_links.pm $
-# $Date: 2013-08-13 13:01:43 -0400 (Tue, 13 Aug 2013) $
+# $Date: 2014-07-22 12:22:51 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -110,7 +110,7 @@ sub CSS_Extract_Links_Debug {
 # Parameters: url - URL of CSS content
 #             base - base for convertin relative to absolute URLs
 #             lang - language
-#             content - css content
+#             content_ptr - css content pointer
 #
 # Description:
 #
@@ -118,16 +118,17 @@ sub CSS_Extract_Links_Debug {
 #
 #***********************************************************************
 sub CSS_Extract_Links {
-    my ( $url, $base, $lang, $content ) = @_;
+    my ($url, $base, $lang, $content_ptr) = @_;
 
     my ($css, $style, @properties, $property, $value, $hash, $this_prop);
-    my ($selector, $name, @urls, $link, $abs_url);
+    my ($selector, $name, @urls, $link, $abs_url, $content);
 
     #
     # Do we have any url strings in the content ?
     #
+    $content = $$content_ptr;
     if ( ! ($content =~ /url\s*\(/i) ) {
-        print "No url() in content\n" if $debug;
+        print "CSS_Extract_Links: No url() in content\n" if $debug;
         return(@urls);
     }
 
@@ -135,6 +136,7 @@ sub CSS_Extract_Links {
     # Remove any comments from the CSS content and compress white space
     #
     print "CSS_Extract_Links from $url\n" if $debug;
+    $content = $$content_ptr;
     $content =~ s/<!--.+?-->//gs;
     $content =~ s!/\*.+?\*/!!gs;
     $content =~ s/\r\n|\r|\n/ /g;

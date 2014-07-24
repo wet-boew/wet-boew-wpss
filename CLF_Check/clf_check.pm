@@ -2,9 +2,9 @@
 #
 # Name:   clf_check.pm
 #
-# $Revision: 6350 $
+# $Revision: 6703 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf_check.pm $
-# $Date: 2013-07-22 08:55:06 -0400 (Mon, 22 Jul 2013) $
+# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -421,7 +421,7 @@ sub CLF_Check_Links {
 #
 # Parameters: profile - profile name
 #             url - URL
-#             content - content
+#             content - content pointer
 #
 # Description:
 #

@@ -2,9 +2,9 @@
 #
 # Name:   csv_check.pm
 #
-# $Revision: 6639 $
+# $Revision: 6717 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/csv_check.pm $
-# $Date: 2014-04-30 08:09:47 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-07-22 12:33:59 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -375,7 +375,7 @@ sub Record_Result {
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - testcase profile
-#             content - CSV content
+#             content - CSV content pointer
 #
 # Description:
 #
@@ -383,7 +383,7 @@ sub Record_Result {
 #
 #***********************************************************************
 sub CSV_Check {
-    my ( $this_url, $language, $profile, $content ) = @_;
+    my ($this_url, $language, $profile, $content) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($line, @fields, $line_no, $status, $found_fields, $field_count);
@@ -420,7 +420,7 @@ sub CSV_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) == 0 ) {
+    if ( length($$content) == 0 ) {
         print "No content passed to CSV_Check\n" if $debug;
         return(@tqa_results_list);
     }
@@ -435,7 +435,7 @@ sub CSV_Check {
             return(@tqa_results_list);
         }
         binmode $csv_file;
-        print $csv_file $content;
+        print $csv_file $$content;
         close($csv_file);
 
         #

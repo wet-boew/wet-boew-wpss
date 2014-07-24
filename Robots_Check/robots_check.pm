@@ -2,9 +2,9 @@
 #
 # Name: robots_check.pm
 #
-# $Revision: 5469 $
+# $Revision: 6721 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Robots_Check/Tools/robots_check.pm $
-# $Date: 2011-09-08 10:40:28 -0400 (Thu, 08 Sep 2011) $
+# $Date: 2014-07-22 12:35:20 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -224,7 +224,7 @@ sub Add_To_Error {
 # Name: Robots_Check
 #
 # Parameters: this_url - URL of robots.txt file
-#             txt - content of robots.txt file
+#             txt - pointer to content of robots.txt file
 #
 # Description:
 #
@@ -254,12 +254,12 @@ sub Robots_Check {
     # blank lines are significant, so turn CRLF into LF to avoid generating
     # false ones
     #
-    $txt =~ s/\015\012/\012/g;
+    $$txt =~ s/\015\012/\012/g;
 
     #
     # split at \012 (LF) or \015 (CR) (Mac text files have just CR for EOL)
     #
-    for(split(/[\012\015]/, $txt)) {
+    for(split(/[\012\015]/, $$txt)) {
         $line_no++;
 
         #

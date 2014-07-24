@@ -2,9 +2,9 @@
 #
 # Name: pdf_files.pm
 #
-# $Revision: 6637 $
+# $Revision: 6716 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/PDF_Check/Tools/pdf_files.pm $
-# $Date: 2014-04-30 08:08:12 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-07-22 12:33:12 -0400 (Tue, 22 Jul 2014) $
 #
 # Description
 #
@@ -354,7 +354,7 @@ sub PDF_Files_Get_Properties {
 #
 # Name: PDF_Files_Get_Properties_From_Content
 #
-# Parameters: content - PDF content
+# Parameters: content - PDF content pointer
 #
 # Description:
 #
@@ -374,7 +374,7 @@ sub PDF_Files_Get_Properties_From_Content {
     # Did we get any content ?
     #
     print "PDF_Files_Get_Properties_From_Content\n" if $debug;
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Create temporary file for PDF content.
         #
@@ -384,7 +384,7 @@ sub PDF_Files_Get_Properties_From_Content {
             return(0, %properties);
         }
         binmode $fh;
-        print $fh $content;
+        print $fh $$content;
         close($fh);
 
         #
@@ -461,7 +461,7 @@ sub PDF_Files_PDF_File_To_Text {
 #
 # Name: PDF_Files_PDF_Content_To_Text
 #
-# Parameters: content - PDF file content
+# Parameters: content - PDF file content pointer
 #
 # Description:
 #
@@ -476,7 +476,7 @@ sub PDF_Files_PDF_Content_To_Text {
     #
     # Check content length
     #
-    if ( (!defined($content) ) || length($content) == 0 ) {
+    if ( (!defined($content) ) || length($$content) == 0 ) {
         print "PDF_Files_PDF_Content_To_Text: No content supplied\n" if $debug;
         return("");
     }
@@ -490,7 +490,7 @@ sub PDF_Files_PDF_Content_To_Text {
         return("");
     }
     binmode $fh;
-    print $fh $content;
+    print $fh $$content;
     close($fh);
 
     #
@@ -705,7 +705,7 @@ sub Check_Required_Properties {
 #
 # Parameters: this_url - a URL
 #             profile - properties profile
-#             content - PDF content
+#             content - PDF content pointer
 #             pdf_property_results - hash table reference
 #
 # Description:
@@ -761,7 +761,7 @@ sub PDF_Files_Validate_Properties {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Get PDF file peroperties
         #

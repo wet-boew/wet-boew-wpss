@@ -2,9 +2,9 @@
 #
 # Name:   css_validate.pm
 #
-# $Revision: 6634 $
+# $Revision: 6706 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CSS_Validate/Tools/css_validate.pm $
-# $Date: 2014-04-30 08:06:03 -0400 (Wed, 30 Apr 2014) $
+# $Date: 2014-07-22 12:17:06 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -142,7 +142,7 @@ sub CSS_Validate_Language {
 # Name: CSS_Validate_Content
 #
 # Parameters: this_url - a URL
-#             content - CSS content
+#             content - CSS content pointer
 #
 # Description:
 #
@@ -168,7 +168,7 @@ sub CSS_Validate_Content {
         return(@results_list);
     }
     binmode $fh;
-    print $fh $content;
+    print $fh $$content;
     close($fh);
 
     #
@@ -512,7 +512,7 @@ sub End_Handler {
 # Name: CSS_Validate_Extract_CSS_From_HTML
 #
 # Parameters: this_url - a URL
-#             content - HTML content
+#             content - HTML content pointer
 #
 # Description:
 #
@@ -531,7 +531,7 @@ sub CSS_Validate_Extract_CSS_From_HTML {
     #
     print "CSS_Validate_Extract_CSS_From_HTML: Extract CSS from $this_url\n" if $debug;
     $extracted_css_content = "";
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Create a document parser
         #
@@ -558,7 +558,7 @@ sub CSS_Validate_Extract_CSS_From_HTML {
         # Parse the content.
         #
         $have_text_handler = 0;
-        $parser->parse($content);
+        $parser->parse($$content);
         print "Extracted CSS content\n$extracted_css_content\n" if $debug;
     }
     else {

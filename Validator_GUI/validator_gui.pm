@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6689 $
+# $Revision: 6730 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2014-06-27 11:13:14 -0400 (Fri, 27 Jun 2014) $
+# $Date: 2014-07-24 11:19:03 -0400 (Thu, 24 Jul 2014) $
 #
 # Description:
 #
@@ -14,7 +14,6 @@
 # Public functions:
 #     Validator_GUI_Add_Results_Tab
 #     Validator_GUI_Display_Content
-#     Validator_GUI_Display_Failed_Content
 #     Validator_GUI_Login
 #     Validator_GUI_Set_Results_File_Suffixes
 #     Validator_GUI_Set_Results_Save_Callback
@@ -113,7 +112,6 @@ BEGIN {
     @ISA     = qw(Exporter);
     @EXPORT  = qw(Validator_GUI_Add_Results_Tab
                   Validator_GUI_Display_Content
-                  Validator_GUI_Display_Failed_Content
                   Validator_GUI_Login
                   Validator_GUI_Set_Results_File_Suffixes
                   Validator_GUI_Set_Results_Save_Callback
@@ -168,7 +166,7 @@ my ($site_config_tabid, $html_input_tabid, $url_list_tabid, $open_data_tabid);
 my ($report_fails_only, $main_window_tab_count, $results_window_tab_count);
 my (%results_window_tab_labels, $config_tabid, %option_combobox_map);
 my (%results_file_suffixes, $main_window_menu, $url_list_callback);
-my ($site_login_logout_config_tabid, $version, $ignore_401_code);
+my ($site_login_logout_config_tabid, $version);
 my ($results_save_callback, %report_options_labels, $ie, $browser_close_window);
 my ($browser_close_window_open, %report_options_field_names);
 my (%report_options_config_options, %url_401_user, %url_401_password);
@@ -226,8 +224,6 @@ my %string_table_en = (
     "Hide Browser",		"Hide Browser",
     "Report Fails Only",	"Report Fails Only",
     "Report Fails and Passes", 	"Report Fails and Passes",
-    "Stop on Error",		"Stop on Error",
-    "Continue on Error",	"Continue on Error",
     "Main Window Title",	"PWGSC WPSS Validator",
     "Site Details",		"Site Details",
     "English directory",	"English directory",
@@ -323,8 +319,6 @@ my %string_table_fr = (
     "Hide Browser",		"Masquer le navigateur",
     "Report Fails Only",	"Rapporter les échecs seulement",
     "Report Fails and Passes", 	"Rapporter les échecs et les succès",
-    "Stop on Error",		"Arrêter sur l'erreur",
-    "Continue on Error",	"Continuer sur l'erreur",
     "Main Window Title",	"TPSGC Validateur SPNW",
     "Site Details",		"Détails du site",
     "English directory",	"Répertoire anglais",
@@ -3853,26 +3847,6 @@ sub Create_Main_Window {
                                   }
             },
 
-    " > " . String_Value("Stop on Error")  => 
-            { 
-                 -name => "StopOnError", 
-                 -onClick => sub { 
-                                   $stop_on_errors = 1; 
-                                   $main_window_menu->{ContinueOnError}->Enabled(1);
-                                   $main_window_menu->{StopOnError}->Enabled(0);
-                                  }
-            },
-
-    " > " . String_Value("Continue on Error")  => 
-            { 
-                 -name => "ContinueOnError", 
-                 -onClick => sub { 
-                                   $stop_on_errors = 0; 
-                                   $main_window_menu->{ContinueOnError}->Enabled(0);
-                                   $main_window_menu->{StopOnError}->Enabled(1);
-                                  }
-            },
-
     " > " . String_Value("Save Content On")  => 
             { 
                  -name => "SaveContentOn", 
@@ -3927,7 +3901,6 @@ sub Create_Main_Window {
     #
     $main_window_menu->{HideBrowser}->Enabled(0);
     $main_window_menu->{ReportFailsOnly}->Enabled(0);
-    $main_window_menu->{ContinueOnError}->Enabled(0);
     $main_window_menu->{TextOutput}->Enabled(0);
     $main_window_menu->{XMLOutput}->Enabled(1);
     $main_window_menu->{SaveContentOn}->Enabled(1);
@@ -4019,7 +3992,7 @@ sub Create_Main_Window {
 # Name: Display_Content_In_Browser
 #
 # Parameters: url - page URL
-#             content - page content
+#             content - content pointer
 #
 # Description:
 #
@@ -4049,7 +4022,7 @@ sub Display_Content_In_Browser {
         #
         # Split the content on the <head tag
         #
-        @lines = split(/<head/i, $content, 2);
+        @lines = split(/<head/i, $$content, 2);
         $n = @lines;
         if ( $n > 1 ) {
              #
@@ -4102,7 +4075,7 @@ sub Display_Content_In_Browser {
 # Name: Validator_GUI_Display_Content
 #
 # Parameters: url - page URL
-#             content - page content
+#             content - content pointer
 #
 # Description:
 #
@@ -4309,64 +4282,6 @@ sub Create_Continue_Dialog {
     # Show the continue dialog
     #
     $continue_window->Show();
-}
-
-#***********************************************************************
-#
-# Name: Validator_GUI_Display_Failed_Content
-#
-# Parameters: url - page URL
-#             content - page content
-#             error_message - error message
-#
-# Description:
-#
-#   This function displays the content of the page in the browser window,
-# then waits for the user before continuing.
-#
-#***********************************************************************
-sub Validator_GUI_Display_Failed_Content {
-    my ( $url, $content, $error_message) = @_;
-
-    #
-    # Are we displaying failed URLs and waiting for the user to respond ?
-    #
-    if ( ! $stop_on_errors ) {
-        #
-        # Not displaying failures, return now.
-        #
-        return(0);
-    }
-
-    #
-    # Have we already displayed the page (i.e. show_browser_window
-    # was selected).
-    #
-    if ( $show_browser_window ) {
-        Display_Content_In_Browser($url, $content);
-    }
-
-    #
-    # Display a dialog to wait for the user to tell us to proceed
-    #
-    Create_Continue_Dialog;
-    $continue_window_open = 1;
-    $continue_window_save_content = 0;
-
-    #
-    # Loop until the dialog window is closed
-    #
-    while ( $continue_window_open ) {
-        Win32::GUI::DoEvents();
-        sleep(1);
-    }
-
-    #
-    # Do we want to save the content ?
-    #
-    if ( $continue_window_save_content ) {
-        Save_Content_To_File($url, $content, $error_message);
-    }
 }
 
 #***********************************************************************

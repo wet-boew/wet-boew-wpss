@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6687 $
+# $Revision: 6723 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2014-06-27 11:11:51 -0400 (Fri, 27 Jun 2014) $
+# $Date: 2014-07-22 12:36:11 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -16,7 +16,6 @@
 # Public functions:
 #     Validator_GUI_Add_Results_Tab
 #     Validator_GUI_Display_Content
-#     Validator_GUI_Display_Failed_Content
 #     Validator_GUI_Login
 #     Validator_GUI_Set_Results_File_Suffixes
 #     Validator_GUI_Set_Results_Save_Callback
@@ -93,7 +92,6 @@ BEGIN {
     @ISA     = qw(Exporter);
     @EXPORT  = qw(Validator_GUI_Add_Results_Tab
                   Validator_GUI_Display_Content
-                  Validator_GUI_Display_Failed_Content
                   Validator_GUI_Login
                   Validator_GUI_Set_Results_File_Suffixes
                   Validator_GUI_Set_Results_Save_Callback
@@ -1259,7 +1257,7 @@ sub Validator_GUI_Login {
 # Name: Validator_GUI_Display_Content
 #
 # Parameters: url - page URL
-#             content - page content
+#             content - content pointer
 #
 # Description:
 #
@@ -1272,25 +1270,6 @@ sub Validator_GUI_Login {
 #***********************************************************************
 sub Validator_GUI_Display_Content {
     my ( $url, $content) = @_;
-
-}
-
-#***********************************************************************
-#
-# Name: Validator_GUI_Display_Failed_Content
-#
-# Parameters: url - page URL
-#             content - page content
-#             error_message - error message
-#
-# Description:
-#
-#   This function displays the content of the page in the browser window,
-# then waits for the user before continuing.
-#
-#***********************************************************************
-sub Validator_GUI_Display_Failed_Content {
-    my ( $url, $content, $error_message) = @_;
 
 }
 

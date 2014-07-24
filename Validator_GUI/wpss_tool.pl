@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6693 $
+# $Revision: 6731 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2014-07-03 11:40:42 -0400 (Thu, 03 Jul 2014) $
+# $Date: 2014-07-24 11:19:55 -0400 (Thu, 24 Jul 2014) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ]
@@ -2444,7 +2444,6 @@ sub Initialize {
     Set_Crawler_Domain_Alias_Map(%domain_alias_map);
     Set_Crawler_Domain_Prod_Dev_Map(%domain_prod_dev_map);
     Set_Crawler_HTTP_Response_Callback(\&HTTP_Response_Callback);
-    Set_Crawler_HTTP_401_Callback(\&HTTP_401_Callback);
     Set_Crawler_URL_Ignore_Patterns(@crawler_link_ignore_patterns);
 
     #
@@ -2662,8 +2661,11 @@ sub Save_Web_Page_Details {
             #
             # Remove any quote characters. Excel has problems importing
             # fields with imbedded quotes (even if they are escaped).
+            # Remove any comma characters.  Excel may treat a comma
+            # inside a quoted string as a cell break.
             #
             $value =~ s/"//g;
+            $value =~ s/,//g;
         }
         else {
             $value = "";
@@ -2701,6 +2703,8 @@ sub Save_Web_Page_Details {
 # Name: Print_Resource_Usage
 #
 # Parameters: url - document URL
+#             when - before/after indicator
+#             count - URL count
 #
 # Description:
 #
@@ -2710,7 +2714,7 @@ sub Save_Web_Page_Details {
 #
 #***********************************************************************
 sub Print_Resource_Usage {
-    my ($url) = @_;
+    my ($url, $when, $count) = @_;
 
     my ($mem_string);
     my ($sec, $min, $hour, $mday, $mon, $year, $datetime_stamp);
@@ -2725,23 +2729,25 @@ sub Print_Resource_Usage {
     # Print time stamp and URL
     #
     open( RESOURCE, ">>$monitoring_file_name");
-    print RESOURCE "$datetime_stamp before URL $url\n";
+    print RESOURCE "$count $datetime_stamp $when URL $url\n";
 
     #
     # Are we running under Windows ?
     #
     if ( $^O =~ /MSWin32/ ) {
         $mem_string = `tasklist /FI "PID eq $$"`;
-        print RESOURCE "tasklist /FI \"PID eq $$\"\n";
-        print RESOURCE "$mem_string\n";
+        $mem_string =~ s/\n/\n  /g;
+        print RESOURCE "  tasklist /FI \"PID eq $$\"\n";
+        print RESOURCE "  $mem_string\n";
     }
     #
     # Assume linux
     #
     else {
         $mem_string = `ps -p $$ -F`;
-        print RESOURCE "ps -p $$ -F\n";
-        print RESOURCE "$mem_string\n";
+        $mem_string =~ s/\n/\n  /g;
+        print RESOURCE "  ps -p $$ -F\n";
+        print RESOURCE "  $mem_string\n";
     }
     close(RESOURCE);
 }
@@ -2779,7 +2785,8 @@ sub HTTP_Response_Callback {
     # usage statistics
     #
     if ( $monitoring ) {
-        Print_Resource_Usage($url);
+        Print_Resource_Usage($url, "before",
+                             $document_count{$crawled_urls_tab} + 1);
     }
 
     #
@@ -2850,16 +2857,16 @@ sub HTTP_Response_Callback {
                                 $supporting_file,
                                 $document_count{$crawled_urls_tab});
 
-#
-# CGI Mode
-#
-#$url_line = $document_count{$crawled_urls_tab} . ":  <a href=\"$url\">$url</a>";
-#Validator_GUI_Update_Results($crawled_urls_tab, $url_line);
+        #
+        # CGI Mode
+        #
+        #$url_line = $document_count{$crawled_urls_tab} . ":  <a href=\"$url\">$url</a>";
+        #Validator_GUI_Update_Results($crawled_urls_tab, $url_line);
 
         #
         # Save content in a local file
         #
-        Save_Content_To_File($url, $mime_type, $content);
+        Save_Content_To_File($url, $mime_type, \$content);
 
         #
         # Do we have text mime type ? Perform content type specific
@@ -2895,7 +2902,8 @@ sub HTTP_Response_Callback {
                 #
                 # Is this URL flagged as "Archived on the Web" ?
                 #
-                $is_archived = CLF_Check_Is_Archived($clf_check_profile, $url, $content);
+                $is_archived = CLF_Check_Is_Archived($clf_check_profile, $url,
+                                                     \$content);
             }
         }
 
@@ -2903,7 +2911,7 @@ sub HTTP_Response_Callback {
         # Determine TQA Check exemption status
         #
         $tqa_check_exempted = TQA_Check_Exempt($url, $mime_type, $is_archived,
-                                               $content, \%url_list);
+                                               \$content, \%url_list);
 
         #
         # Are we tracking TQA Exempt as an document feature ?
@@ -2925,7 +2933,7 @@ sub HTTP_Response_Callback {
         # Validate the content
         #
         if ( TQA_Check_Need_Validation($tqa_check_profile) ) {
-            Perform_Markup_Validation($url, $mime_type, $charset, $content);
+            Perform_Markup_Validation($url, $mime_type, $charset, \$content);
         }
 
         #
@@ -2935,7 +2943,7 @@ sub HTTP_Response_Callback {
             #
             # Get document language
             #
-            $language = HTML_Document_Language($url, $content);
+            $language = HTML_Document_Language($url, \$content);
 
             #
             # Save web page details
@@ -2947,32 +2955,33 @@ sub HTTP_Response_Callback {
             #
             # Display content in browser window
             #
-            Validator_GUI_Display_Content($url, $content);
+            Validator_GUI_Display_Content($url, \$content);
 
             #
             # Perform Link check
             #
-            Perform_Link_Check($url, $mime_type, $resp);
+            Perform_Link_Check($url, $mime_type, $resp, \$content, $language);
 
             #
             # Perform Metadata Check
             #
-            Perform_Metadata_Check($url, $content, $language);
+            Perform_Metadata_Check($url, \$content, $language);
 
             #
             # Perform TQA check
             #
-            Perform_TQA_Check($url, $content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
 
             #
             # Perform CLF check
             #
-            Perform_CLF_Check($url, $content, $language, $mime_type, $resp);
+            Perform_CLF_Check($url, \$content, $language, $mime_type, $resp);
 
             #
             # Perform Interoperability check
             #
-            Perform_Interop_Check($url, $content, $language, $mime_type, $resp);
+            Perform_Interop_Check($url, \$content, $language, $mime_type,
+                                  $resp);
 
             #
             # Perform Mobile check
@@ -2982,7 +2991,7 @@ sub HTTP_Response_Callback {
             #
             # Perform feature check
             #
-            Perform_Feature_Check($url, $mime_type, $content);
+            Perform_Feature_Check($url, $mime_type, \$content);
         }
 
         #
@@ -2997,24 +3006,29 @@ sub HTTP_Response_Callback {
             $web_page_details_values{"content size"} = length($content);
 
             #
+            # Get document language from the URL
+            #
+            $language = URL_Check_GET_URL_Language($url);
+
+            #
             # Perform link check
             #
-            Perform_Link_Check($url, $mime_type, $resp);
+            Perform_Link_Check($url, $mime_type, $resp, \$content, $language);
 
             #
             # Perform PDF Properties Check check
             #
-            Perform_PDF_Properties_Check($url, $content);
+            Perform_PDF_Properties_Check($url, \$content);
 
             #
             # Perform TQA check of PDF content
             #
-            Perform_TQA_Check($url, $content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
 
             #
             # Perform feature check
             #
-            Perform_Feature_Check($url, $mime_type, $content);
+            Perform_Feature_Check($url, $mime_type, \$content);
         }
 
         #
@@ -3024,12 +3038,12 @@ sub HTTP_Response_Callback {
             #
             # Perform Link check
             #
-            Perform_Link_Check($url, $mime_type, $resp);
+            Perform_Link_Check($url, $mime_type, $resp, \$content, "");
 
             #
             # Perform TQA check of CSS content
             #
-            Perform_TQA_Check($url, $content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
         }
 
         #
@@ -3041,7 +3055,7 @@ sub HTTP_Response_Callback {
             #
             # Perform TQA check of JavaScript content
             #
-            Perform_TQA_Check($url, $content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
         }
 
         #
@@ -3060,7 +3074,7 @@ sub HTTP_Response_Callback {
             #
             # Perform TQA check of CSV content
             #
-            Perform_TQA_Check($url, $content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
         }
 
         #
@@ -3075,22 +3089,23 @@ sub HTTP_Response_Callback {
             #
             # Get document language
             #
-            $language = XML_Document_Language($url, $content);
+            $language = XML_Document_Language($url, \$content);
 
             #
             # Perform link check
             #
-            Perform_Link_Check($url, $mime_type, $resp);
+            Perform_Link_Check($url, $mime_type, $resp, \$content, $language);
 
             #
             # Perform TQA check of XML content
             #
-            Perform_TQA_Check($url, $content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
 
             #
             # Perform Interoperability check
             #
-            Perform_Interop_Check($url, $content, $language, $mime_type, $resp);
+            Perform_Interop_Check($url, \$content, $language, $mime_type,
+                                  $resp);
 
             #
             # Save "non-HTML primary format" feature
@@ -3146,7 +3161,7 @@ sub HTTP_Response_Callback {
         #
         # Perform department checks
         #
-        Perform_Department_Check($url, $language, $mime_type, $resp, $content);
+        Perform_Department_Check($url, $language, $mime_type, $resp, \$content);
 
         #
         # End this URL
@@ -3167,6 +3182,15 @@ sub HTTP_Response_Callback {
     }
 
     #
+    # If we are doing process monitoring, print out some resource
+    # usage statistics
+    #
+    if ( $monitoring ) {
+        Print_Resource_Usage($url, "after",
+                             $document_count{$crawled_urls_tab});
+    }
+
+    #
     # Return success
     #
     return(0);
@@ -3176,8 +3200,8 @@ sub HTTP_Response_Callback {
 #
 # Name: HTML_Document_Language
 #
-# Parameters: url - document URL
-#             content - document content
+# Parameters: url - URL
+#             content - content pointer
 #
 # Description:
 #
@@ -3223,7 +3247,7 @@ sub HTML_Document_Language {
 # Name: XML_Document_Language
 #
 # Parameters: url - document URL
-#             content - document content
+#             content - content pointer
 #
 # Description:
 #
@@ -3245,7 +3269,7 @@ sub XML_Document_Language {
         #
         # Cannot determine language from file name, try the content
         #
-        ($lang_code, $lang, $status) = TextCat_XML_Language($content);
+        ($lang_code, $lang, $status) = TextCat_XML_Language($$content);
         print "XML_Document_Language TextCat language is $lang_code\n" if $debug;
     }
 
@@ -3297,7 +3321,7 @@ sub Save_Content_To_File {
             open(PDF, ">$shared_save_content_directory/$filename") ||
                 die "Save_Content_To_File: Failed to open $shared_save_content_directory/$filename for writing\n";
             binmode PDF;
-            print PDF $content;
+            print PDF $$content;
             close(PDF);
             $content_saved = 1;
         }
@@ -3315,7 +3339,7 @@ sub Save_Content_To_File {
             #
             # Split the content on the <head tag
             #
-            @lines = split(/<head/i, $content, 2);
+            @lines = split(/<head/i, $$content, 2);
             $n = @lines;
             if ( $n > 1 ) {
                  #
@@ -3354,7 +3378,7 @@ sub Save_Content_To_File {
             open(TXT, ">$shared_save_content_directory/$filename") ||
                 die "Save_Content_To_File: Failed to open $shared_save_content_directory/$filename for writing\n";
             binmode TXT;
-            print TXT $content;
+            print TXT $$content;
             close(TXT);
             $content_saved = 1;
         }
@@ -3416,25 +3440,25 @@ sub Direct_HTML_Input_Callback {
     # Is this URL flagged as "Archived on the Web" ?
     #
     $is_archived = CLF_Check_Is_Archived($clf_check_profile, "Direct Input",
-                                         $content);
+                                         \$content);
 
     #
     # Determine TQA Check exemption status
     #
     $tqa_check_exempted = TQA_Check_Exempt("Direct Input", "text/html",
-                                           $is_archived, $content, \%url_list);
+                                           $is_archived, \$content, \%url_list);
 
     #
     # Perform markup validation check
     #
-    Perform_Markup_Validation("Direct Input", "text/html", "", $content);
+    Perform_Markup_Validation("Direct Input", "text/html", "", \$content);
 
     #
     # Get links from document, save list in the global @links variable.
     # We need the list of links (and mime-types) in the document features
     # check.
     #
-    @links = Extract_Links("Direct Input", "", "", "text/html", $content);
+    @links = Extract_Links("Direct Input", "", "", "text/html", \$content);
 
     #
     # Get links from all document subsections
@@ -3444,30 +3468,30 @@ sub Direct_HTML_Input_Callback {
     #
     # Perform Metadata Check
     #
-    Perform_Metadata_Check("Direct Input", $content, $Unknown_Language);
+    Perform_Metadata_Check("Direct Input", \$content, $Unknown_Language);
 
     #
     # Perform TQA check
     #
-    Perform_TQA_Check("Direct Input", $content, $Unknown_Language, "text/html",
+    Perform_TQA_Check("Direct Input", \$content, $Unknown_Language, "text/html",
                       $resp);
 
     #
     # Perform CLF check
     #
-    Perform_CLF_Check("Direct Input", $content, $Unknown_Language, "text/html",
+    Perform_CLF_Check("Direct Input", \$content, $Unknown_Language, "text/html",
                       $resp);
 
     #
     # Perform Interoperability check
     #
-    Perform_Interop_Check("Direct Input", $content, $Unknown_Language, "text/html",
-                      $resp);
+    Perform_Interop_Check("Direct Input", \$content, $Unknown_Language,
+                          "text/html", $resp);
 
     #
     # Perform Feature check
     #
-    Perform_Feature_Check("Direct Input", "text/html", $content);
+    Perform_Feature_Check("Direct Input", "text/html", \$content);
 
     #
     # Print document feature report
@@ -4818,7 +4842,7 @@ sub Check_Page_URL {
         #
         # Get document language.
         #
-        $language = HTML_Document_Language($url, $content);
+        $language = HTML_Document_Language($url, \$content);
 
         #
         # Determine the abse URL for any relative URLs.  Usually this is
@@ -4839,7 +4863,7 @@ sub Check_Page_URL {
         #
         print "Extract links from document\n  --> $url\n" if $debug;
         @links = Extract_Links($url, $base, $language, $mime_type,
-                               $content);
+                               \$content);
 
         #
         # Check navigation links from all navigation subsections
@@ -5130,6 +5154,17 @@ sub Initialize_Tool_Globals {
         # Respect robots.txt directives
         #
         Crawler_Robots_Handling(1);
+    }
+
+    #
+    # set HTTP code 401 handling (respect or ignore)
+    #
+    if ( defined($options{$status_401_label})
+         && ($options{$status_401_label} eq String_Value("Prompt for credentials")) ) {
+        Set_Crawler_HTTP_401_Callback(\&HTTP_401_Callback);
+    }
+    else {
+        Set_Crawler_HTTP_401_Callback(undef);
     }
 
     #
@@ -5537,7 +5572,7 @@ sub Increment_Counts_and_Print_URL {
 # Parameters: url - document URL
 #             mime_type - content mime type
 #             charset - charset option
-#             content - content to validate
+#             content - content pointer
 #
 # Description:
 #
@@ -5545,7 +5580,7 @@ sub Increment_Counts_and_Print_URL {
 #
 #***********************************************************************
 sub Perform_Markup_Validation {
-    my ( $url, $mime_type, $charset, $content ) = @_;
+    my ($url, $mime_type, $charset, $content) = @_;
 
     my ($pattern, @results_list, $result_object, $status);
 
@@ -5621,7 +5656,7 @@ sub Perform_Markup_Validation {
 # Name: Perform_Metadata_Check
 #
 # Parameters: url - document URL
-#             content - document content
+#             content - content pointer
 #             language - URL language
 #
 # Description:
@@ -5651,7 +5686,7 @@ sub Perform_Metadata_Check {
         # This is needed to detect HTML & PDF versions of the same document.
         #
         print "Extract_Metadata on URL\n  --> $url\n" if $debug;
-        %metadata_results = Extract_Metadata($url, $content);
+        %metadata_results = Extract_Metadata($url, $$content);
     }
     else {
         #
@@ -5780,7 +5815,7 @@ sub Perform_Metadata_Check {
 # Name: Perform_PDF_Properties_Check
 #
 # Parameters: url - document URL
-#             content - document content
+#             content - content pointer
 #
 # Description:
 #
@@ -5810,7 +5845,7 @@ sub Perform_PDF_Properties_Check {
         # This is needed to detect HTML & PDF versions of the same document.
         #
         print "PDF_Files_Get_Properties_From_Content on URL\n  --> $url\n" if $debug;
-        %pdf_property_results = PDF_Files_Get_Properties_From_Content($content);
+        %pdf_property_results = PDF_Files_Get_Properties_From_Content($$content);
     }
     else {
         #
@@ -5905,7 +5940,7 @@ sub Perform_PDF_Properties_Check {
 # Name: Perform_TQA_Check
 #
 # Parameters: url - document URL
-#             content - document content
+#             content - content pointer
 #             language - URL language
 #             mime_type - content mime-type
 #             resp - HTTP::Response object
@@ -6099,7 +6134,7 @@ sub Perform_TQA_Check {
 # Name: Perform_CLF_Check
 #
 # Parameters: url - document URL
-#             content - document content
+#             content - content pointer
 #             language - URL language
 #             mime_type - content mime-type
 #             resp - HTTP::Response object
@@ -6127,7 +6162,8 @@ sub Perform_CLF_Check {
         #
         @clf_results_list = CLF_Check_Archive_Check($url, $language,
                                                     $clf_check_profile,
-                                                    $mime_type, $resp, $content);
+                                                    $mime_type, $resp,
+                                                    $$content);
     }
     else {
         #
@@ -6140,7 +6176,7 @@ sub Perform_CLF_Check {
         #
         print "Perform_CLF_Check on URL\n  --> $url\n" if $debug;
         @clf_results_list = CLF_Check($url, $language, $clf_check_profile,
-                                      $mime_type, $resp, $content);
+                                      $mime_type, $resp, $$content);
 
         #
         # If the document is an HTML document, check
@@ -6169,7 +6205,7 @@ sub Perform_CLF_Check {
     #
     # Check if this URL has web analytics code on the page.  The above
     # checks were for invalid analytics, we want to record a HTML feature
-    # if the page has analytics or not.
+    # if the page has analytics.
     #
     ($found_web_analytics, $analytics_type) = Web_Analytics_Has_Web_Analytics();
     if ( $found_web_analytics ) {
@@ -6253,7 +6289,7 @@ sub Perform_CLF_Check {
 # Name: Perform_Interop_Check
 #
 # Parameters: url - document URL
-#             content - document content
+#             content - content pointer
 #             language - URL language
 #             mime_type - content mime-type
 #             resp - HTTP::Response object
@@ -6342,7 +6378,7 @@ sub Perform_Interop_Check {
                 ($mime_type =~ /application\/rss\+xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($url =~ /\.xml$/i) ) {
-            $feed_object = Interop_Check_Feed_Details($url, $content);
+            $feed_object = Interop_Check_Feed_Details($url, $$content);
             if ( defined($feed_object) ) {
                 push(@web_feed_list, $feed_object);
 
@@ -6430,7 +6466,7 @@ sub Perform_Interop_Check {
 #             language - URL language
 #             mime_type - document mime type
 #             resp - HTTP::Response object
-#             content - document content
+#             content - content pointer
 #
 # Description:
 #
@@ -6562,7 +6598,7 @@ sub Perform_Department_Check {
 #
 # Parameters: url - document URL
 #             mime_type - mime_type of content
-#             content - document content
+#             content - content pointer
 #
 # Description:
 #
@@ -6571,7 +6607,7 @@ sub Perform_Department_Check {
 #
 #***********************************************************************
 sub Perform_Feature_Check {
-    my ( $url, $mime_type, $content ) = @_;
+    my ($url, $mime_type, $content) = @_;
 
     my (%html_feature_line_no, %html_feature_column_no,
         %html_feature_count, $key, $list_ref);
@@ -6675,7 +6711,7 @@ sub Perform_Feature_Check {
 sub Perform_Mobile_Check {
     my ( $url, $mime_type, $resp ) = @_;
 
-    my ($url_status, $content, @mobile_results_list);
+    my ($url_status, @mobile_results_list);
     my ($result_object, $status, %local_mobile_error_url_count);
     my ($size_string);
 
@@ -6691,14 +6727,9 @@ sub Perform_Mobile_Check {
     }
     else {
         #
-        # Check for UTF-8 content
-        #
-        #$content = Crawler_Decode_Content($resp);
-
-        #
         # Compute web page size
         #
-        $size_string = Mobile_Check_Compute_Page_Size($url, $resp->content,
+        $size_string = Mobile_Check_Compute_Page_Size($url, $resp,
                                                       \%all_link_sets);
 
         #
@@ -6783,6 +6814,8 @@ sub Perform_Mobile_Check {
 # Parameters: url - url of document to check
 #             mime_type - mime-type of document
 #             resp - HTTP::Response object
+#             content - content pointer
+#             language - content language
 #
 # Description:
 #
@@ -6790,10 +6823,10 @@ sub Perform_Mobile_Check {
 #
 #***********************************************************************
 sub Perform_Link_Check {
-    my ( $url, $mime_type, $resp ) = @_;
+    my ($url, $mime_type, $resp, $content, $language) = @_;
 
-    my ($url_status, $content, @link_results_list);
-    my ($i, $language, $status, $link, $breadcrumb, $list_addr);
+    my ($url_status, @link_results_list);
+    my ($i, $status, $link, $breadcrumb, $list_addr);
     my ($result_object, $base, %local_link_error_url_count);
 
     #
@@ -6801,39 +6834,6 @@ sub Perform_Link_Check {
     #
     if ( $cgi_mode ) {
         return;
-    }
-
-    #
-    # Check for UTF-8 content
-    #
-    $content = Crawler_Decode_Content($resp);
-
-    #
-    # Is this an HTML document ?
-    #
-    if ( $mime_type =~ /text\/html/ ) {
-        #
-        # Get document language.
-        #
-        $language = HTML_Document_Language($url, $content);
-    }
-    #
-    # Is it CSS ?
-    #
-    elsif ( $mime_type =~ /text\/css/ ) {
-        #
-        # Language is unknown and does not matter
-        #
-        $language = "";
-    }
-    #
-    # Is it PDF ?
-    #
-    elsif ( $mime_type =~ /application\/pdf/ ) {
-        #
-        # Get document language.
-        #
-        $language = URL_Check_GET_URL_Language($url);
     }
 
     #
@@ -7116,6 +7116,18 @@ sub Perform_Open_Data_Check {
     if ( ($mime_type =~ /application\/zip/) ||
          ($url =~ /\.zip$/i) ) {
         print "Open data ZIP file\n" if $debug;
+        #
+        # If we are doing process monitoring, print out some resource
+        # usage statistics
+        #
+        if ( $monitoring ) {
+            Print_Resource_Usage($url, "before",
+                                 $document_count{$crawled_urls_tab});
+        }
+
+        #
+        # Get the ZIP file contents
+        #
         ($zip, $zip_file_name, @results) = Open_Data_Check_Zip_Content($url,
                                                       $open_data_check_profile,
                                                        $data_file_type,
@@ -7128,11 +7140,29 @@ sub Perform_Open_Data_Check {
         Record_Open_Data_Check_Results($url, @results);
 
         #
+        # If we are doing process monitoring, print out some resource
+        # usage statistics
+        #
+        if ( $monitoring ) {
+            Print_Resource_Usage($url, "after",
+                                 $document_count{$crawled_urls_tab});
+        }
+
+        #
         # Process each member of the zip archive
         #
         if ( defined($zip) ) {
             @members = $zip->memberNames();
             foreach $member_name (@members) {
+                #
+                # If we are doing process monitoring, print out some resource
+                # usage statistics
+                #
+                if ( $monitoring ) {
+                    Print_Resource_Usage("$url:$member_name", "before",
+                                         $document_count{$crawled_urls_tab} + 1);
+                }
+
                 #
                 # Get contents for this member
                 #
@@ -7154,8 +7184,17 @@ sub Perform_Open_Data_Check {
                 @results = Open_Data_Check($member_url, $format,
                                            $open_data_check_profile,
                                            $data_file_type, $resp,
-                                           $contents, \%open_data_dictionary);
+                                           \$contents, \%open_data_dictionary);
                 Record_Open_Data_Check_Results($member_url, @results);
+
+                #
+                # If we are doing process monitoring, print out some resource
+                # usage statistics
+                #
+                if ( $monitoring ) {
+                    Print_Resource_Usage("$url:$member_name", "after",
+                                         $document_count{$crawled_urls_tab});
+                }
             }
         }
 
@@ -7166,14 +7205,32 @@ sub Perform_Open_Data_Check {
     }
     else {
         #
+        # If we are doing process monitoring, print out some resource
+        # usage statistics
+        #
+        if ( $monitoring ) {
+            Print_Resource_Usage($url, "after",
+                                 $document_count{$crawled_urls_tab});
+        }
+
+        #
         # Treat URL as a single open data file
         #
         print "Single open data file\n" if $debug;
         $content = Crawler_Decode_Content($resp);
         @results = Open_Data_Check($url, $format, $open_data_check_profile,
                                    $data_file_type, $resp,
-                                   $content, \%open_data_dictionary);
+                                   \$content, \%open_data_dictionary);
         Record_Open_Data_Check_Results($url, @results);
+
+        #
+        # If we are doing process monitoring, print out some resource
+        # usage statistics
+        #
+        if ( $monitoring ) {
+            Print_Resource_Usage($url, "after",
+                                 $document_count{$crawled_urls_tab});
+        }
     }
 }
 
@@ -7243,6 +7300,15 @@ sub Open_Data_Callback {
                                 $document_count{$crawled_urls_tab});
 
         #
+        # If we are doing process monitoring, print out some resource
+        # usage statistics
+        #
+        if ( $monitoring ) {
+            Print_Resource_Usage($url, "before",
+                                 $document_count{$crawled_urls_tab});
+        }
+
+        #
         # Extract the dataset URLs from the description
         #
         @results = Open_Data_Check_Read_JSON_Description($url,
@@ -7253,6 +7319,15 @@ sub Open_Data_Callback {
         # Record results
         #
         Record_Open_Data_Check_Results($url, @results);
+
+        #
+        # If we are doing process monitoring, print out some resource
+        # usage statistics
+        #
+        if ( $monitoring ) {
+            Print_Resource_Usage($url, "after",
+                                 $document_count{$crawled_urls_tab});
+        }
     }
 
     #

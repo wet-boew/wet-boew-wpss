@@ -2,9 +2,9 @@
 #
 # Name: extract_anchors.pm	
 #
-# $Revision: 6312 $
+# $Revision: 6712 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_anchors.pm $
-# $Date: 2013-06-26 11:07:55 -0400 (Wed, 26 Jun 2013) $
+# $Date: 2014-07-22 12:20:01 -0400 (Tue, 22 Jul 2014) $
 #
 # Description:
 #
@@ -269,7 +269,7 @@ sub Start_Handler {
 # Name: Extract_Anchors
 #
 # Parameters: this_url - URL of document to extract links from
-#             content - content of HTML document to extract links from
+#             content - content pointer
 #
 # Description:
 #
@@ -322,7 +322,7 @@ sub Extract_Anchors {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Create a document parser
         #
@@ -339,7 +339,7 @@ sub Extract_Anchors {
         #
         # Parse the content.
         #
-        $parser->parse($content);
+        $parser->parse($$content);
     }
     else {
         print "Extract_Anchors: no content in document\n" if $debug;
