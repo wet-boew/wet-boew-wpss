@@ -3,12 +3,11 @@
 #
 # Name:   install.pl
 #
-# $Revision: 6402 $
+# $Revision: 6733 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/install.pl $
-# $Date: 2013-10-24 07:50:04 -0400 (Thu, 24 Oct 2013) $
+# $Date: 2014-07-24 14:57:12 -0400 (Thu, 24 Jul 2014) $
 #
-# Synopsis: install.pl
-#           install.pl uninstall
+# Synopsis: install.pl [ uninstall ] [ -no_pause ]
 #
 # Description:
 #
@@ -64,7 +63,8 @@ use File::Temp qw/ tempfile/;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($line, $perl_install);
 my ($debug) = 0;
-
+my ($uninstall) = 0;
+my ($pause_before_exit) = 1;
 
 #
 # String table for UI strings.
@@ -91,6 +91,39 @@ my ($string_table) = \%string_table_en;
 my (@supporting_directories) = ("results", "profiles");
 my ($dir);
 
+#**********************************************************************
+#
+# Name: Exit_With_Pause
+#
+# Parameters: satus - status value
+#
+# Description:
+#
+#   This function optionally pauses before performing an exit for the
+# program.  A pause is needed if the install is run from a Windows
+# explorer window to allow the user to read any messages.  If a 
+# pause is required, the program waits until the user presses the <enter>
+# key.
+#
+#**********************************************************************
+sub Exit_With_Pause {
+    my ($status) = @_;
+
+    my ($input);
+
+    #
+    # Do we wait for the user to press enter ?
+    #
+    if ( $pause_before_exit ) {
+       print "Press <enter> to exit install.pl\n";
+        $input = <STDIN>;
+    }
+
+    #
+    # Exit the program
+    #
+    exit($status);
+}
 
 #**********************************************************************
 #
@@ -300,9 +333,11 @@ sub Check_Python {
         if ( ($python_output =~ /fail/i) ||
              ( ! ($python_output =~ /pass/i) ) ) {
             Write_To_Log("Invalid Python version found");
+            print "\n*****\n";
             print "Invalid Python version found, must be greater than 2.3.0, less than 3.0.0\n";
+            print "\n*****\n";
             Write_To_Log("Failed install.pl");
-            exit_with_notify(1);
+            Exit_With_Pause(1);
         }
     }
     else {
@@ -310,9 +345,13 @@ sub Check_Python {
         # Install Python
         #
         Write_To_Log("The installer can not find Python on this computer");
-        print "The installer can not find Python on this computer\n";
+        Write_To_Log("  assoc .py");
+        Write_To_Log("  $assoc_output");
         Write_To_Log("Failed install.pl");
-        exit_with_notify(1);
+        print "\n*****\n";
+        print "The installer can not find Python on this computer\n";
+        print "\n*****\n";
+        Exit_With_Pause(1);
     }
 }
 
@@ -351,8 +390,10 @@ sub Check_Perl {
         Write_To_Log("Perl $major.$minor installed on system");
         if ( $major != 5 ) {
             Write_To_Log("Unsupported Perl version $major.$minor");
+            print "\n*****\n";
             print "Unsupported Perl version $major.$minor\n";
-            exit_with_notify(1);
+            print "\n*****\n";
+            Exit_With_Pause(1);
         }
         elsif ( $minor == 14 ) {
             #
@@ -361,8 +402,10 @@ sub Check_Perl {
         }
         else {
             Write_To_Log("Unsupported Perl version $major.$minor");
+            print "\n*****\n";
             print "Unsupported Perl version $major.$minor\n";
-            exit_with_notify(1);
+            print "\n*****\n";
+            Exit_With_Pause(1);
         }
     }
     else {
@@ -390,18 +433,22 @@ sub Install_Win32_GUI_On_ActiveState_Perl {
     #
     Write_To_Log("Installing Win32-GUI-1.06-PPM-5.14");
     if ( ! -d "$program_dir/Win32-GUI-1.06-PPM-5.14" ) {
+        print "\n*****\n";
         print String_Value("Missing Win32::GUI folder") . "\n";
         print " --> $program_dir/Win32-GUI-1.06-PPM-5.14\n";
+        print "\n*****\n";
         Write_To_Log("Missing Win32::GUI folder");
         Write_To_Log("  --> $program_dir/Win32-GUI-1.06-PPM-5.14");
-        exit_with_notify(1);
+        Exit_With_Pause(1);
     }
     if ( ! -f "$program_dir/Win32-GUI-1.06-PPM-5.14/Win32-GUI-1.06.ppd" ) {
+        print "\n*****\n";
         print String_Value("Missing Win32::GUI file") . "\n";
         print " --> $program_dir/Win32-GUI-1.06-PPM-5.14/Win32-GUI-1.06.ppd\n";
+        print "\n*****\n";
         Write_To_Log("Missing Win32::GUI file");
         Write_To_Log(" --> $program_dir/Win32-GUI-1.06-PPM-5.14/Win32-GUI-1.06.ppd");
-        exit_with_notify(1);
+        Exit_With_Pause(1);
     }
 
     #
@@ -416,13 +463,14 @@ sub Install_Win32_GUI_On_ActiveState_Perl {
     # Was install successful ?
     #
     if ( $rc != 0 ) {
+        print "\n*****\n";
         print "ppm install ./Win32-GUI-1.06.ppd failed $rc\n";
+        print "\n*****\n";
         Write_To_Log("ppm install ./Win32-GUI-1.06.ppd failed, rc = $rc");
-        exit_with_notify(1);
+        Exit_With_Pause(1);
     }
     chdir($program_dir);
     Write_To_Log("install Win32::GUI complete");
-
 }
 
 #**********************************************************************
@@ -446,11 +494,13 @@ sub Install_Win32_GUI_On_Perl {
     #
     Write_To_Log("Installing Win32-GUI-1.06");
     if ( ! -d "$program_dir/Win32-GUI-1.06" ) {
+        print "\n*****\n";
         print String_Value("Missing Win32::GUI folder") . "\n";
         print " --> $program_dir/Win32-GUI-1.06\n";
+        print "\n*****\n";
         Write_To_Log("Missing Win32::GUI folder");
         Write_To_Log("  --> $program_dir/Win32-GUI-1.06");
-        exit_with_notify(1);
+        Exit_With_Pause(1);
     }
 
     #
@@ -523,9 +573,11 @@ sub Install_Win32_GUI {
         $rc = eval 'use Win32::GUI(); 1';
         if ( ! $rc ) {
             Write_To_Log("Win32::GUI install failed");
+            print "\n*****\n";
             print "Missing Perl module Win32::GUI\n";
+            print "\n*****\n";
             Write_To_Log(" rc = $rc");
-            exit_with_notify(1);
+            Exit_With_Pause(1);
         }
     }
 }
@@ -599,9 +651,7 @@ sub Register_Installation {
     # Close registration file
     #
     close(REGISTER);
-	
 }
-
 
 #**********************************************************************
 #
@@ -615,33 +665,113 @@ sub Register_Installation {
 #
 #**********************************************************************
 sub Delete_Everything(){
-	#WARNING: REMOVES EVERYTHING THAT WAS INSTALLED
-        Write_To_Log("Remove registration file");
-	unlink ("$program_dir/registration.txt");
-	
+    Write_To_Log("Remove registration file");
+    unlink ("$program_dir/registration.txt");
 }
-
 
 #**********************************************************************
 #
-# Name: exit_with_notify
+# Name: Create_Shortcuts
 #
-# Parameters: $code
+# Parameters: none
 #
 # Description:
 #
-#   Exits the program after waiting for a line of input. Makdes the exit
-# code the $code submitted.
+#   This function creates desktop sortcuts for the tools on
+# Windows based systems.
 #
 #**********************************************************************
-sub exit_with_notify{
-	my $code = shift;
+sub Create_Shortcuts {
 
-	$line = <STDIN>;
-	exit($code);
+    my ($desktop, $rc);
+
+    #
+    # Is this not a Windows system ?
+    #
+    if ( ! ($^O =~ /MSWin32/) ) {
+        return;
+    }
+    Write_To_Log("Create desktop shortcuts");
+
+    #
+    # Check for path to the user's home directory
+    #
+    if ( ! defined($ENV{"USERPROFILE"}) ) {
+        return;
+    }
+    $desktop = $ENV{"USERPROFILE"} . "/Desktop";
+    if ( ! -d $desktop ) {
+        return;
+    }
+    Write_To_Log("Desktop path = $desktop");
+
+    #
+    # Do we already have shortcuts ?
+    #
+    if ( (-f "$desktop/WPSS_Tool.lnk")
+         && (-f "$desktop/Open_Data_Tool.lnk") ) {
+        Write_To_Log("Shortcut files already exist");
+        return;
+    }
+
+    #
+    # Create a temporary VB script to create shortcut files
+    #
+    print "Create desktop shortcuts\n";
+    Write_To_Log("Create shortcut VB script for WPSS_Tool.lnk");
+    unlink("CreateShortcut.vbs");
+    if ( ! open(VB, "> CreateShortcut.vbs") ) {
+        print "Failed to create shortcuts\n";
+        Exit_With_Pause(1);
+    }
+    print VB 
+"Set oWS = WScript.CreateObject(\"WScript.Shell\")
+sLinkFile = \"$desktop\\WPSS_Tool.lnk\"
+Set oLink = oWS.CreateShortcut(sLinkFile)
+oLink.TargetPath = \"$program_dir\\wpss_tool.pl\"
+oLink.Save";
+    close(VB);
+
+    #
+    # Run the VB script to generate the shortcuts
+    #
+    Write_To_Log("Running cscript CreateShortcut.vbs");
+    $rc = `cscript CreateShortcut.vbs 2>\&1`;
+    Write_To_Log("cscript CreateShortcut.vbs return code = $rc");
+
+    unlink("CreateShortcut.vbs");
+    if ( ! open(VB, "> CreateShortcut.vbs") ) {
+        print "Failed to create shortcuts\n";
+        Exit_With_Pause(1);
+    }
+    Write_To_Log("Create shortcut VB script for Open_Data_Tool.lnk");
+    print VB
+"Set oWS = WScript.CreateObject(\"WScript.Shell\")
+sLinkFile = \"$desktop\\Open_Data_Tool.lnk\"
+Set oLink = oWS.CreateShortcut(sLinkFile)
+oLink.TargetPath = \"$program_dir\\open_data_tool.pl\"
+oLink.Save";
+    close(VB);
+
+    #
+    # Run the VB script to generate the shortcuts
+    #
+    Write_To_Log("Running cscript CreateShortcut.vbs");
+    $rc = `cscript CreateShortcut.vbs 2>\&1`;
+    Write_To_Log("cscript CreateShortcut.vbs return code = $rc");
+    unlink("CreateShortcut.vbs");
+
+    #
+    # Do the shortcuts exist ?
+    #
+    if ( (! -f "$desktop/WPSS_Tool.lnk")
+         || (! -f "$desktop/Open_Data_Tool.lnk") ) {
+        print "Failed to create desktop shortcuts\n";
+        Write_To_Log("Failed to create desktop shortcuts");
+        Exit_With_Pause(1);
+    }
+
 }
-
-
 
 #***********************************************************************
 #
@@ -654,6 +784,7 @@ sub exit_with_notify{
 #
 $program_dir  = dirname($0);
 $program_name = basename($0);
+print "Starting install.pl\n";
 
 #
 # If directory is '.', search the PATH to see where we were found
@@ -676,12 +807,19 @@ if ( $program_dir eq "." ) {
 #
 # Process command-line options
 #
-my $uninstall;
-foreach(@ARGV){
-	if (/uninstall/){
-		$uninstall = 1;
-	}
+foreach (@ARGV) {
+    if ( /uninstall/ ) {
+        $uninstall = 1;
+    }
+    elsif ( /-no_pause/ ) {
+        $pause_before_exit = 0;
+    }
 }
+
+#
+# Get the language of this system
+#
+Set_Language();
 
 #
 # Remove any exist installation log file and write log header
@@ -695,52 +833,45 @@ Write_Log_Header();
 # Run install/uninstall script
 #
 if ($uninstall){
-	#
-	# Get the language of this system
-	#
-	Set_Language();
-	
-	#
-	# Delete the installation
-	#
-	Delete_Everything();
-	
+    #
+    # Delete the installation
+    #
+    Delete_Everything();
 }else{
+    #
+    # Check for Python
+    #
+    Check_Python();
 
-	#
-	# Get the language of this system
-	#
-	Set_Language();
+    #
+    # Check for Perl version
+    #
+    Check_Perl();
 
-        #
-        # Check for Python
-        #
-        Check_Python();
-	
-        #
-        # Check for Perl version
-        #
-        Check_Perl();
-	
-	#
-	# Install the Win32::GUI module
-	# 
-	Install_Win32_GUI();
+    #
+    # Install the Win32::GUI module
+    # 
+    Install_Win32_GUI();
 
-        #
-        # Create supporting directories
-        #
-        foreach $dir (@supporting_directories) {
-            if ( ! -d "$program_dir/$dir" ) {
-                Write_To_Log("Create directory $dir");
-                mkdir("$program_dir/$dir", 0755);
-            }
+    #
+    # Create supporting directories
+    #
+    foreach $dir (@supporting_directories) {
+        if ( ! -d "$program_dir/$dir" ) {
+            Write_To_Log("Create directory $dir");
+            mkdir("$program_dir/$dir", 0755);
         }
+    }
 
-	#
-	# Register the tool installation
-	#
-	Register_Installation();
+    #
+    # Register the tool installation
+    #
+    Register_Installation();
+
+    #
+    # Create desktop shortcuts
+    #
+    Create_Shortcuts();
 }
 
 #
@@ -748,4 +879,5 @@ if ($uninstall){
 #
 Write_To_Log("Completed install.pl");
 print "Completed install.pl\n";
-exit(0);
+Exit_With_Pause(0);
+
