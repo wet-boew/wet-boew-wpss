@@ -2,9 +2,9 @@
 #
 # Name:   open_data_txt.pm
 #
-# $Revision: 6702 $
+# $Revision: 6820 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_txt.pm $
-# $Date: 2014-07-22 12:15:17 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-31 10:33:40 -0400 (Fri, 31 Oct 2014) $
 #
 # Description:
 #
@@ -414,7 +414,7 @@ sub Parse_Text_Dictionary {
         # Remove leading and trailing white space
         #
         $line =~ s/^\s*//g;
-        $line =~ s/\s+$//g;
+        $line =~ s/\s*$//g;
 
         #
         # Is this a blank line ?
