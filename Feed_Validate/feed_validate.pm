@@ -2,9 +2,9 @@
 #
 # Name:   feed_validate.pm
 #
-# $Revision: 6708 $
+# $Revision: 6740 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Feed_Validate/Tools/feed_validate.pm $
-# $Date: 2014-07-22 12:18:10 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-07-25 14:54:46 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
 #
@@ -269,7 +269,7 @@ sub Start_Handler {
 # Name: Feed_Validate_Is_Web_Feed
 #
 # Parameters: this_url - a URL
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -301,7 +301,7 @@ sub Feed_Validate_Is_Web_Feed {
     #
     # Parse the content.
     #
-    $eval_output = eval { $parser->parse($content); } ;
+    $eval_output = eval { $parser->parse($$content); } ;
 
     #
     # Did we find an RSS or atom feed type ?
