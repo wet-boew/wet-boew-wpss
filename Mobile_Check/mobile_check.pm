@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 6715 $
+# $Revision: 6751 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2014-07-22 12:23:44 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-09-10 13:27:04 -0400 (Wed, 10 Sep 2014) $
 #
 # Description:
 #
@@ -449,7 +449,7 @@ sub Mobile_Check_Save_Web_Page_Size {
     print "Mobile_Check_Save_Web_Page_Size_Details\n" if $debug;
     if ( ! defined($file_handle) ) {
         print "Create temporary CSV file\n" if $debug;
-        ($file_handle, $file_name) = tempfile( SUFFIX => '.css');
+        ($file_handle, $file_name) = tempfile( SUFFIX => '.csv');
         if ( ! defined($file_handle) ) {
             print "Error: Failed to create temporary file in Mobile_Check_Save_Web_Page_Size\n";
             return;
