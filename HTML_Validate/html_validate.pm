@@ -2,9 +2,9 @@
 #
 # Name:   html_validate.pm
 #
-# $Revision: 6709 $
+# $Revision: 6785 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/html_validate.pm $
-# $Date: 2014-07-22 12:18:41 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-02 13:46:58 -0400 (Thu, 02 Oct 2014) $
 #
 # Description:
 #
@@ -313,7 +313,6 @@ sub Declaration_Handler {
         $doctype_version = 5.0;
         $doctype_class = "";
     }
-    print "DOCTYPE label = $doctype_label, version = $doctype_version, class = $doctype_class\n" if $debug;
 }
 
 #***********************************************************************
@@ -337,8 +336,9 @@ sub Get_Doctype {
     # Initialize doctype values
     #
     print "Get_Doctype\n" if $debug;
-    $doctype_label = "HTML";
-    $doctype_version = 4;
+    $doctype_label = "";
+    $doctype_version = 0;
+    $doctype_class = "";
 
     #
     # Create a document parser
@@ -357,6 +357,7 @@ sub Get_Doctype {
     # Parse the content.
     #
     $parser->parse($$content);
+    print "DOCTYPE label = $doctype_label, version = $doctype_version, class = $doctype_class\n" if $debug;
 }
 
 #***********************************************************************
