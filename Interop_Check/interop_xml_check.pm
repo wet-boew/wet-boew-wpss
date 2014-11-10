@@ -2,9 +2,9 @@
 #
 # Name:   interop_xml_check.pm
 #
-# $Revision: 6710 $
+# $Revision: 6743 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_xml_check.pm $
-# $Date: 2014-07-22 12:19:13 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-07-25 14:57:36 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
 #
@@ -2372,6 +2372,15 @@ sub Interop_XML_Check {
     }
 
     #
+    # Is this a web feed ? We don't check XML files that are not
+    # web feeds.
+    #
+    if ( ! Feed_Validate_Is_Web_Feed($this_url, $content) ) {
+        print "Not a web feed\n" if $debug;
+        return(@tqa_results_list);
+    }
+
+    #
     # Initialize the test case pass/fail table.
     #
     Initialize_Test_Results($profile, \@tqa_results_list);
@@ -2454,7 +2463,7 @@ sub Interop_XML_Check {
 # Name: Interop_XML_Feed_Details
 #
 # Parameters: this_url - a URL
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -2595,7 +2604,8 @@ sub Import_Packages {
     my ($package);
     my (@package_list) = ("tqa_result_object", "content_check", 
                           "xml_feed_object", "interop_testcases",
-                          "url_check", "crawler", "metadata");
+                          "url_check", "crawler", "metadata",
+                          "feed_validate");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
