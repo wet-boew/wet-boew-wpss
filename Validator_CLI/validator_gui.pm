@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6723 $
+# $Revision: 6754 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2014-07-22 12:36:11 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-09-10 13:29:39 -0400 (Wed, 10 Sep 2014) $
 #
 # Description:
 #
@@ -1023,7 +1023,7 @@ sub Validator_GUI_End_Analysis {
     #
     # Do we have a Save Results call back function ? Call only once.
     #
-    if ( $tab_label eq $first_results_tab ) {
+    if ( defined($tab_label) && ($tab_label eq $first_results_tab) ) {
         if ( defined($results_save_callback) && defined($results_file_name) ) {
             print "Call Results_Save_As callback function\n" if $debug;
             &$results_save_callback($results_file_name);
