@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 6702 $
+# $Revision: 6815 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2014-07-22 12:15:17 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-30 11:11:54 -0400 (Thu, 30 Oct 2014) $
 #
 # Description:
 #
@@ -377,6 +377,8 @@ sub Check_First_Data_Row {
         # matches a dictionary entry.
         #
         $field = lc($field);
+        $field =~ s/^\s*//g;
+        $field =~ s/\s*$//g;
         if ( defined($$dictionary{$field}) ) {
             print "Found term/field match for \"$field\"\n" if $debug;
             $count++;
@@ -385,7 +387,7 @@ sub Check_First_Data_Row {
             #
             # An unmatched field, save it for possible use later
             #
-            push (@unmatched_fields, $field);
+            push (@unmatched_fields, "'$field'");
             print "No dictionary value for \"$field\"\n" if $debug;
         }
     }
@@ -493,7 +495,7 @@ sub Open_Data_CSV_Check_Data {
         # Create a temporary file for the CSV content.
         #
         print "Create temporary CSV file\n" if $debug;
-        ($csv_file, $csv_file_name) = tempfile( SUFFIX => '.css');
+        ($csv_file, $csv_file_name) = tempfile( SUFFIX => '.csv');
         if ( ! defined($csv_file) ) {
             print "Error: Failed to create temporary file in Open_Data_CSV_Check_Data\n";
             return(@tqa_results_list);
