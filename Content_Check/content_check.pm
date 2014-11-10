@@ -2,9 +2,9 @@
 #
 # Name:   content_check.pm
 #
-# $Revision: 6719 $
+# $Revision: 6737 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/content_check.pm $
-# $Date: 2014-07-22 12:34:37 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-07-25 14:52:54 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
 #
@@ -2201,7 +2201,7 @@ sub End_Tag_Handler {
 #
 # Name: Content_Check_Extract_Content_From_HTML
 #
-# Parameters: html_input - block of HTML text
+# Parameters: content - pointer to content
 #
 # Description:
 #
@@ -2215,9 +2215,9 @@ sub End_Tag_Handler {
 #
 #********************************************************
 sub Content_Check_Extract_Content_From_HTML {
-    my ($html_input) = @_;
+    my ($content) = @_;
 
-    my ($parser, $text, $section, $subsection);
+    my ($parser, $text, $section, $subsection, $html_input);
 
     #
     # Initialize global variables.
@@ -2255,6 +2255,7 @@ sub Content_Check_Extract_Content_From_HTML {
     #
     # Parse the HTML to extract the text
     #
+    $html_input = $$content;
     $html_input =~ s/\n/ /g;
     print "Parse the HTML content\n" if $debug;
     $parser->parse($html_input);
