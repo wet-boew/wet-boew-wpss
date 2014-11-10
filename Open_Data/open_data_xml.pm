@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 6702 $
+# $Revision: 6820 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2014-07-22 12:15:17 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-31 10:33:40 -0400 (Fri, 31 Oct 2014) $
 #
 # Description:
 #
@@ -88,7 +88,13 @@ my ($debug) = 0;
 my (%testcase_data, $results_list_addr);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
-my ($tag_count);
+my ($tag_count, $save_text_between_tags, $saved_text);
+my ($description_count, %description_languages, $have_pwgsc_data_dictionary);
+my ($heading_count, %heading_location, $inside_field, $inside_header);
+my ($current_heading, $current_description_lang, $found_heading);
+my ($header_count, $current_dictionary, %term_location);
+my ($have_pwgsc_data_dictionary, $inside_pwgsc_data_dictionary);
+my (%expected_description_languages, %found_description_languages);
 
 my ($max_error_message_string)= 2048;
 
@@ -104,14 +110,50 @@ my %string_table_en = (
     "Fails validation",            "Fails validation",
     "No terms in found data dictionary", "No terms found in data dictionary",
     "No content in file",          "No content in file",
-    "No content in API", "No content in API",
+    "No content in API",           "No content in API",
+    "Encoding is not UTF-8, found", "Encoding is not UTF-8, found",
+    "Missing xml:lang in <description>", "Missing xml:lang in <description> for <heading>",
+    "Missing text in <description>",  "Missing text in <description> for <heading>",
+    "Missing text in <heading>",   "Missing text in <heading>",
+    "found outside of",            "found outside of",
+    "Missing",                     "Missing",
+    "in",                          "in",
+    "tags found in",               "tags found in",
+    "Multiple",                    "Multiple",
+    "Duplicate term",              "Duplicate term",
+    "Previous instance found at",  "Previous instance found at line ",
+    "No",                          "No",
+    "found in",                    "found in",
+    "found for",                   "found for",
+    "for",                         "for",
+    "Invalid PWGSC XML data dictionary", "Invalid PWGSC XML data dictionary",
+    "Invalid",                     "Invalid",
+    "Missing",                     "Missing",
     );
 
 my %string_table_fr = (
     "Fails validation",            "Échoue la validation",
     "No terms found in data dictionary", "Pas de termes trouvés dans dictionnaire de données",
     "No content in file",          "Aucun contenu dans fichier",
-    "No content in API", "Aucun contenu dans API",
+    "No content in API",           "Aucun contenu dans API",
+    "Encoding is not UTF-8, found", "Encoding ne pas UTF-8, trouvé",
+    "Missing xml:lang in <description>", "Manquant xml:lang dans <description> pour <heading>",
+    "Missing text in <description>",  "Manquant texte dans <description> pour <heading>",
+    "Missing text in <heading>",   "Manquant texte dans <heading>",
+    "found outside of",            "trouvent à l'extérieur de",
+    "Missing",                     "Manquant",
+    "in",                          "dans",
+    "tags found in",               "balises trouvées dans",
+    "Multiple",                    "Plusieurs",
+    "Duplicate term",              "Doublon term",
+    "Previous instance found at",  "Instance précédente trouvée à la ligne ",
+    "No",                          "Aucun",
+    "found in",                    "trouvé dans",
+    "found for",                   "trouvé pour",
+    "for",                         "pour",
+    "Invalid PWGSC XML data dictionary", "TPSGC dictionnaire de données XML non valide",
+    "Invalid",                     "Non valide",
+    "Missing",                     "Manquant",
     );
 
 #
@@ -340,7 +382,83 @@ sub Record_Result {
 
 #***********************************************************************
 #
-# Name: Start_Handler
+# Name: Start_Text_Handler
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function starts a text handler. It initializes global
+# variables for text capture.
+#
+#***********************************************************************
+sub Start_Text_Handler {
+
+    #
+    # Enable text capture and initialize captured string
+    #
+    $save_text_between_tags = 1;
+    $saved_text = "";
+}
+#***********************************************************************
+#
+# Name: Char_Handler
+#
+# Parameters: self - reference to this parser
+#             string - text
+#
+# Description:
+#
+#   This function is a callback handler for XML parsing that
+# handles text content between tags.
+#
+#***********************************************************************
+sub Char_Handler {
+    my ($self, $string) = @_;
+
+    #
+    # Are we saving text ?
+    #
+    if ( $save_text_between_tags ) {
+        $saved_text .= $string;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Declaration_Handler
+#
+# Parameters: self - reference to this parser
+#             version - XML version
+#             encoding - ancoding attribute (if any)
+#             standalone - standalone attribute
+#
+# Description:
+#
+#   This function is a callback handler for XML parsing that
+# handles the declaration tag.
+#
+#***********************************************************************
+sub Declaration_Handler {
+    my ($self, $version, $encoding, $standalone) = @_;
+
+    #
+    # Check character encoding attribute.
+    #
+    print "XML doctype $version, $encoding, $standalone\n" if $debug;
+    if ( $encoding =~ /UTF-8/i ) {
+        print "Found UTF-8 encoding\n" if $debug;
+    }
+    else {
+        Record_Result("OD_2", 0, -1, "",
+                  String_Value("Encoding is not UTF-8, found") .
+                  " \"$encoding\"");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Data_Start_Handler
 #
 # Parameters: self - reference to this parser
 #             tagname - name of tag
@@ -349,10 +467,10 @@ sub Record_Result {
 # Description:
 #
 #   This function is a callback handler for XML parsing that
-# handles the start of XML tags.
+# handles the start of XML tags for data files.
 #
 #***********************************************************************
-sub Start_Handler {
+sub Data_Start_Handler {
     my ($self, $tagname, %attr) = @_;
 
     my ($key, $value);
@@ -360,13 +478,13 @@ sub Start_Handler {
     #
     # Check tags.
     #
-    print "Start_Handler tag $tagname\n" if $debug;
+    print "Data_Start_Handler tag $tagname\n" if $debug;
     $tag_count++;
 }
 
 #***********************************************************************
 #
-# Name: End_Handler
+# Name: Data_End_Handler
 #
 # Parameters: self - reference to this parser
 #             tagname - name of tag
@@ -374,17 +492,16 @@ sub Start_Handler {
 # Description:
 #
 #   This function is a callback handler for XML parsing that
-# handles end tags.
+# handles end tags for data files.
 #
 #***********************************************************************
-sub End_Handler {
+sub Data_End_Handler {
     my ($self, $tagname) = @_;
 
     #
     # Check tag
     #
-    print "End_Handler tag $tagname\n" if $debug;
-
+    print "Data_End_Handler tag $tagname\n" if $debug;
 }
 
 #***********************************************************************
@@ -449,12 +566,16 @@ sub Open_Data_XML_Check_Data {
         #
         $parser = XML::Parser->new;
         $tag_count = 0;
+        $save_text_between_tags = 0;
+        $saved_text = "";
 
         #
         # Add handlers for some of the XML tags
         #
-        $parser->setHandlers(Start => \&Start_Handler);
-        $parser->setHandlers(End => \&End_Handler);
+        $parser->setHandlers(Start => \&Data_Start_Handler);
+        $parser->setHandlers(End => \&Data_End_Handler);
+        $parser->setHandlers(XMLDecl => \&Declaration_Handler);
+        $parser->setHandlers(Char => \&Char_Handler);
 
         #
         # Parse the content.
@@ -497,6 +618,596 @@ sub Open_Data_XML_Check_Data {
 
 #***********************************************************************
 #
+# Name: Start_Description_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the start description tag.
+#
+#***********************************************************************
+sub Start_Description_Tag_Handler {
+    my ($self, %attr) = @_;
+    
+    my ($lang);
+
+    #
+    # Check for language attribute
+    #
+    if ( defined($attr{"xml:lang"}) ) {
+        $lang = $attr{"xml:lang"};
+        print "Start description for language $lang\n" if $debug;
+        $current_description_lang = $lang;
+        
+        #
+        # If this is the first header we need to record the expected language
+        # values to check subsequent headers.
+        #
+        if ( $header_count == 1 ) {
+            #
+            # Have we seen this language already ?
+            #
+            if ( defined($expected_description_languages{$lang}) ) {
+                Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                              String_Value("Multiple") .
+                              " <description xml:lang=\"$lang\" " .
+                              String_Value("found for") .
+                              " <header> #$header_count");
+            }
+            else {
+                #
+                # Record expected language
+                #
+                $expected_description_languages{$lang} = 0;
+            }
+        }
+        else {
+            #
+            # Is this an expected language ?
+            #
+            if ( ! defined($found_description_languages{$lang}) ) {
+                Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                              String_Value("Invalid") .
+                              " <description xml:lang=\"$lang\" " .
+                              String_Value("found for") .
+                              " <header> #$header_count");
+            }
+            #
+            # Do we already have this language ?
+            #
+            elsif ( $found_description_languages{$lang} == 1 ) {
+                Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                              String_Value("Multiple") .
+                              " <description xml:lang=\"$lang\" " .
+                              String_Value("found for") .
+                              " <header> #$header_count");
+            }
+            #
+            # Record language found
+            #
+            else {
+                $found_description_languages{$lang} = 1;
+            }
+        }
+    }
+    else {
+        #
+        # Missing language attribute
+        #
+        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+              String_Value("Missing xml:lang in <description>") .
+              " #$heading_count \"$current_heading\"");
+        $current_description_lang = "";
+    }
+     
+    #
+    # Start a text handler to get the description
+    #
+    Start_Text_Handler();
+
+    #
+    # Increment description count for this heading.
+    #
+    $description_count++;
+}
+
+#***********************************************************************
+#
+# Name: End_Description_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the end description tag.
+#
+#***********************************************************************
+sub End_Description_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Do we have a text handler ?
+    #
+    if ( $save_text_between_tags ) {
+        #
+        # Remove newlines and leading whitespace
+        #
+        $saved_text =~ s/\r\n|\r|\n/ /g;
+        $saved_text =~ s/^\s*//g;
+        $saved_text =~ s/\s*$//g;
+    
+        #
+        # Do we have a description ?
+        #
+        if ( $saved_text ne "" ) {
+            print "Description = \"$saved_text\"\n" if $debug;
+        }
+        else {
+            Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+                  String_Value("Missing text in <description>") .
+                  " #$heading_count \"$current_heading\"");
+        }
+    }
+     
+    #
+    # End any text handler
+    #
+    $save_text_between_tags = 0;
+}
+
+#***********************************************************************
+#
+# Name: Start_Field_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the start field tag.
+#
+#***********************************************************************
+sub Start_Field_Tag_Handler {
+    my ($self, %attr) = @_;
+
+    #
+    # Set flag to indicate we are inside a field
+    #
+    $inside_field = 1;
+}
+
+#***********************************************************************
+#
+# Name: End_Field_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the end field tag.
+#
+#***********************************************************************
+sub End_Field_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Set flag to indicate we are no longer inside a field
+    #
+    $inside_field = 0;
+}
+
+#***********************************************************************
+#
+# Name: Start_Header_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the start header tag.
+#
+#***********************************************************************
+sub Start_Header_Tag_Handler {
+    my ($self, %attr) = @_;
+
+    #
+    # Increment header count
+    #
+    $header_count++;
+
+    #
+    # Are we inside a <field>
+    #
+    if ( ! $inside_field ) {
+        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+              "<header> #$header_count " .
+              String_Value("found outside of") . " <field>");
+    }
+     
+    #
+    # Reset description count and heading flag
+    #
+    $description_count = 0;
+    $found_heading = 0;
+    $current_heading = "";
+    %found_description_languages = %expected_description_languages;
+    
+    #
+    # Set flag to indicate we are inside a header
+    #
+    $inside_header = 1;
+}
+
+#***********************************************************************
+#
+# Name: End_Header_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the end header tag.
+#
+#***********************************************************************
+sub End_Header_Tag_Handler {
+    my ($self) = @_;
+
+    my ($lang);
+    
+    #
+    # Did we find a heading ?
+    #
+    if ( ! $found_heading ) {
+        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+              String_Value("Missing") . " <heading> " .
+              String_Value("in") . " <header> #$header_count");
+    }
+
+    #
+    # Did we find a description ?
+    #
+    if ( $description_count == 0 ) {
+        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+              String_Value("Missing") . " <description> " .
+              String_Value("in") . " <header> #$header_count");
+    }
+    
+    #
+    # Did we find all the expected description languages ?
+    #
+    if ( $header_count > 1 ) {
+        foreach $lang (keys(%expected_description_languages)) {
+            if ( $found_description_languages{$lang} == 0 ) {
+                Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                              String_Value("Missing") .
+                              " <description xml:lang=\"$lang\" " .
+                              String_Value("for") .
+                              " <header> #$header_count");
+            }
+        }
+    }
+
+    #
+    # Set flag to indicate we are no longer inside a header
+    #
+    $inside_header = 0;
+}
+
+#***********************************************************************
+#
+# Name: Start_Heading_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the start heading tag.
+#
+#***********************************************************************
+sub Start_Heading_Tag_Handler {
+    my ($self, %attr) = @_;
+
+    #
+    # Do we already have a heading for this header ?
+    #
+    if ( $found_heading ) {
+        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+              String_Value("Multiple") . " <heading> " .
+              String_Value("tags found in") . " <header> #$header_count");
+    }
+    else {
+        $found_heading = 1;
+    }
+    
+    #
+    # Increment the heading count
+    #
+    $heading_count++;
+    
+    #
+    # Are we inside a <herader>
+    #
+    if ( ! $inside_header ) {
+        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+              "<heading> #$heading_count " .
+              String_Value("found outside of") . " <header>");
+    }
+
+    #
+    # Reset description count
+    #
+    $description_count = 0;
+    
+    #
+    # Start a text handler to get the heading
+    #
+    Start_Text_Handler();
+}
+
+#***********************************************************************
+#
+# Name: End_Heading_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the end heading tag.
+#
+#***********************************************************************
+sub End_Heading_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Do we have a text handler ?
+    #
+    if ( $save_text_between_tags ) {
+        #
+        # Remove newlines and leading whitespace
+        #
+        $saved_text =~ s/\r\n|\r|\n/ /g;
+        $saved_text =~ s/^\s*//g;
+        $saved_text =~ s/\s*$//g;
+
+        #
+        # Do we have a heading ?
+        #
+        if ( $saved_text ne "" ) {
+            print "Heading = \"$saved_text\"\n" if $debug;
+            $current_heading = $saved_text;
+            
+            #
+            # Have we already seen this term/heading ?
+            #
+            if ( defined($$current_dictionary{$saved_text}) ) {
+                Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+                              String_Value("Duplicate term") .
+                              " \"$saved_text\" " .
+                              String_Value("Previous instance found at") .
+                              " <heading> #" . $term_location{$saved_text});
+            }
+            else {
+                #
+                # Save term and location
+                #
+                $$current_dictionary{$saved_text} = $saved_text;
+                $term_location{$saved_text} = $heading_count;
+            }
+        }
+        else {
+            Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+                  String_Value("Missing text in <heading>") .
+                  " #$heading_count");
+        }
+    }
+
+    #
+    # End any text handler
+    #
+    $save_text_between_tags = 0;
+}
+
+#***********************************************************************
+#
+# Name: Start_PWGSC_Dictionary_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the start PWGSC dictionary tag.
+#
+#***********************************************************************
+sub Start_PWGSC_Dictionary_Tag_Handler {
+    my ($self, %attr) = @_;
+
+    #
+    # We have a PWGSC dictionary
+    #
+    $inside_pwgsc_data_dictionary = 1;
+    $have_pwgsc_data_dictionary = 1;
+    print "Found PWGSC Data Dictionary\n" if $debug;
+}
+
+#***********************************************************************
+#
+# Name: End_PWGSC_Dictionary_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the end PWGSC dictionary tag.
+#
+#***********************************************************************
+sub End_PWGSC_Dictionary_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Did we find any headers (terms) ?
+    #
+    if ( $heading_count == 0 ) {
+        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+              String_Value("No") . " <header> " .
+              String_Value("found in") . " <data-dictionary>");
+    }
+
+    #
+    # No longer in a PWGSC dictionary
+    #
+    $inside_pwgsc_data_dictionary = 0;
+}
+
+#***********************************************************************
+#
+# Name: Dictionary_Start_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function is a callback handler for XML parsing that
+# handles the start of XML tags for dictionary file.
+#
+#***********************************************************************
+sub Dictionary_Start_Handler {
+    my ($self, $tagname, %attr) = @_;
+
+    my ($key, $value);
+
+    #
+    # Check tags.
+    #
+    print "Dictionary_Start_Handler tag $tagname\n" if $debug;
+    $tag_count++;
+    
+    #
+    # Check for PWGSC dictionary tag
+    #
+    if ( $tagname eq "data-dictionary" ) {
+        Start_PWGSC_Dictionary_Tag_Handler($self, %attr);
+    }
+    #
+    # Check for description tag.
+    #
+    elsif ( $inside_pwgsc_data_dictionary && ($tagname eq "description") ) {
+        Start_Description_Tag_Handler($self, %attr);
+    }
+    #
+    # Check for field tag
+    #
+    elsif ( $inside_pwgsc_data_dictionary && ($tagname eq "field") ) {
+        Start_Field_Tag_Handler($self, %attr);
+    }
+    #
+    # Check for header tag
+    #
+    elsif ( $inside_pwgsc_data_dictionary && ($tagname eq "header") ) {
+        Start_Header_Tag_Handler($self, %attr);
+    }
+    #
+    # Check for heading tag
+    #
+    elsif ( $inside_pwgsc_data_dictionary && ($tagname eq "heading") ) {
+        Start_Heading_Tag_Handler($self, %attr);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Dictionary_End_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#
+# Description:
+#
+#   This function is a callback handler for XML parsing that
+# handles end tags for dictionary files.
+#
+#***********************************************************************
+sub Dictionary_End_Handler {
+    my ($self, $tagname) = @_;
+
+    #
+    # Check tag
+    #
+    print "Dictionary_End_Handler tag $tagname\n" if $debug;
+
+    #
+    # Check for PWGSC dictionary tag
+    #
+    if ( $tagname eq "data-dictionary" ) {
+        End_PWGSC_Dictionary_Tag_Handler($self);
+    }
+    #
+    # Check for description tag.
+    #
+    elsif ( $inside_pwgsc_data_dictionary && ($tagname eq "description") ) {
+        End_Description_Tag_Handler($self);
+    }
+    #
+    # Check for field tag
+    #
+    elsif ( $inside_pwgsc_data_dictionary && ($tagname eq "field") ) {
+        End_Field_Tag_Handler($self);
+    }
+    #
+    # Check for header tag
+    #
+    elsif ( $inside_pwgsc_data_dictionary && ($tagname eq "header") ) {
+        End_Header_Tag_Handler($self);
+    }
+    #
+    # Check for heading tag
+    #
+    elsif ( $inside_pwgsc_data_dictionary && ($tagname eq "heading") ) {
+        End_Heading_Tag_Handler($self);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Initialize_Dictionary_Globals
+#
+# Parameters: dictionary - address of a hash table for data dictionary
+#
+# Description:
+#
+#   This function initialized global variables for PWGSC data dictionaries.
+#
+#***********************************************************************
+sub Initialize_Dictionary_Globals {
+    my ($dictionary) = @_;
+
+    #
+    # Initialize variables
+    #
+    $current_description_lang = "";
+    $current_dictionary = $dictionary;
+    $current_heading = "";
+    $description_count = 0;
+    %description_languages = ();
+    %expected_description_languages = ();
+    $found_heading = 0;
+    $have_pwgsc_data_dictionary = 0;
+    $header_count = 0;
+    $heading_count = 0;
+    %heading_location = ();
+    $inside_field = 0;
+    $inside_header = 0;
+    $inside_pwgsc_data_dictionary = 0;
+    %term_location = ();
+}
+#***********************************************************************
+#
 # Name: Open_Data_XML_Check_Dictionary
 #
 # Parameters: this_url - a URL
@@ -510,7 +1221,7 @@ sub Open_Data_XML_Check_Data {
 #
 #***********************************************************************
 sub Open_Data_XML_Check_Dictionary {
-    my ( $this_url, $profile, $content, $dictionary ) = @_;
+    my ($this_url, $profile, $content, $dictionary) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($eval_output);
@@ -557,12 +1268,21 @@ sub Open_Data_XML_Check_Dictionary {
         #
         $parser = XML::Parser->new;
         $tag_count = 0;
+        $save_text_between_tags = 0;
+        $saved_text = "";
+        
+        #
+        # Initialize dictionary global variables
+        #
+        Initialize_Dictionary_Globals($dictionary);
 
         #
         # Add handlers for some of the XML tags
         #
-        $parser->setHandlers(Start => \&Start_Handler);
-        $parser->setHandlers(End => \&End_Handler);
+        $parser->setHandlers(Start => \&Dictionary_Start_Handler);
+        $parser->setHandlers(End => \&Dictionary_End_Handler);
+        $parser->setHandlers(XMLDecl => \&Declaration_Handler);
+        $parser->setHandlers(Char => \&Char_Handler);
 
         #
         # Parse the content.
@@ -576,6 +1296,13 @@ sub Open_Data_XML_Check_Dictionary {
             $eval_output =~ s/\n at .* line \d*$//g;
             Record_Result("OD_3", -1, 0, "$eval_output",
                           String_Value("Fails validation"));
+        }
+        #
+        # Did we find a PWGSC Data Dictionary ?
+        #
+        elsif ( ! $have_pwgsc_data_dictionary ) {
+            Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                          String_Value("Invalid PWGSC XML data dictionary"));
         }
         #
         # Did we find some tags (may or may not be terms) ?
@@ -664,12 +1391,16 @@ sub Open_Data_XML_Check_API {
         #
         $parser = XML::Parser->new;
         $tag_count = 0;
+        $save_text_between_tags = 0;
+        $saved_text = "";
 
         #
         # Add handlers for some of the XML tags
         #
-        $parser->setHandlers(Start => \&Start_Handler);
-        $parser->setHandlers(End => \&End_Handler);
+        $parser->setHandlers(Start => \&Data_Start_Handler);
+        $parser->setHandlers(End => \&DataI_End_Handler);
+        $parser->setHandlers(XMLDecl => \&Declaration_Handler);
+        $parser->setHandlers(Char => \&Char_Handler);
 
         #
         # Parse the content.
