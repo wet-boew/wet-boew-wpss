@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 6703 $
+# $Revision: 6816 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-31 10:30:43 -0400 (Fri, 31 Oct 2014) $
 #
 # Description:
 #
@@ -92,7 +92,7 @@ my ($debug) = 0;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my ($current_clf_check_profile);
-my ($results_list_addr, $content_section_handler, @content_lines);
+my ($results_list_addr, $content_section_handler);
 my ($favicon_count, $in_head_section, $found_date_modified_label);
 my (%content_subsection_found, $current_url, $found_date_modified_value);
 my ($favicon_resp, $have_text_handler, @text_handler_tag_list);
@@ -1954,8 +1954,7 @@ sub Clean_Text {
     # Convert return into a space.
     #
     $text =~ s/\&nbsp;/ /g;
-    $text =~ s/\n/ /g;
-    $text =~ s/\r/ /g;
+    $text =~ s/\r\n|\r|\n/ /g;
 
     #
     # Convert multiple spaces into a single space
@@ -3780,7 +3779,7 @@ sub Check_Document_Errors {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -3810,12 +3809,7 @@ sub Perform_SWU_Checks {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
-        #
-        # Split the content into lines
-        #
-        @content_lines = split( /\n/, $content );
-
+    if ( length($$content) > 0 ) {
         #
         # Create a document parser
         #
@@ -3841,7 +3835,7 @@ sub Perform_SWU_Checks {
         #
         # Parse the content.
         #
-        $parser->parse($content);
+        $parser->parse($$content);
     }
     else {
         print "No content passed to Perform_SWU_Checks\n" if $debug;
@@ -3869,7 +3863,7 @@ sub Perform_SWU_Checks {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -7010,7 +7004,7 @@ sub SWU_Check_Links {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -7041,7 +7035,7 @@ sub SWU_Check_Archive_Check {
         #
         # Check for archived on the web markers
         #
-        $message = CLF_Archive_Archive_Check($profile, $this_url, \$content);
+        $message = CLF_Archive_Archive_Check($profile, $this_url, $content);
         
         #
         # Did we get messages (implying the check failed) ?
