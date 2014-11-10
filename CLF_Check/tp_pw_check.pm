@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 6703 $
+# $Revision: 6814 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-28 15:21:09 -0400 (Tue, 28 Oct 2014) $
 #
 # Description:
 #
@@ -101,7 +101,7 @@ my ($current_url, %template_integrity, %template_version, %site_inc_version);
 my ($current_heading_level, $have_text_handler, %section_h1_count);
 my (%found_template_markers, $current_clf_check_profile_name);
 my ($valid_search_actions, $expected_search_inputs);
-my ($in_search_form);
+my ($in_search_form, $in_noscript);
 
 my ($max_error_message_string) = 2048;
 
@@ -812,6 +812,7 @@ sub Initialize_Test_Results {
     $have_text_handler = 0;
     %section_h1_count = ();
     $in_search_form = 0;
+    $in_noscript = 0;
     if ( defined($required_template_markers) ) {
         %found_template_markers = %$required_template_markers;
     }
@@ -1043,9 +1044,11 @@ sub Frame_Tag_Handler {
 
     #
     # Found a Frame tag, set flag so we can verify that the doctype
-    # class is frameset
+    # class is frameset.  We ignore frames inside a <noscript> tag.
     #
-    $found_frame_tag = 1;
+    if ( ! $in_noscript ) {
+        $found_frame_tag = 1;
+    }
 }
 
 #***********************************************************************
@@ -1406,6 +1409,30 @@ sub Check_Attributes {
 
 #***********************************************************************
 #
+# Name: Noscript_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the noscript tag.
+#
+#***********************************************************************
+sub Noscript_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Inside noscript, set global flag.
+    #
+    $in_noscript = 1;
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -1475,6 +1502,14 @@ sub Start_Handler {
     }
 
     #
+    # Check h tag
+    #
+    elsif ( $tagname =~ /^h[0-9]?$/ ) {
+        Start_H_Tag_Handler( $self, $tagname, $line, $column, $text,
+                            %attr_hash );
+    }
+
+    #
     # Check input tag
     #
     elsif ( $tagname eq "input" ) {
@@ -1489,11 +1524,10 @@ sub Start_Handler {
     }
 
     #
-    # Check h tag
+    # Check noscript tag
     #
-    elsif ( $tagname =~ /^h[0-9]?$/ ) {
-        Start_H_Tag_Handler( $self, $tagname, $line, $column, $text,
-                            %attr_hash );
+    elsif ( $tagname eq "noscript" ) {
+        Noscript_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
 }
 
@@ -1660,6 +1694,30 @@ sub End_Form_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: End_Noscript_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end noscript tag.
+#
+#***********************************************************************
+sub End_Noscript_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    #
+    # End of noscript
+    #
+    $in_noscript = 0;
+}
+
+#***********************************************************************
+#
 # Name: End_Handler
 #
 # Parameters: self - reference to this parser
@@ -1697,6 +1755,13 @@ sub End_Handler {
     #
     elsif ( $tagname eq "form" ) {
         End_Form_Tag_Handler( $self, $line, $column, $text);
+    }
+
+    #
+    # Check noscript tag
+    #
+    elsif ( $tagname eq "noscript" ) {
+        End_Noscript_Tag_Handler( $self, $line, $column, $text);
     }
 
     #
