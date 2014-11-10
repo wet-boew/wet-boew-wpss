@@ -2,9 +2,9 @@
 #
 # Name: wpss_strings.pm
 #
-# $Revision: 6680 $
+# $Revision: 6825 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_strings.pm $
-# $Date: 2014-06-16 11:17:11 -0400 (Mon, 16 Jun 2014) $
+# $Date: 2014-10-31 10:46:06 -0400 (Fri, 31 Oct 2014) $
 #
 # Description:
 #
@@ -154,7 +154,7 @@ Site:
     "Property",				"Property",
     "Link at", 				"Link at ",
     "href", 				"href ",
-    "Crawl stopped after", 		"Crawl stopped after ",
+    "Crawl limit set to", 		"Crawl limit set to",
     "HTML url",				"HTML url ",
     "PDF url",				"PDF url ",
     "HTML Title",			"HTML Title ",
@@ -276,7 +276,7 @@ Site :
     "Property", "Propriété",
     "Link at", "Lien à ",
     "href", "href ",
-    "Crawl stopped after", "L'exploration s'est arrêté après ",
+    "Crawl limit set to", "Limite d'exploration fixée à",
     "HTML url",				"URL de HTML ",
     "PDF url",				"URL de PDF ",
     "HTML Title",			"Titre de HTML ",
