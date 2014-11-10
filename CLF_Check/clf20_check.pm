@@ -2,9 +2,9 @@
 #
 # Name:   clf20_check.pm
 #
-# $Revision: 6703 $
+# $Revision: 6738 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf20_check.pm $
-# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-07-25 14:53:18 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
 #
@@ -95,7 +95,7 @@ my (%testcase_data);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my (%clf_check_profile_map, $current_clf_check_profile);
-my ($results_list_addr, $content_section_handler, @content_lines);
+my ($results_list_addr, $content_section_handler);
 my ($doctype_line, $doctype_column, $doctype_text, $doctype_label);
 my ($doctype_version, $doctype_language, $doctype_class, $found_frame_tag);
 my (%content_subsection_found, %other_tool_results, $current_url);
@@ -1417,7 +1417,7 @@ sub Check_Other_Tool_Results {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -1477,12 +1477,7 @@ sub CLF20_Check {
     #
     # Did we get any content ?
     #
-    if ( length($content) > 0 ) {
-        #
-        # Split the content into lines
-        #
-        @content_lines = split( /\n/, $content );
-
+    if ( length($$content) > 0 ) {
         #
         # Create a document parser
         #
@@ -1512,7 +1507,7 @@ sub CLF20_Check {
         #
         # Parse the content.
         #
-        $parser->parse($content);
+        $parser->parse($$content);
     }
     else {
         print "No content passed to CLF20_Check\n" if $debug;
@@ -2004,7 +1999,7 @@ sub CLF20_Check_Links {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -2030,7 +2025,7 @@ sub CLF20_Check_Archive_Check {
         #
         # Check for archived on the web markers
         #
-        $message = CLF_Archive_Archive_Check($profile, $this_url, \$content);
+        $message = CLF_Archive_Archive_Check($profile, $this_url, $content);
 
         #
         # Did we get messages (implying the check failed) ?

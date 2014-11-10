@@ -2,9 +2,9 @@
 #
 # Name:   clf_archive.pm
 #
-# $Revision: 6703 $
+# $Revision: 6816 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf_archive.pm $
-# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-31 10:30:43 -0400 (Fri, 31 Oct 2014) $
 #
 # Description:
 #
@@ -643,7 +643,7 @@ sub CLF_Archive_Is_Archived {
             #
             # Get the text contents of the page.
             #
-            $extracted_content = Content_Check_Extract_Content_From_HTML($$content);
+            $extracted_content = Content_Check_Extract_Content_From_HTML($content);
 
             #
             # Check to see if the marker text is in the content
@@ -959,7 +959,7 @@ sub CLF_Archive_Archive_Check {
         #
         # Get the text contents of the page.
         #
-        $extracted_content = Content_Check_Extract_Content_From_HTML($$content);
+        $extracted_content = Content_Check_Extract_Content_From_HTML($content);
 
         #
         # Check to see if the marker text is in the content
@@ -1036,8 +1036,7 @@ sub Clean_Text {
     # Convert return into a space.
     #
     $text =~ s/\&nbsp;/ /g;
-    $text =~ s/\n/ /g;
-    $text =~ s/\r/ /g;
+    $text =~ s/\r\n|\r|\n/ /g;
 
     #
     # Convert multiple spaces into a single space

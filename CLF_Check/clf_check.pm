@@ -2,9 +2,9 @@
 #
 # Name:   clf_check.pm
 #
-# $Revision: 6703 $
+# $Revision: 6738 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf_check.pm $
-# $Date: 2014-07-22 12:15:54 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-07-25 14:53:18 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
 #
@@ -315,7 +315,7 @@ sub Set_CLF_Check_Test_Profile {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -331,7 +331,7 @@ sub CLF_Check {
     # Did we get any content ?
     #
     print "CLF_Check: URL $this_url, mime-type = $mime_type, lanugage = $language, profile = $profile\n" if $debug;
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Perform CLF 2.0 checks.
         #
@@ -448,7 +448,7 @@ sub CLF_Check_Is_Archived {
 #             profile - testcase profile
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
-#             content - content
+#             content - content pointer
 #
 # Description:
 #
@@ -465,7 +465,7 @@ sub CLF_Check_Archive_Check {
     # Did we get any content ?
     #
     print "CLF_Check_Archive_Check URL $this_url, mime-type = $mime_type, lanugage = $language, profile = $profile\n" if $debug;
-    if ( length($content) > 0 ) {
+    if ( length($$content) > 0 ) {
         #
         # Perform CLF 2.0 archived checks.
         #
