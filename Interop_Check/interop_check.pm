@@ -2,9 +2,9 @@
 #
 # Name:   interop_check.pm
 #
-# $Revision: 6710 $
+# $Revision: 6742 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_check.pm $
-# $Date: 2014-07-22 12:19:13 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-07-25 14:56:43 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
 #
@@ -304,7 +304,7 @@ sub Interop_Check {
 # Name: Interop_Check_Feed_Details
 #
 # Parameters: this_url - a URL
-#             content - content
+#             content - content pointer
 #
 # Description:
 #

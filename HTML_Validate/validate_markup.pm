@@ -2,9 +2,9 @@
 #
 # Name:   validate_markup.pm
 #
-# $Revision: 6709 $
+# $Revision: 6739 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/validate_markup.pm $
-# $Date: 2014-07-22 12:18:41 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-07-25 14:53:50 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
 #
@@ -240,7 +240,7 @@ sub Validate_Markup {
             #
             # Determine if the XML document is a Web Feed.
             #
-            if ( Feed_Validate_Is_Web_Feed($this_url, $$content) ) {
+            if ( Feed_Validate_Is_Web_Feed($this_url, $content) ) {
                 print "Validate XML Web feed content\n" if $debug;
                 @results_list = Feed_Validate_Content($this_url, $content);
             }

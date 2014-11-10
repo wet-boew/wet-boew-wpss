@@ -2,9 +2,9 @@
 #
 # Name:   interop_html_check.pm
 #
-# $Revision: 6710 $
+# $Revision: 6742 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_html_check.pm $
-# $Date: 2014-07-22 12:19:13 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-07-25 14:56:43 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
 #
@@ -94,7 +94,7 @@ my (%testcase_data, %interop_check_profile_map);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my ($current_interop_check_profile, $current_url);
-my ($results_list_addr, @content_lines, $charset);
+my ($results_list_addr, $charset);
 my ($doctype_label, $doctype_version, $doctype_class);
 my ($doctype_line, $doctype_column, $doctype_text);
 my ($charset, $charset_line, $charset_column, $charset_text);
@@ -1528,11 +1528,6 @@ sub Interop_HTML_Check {
     # Did we get any content ?
     #
     if ( length($$content) > 0 ) {
-        #
-        # Split the content into lines
-        #
-        @content_lines = split( /\n/, $$content );
-
         #
         # Create a document parser
         #
