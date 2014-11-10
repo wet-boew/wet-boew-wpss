@@ -2,9 +2,9 @@
 #
 # Name:   csv_check.pm
 #
-# $Revision: 6717 $
+# $Revision: 6749 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/csv_check.pm $
-# $Date: 2014-07-22 12:33:59 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-09-10 13:25:56 -0400 (Wed, 10 Sep 2014) $
 #
 # Description:
 #
@@ -429,7 +429,7 @@ sub CSV_Check {
         # Create a temporary file for the CSV content.
         #
         print "Create temporary CSV file\n" if $debug;
-        ($csv_file, $csv_file_name) = tempfile( SUFFIX => '.css');
+        ($csv_file, $csv_file_name) = tempfile( SUFFIX => '.csv');
         if ( ! defined($csv_file) ) {
             print "Error: Failed to create temporary file in CSV_Check\n";
             return(@tqa_results_list);
