@@ -2,9 +2,9 @@
 #
 # Name:   metadata.pm
 #
-# $Revision: 6714 $
+# $Revision: 6819 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Metadata_Check/Tools/metadata.pm $
-# $Date: 2014-07-22 12:23:16 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-31 10:32:43 -0400 (Fri, 31 Oct 2014) $
 #
 # Description:
 #
@@ -719,8 +719,7 @@ sub Clean_Text {
     # Convert return into a space.
     #
     $text =~ s/\&nbsp;/ /g;
-    $text =~ s/\n/ /g;
-    $text =~ s/\r/ /g;
+    $text =~ s/\r\n|\r|\n/ /g;
 
     #
     # Convert multiple spaces into a single space
