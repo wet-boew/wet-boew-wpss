@@ -2,9 +2,9 @@
 #
 # Name:   xml_check.pm
 #
-# $Revision: 6718 $
+# $Revision: 6741 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/xml_check.pm $
-# $Date: 2014-07-22 12:34:18 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-07-25 14:55:37 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
 #
@@ -552,7 +552,7 @@ sub XML_Check {
     #
     # Is this a web feed ? if so perform additional checks
     #
-    if ( Feed_Validate_Is_Web_Feed($this_url, $$content) ) {
+    if ( Feed_Validate_Is_Web_Feed($this_url, $content) ) {
         @feed_results = Feed_Check($this_url, $language, $profile, $content);
         
         #
