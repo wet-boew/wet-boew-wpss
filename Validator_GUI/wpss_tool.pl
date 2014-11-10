@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6731 $
+# $Revision: 6826 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2014-07-24 11:19:55 -0400 (Thu, 24 Jul 2014) $
+# $Date: 2014-10-31 10:46:24 -0400 (Fri, 31 Oct 2014) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ]
@@ -4680,7 +4680,7 @@ sub Print_Results_Footer {
             #
             if ( $reached_crawl_limit ) {
                 Validator_GUI_Update_Results($tab,
-                                         String_Value("Crawl stopped after") .
+                                         String_Value("Crawl limit set to") .
                                          " $crawllimit URLs\n");
             }
 
@@ -5067,6 +5067,54 @@ sub Check_Login_Page {
 
 #***********************************************************************
 #
+# Name: Remove_Temporary_Files
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function removes any temporary files that may have been created
+# by the program.
+#
+#***********************************************************************
+sub Remove_Temporary_Files {
+
+    my (@files, $path);
+
+    #
+    # Clean up any temporary file from a possioble previous analysis run
+    #
+    if ( defined($shared_web_page_size_filename)
+         && ($shared_web_page_size_filename ne "") ) {
+        unlink($shared_web_page_size_filename);
+    }
+    if ( defined($shared_web_page_details_filename)
+         && ($shared_web_page_details_filename ne "") ) {
+        unlink($shared_web_page_details_filename);
+    }
+    if ( defined($shared_save_content_directory)
+         && ($shared_save_content_directory ne "")
+         && (-d "$shared_save_content_directory") ) {
+        #
+        # Remove files
+        #
+        print "Remove files from $shared_save_content_directory\n" if $debug;
+        opendir (DIR, "$shared_save_content_directory");
+        @files = readdir(DIR);
+        foreach $path (@files) {
+            unlink("$shared_save_content_directory/$path");
+        }
+        closedir(DIR);
+
+        #
+        # Remove the temporary directory
+        #
+        rmdir($shared_save_content_directory);
+    }
+}
+
+#***********************************************************************
+#
 # Name: Initialize_Tool_Globals
 #
 # Parameters: options - hash table of tool options
@@ -5081,6 +5129,11 @@ sub Initialize_Tool_Globals {
     my (%options) = @_;
 
     my ($html_profile_table, $html_feature_id);
+
+    #
+    # Clean up any temporary file from a possioble previous analysis run
+    #
+    Remove_Temporary_Files();
 
     #
     # Set global report_fails_only flag
@@ -5686,7 +5739,7 @@ sub Perform_Metadata_Check {
         # This is needed to detect HTML & PDF versions of the same document.
         #
         print "Extract_Metadata on URL\n  --> $url\n" if $debug;
-        %metadata_results = Extract_Metadata($url, $$content);
+        %metadata_results = Extract_Metadata($url, $content);
     }
     else {
         #
@@ -5845,7 +5898,7 @@ sub Perform_PDF_Properties_Check {
         # This is needed to detect HTML & PDF versions of the same document.
         #
         print "PDF_Files_Get_Properties_From_Content on URL\n  --> $url\n" if $debug;
-        %pdf_property_results = PDF_Files_Get_Properties_From_Content($$content);
+        %pdf_property_results = PDF_Files_Get_Properties_From_Content($content);
     }
     else {
         #
@@ -6163,7 +6216,7 @@ sub Perform_CLF_Check {
         @clf_results_list = CLF_Check_Archive_Check($url, $language,
                                                     $clf_check_profile,
                                                     $mime_type, $resp,
-                                                    $$content);
+                                                    $content);
     }
     else {
         #
@@ -6176,7 +6229,7 @@ sub Perform_CLF_Check {
         #
         print "Perform_CLF_Check on URL\n  --> $url\n" if $debug;
         @clf_results_list = CLF_Check($url, $language, $clf_check_profile,
-                                      $mime_type, $resp, $$content);
+                                      $mime_type, $resp, $content);
 
         #
         # If the document is an HTML document, check
@@ -6378,7 +6431,7 @@ sub Perform_Interop_Check {
                 ($mime_type =~ /application\/rss\+xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($url =~ /\.xml$/i) ) {
-            $feed_object = Interop_Check_Feed_Details($url, $$content);
+            $feed_object = Interop_Check_Feed_Details($url, $content);
             if ( defined($feed_object) ) {
                 push(@web_feed_list, $feed_object);
 
@@ -7702,6 +7755,11 @@ else {
 # Start the GUI
 #
 eval { Validator_GUI_Start(@ui_args); };
+
+#
+# Clean up any temporary files
+#
+Remove_Temporary_Files();
 
 print "Exit WPSS Tool\n" . $@ . "\n" if $debug;
 exit(0);
