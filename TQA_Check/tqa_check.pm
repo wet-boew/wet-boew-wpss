@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6718 $
+# $Revision: 6823 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2014-07-22 12:34:18 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-31 10:39:15 -0400 (Fri, 31 Oct 2014) $
 #
 # Description:
 #
@@ -861,8 +861,7 @@ sub Clean_Text {
     # Convert return into a space.
     #
     $text =~ s/\&nbsp;/ /g;
-    $text =~ s/\n/ /g;
-    $text =~ s/\r/ /g;
+    $text =~ s/\r\n|\r|\n/ /g;
     
     #
     # Convert multiple spaces into a single space
