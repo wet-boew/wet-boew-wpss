@@ -2,9 +2,9 @@
 #
 # Name:   javascript_check.pm
 #
-# $Revision: 6717 $
+# $Revision: 6782 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/javascript_check.pm $
-# $Date: 2014-07-22 12:33:59 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-02 09:51:19 -0400 (Thu, 02 Oct 2014) $
 #
 # Description:
 #
@@ -428,7 +428,7 @@ sub Check_Illegal_Function_Calls {
     # Check illegal content functions
     #
     foreach $function (@illegal_document_creation_functions) {
-        if ( $line =~ /$function/i ) {
+        if ( $line =~ /$function\s*=/i ) {
             #
             # Check testcase profile
             #
