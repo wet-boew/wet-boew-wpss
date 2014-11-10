@@ -2,9 +2,9 @@
 #
 # Name:   css_extract_links.pm
 #
-# $Revision: 6713 $
+# $Revision: 6789 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/CSS_Validate/Tools/css_extract_links.pm $
-# $Date: 2014-07-22 12:22:51 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-10 14:05:57 -0400 (Fri, 10 Oct 2014) $
 #
 # Description:
 #
@@ -13,6 +13,7 @@
 #
 # Public functions:
 #     CSS_Extract_Links_Debug
+#     CSS_Extract_Links_From_CSS_Style
 #     CSS_Extract_Links
 #
 # Terms and Conditions of Use
@@ -63,6 +64,7 @@ BEGIN {
 
     @ISA     = qw(Exporter);
     @EXPORT  = qw(CSS_Extract_Links_Debug
+                  CSS_Extract_Links_From_CSS_Style
                   CSS_Extract_Links
                   );
     $VERSION = "1.0";
@@ -105,6 +107,98 @@ sub CSS_Extract_Links_Debug {
 
 #***********************************************************************
 #
+# Name: CSS_Extract_Links_From_CSS_Style
+#
+# Parameters: url - URL of CSS content
+#             style - name of style
+#             style_object - style object
+#
+# Description:
+#
+#   This function extracts URLs from a CSS style.
+#
+#***********************************************************************
+sub CSS_Extract_Links_From_CSS_Style {
+    my ($url, $style, $style_object) = @_;
+
+    my (@properties, $property, $value, $hash, $this_prop);
+    my ($selector, $name, @urls, $link, $abs_url);
+
+    #
+    # Process each selector within the style
+    #
+    print "CSS_Extract_Links_From_CSS_Style from $style in $url\n" if $debug;
+    for $selector (@{$style_object->{selectors}}) {
+        $name = $selector->{name};
+        print "Processing selector $name\n" if $debug;
+
+        #
+        # Get the list of properties for this selector/class name.
+        # Process each one.
+        #
+        @properties = $style_object->properties;
+        for $this_prop (@properties) {
+            #
+            # Get the property name and its value
+            #
+            $hash = $$this_prop{"options"};
+            $property = $$hash{"property"};
+            $value = $$hash{"value"};
+            print "Property $property, value $value\n" if $debug;
+
+            #
+            # Look for url in the value portion
+            #
+            if ( $value =~ /^.*url\s*\(/i ) {
+                #
+                # Strip off leading url( and trailing )
+                #
+                $value =~ s/^.*url\s*\(\s*//i;
+                $value =~ s/\).*//;
+
+                #
+                # Is it a single quoted URL ?
+                #
+                if ( $value =~ /^'/ ) {
+                    $value =~ s/^'\s*//g;
+                    $value =~ s/\s*'$//g;
+                }
+                #
+                # Double quoted URL ?
+                #
+                elsif (  $value =~ /^"/ ) {
+                    $value =~ s/^"\s*//g;
+                    $value =~ s/\s*"$//g;
+                }
+
+                #
+                # Remove any leading or trailing whitespace
+                #
+                $value =~ s/^\s*//;
+                $value =~ s/\s*$//;
+
+                #
+                # Add URL to the list
+                #
+                if ( $value ne "" ) {
+                    print "Extracted URL $value from CSS\n" if $debug;
+                    $abs_url = URL_Check_Make_URL_Absolute($value, $url);
+                    $link = link_object->new($value, $abs_url, "", "url",
+                                             "", -1, -1, "");
+                    push (@urls, $link);
+                }
+            }
+        }
+    }
+
+    #
+    # Return list of URLs
+    #
+    return(@urls);
+}
+
+#***********************************************************************
+#
 # Name: CSS_Extract_Links
 #
 # Parameters: url - URL of CSS content
@@ -121,7 +215,7 @@ sub CSS_Extract_Links {
     my ($url, $base, $lang, $content_ptr) = @_;
 
     my ($css, $style, @properties, $property, $value, $hash, $this_prop);
-    my ($selector, $name, @urls, $link, $abs_url, $content);
+    my ($selector, $name, @urls, $link, $abs_url, $content, @style_urls);
 
     #
     # Do we have any url strings in the content ?
@@ -163,63 +257,14 @@ sub CSS_Extract_Links {
         for $selector (@{$style->{selectors}}) {
             $name = $selector->{name};
             print "Processing selector $name\n" if $debug;
+            @style_urls = CSS_Extract_Links_From_CSS_Style($url, $name,
+                                                           $style);
 
             #
-            # Get the list of properties for this selector/class name.
-            # Process each one.
+            # Add this style's URLs to the full list
             #
-            @properties = $style->properties;
-            for $this_prop (@properties) {
-                #
-                # Get the property name and its value
-                #
-                $hash = $$this_prop{"options"};
-                $property = $$hash{"property"};
-                $value = $$hash{"value"};
-                print "Property $property, value $value\n" if $debug;
-
-                #
-                # Look for url in the value portion
-                #
-                if ( $value =~ /^.*url\s*\(/i ) {
-                    #
-                    # Strip off leading url( and trailing )
-                    #
-                    $value =~ s/^.*url\s*\(\s*//i;
-                    $value =~ s/\).*//;
-
-                    #
-                    # Is it a single quoted URL ?
-                    #
-                    if ( $value =~ /^'/ ) {
-                        $value =~ s/^'\s*//g;
-                        $value =~ s/\s*'$//g;
-                    }
-                    #
-                    # Double quoted URL ?
-                    #
-                    elsif (  $value =~ /^"/ ) {
-                        $value =~ s/^"\s*//g;
-                        $value =~ s/\s*"$//g;
-                    }
-
-                    #
-                    # Remove any leading or trailing whitespace
-                    #
-                    $value =~ s/^\s*//;
-                    $value =~ s/\s*$//;
-
-                    #
-                    # Add URL to the list
-                    #
-                    if ( $value ne "" ) {
-                        print "Extracted URL $value from CSS\n" if $debug;
-                        $abs_url = URL_Check_Make_URL_Absolute($value, $url);
-                        $link = link_object->new($value, $abs_url, "", "url",
-                                                 "", -1, -1, "");
-                        push (@urls, $link);
-                    }
-                }
+            foreach $link (@style_urls) {
+                push(@urls, $link);
             }
         }
     }
