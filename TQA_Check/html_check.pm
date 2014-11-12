@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 6717 $
+# $Revision: 6827 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2014-07-22 12:33:59 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-11-06 10:00:03 -0500 (Thu, 06 Nov 2014) $
 #
 # Description:
 #
@@ -87,16 +87,16 @@ my ($debug) = 0;
 my (%testcase_data, %template_comment_map_en);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
-my (%tqa_check_profile_map, $current_tqa_check_profile);
-
-my ($current_a_href,
+my (%tqa_check_profile_map, $current_tqa_check_profile,
+    $current_a_href, $current_tqa_check_profile_name,
     $last_heading_line_number, $last_heading_column_number,
     %input_id_location, %label_for_location, %accesskey_location,
     $table_nesting_index, @table_start_line, @table_header_values,
     @table_start_column, @table_has_headers, @table_summary,
     %test_case_desc_map, $have_text_handler, @text_handler_tag_list,
-    @text_handler_text_list, $inside_h_tag_set, %anchor_name,
-    %anchor_text_href_map, %anchor_location,
+    @text_handler_all_text_list, $inside_h_tag_set, %anchor_name,
+    @text_handler_tag_text_list, %anchor_text_href_map, %anchor_location,
+    @text_handler_all_text, @text_handler_tag_text,
     $current_heading_level, %found_legend_tag, $current_text_handler_tag,
     $fieldset_tag_index, @td_attributes, @inside_thead,
     $embed_noembed_count, $last_embed_line, $last_embed_col,
@@ -126,13 +126,13 @@ my ($current_a_href,
     @onclick_onkeypress_tag, $onclick_onkeypress_text, $have_focusable_item,
     $pseudo_header, $emphasis_count, $anchor_inside_emphasis,
     @missing_table_headers, @table_header_locations, @table_header_types,
-    $inline_style_count, %css_styles,
+    $inline_style_count, %css_styles, $current_tag_object,
     %input_instance_not_allowed_label, %aria_describedby_location,
     %aria_labelledby_location, %fieldset_input_count,
     $current_a_arialabel, %last_option_attributes, $tag_is_visible,
-    @visible_tag_stack, $current_tag_styles, @tag_style_stack,
+    $current_tag_styles, $tag_is_hidden, @table_th_td_in_thead_count,
     $modified_content, $first_html_tag_lang, $summary_tag_content,
-    $tag_is_hidden, @hidden_tag_stack,
+    @table_th_td_in_tfoot_count, @inside_tfoot,
 );
 
 my ($is_valid_html) = -1;
@@ -211,6 +211,7 @@ my (%html_tags_cannot_nest) = (
 #
 my (%tags_that_must_have_content) = (
     "address", "",
+    "article", "",
     "cite",    "",
     "del",     "",
     "code",    "",
@@ -221,6 +222,7 @@ my (%tags_that_must_have_content) = (
     "ins",     "",
     "li",      "",
     "pre",     "",
+    "section", "",
     "strong",  "",
     "sub",     "",
     "sup",     "",
@@ -235,7 +237,7 @@ my (%tags_that_must_not_have_role_presentation) = (
     "abbr",    1,
     "address", 1,
     "article", 1,
-    "aside",  1,
+    "aside",   1,
     "audio",   1,
     "b",       1,
     "bdi",     1,
@@ -651,6 +653,7 @@ my (%non_subcontainer_tag) = (
 my (%html_block_tags_text_subcontainer) = (
     "article", 1,
     "blockquote", 1,
+    "caption", 1,
     "div", 1,
     "dd", 1,
     "details", 1,
@@ -664,6 +667,7 @@ my (%html_block_tags_text_subcontainer) = (
     "p", 1,
     "pre", 1,
     "section", 1,
+    "table", 1,
     "ul", 1,
 );
 
@@ -957,6 +961,8 @@ my %string_table_en = (
     "Non-decorative image loaded via CSS with", "Non-decorative image loaded via CSS with",
     "Alt attribute not allowed on this tag", "'alt' attribute not allowed on this tag.",
     "is not visible",                  "is not visible",
+    "No headers found inside thead",   "No headers found inside <thead>",
+    "No td, th found inside tfoot",    "No <td>, <th> found inside <tfoot>",
 );
 
 
@@ -1120,6 +1126,8 @@ my %string_table_fr = (
     "Non-decorative image loaded via CSS with", "Image non-décoratif chargé par CSS avec",
     "Alt attribute not allowed on this tag", "L'attribut 'alt' pas autorisés sur cette balise.",
     "is not visible",                  "est pas visible",
+    "No headers found inside thead",   "Pas de têtes trouvées à l'intérieur de <thead>",
+    "No td, th found inside tfoot",    "Pas de <td>, <th> trouve à l'intérieur de <tfoot>",
 );
 
 #
@@ -1315,6 +1323,7 @@ sub Initialize_Test_Results {
     # Set current hash tables
     #
     $current_tqa_check_profile = $tqa_check_profile_map{$profile};
+    $current_tqa_check_profile_name = $profile;
     $results_list_addr = $local_results_list_addr;
 
     #
@@ -1346,6 +1355,8 @@ sub Initialize_Test_Results {
     @table_has_headers     = ();
     @table_header_values   = ();
     @table_header_types    = ();
+    @table_th_td_in_thead_count = ();
+    @table_th_td_in_thead_count = ();
     @missing_table_headers = ();
     @table_header_locations = ();
     $inside_h_tag_set      = 0;
@@ -1358,7 +1369,10 @@ sub Initialize_Test_Results {
     $have_text_handler     = 0;
     $current_text_handler_tag = "";
     @text_handler_tag_list = ();
-    @text_handler_text_list = ();
+    @text_handler_all_text_list = ();
+    @text_handler_tag_text_list = ();
+    @text_handler_all_text = ();
+    @text_handler_tag_text = ();
     $embed_noembed_count   = 0;
     $object_nest_level     = 0;
     %object_has_label      = ();
@@ -1383,6 +1397,7 @@ sub Initialize_Test_Results {
     $text_between_tags     = "";
     $in_head_tag           = 0;
     @tag_order_stack       = ();
+    $current_tag_object    = undef;
     $wcag_2_0_h74_reported = 0;
     $wcag_2_0_f70_reported = 0;
     @param_lists           = ();
@@ -1415,11 +1430,8 @@ sub Initialize_Test_Results {
     %input_instance_not_allowed_label = ();
     %last_option_attributes = ();
     $tag_is_visible         = 1;
-    @visible_tag_stack      = ();
     $tag_is_hidden          = 0;
-    @hidden_tag_stack       = ();
     $current_tag_styles     = "";
-    @tag_style_stack        = ();
     $modified_content       = 0;
     undef($first_html_tag_lang);
     undef($summary_tag_content);
@@ -1547,8 +1559,7 @@ sub Clean_Text {
     # Convert return into a space.
     #
     $text =~ s/\&nbsp;/ /g;
-    $text =~ s/\n/ /g;
-    $text =~ s/\r/ /g;
+    $text =~ s/\r\n|\r|\n/ /g;
     
     #
     # Convert multiple spaces into a single space
@@ -1565,6 +1576,30 @@ sub Clean_Text {
     # Return cleaned text
     #
     return($text);
+}
+
+#***********************************************************************
+#
+# Name: Text_Handler
+#
+# Parameters: text - content for the tag
+#
+# Description:
+#
+#   This function adds the provided text to the global text
+# lists for the current tag.
+#
+#***********************************************************************
+sub Text_Handler {
+    my ($text) = @_;
+
+    #
+    # Save text in both the all text and the tag only text lists
+    #
+    if ( $have_text_handler ) {
+        push(@text_handler_all_text, "$text");
+        push(@text_handler_tag_text, "$text");
+    }
 }
 
 #***********************************************************************
@@ -1586,8 +1621,8 @@ sub Get_Text_Handler_Content_For_Parent_Tag {
     #
     # Do we have any saved text ?
     #
-    if ( @text_handler_text_list > 0 ) {
-        $content = $text_handler_text_list[@text_handler_text_list - 1];
+    if ( @text_handler_all_text_list > 0 ) {
+        $content = $text_handler_all_text_list[@text_handler_all_text_list - 2];
     }
 
     #
@@ -1627,9 +1662,50 @@ sub Get_Text_Handler_Content {
         #
         # Get any text.
         #
-        $content = join($separator, @{ $self->handler("text") });
+        $content = join($separator, @text_handler_all_text);
     }
+
+    #
+    # Return the content
+    #
+    print "content = \"$content\"\n" if $debug;
+    return($content);
+}
+
+#***********************************************************************
+#
+# Name: Get_Text_Handler_Tag_Content
+#
+# Parameters: self - reference to a HTML::Parse object
+#             separator - text to separate content components
+#
+# Description:
+#
+#   This function gets the tag text from the text handler.  This is
+# text from the tag only, it does not include text from nested
+# tags. It joins all the text together and trims off whitespace.
+#
+#***********************************************************************
+sub Get_Text_Handler_Tag_Content {
+    my ($self, $separator) = @_;
     
+    my ($content) = "";
+    
+    #
+    # Add a text handler to save text
+    #
+    print "Get_Text_Handler_Tag_Content separator = \"$separator\"\n" if $debug;
+    
+    #
+    # Do we have a text handler ?
+    #
+    if ( $have_text_handler ) {
+        #
+        # Get any text.
+        #
+        $content = join($separator, @text_handler_tag_text);
+    }
+
     #
     # Return the content
     #
@@ -1652,7 +1728,7 @@ sub Get_Text_Handler_Content {
 sub Destroy_Text_Handler {
     my ($self, $tag) = @_;
     
-    my ($saved_text, $current_text);
+    my ($current_tag_text, $current_all_text, $current_text);
 
     #
     # Destroy text handler
@@ -1677,14 +1753,19 @@ sub Destroy_Text_Handler {
         #
         # Get the text from the handler
         #
-        $current_text = Get_Text_Handler_Content($self, " ");
-        
+        $current_text = join(" ", @text_handler_tag_text);
+        print "Text handler tag text \"$current_text\"\n" if $debug;
+        $current_text = join(" ", @text_handler_all_text);
+        print "Text handler text \"$current_text\"\n" if $debug;
+        @text_handler_all_text = ();
+        @text_handler_tag_text = ();
+
         #
         # Destroy the text handler
         #
         $self->handler( "text", undef );
         $have_text_handler = 0;
-        
+
         #
         # Get tag name for previous tag (if there was one)
         #
@@ -1694,14 +1775,25 @@ sub Destroy_Text_Handler {
             print "Text handler stack is " . join(" ", @text_handler_tag_list) . "\n" if $debug;
 
             #
+            # Discard any saved content for the current tag, we want the
+            # saved content for the parent tag.
+            #
+            $current_all_text = pop(@text_handler_all_text_list);
+            $current_tag_text = pop(@text_handler_tag_text_list);
+            print "Discard saved text for current tag \"$current_all_text\"\n" if $debug;
+            print "Discard saved tag text for current tag \"$current_tag_text\"\n" if $debug;
+
+            #
             # We have to create a new text handler to restart the
             # text collection for the previous tag.  We also have to place
             # the saved text back in the handler.
             #
-            $saved_text = pop(@text_handler_text_list);
-            $self->handler( text => [], '@{dtext}' );
+            $current_all_text = pop(@text_handler_all_text_list);
+            $current_tag_text = pop(@text_handler_tag_text_list);
+            $self->handler(text => \&Text_Handler, "dtext");
             $have_text_handler = 1;
-            print "Previously saved text is \"$saved_text\"\n" if $debug;
+            print "Previously saved text is \"$current_all_text\"\n" if $debug;
+            print "Previously saved tag text is \"$current_tag_text\"\n" if $debug;
 
             #
             # Is this a tag that should not be treated as a word boundary ?
@@ -1710,7 +1802,7 @@ sub Destroy_Text_Handler {
             #
             if ( defined($non_word_boundary_tag{$tag}) ) {
                 print "Adding \"$current_text\" text with no extra whitespace to text handler\n" if $debug;
-                $saved_text .= $current_text;
+                $current_all_text .= $current_text;
             }
             #
             # Is this a phrasing tag ? If so add it's content to the
@@ -1719,23 +1811,23 @@ sub Destroy_Text_Handler {
             elsif ( defined($html_phrasing_tags{$tag}) ||
                     defined($html_block_tags_text_subcontainer{$tag}) ) {
                 print "Adding \"$current_text\" text with whitespace to text handler\n" if $debug;
-                $saved_text .= " $current_text";
+                $current_all_text .= " $current_text";
             }
             #
             # Are we inside an anchor tag ?
             #
             elsif ( $inside_anchor ) {
                 print "Inside anchor, adding \"$current_text\" text to text handler\n" if $debug;
-                $saved_text .= " $current_text";
+                $current_all_text .= " $current_text";
             }
             #
             # We don't need script tag text, it is not part of the
             # web page content.
             #
             elsif ( $tag eq "script" ) {
-                $saved_text = "";
+                $current_all_text = "";
             }
-            
+
             #
             # Do we add the text from the just destroyed text handler to
             # the previous tag's handler ?  In most cases we do.
@@ -1750,9 +1842,15 @@ sub Destroy_Text_Handler {
             # Save content in text handler for the parent tag.
             #
             else {
-                print "Adding \"$saved_text\" text to text handler\n" if $debug;
-                push(@{ $self->handler("text")}, $saved_text);
+                print "Place \"$current_all_text\" text in text handler\n" if $debug;
+                print "Place \"$current_tag_text\" text in tag text handler\n" if $debug;
+                push(@text_handler_all_text, "$current_all_text");
+                push(@text_handler_tag_text, "$current_tag_text");
             }
+            print "Text handler now contains \"" . join(" ", @text_handler_all_text) . "\"\n" if $debug;
+            print "Text handler tag text now contains \"" . join(" ", @text_handler_tag_text) . "\"\n" if $debug;
+            push(@text_handler_all_text_list, "");
+            push(@text_handler_tag_text_list, "");
         }
         else {
             #
@@ -1825,7 +1923,7 @@ sub Have_Text_Handler_For_Tag {
 sub Start_Text_Handler {
     my ($self, $tag) = @_;
     
-    my ($current_text);
+    my ($current_tag_text, $current_all_text, $text);
     
     #
     # Add a text handler to save text
@@ -1841,23 +1939,32 @@ sub Start_Text_Handler {
         # to the previous tag.  We have to start a new handler to
         # save text for this tag.
         #
-        $current_text = Get_Text_Handler_Content($self, " ");
-        push(@text_handler_tag_list, $current_text_handler_tag);
-        print "Saving \"$current_text\" for $current_text_handler_tag tag\n" if $debug;
+        $current_all_text = pop(@text_handler_all_text_list);
+        $text = join(" ", @text_handler_all_text);
+        push(@text_handler_all_text_list, "$current_all_text $text");
+        print "Saving \"$current_all_text $text\" for $current_text_handler_tag tag\n" if $debug;
         print "Text handler stack is " . join(" ", @text_handler_tag_list) . "\n" if $debug;
-        push(@text_handler_text_list, $current_text);
-        
+
+        $current_tag_text = pop(@text_handler_tag_text_list);
+        $text = join(" ", @text_handler_tag_text);
+        push(@text_handler_tag_text_list, "$current_tag_text $text");
+
         #
         # Destoy the existing text handler so we don't include text from the
         # current tag's handler for this tag.
         #
         $self->handler( "text", undef );
+        push(@text_handler_tag_list, $current_text_handler_tag);
     }
-    
+
     #
     # Create new text handler
     #
-    $self->handler( text => [], '@{dtext}' );
+    push(@text_handler_all_text_list, "");
+    push(@text_handler_tag_text_list, "");
+    @text_handler_tag_text = ();
+    @text_handler_all_text = ();
+    $self->handler(text => \&Text_Handler, "dtext");
     $have_text_handler = 1;
     $current_text_handler_tag = $tag;
 }
@@ -2088,6 +2195,9 @@ sub Table_Tag_Handler {
     $table_header_types[$table_nesting_index] = \%header_types;
     $missing_table_headers[$table_nesting_index] = \%missing_header_references;
     $inside_thead[$table_nesting_index] = 0;
+    $inside_tfoot[$table_nesting_index] = 0;
+    $table_th_td_in_thead_count[$table_nesting_index] = 0;
+    $table_th_td_in_tfoot_count[$table_nesting_index] = 0;
 
     #
     # Do we have a summary attribute ?
@@ -2112,6 +2222,17 @@ sub Table_Tag_Handler {
     else {
         $table_summary[$table_nesting_index] = "";
     }
+
+    #
+    # Since we don't include table contents in the contents of the
+    # parent tag (table contents may contain single characters that
+    # may be caught as usig spacing between text for presentation
+    # effect) add some dummy text to the parent tag's text handler.
+    #
+    if ( $have_text_handler ) {
+        push(@text_handler_all_text, "table$table_nesting_index");
+        push(@text_handler_tag_text, "table$table_nesting_index");
+    }
 }
 
 #***********************************************************************
@@ -2131,15 +2252,62 @@ sub Table_Tag_Handler {
 sub End_Fieldset_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($tcid, @tcids);
+    my ($tcid, @tcids, $start_tag_attr);
 
     #
-    # Did we see a legend inside the fieldset ?
+    # Get start tag attributes
+    #
+    $start_tag_attr = $current_tag_object->attr();
+
+    #
+    # Did we see a label or legend inside the fieldset ?
     #
     if ( $fieldset_tag_index > 0 ) {
-        if ( ! $found_legend_tag{$fieldset_tag_index} ) {
+        #
+        # Did we find a <aria-label> for the fieldset ?
+        #
+        if ( defined($start_tag_attr) &&
+            (defined($$start_tag_attr{"aria-label"})) &&
+            ($$start_tag_attr{"aria-label"} ne "") ) {
             #
-            # Determine testcase
+            # Technique
+            #   ARIA14: Using aria-label to provide an invisible label
+            #   where a visible label cannot be used
+            # used for label
+            #
+            print "Found aria-label attribute on fieldset ARIA14\n" if $debug;
+        }
+        #
+        # Did we find a <aria-labelledby> for the fieldset ?
+        #
+        elsif ( defined($start_tag_attr) &&
+            (defined($$start_tag_attr{"aria-labelledby"})) &&
+            ($$start_tag_attr{"aria-labelledby"} ne "") ) {
+            #
+            # Technique
+            #   ARIA9: Using aria-labelledby to concatenate a label from
+            #   several text nodes
+            # used for label
+            #
+            print "Found aria-labelledby attribute on fieldset ARIA9\n" if $debug;
+        }
+        #
+        # Did we find a <legend> for the fieldset ?
+        #
+        elsif ( $found_legend_tag{$fieldset_tag_index} ) {
+            #
+            # Technique
+            #   H91: Using HTML form controls and links
+            # used for label
+            #
+            print "Found legend inside fieldset H91\n" if $debug;
+        }
+        #
+        # No label found
+        #
+        else {
+            #
+            # Determine testcase id
             #
             if ( defined($$current_tqa_check_profile{"WCAG_2.0-H71"}) ) {
                 push(@tcids, "WCAG_2.0-H71");
@@ -2325,7 +2493,7 @@ sub Blink_Tag_Handler {
 
 #***********************************************************************
 #
-# Name: Check_Label_Id_and_Title
+# Name: Check_Label_Aria_Id_or_Title
 #
 # Parameters: self - reference to object
 #             tag - HTML tag name
@@ -2338,26 +2506,27 @@ sub Blink_Tag_Handler {
 #
 # Description:
 #
-#   This function checks for the presence of a a label.  It looks for
+#   This function checks for the presence of a label.  It looks for
 # one of the following cases
 # 1) title attribute (with content other than an empty string)
 # 2) an id attribute and a corresponding label
 # 3) aria-describedby and a matching id
 #
 #***********************************************************************
-sub Check_Label_Id_and_Title {
+sub Check_Label_Aria_Id_or_Title {
     my ( $self, $tag, $label_required, $line, $column, $text, %attr ) = @_;
 
     my ($id, $title, $label, $last_seen_text, $complete_title);
     my ($aria_describedby, $aria_labelledby, $aid, $clean_text);
     my ($label_line, $label_column, $label_is_visible, $label_is_hidden);
+    my ($aria_label);
     my ($found_label) = 0;
     my ($found_fieldset) = 0;
 
     #
     # Get possible title attribute
     #
-    print "Check_Label_Id_and_Title for $tag, label_required = $label_required\n" if $debug;
+    print "Check_Label_Aria_Id_or_Title for $tag, label_required = $label_required\n" if $debug;
     if ( defined($attr{"title"}) ) {
         $title = $attr{"title"};
         $title =~ s/^\s*//g;
@@ -2407,9 +2576,16 @@ sub Check_Label_Id_and_Title {
     #
     if ( defined($attr{"aria-describedby"}) ) {
         $aria_describedby = $attr{"aria-describedby"};
-        $aria_describedby =~ s/^\s*//g;
-        $aria_describedby =~ s/\s*$//g;
         print "Have aria-describedby = \"$aria_describedby\"\n" if $debug;
+        $found_label = 1;
+    }
+
+    #
+    # Get possible aria-label attribute
+    #
+    if ( defined($attr{"aria-label"}) ) {
+        $aria_label = $attr{"aria-label"};
+        print "Have aria-label = \"$aria_label\"\n" if $debug;
         $found_label = 1;
     }
 
@@ -2418,8 +2594,6 @@ sub Check_Label_Id_and_Title {
     #
     if ( defined($attr{"aria-labelledby"}) ) {
         $aria_labelledby = $attr{"aria-labelledby"};
-        $aria_labelledby =~ s/^\s*//g;
-        $aria_labelledby =~ s/\s*$//g;
         print "Have aria-labelledby = \"$aria_labelledby\"\n" if $debug;
         $found_label = 1;
     }
@@ -2466,9 +2640,9 @@ sub Check_Label_Id_and_Title {
             }
 
             #
-            # Is the label hidden ?
+            # Is the input visible and the label hidden ?
             #
-            if (  $label_is_hidden ) {
+            if (  $tag_is_visible && $label_is_hidden ) {
                 Record_Result("WCAG_2.0-H44", $line, $column, "",
                               String_Value("Label referenced by") .
                               " 'id=\"$id\"' " .
@@ -2477,9 +2651,9 @@ sub Check_Label_Id_and_Title {
                               " $label_line:$label_column");
             }
             #
-            # Is the label not visible ?
+            # Is the input visible and the label not visible ?
             #
-            elsif (  ! $label_is_visible ) {
+            elsif (  $tag_is_visible && (! $label_is_visible) ) {
                 Record_Result("WCAG_2.0-H44", $line, $column, "",
                               String_Value("Label referenced by") .
                               " 'id=\"$id\"' " .
@@ -2533,7 +2707,7 @@ sub Check_Label_Id_and_Title {
                 print "Title attribute to act as label\n" if $debug;
             }
             else {
-                $input_id_location{"$id"} = "$line:$column";
+                $input_id_location{"$id"} = "$line:$column:tag_is_visible:$tag_is_hidden";
             }
         }
     }
@@ -2818,14 +2992,14 @@ sub Input_Tag_Handler {
     }
 
     #
-    # Is this a read only or disabled input ?
+    # Is this a read only input ?
     #
-    if ( defined($attr{"readonly"}) || defined($attr{"disabled"}) ) {
+    if ( defined($attr{"readonly"}) ) {
         #
         # Don't need to check for a label as screen readers will skip over
         # these inputs.
         #
-        print "Readonly or disabled input\n" if $debug;
+        print "Readonly input\n" if $debug;
         return;
     }
     #
@@ -2874,14 +3048,68 @@ sub Input_Tag_Handler {
                           $column, $text, %attr);
 
         #
-        # Do we have alt text or title ?
+        # Do we have alt text ?
         #
-        if ( (defined($attr{"alt"}) && $attr{"alt"} ne "") ||
-             (defined($attr{"title"}) && $attr{"title"} ne "") ) {
+        if ( defined($attr{"alt"}) && ($attr{"alt"} ne "") ) {
             #
-            # Have either alt text or a title
+            # Technique
+            #   H37: Using alt attributes on img elements
+            #  used for label
             #
-            print "Image has alt or title\n" if $debug;
+            print "Image has alt H37\n" if $debug;
+        }
+        #
+        # Do we have a title attribute ?
+        #
+        elsif ( defined($attr{"title"} && $attr{"title"} ne "") ) {
+            #
+            # Technique
+            #   H65: Using the title attribute to identify form controls
+            #   when the label element cannot be used
+            # used for label
+            #
+            print "Image has title H65\n" if $debug;
+        }
+        #
+        # Did we find a <aria-label> attribute ?
+        #
+        elsif ( (defined($attr{"aria-label"})) &&
+                ($attr{"aria-label"} ne "") ) {
+            #
+            # Technique
+            #   ARIA14: Using aria-label to provide an invisible label
+            #   where a visible label cannot be used
+            # used for label
+            #
+            print "Found aria-label attribute ARIA14\n" if $debug;
+        }
+        #
+        # Did we find a <aria-labelledby> attribute ?
+        #
+        elsif ( (defined($attr{"aria-labelledby"})) &&
+                ($attr{"aria-labelledby"} ne "") ) {
+            #
+            # Technique
+            #   ARIA9: Using aria-labelledby to concatenate a label from
+            #   several text nodes
+            # used for label
+            #
+            print "Found aria-labelledby attribute ARIA9\n" if $debug;
+        }
+        #
+        # Check for a ARIA attributes that act as the text
+        # alternative for this label.  We don't check for a value here,
+        # that is checked in function Check_Aria_Attributes.
+        #
+        elsif ( defined($attr{"aria-label"})
+                || defined($attr{"aria-labelledby"}) ) {
+            #
+            # Technique
+            #   ARIA14: Using aria-label to provide an invisible label
+            #   where a visible label cannot be used
+            # used.
+            #
+            print "Image has aria-label or aria-labelledby ARIA14\n" if $debug;
         }
         #
         # Report error only if input is visible
@@ -2905,30 +3133,28 @@ sub Input_Tag_Handler {
             #
             # Should expect a label for this input before input.
             #
-            $found_label = Check_Label_Id_and_Title($self, $input_tag_type, 1,
-                                                    $line, $column,
-                                                    $text, %attr);
+            $found_label = Check_Label_Aria_Id_or_Title($self, $input_tag_type,
+                                                        1, $line, $column,
+                                                        $text, %attr);
         }
         else {
             #
             # Label may appear after this input.  Label check will happen
             # at the end of the document.
             #
-            $found_label = Check_Label_Id_and_Title($self, $input_tag_type, 0,
-                                                    $line, $column,
-                                                    $text, %attr);
+            $found_label = Check_Label_Aria_Id_or_Title($self, $input_tag_type,
+                                                        0, $line, $column,
+                                                        $text, %attr);
 
             #
-            # If this an input that that must have the label after, check
+            # Since this an input that that must have the label after, check
             # that the label is not before the input.
             #
-            if ( defined($attr{"id"}) && 
-                 (index($input_types_requiring_label_after, " $input_type ") != -1) ) {
-                $id = $attr{"id"};
-
+            if ( defined($attr{"id"}) ) {
                 #
                 # Do we already have a label for this id value ?
                 #
+                $id = $attr{"id"};
                 if ( defined($label_for_location{$id}) ) {
                     ($label_line, $label_column, $label_is_visible, $label_is_hidden) =
                         split(/:/, $label_for_location{$id});
@@ -2995,27 +3221,73 @@ sub Input_Tag_Handler {
     #
     elsif ( index($input_types_requiring_value, " $input_type ") != -1 ) {
         #
-        # Do we have a value attribute
+        # Do we have a value attribute ?
         #
-        if ( $tag_is_visible && (! defined($attr{"value"})) ) {
-            Record_Result("WCAG_2.0-H91", $line, $column, $text,
-                          String_Value("Missing value attribute in") .
-                          "$input_tag_type");
-        }
-        #
-        # Check value if it is visible
-        #
-        elsif ( $tag_is_visible ) {
-            #
-            # Do we have non-whitespace value ?
-            #
+        if ( defined($attr{"value"}) ) {
             $value = $attr{"value"};
             $value =~ s/\s//g;
-            if ( $value eq "" ) {
+        }
+        else {
+            $value = "";
+        }
+
+        #
+        # Did we find a <aria-label> attribute ?
+        #
+        if ( (defined($attr{"aria-label"})) &&
+                ($attr{"aria-label"} ne "") ) {
+            #
+            # Technique
+            #   ARIA14: Using aria-label to provide an invisible label
+            #   where a visible label cannot be used
+            # used for label
+            #
+            print "Found aria-label attribute ARIA14\n" if $debug;
+        }
+        #
+        # Did we find a <aria-labelledby> attribute ?
+        #
+        elsif ( (defined($attr{"aria-labelledby"})) &&
+                ($attr{"aria-labelledby"} ne "") ) {
+            #
+            # Technique
+            #   ARIA9: Using aria-labelledby to concatenate a label from
+            #   several text nodes
+            # used for label
+            #
+            print "Found aria-labelledby attribute ARIA9\n" if $debug;
+        }
+        #
+        # Do we have a value attribute
+        #
+        elsif ( defined($attr{"value"}) ) {
+            #
+            # Do we have an actual value ?
+            #
+            if ( $value ne "" ) {
+                #
+                # Technique
+                #   H91: Using HTML form controls and links
+                # used for label
+                #
+                print "Found value attribute H91\n" if $debug;
+            }
+            #
+            # is tag visible ?
+            #
+            elsif ( $tag_is_visible ) {
                 Record_Result("WCAG_2.0-H91", $line, $column, $text,
                               String_Value("Missing value in") .
                               "$input_tag_type");
             }
+        }
+        elsif ( $tag_is_visible ) {
+            #
+            # No value attribute
+            #
+            Record_Result("WCAG_2.0-H91", $line, $column, $text,
+                          String_Value("Missing value attribute in") .
+                          "$input_tag_type");
         }
     }
 
@@ -3065,7 +3337,7 @@ sub Input_Tag_Handler {
         #
         if ( $have_text_handler && 
              defined($attr{"value"}) && ($attr{"value"} ne "") ) {
-            push(@{ $self->handler("text")}, $attr{"value"});
+            push(@text_handler_all_text, $attr{"value"});
         }
     }
 
@@ -3149,7 +3421,6 @@ sub Select_Tag_Handler {
     # Is this a read only or hidden input ?
     #
     if ( defined($attr{"readonly"}) ||
-         defined($attr{"disabled"}) ||
          (defined($attr{"type"}) && ($attr{"type"} eq "hidden") ) ) {
         print "Hidden or readonly select\n" if $debug;
         return;
@@ -3163,7 +3434,7 @@ sub Select_Tag_Handler {
     #
     # Check for one of a title or a label
     #
-    Check_Label_Id_and_Title($self, "<select>", 1, $line, $column, $text,
+    Check_Label_Aria_Id_or_Title($self, "<select>", 1, $line, $column, $text,
                              %attr);
 
     #
@@ -3460,7 +3731,6 @@ sub Textarea_Tag_Handler {
     #
     print "Textarea_Tag_Handler\n" if $debug;
     if ( defined($attr{"readonly"}) ||
-         defined($attr{"disabled"}) ||
          (defined($attr{"type"}) && ($attr{"type"} eq "hidden") ) ) {
         print "Hidden or readonly textarea\n" if $debug;
         return;
@@ -3474,8 +3744,8 @@ sub Textarea_Tag_Handler {
     #
     # Check to see if the textarea has a label or title
     #
-    Check_Label_Id_and_Title($self, "<textarea>", 0, $line, $column, $text,
-                             %attr);
+    Check_Label_Aria_Id_or_Title($self, "<textarea>", 0, $line, $column, $text,
+                                 %attr);
 }
 
 #***********************************************************************
@@ -3799,7 +4069,8 @@ sub Check_Pseudo_Heading {
     # Check styles associated with this tag.
     #
     print "Check for inline style \"$current_tag_styles\" for tag $tag\n" if $debug;
-    if ( ($tag ne "" ) && ($content ne "") && (! $found_heading) ) {
+    if ( ($tag_is_visible) && ($tag ne "") &&
+         ($content ne "") && (! $found_heading) ) {
         #
         # Do we have a CSS style for the style name ?
         #
@@ -4366,6 +4637,20 @@ sub TH_Tag_Handler {
         # Table has headers.
         #
         $table_has_headers[$table_nesting_index] = 1;
+        
+        #
+        # Are we inside a <thead> ?
+        #
+        if ( $inside_tfoot[$table_nesting_index] ) {
+            $table_th_td_in_tfoot_count[$table_nesting_index]++;
+        }
+
+        #
+        # Are we inside a <thead> ?
+        #
+        if ( $inside_thead[$table_nesting_index] ) {
+            $table_th_td_in_thead_count[$table_nesting_index]++;
+        }
 
         #
         # Check for a headers attribute to reference table headers
@@ -4505,7 +4790,44 @@ sub Thead_Tag_Handler {
         #
         Tag_Not_Allowed_Here("thead", $line, $column, $text);
     }
+}
 
+#***********************************************************************
+#
+# Name: End_Thead_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles the end thead tag.
+#
+#***********************************************************************
+sub End_Thead_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    #
+    # No longer in a <thead> .. </thead> pair
+    #
+    if ( $table_nesting_index >= 0 ) {
+        #
+        # Did we find any headers inside the thead ?
+        #
+        if ( $table_th_td_in_thead_count[$table_nesting_index] == 0 ) {
+            if ( $tag_is_visible ) {
+                Record_Result("WCAG_2.0-G115", $line, $column,
+                              $text, String_Value("No headers found inside thead"));
+            }
+        }
+
+        #
+        # Clear in thead flag.
+        #
+        $inside_thead[$table_nesting_index] = 0;
+    }
 }
 
 #***********************************************************************
@@ -4542,6 +4864,13 @@ sub TD_Tag_Handler {
         $td_attributes[$table_nesting_index] = \%local_attr;
 
         #
+        # Are we inside a <thead> ?
+        #
+        if ( $inside_tfoot[$table_nesting_index] ) {
+            $table_th_td_in_tfoot_count[$table_nesting_index]++;
+        }
+
+        #
         # Check for a headers attribute to reference table headers
         #
         $complete_headers = Check_Headers_Attribute("td", $line, $column,
@@ -4562,6 +4891,13 @@ sub TD_Tag_Handler {
             $$header_location{$id} = "$line:$column";
             $header_type = $table_header_types[$table_nesting_index];
             $$header_type{$id} = "td";
+
+            #
+            # Are we inside a <thead> ?
+            #
+            if ( $inside_thead[$table_nesting_index] ) {
+                $table_th_td_in_thead_count[$table_nesting_index]++;
+            }
 
             #
             # Clear any possible table header references we have saved
@@ -4671,6 +5007,75 @@ sub End_TD_Tag_Handler {
                               "<td scope=\"" . $$attr{"scope"} . "\">");
             }
         }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Tfoot_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the tfoot tag.
+#
+#***********************************************************************
+sub Tfoot_Tag_Handler {
+    my ( $line, $column, $text, %attr ) = @_;
+
+    #
+    # If we are inside a table, set table foot flag
+    #
+    if ( $table_nesting_index >= 0 ) {
+        $inside_tfoot[$table_nesting_index] = 1;
+    }
+    else {
+        #
+        # Found <tfoot> outside of a table.
+        #
+        Tag_Not_Allowed_Here("tfoot", $line, $column, $text);
+    }
+}
+
+#***********************************************************************
+#
+# Name: End_Tfoot_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles the end tfoot tag.
+#
+#***********************************************************************
+sub End_Tfoot_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    #
+    # No longer in a <tfoot> .. </tfoot> pair
+    #
+    if ( $table_nesting_index >= 0 ) {
+        #
+        # Did we find any td or th tags inside the tfoot ?
+        #
+        if ( $table_th_td_in_tfoot_count[$table_nesting_index] == 0 ) {
+            if ( $tag_is_visible ) {
+                Record_Result("WCAG_2.0-G115", $line, $column,
+                              $text, String_Value("No td, th found inside tfoot"));
+            }
+        }
+
+        #
+        # Clear in tfoot flag.
+        #
+        $inside_tfoot[$table_nesting_index] = 0;
     }
 }
 
@@ -4953,7 +5358,7 @@ sub Image_Tag_Handler {
         # to that text.
         #
         if ( $have_text_handler && ($attr{"alt"} ne "") ) {
-            push(@{ $self->handler("text")}, "ALT:" . $attr{"alt"});
+            push(@text_handler_all_text, "ALT:" . $attr{"alt"});
         }
     }
     else {
@@ -5440,7 +5845,7 @@ sub Check_Aria_Labelledby_Attribute {
             # as a text alternative for an image link.
             #
             if ( $inside_anchor && $have_text_handler ) {
-                push(@{ $self->handler("text")}, "ALT:" . $attr{"aria-labelledby"});
+                push(@text_handler_all_text, "ALT:" . $attr{"aria-labelledby"});
             }
         }
     }
@@ -5530,7 +5935,7 @@ sub Check_Aria_Describedby_Attribute {
             # as a text alternative for an image link.
             #
             if ( $inside_anchor && $have_text_handler ) {
-                push(@{ $self->handler("text")}, "ALT:" . $attr{"aria-describedby"});
+                push(@text_handler_all_text, "ALT:" . $attr{"aria-describedby"});
             }
         }
     }
@@ -5702,6 +6107,13 @@ sub Anchor_Tag_Handler {
         print "Anchor_Tag_Handler, current_a_href = \"$current_a_href\"\n" if $debug;
 
         #
+        # Do we have a aria-label attribute for this link ?
+        #
+        if ( defined( $attr{"aria-label"} ) ) {
+            $current_a_arialabel = $attr{"aria-label"};
+        }
+
+        #
         # Do we have a title attribute for this link ?
         #
         if ( defined( $attr{"title"} ) ) {
@@ -5723,19 +6135,15 @@ sub Anchor_Tag_Handler {
                 # Title attribute with no content
                 #
                 print "title is empty string\n" if $debug;
-                if ( $tag_is_visible ) {
-                    Record_Result("WCAG_2.0-H33", $line, $column, $text,
-                                  String_Value("Missing title content for") .
-                                  "<a>");
-                }
+#
+# Don't treat empty title as an error.
+#
+#                if ( $tag_is_visible ) {
+#                    Record_Result("WCAG_2.0-H33", $line, $column, $text,
+#                                  String_Value("Missing title content for") .
+#                                  "<a>");
+#                }
             }
-        }
-
-        #
-        # Do we have a aria-label attribute for this link ?
-        #
-        if ( defined( $attr{"aria-label"} ) ) {
-            $current_a_arialabel = $attr{"aria-label"};
         }
     }
     #
@@ -6013,7 +6421,7 @@ sub End_H_Tag_Handler {
     }
 
     #
-    # UnSet global flag to indicate we are no longer inside an
+    # Unset global flag to indicate we are no longer inside an
     # <h> ... </h> tag set
     #
     $inside_h_tag_set = 0;
@@ -6451,7 +6859,7 @@ sub Button_Tag_Handler {
     # tag.
     #
     if ( defined($attr{"title"}) && ($attr{"title"} ne "") ) {
-        push(@{ $self->handler("text")}, $attr{"title"});
+        push(@text_handler_all_text, $attr{"title"});
     }
 }
 
@@ -6473,7 +6881,12 @@ sub Button_Tag_Handler {
 sub End_Button_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $last_line, $last_column, $clean_text);
+    my ($this_text, $last_line, $last_column, $clean_text, $start_tag_attr);
+
+    #
+    # Get start tag attributes
+    #
+    $start_tag_attr = $current_tag_object->attr();
 
     #
     # Get all the text found within the button tag plus any title attribute
@@ -6495,9 +6908,48 @@ sub End_Button_Tag_Handler {
     Check_Character_Spacing("<button>", $line, $column, $clean_text);
 
     #
-    # Are we missing button text ?
+    # Did we find a <aria-label> attribute ?
     #
-    if ( $tag_is_visible && ($clean_text eq "") ) {
+    if ( defined($start_tag_attr) &&
+        (defined($$start_tag_attr{"aria-label"})) &&
+        ($$start_tag_attr{"aria-label"} ne "") ) {
+        #
+        # Technique
+        #   ARIA14: Using aria-label to provide an invisible label
+        #   where a visible label cannot be used
+        # used for label
+        #
+        print "Found aria-label attribute ARIA14\n" if $debug;
+    }
+    #
+    # Did we find a <aria-labelledby> attribute ?
+    #
+    elsif ( defined($start_tag_attr) &&
+        (defined($$start_tag_attr{"aria-labelledby"})) &&
+        ($$start_tag_attr{"aria-labelledby"} ne "") ) {
+        #
+        # Technique
+        #   ARIA9: Using aria-labelledby to concatenate a label from
+        #   several text nodes
+        # used for label
+        #
+        print "Found aria-labelledby attribute ARIA9\n" if $debug;
+    }
+    #
+    # Do we have button text ?
+    #
+    elsif ( $clean_text ne "" ) {
+        #
+        # Technique
+        #   H91: Using HTML form controls and links
+        # used for label
+        #
+        print "Found text in button H91\n" if $debug;
+    }
+    #
+    # Is tag visible ?
+    #
+    elsif ( $tag_is_visible ) {
         Record_Result("WCAG_2.0-H91", $line, $column,
                       $text, String_Value("Missing text in") . "<button>");
     }
@@ -6905,7 +7357,8 @@ sub End_Details_Tag_Handler {
         # Remove the summary content to see if we have any additional details
         # content.
         #
-        $clean_text =~ s/$summary_tag_content//;
+        $clean_text = quotemeta($clean_text);
+        $clean_text =~ s/$summary_tag_content//o;
     }
 
     #
@@ -7375,6 +7828,7 @@ sub Check_Acronym_Abbr_Consistency {
     #
     print "Check_Acronym_Abbr_Consistency: tag = $tag, content = \"$content\", title = \"$title\", lang = $current_lang\n" if $debug;
     $title = lc($title);
+    $content = lc($content);
 
     #
     # Convert &#39; style quote to an &rsquo; before comparison.
@@ -8746,14 +9200,9 @@ sub Check_Presentation_Attributes {
     my ($style_names) = "";
 
     #
-    # Save the current style names in the style stack
-    # Save the current tag visibility and tag hidden values
+    # Save the current style names, visibility and hidden values
     #
     print "Check_Presentation_Attributes for tag $tagname\n" if $debug;
-    push(@tag_style_stack, $current_tag_styles);
-    push(@visible_tag_stack, $tag_is_visible);
-    push(@hidden_tag_stack, $tag_is_hidden);
-    print "Push tag_is_visible = $tag_is_visible prior to tag $tagname\n" if $debug;
 
     #
     # Do we have a style attribute ?
@@ -8784,10 +9233,17 @@ sub Check_Presentation_Attributes {
         # without the tag name
         #
         foreach $a_style (split(/\s+/, $attr{"class"})) {
-            $style_names .= " $tagname.$a_style .$a_style";
+            $style_names .=  " $tagname.$a_style .$a_style"
+                           . " $tagname.$a_style:before .$a_style:before"
+                           . " $tagname.$a_style:after .$a_style:after";
         }
         print "Found classes $style_names\n" if $debug;
     }
+    
+    #
+    # Save style list in tag object
+    #
+    $current_tag_object->styles($style_names);
 
     #
     # Check for a hidden attribute
@@ -8821,10 +9277,16 @@ sub Check_Presentation_Attributes {
     }
 
     #
+    # Save hidden and visibility attributes in tag object
+    #
+    $current_tag_object->is_hidden($tag_is_hidden);
+    $current_tag_object->is_visible($tag_is_visible);
+
+    #
     # Set global variable for styles associated to the current tag.
     #
     $current_tag_styles = $style_names;
-    print "Current tag_is_visible = $tag_is_visible for tag $tagname\n" if $debug;
+    print "Current tag_is_visible = $tag_is_visible, tag_is_hidden = $tag_is_hidden for tag $tagname\n" if $debug;
 }
 
 #***********************************************************************
@@ -9051,7 +9513,7 @@ sub Check_Aria_Attributes {
         # as a text alternative for an image link.
         #
         if ( $inside_anchor && $have_text_handler && ($attr{"aria-label"} ne "") ) {
-            push(@{ $self->handler("text")}, "ALT:" . $attr{"aria-label"});
+            push(@text_handler_all_text, "ALT:" . $attr{"aria-label"});
         }
     }
 
@@ -9264,9 +9726,10 @@ sub Check_Tag_Nesting {
         #
         foreach $tag_item (@tag_order_stack) {
             #
-            # Split tag item into tag and location
+            # Get the tag and location
             #
-            ($tag, $location) = split(/\s+/, $tag_item, 2);
+            $tag = $tag_item->tag;
+            $location = $tag_item->line_no . ":" . $tag_item->column_no;
 
             #
             # Do we have a match on tags ?
@@ -9452,7 +9915,7 @@ sub Check_For_Implicit_End_Tag_Before_Start_Tag {
     my ( $self, $language, $tagname, $line, $column, $text, $skipped_text,
          $attrseq, @attr ) = @_;
 
-    my ($last_start_tag, $tag_item, $location, $tag_list, $last_item);
+    my ($last_start_tag, $tag_item, $location, $last_item, $tag_list);
 
     #
     # Get last start tag.
@@ -9460,14 +9923,13 @@ sub Check_For_Implicit_End_Tag_Before_Start_Tag {
     print "Check_For_Implicit_End_Tag_Before_Start_Tag for $tagname\n" if $debug;
     $last_item = @tag_order_stack - 1;
     if ( $last_item >= 0 ) {
-        $tag_list = join(" ", @tag_order_stack);
-        print "Current tag stack $tag_list\n" if $debug;
         $tag_item = $tag_order_stack[$last_item];
 
         #
-        # Split tag item into tag and location
+        # Get tag and location
         #
-        ($last_start_tag, $location) = split(/\s+/, $tag_item, 2);
+        $last_start_tag = $tag_item->tag;
+        $location = $tag_item->line_no . ":" . $tag_item->column_no;
         print "Last tag order stack item $last_start_tag at $location\n" if $debug;
     }
     else {
@@ -9565,7 +10027,6 @@ sub Start_Handler {
     $skipped_text =~ s/^\s*//;
     $text_between_tags = $skipped_text;
 
-
     #
     # Start a text handler for this tag if it has an end tag
     #
@@ -9598,6 +10059,13 @@ sub Start_Handler {
     # can have only 1 instance of.
     #
     Check_Multiple_Instances_of_Tag($tagname, $line, $column, $text);
+
+    #
+    # Create a new tag object
+    #
+    $current_tag_object = tqa_tag_object->new($tagname, $line, $column,
+                                              \%attr_hash);
+    push(@tag_order_stack, $current_tag_object);
 
     #
     # Check attributes
@@ -9976,6 +10444,13 @@ sub Start_Handler {
     }
 
     #
+    # Check tfoot tag
+    #
+    elsif ( $tagname eq "tfoot" ) {
+        Tfoot_Tag_Handler( $line, $column, $text, %attr_hash );
+    }
+
+    #
     # Check th tag
     #
     elsif ( $tagname eq "th" ) {
@@ -10030,40 +10505,7 @@ sub Start_Handler {
     #
     if ( defined ($html_tags_with_no_end_tag{$tagname}) ) {
         $last_close_tag = $tagname;
-
-        #
-        # Remove any style information from the style stack for this tag.
-        #
-        $current_tag_styles = pop(@tag_style_stack);
-
-        #
-        # Remove any tag hidden value for this tag
-        #
-        if ( @hidden_tag_stack > 0 ) {
-            $tag_is_hidden = pop(@hidden_tag_stack);
-        }
-        else {
-            $tag_is_hidden = 0;
-        }
-
-        #
-        # Remove any tag visibility value for this tag
-        #
-        if ( @visible_tag_stack > 0 ) {
-            $tag_is_visible = pop(@visible_tag_stack);
-        }
-        else {
-            $tag_is_visible = 1;
-        }
-        print "pop tag_is_visible = $tag_is_visible for endless tag $tagname\n" if $debug;
-    }
-    else {
-        #
-        # Tag with an end tag, push this tag on the tag stack so we
-        # can see if we get the end tags in the correct order
-        #
-        print "Push tag onto tag order stack $tagname at $line:$column\n" if $debug;
-        push(@tag_order_stack, "$tagname $line:$column");
+        $current_tag_object = pop(@tag_order_stack);
     }
 
     #
@@ -10175,9 +10617,15 @@ sub End_Anchor_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
     my ($this_text, @anchor_text_list, $last_line, $last_column);
-    my (@tc_list, $anchor_text, $n, $link_text, $tcid);
+    my (@tc_list, $anchor_text, $n, $link_text, $tcid, $http_href);
+    my ($start_tag_attr);
     my ($all_anchor_text) = "";
     my ($image_alt_in_anchor) = "";
+
+    #
+    # Get start tag attributes
+    #
+    $start_tag_attr = $current_tag_object->attr();
 
     #
     # Get all the text & image paths found within the anchor tag
@@ -10186,7 +10634,7 @@ sub End_Anchor_Tag_Handler {
         print "End anchor tag found without corresponding open tag at line $line, column $column\n" if $debug;
         return;
     }
-    @anchor_text_list = @{ $self->handler("text") };
+    @anchor_text_list = @text_handler_all_text;
 
     #
     # Loop through the text items
@@ -10267,7 +10715,7 @@ sub End_Anchor_Tag_Handler {
         # content (may be needed by parent tag).
         #
         if ( $have_text_handler && ($all_anchor_text =~ /^\s*$/) ) {
-            push(@{ $self->handler("text")}, " $current_a_title");
+            push(@text_handler_all_text, " $current_a_title");
             print "Add anchor title \"$current_a_title\" to text handler\n" if $debug;
         }
 
@@ -10298,9 +10746,35 @@ sub End_Anchor_Tag_Handler {
     $image_alt_in_anchor = Clean_Text($image_alt_in_anchor);
 
     #
+    # Do we have aria-labelledby attribute ?
+    #
+    if ( defined($start_tag_attr) &&
+        (defined($$start_tag_attr{"aria-labelledby"})) &&
+        ($$start_tag_attr{"aria-labelledby"} ne "") ) {
+        #
+        # Technique
+        #   ARIA7: Using aria-labelledby for link purpose
+        # used for label
+        #
+        print "Found aria-labelledby attribute on anchor ARIA7\n" if $debug;
+    }
+    #
+    # Do we have aria-label attribute ?
+    #
+    elsif ( defined($start_tag_attr) &&
+        (defined($$start_tag_attr{"aria-label"})) &&
+        ($$start_tag_attr{"aria-label"} ne "") ) {
+        #
+        # Technique
+        #   ARIA8: Using aria-label for link purpose
+        # used for label
+        #
+        print "Found aria-label attribute on anchor ARIA8\n" if $debug;
+    }
+    #
     # Do we have a URL and no anchor text ?
     #
-    if ( ($all_anchor_text eq "") && ($current_a_href ne "") ) {
+    elsif ( ($all_anchor_text eq "") && ($current_a_href ne "") ) {
         #
         # Was there an image inside this anchor ?
         #
@@ -10382,13 +10856,8 @@ sub End_Anchor_Tag_Handler {
         if ( $current_a_href =~ /^#/ ) {
             $current_a_href = "";
         }
-        else {
-            $current_a_href = URL_Check_Make_URL_Absolute($current_a_href,
-                                                          $current_url);
-        }
-            $current_a_href = URL_Check_Make_URL_Absolute($current_a_href,
-                                                          $current_url);
-
+        $current_a_href = URL_Check_Make_URL_Absolute($current_a_href,
+                                                      $current_url);
     }
 
     #
@@ -10420,14 +10889,19 @@ sub End_Anchor_Tag_Handler {
             #
             # Do the href values match ?
             #
-            if ( $current_a_href ne $anchor_text_href_map{$link_text} ) {
+            $http_href = $current_a_href;
+            $http_href =~ s/^https/http/g;
+            if ( $http_href ne $anchor_text_href_map{$link_text} ) {
 
                 #
                 # Values do not match, is it a case of a development
                 # URL and the equivalent production URL ?
                 #
-                if ( ! Production_Development_URL_Match($current_a_href,
+                if ( Production_Development_URL_Match($current_a_href,
                                   $anchor_text_href_map{$link_text}) ) {
+                    print "Equavalent production and development URLs\n" if $debug;
+                }
+                else {
                     #
                     # Different href values and not a prod/dev
                     # instance.
@@ -10449,7 +10923,9 @@ sub End_Anchor_Tag_Handler {
             #
             # Save the anchor text and href in a hash table
             #
-            $anchor_text_href_map{$link_text} = $current_a_href;
+            $http_href = $current_a_href;
+            $http_href =~ s/^https/http/g;
+            $anchor_text_href_map{$link_text} = $http_href;
             $anchor_location{$link_text} = "$line:$column";
         }
     }
@@ -10460,6 +10936,13 @@ sub End_Anchor_Tag_Handler {
     #
     $last_a_contains_image = $image_found_inside_anchor;
     $last_a_href = $current_a_href;
+
+    #
+    # Ignore the possibility of a pseudo header coming from a link.
+    # The link text may have emphasis, but it shouldn't be considered as
+    # a header.
+    #
+    $pseudo_header = "";
 
     #
     # Reset current anchor href to empty string and clear flag that
@@ -10583,7 +11066,7 @@ sub End_Title_Tag_Handler {
 sub Check_End_Tag_Order {
     my ( $self, $tagname, $line, $column, $text, @attr ) = @_;
 
-    my ($last_start_tag, $tag_item, $location, $tag_list);
+    my ($last_start_tag, $location, $tag_list);
     my ($tag_error) = 0;
 
     #
@@ -10603,14 +11086,23 @@ sub Check_End_Tag_Order {
         # If not we have start/end tags out of order.
         # Report this error only once per document.
         #
-        $tag_list = join(" ", @tag_order_stack);
-        print "Current tag stack $tag_list\n" if $debug;
-        $tag_item = pop(@tag_order_stack);
+        $current_tag_object = pop(@tag_order_stack);
 
         #
-        # Split tag item into tag and location
+        # Get tag and location
         #
-        ($last_start_tag, $location) = split(/\s+/, $tag_item, 2);
+        if ( defined($current_tag_object) ) {
+            $last_start_tag = $current_tag_object->tag;
+            $location = $current_tag_object->line_no . ":" .
+                        $current_tag_object->column_no;
+        }
+        else {
+            $last_start_tag = "";
+            $location ="0:0";
+            $current_tag_styles = "";
+            $tag_is_visible = 1;
+            $tag_is_hidden = 0;
+        }
         print "Pop tag off tag order stack $last_start_tag at $location\n" if $debug;
         print "Check tag with tag order stack $tagname at $line:$column\n" if $debug;
 
@@ -10633,7 +11125,10 @@ sub Check_End_Tag_Order {
                     # Push tag item back onto tag stack, it will be checked
                     # again in the following call to End_Handler
                     #
-                    push(@tag_order_stack, $tag_item);
+                    push(@tag_order_stack, tqa_tag_object->new($last_start_tag,
+                                                               $line,
+                                                               $column,
+                                                               \@attr));
 
                     #
                     # Call End Handler to close the last tag
@@ -10691,6 +11186,59 @@ sub Check_End_Tag_Order {
 
 #***********************************************************************
 #
+# Name: Check_Styled_Text
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks text for possible styling errors.
+#
+#***********************************************************************
+sub Check_Styled_Text {
+    my ($self, $tagname, $line, $column, $text, %attr) = @_;
+
+    my ($tag_text, $results_object, @results_list);
+
+    #
+    # Is this tag visible and does it have styling ?
+    #
+    if ( $tag_is_visible && ($current_tag_styles ne "") ) {
+        #
+        # Get the text from the tag only, not nested tags.
+        # If there is no text we don't have any checks.
+        #
+        $tag_text = Clean_Text(Get_Text_Handler_Tag_Content($self, " "));
+        if ( $tag_text ne "" ) {
+            print "Check_Styled_Text\n" if $debug;
+
+            #
+            # Check for possible styling errors (e.g. colour
+            # contrast).
+            #
+            @results_list = CSS_Check_Check_Styled_Text($current_url,
+                                        $current_tqa_check_profile_name,
+                                        $tagname, $line, $column, $text,
+                                        $current_tag_styles, \%css_styles);
+
+            #
+            # Add any testcase results from the CSS check to the
+            # global list.
+            #
+            foreach $results_object (@results_list) {
+                push(@$results_list_addr, $results_object);
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: End_Handler
 #
 # Parameters: self - reference to this parser
@@ -10710,7 +11258,8 @@ sub End_Handler {
     my ( $self, $tagname, $line, $column, $text, @attr ) = @_;
 
     my (%attr_hash) = @attr;
-    my (@anchor_text_list, $n);
+    my (@anchor_text_list, $n, $tag_text, $last_start_tag);
+    my ($last_item, $tag_item);
 
     #
     # Check end tag order, does this end tag close the last open
@@ -10719,13 +11268,9 @@ sub End_Handler {
     Check_End_Tag_Order($self, $tagname, $line, $column, $text, @attr);
 
     #
-    # If this is an end anchor tag, reset current anchor href to empty string
+    # Check anchor tag
     #
     if ( $tagname eq "a" ) {
-
-        #
-        # See if there are any problems with the anchor tag
-        #
         End_Anchor_Tag_Handler($self, $line, $column, $text);
     }
 
@@ -10952,11 +11497,14 @@ sub End_Handler {
     # Check td tag
     #
     elsif ( $tagname eq "td" ) {
-
-        #
-        # See if table headers were used
-        #
         End_TD_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    # Check tfoot tag
+    #
+    elsif ( $tagname eq "tfoot" ) {
+        End_Tfoot_Tag_Handler( $self, $line, $column, $text );
     }
 
     #
@@ -10970,13 +11518,7 @@ sub End_Handler {
     # Check thead tag
     #
     elsif ( $tagname eq "thead" ) {
-
-        #
-        # No longer in a <thead> .. </thead> pair
-        #
-        if ( $table_nesting_index >= 0 ) {
-            $inside_thead[$table_nesting_index] = 0;
-        }
+        End_Thead_Tag_Handler( $self, $line, $column, $text );
     }
 
     #
@@ -11054,35 +11596,29 @@ sub End_Handler {
     $content_section_handler->check_end_tag($tagname, $line, $column);
 
     #
-    # Get the style information for parent tag from the style stack
+    # Check for styled text
     #
-    if ( @tag_style_stack > 0 ) {
-        $current_tag_styles = pop(@tag_style_stack);
+    Check_Styled_Text($self, $tagname, $line, $column, $text, %attr_hash);
+    
+    #
+    # Restore global tag visibility and hidden status values.
+    #
+    $last_item = @tag_order_stack - 1;
+    if ( $last_item >= 0 ) {
+        $tag_item = $tag_order_stack[$last_item];
+        $current_tag_styles = $tag_item->styles;
+        $tag_is_visible = $tag_item->is_visible;
+        $tag_is_hidden = $tag_item->is_hidden;
+        $last_start_tag = $tag_item->tag;
     }
     else {
         $current_tag_styles = "";
-    }
-
-    #
-    # Remove any tag hidden value for this tag
-    #
-    if ( @hidden_tag_stack > 0 ) {
-        $tag_is_hidden = pop(@hidden_tag_stack);
-    }
-    else {
-        $tag_is_hidden = 0;
-    }
-
-    #
-    # Get the tag visibility value for parent tag from the stack
-    #
-    if ( @visible_tag_stack > 0 ) {
-        $tag_is_visible = pop(@visible_tag_stack);
-    }
-    else {
         $tag_is_visible = 1;
+        $tag_is_hidden = 0;
+        $last_start_tag = "";
     }
-    print "pop tag_is_visible = $tag_is_visible for end tag $tagname\n" if $debug;
+    print "Restore tag_is_visible = $tag_is_visible for last start tag $last_start_tag\n" if $debug;
+    print "Restore tag_is_hidden = $tag_is_hidden for last start tag $last_start_tag\n" if $debug;
 
     #
     # Destroy the text handler that was used to save the text
@@ -11132,7 +11668,7 @@ sub Check_Baseline_Technologies {
 sub Check_Missing_And_Extra_Labels_In_Form {
 
     my ($label_id, $line, $column, $comment, $found, $label_for);
-    my ($is_visible, $is_hidden);
+    my ($label_is_visible, $label_is_hidden, $input_is_visible, $input_is_hidden);
 
     #
     # Check that a label is defined for each one referenced
@@ -11142,8 +11678,8 @@ sub Check_Missing_And_Extra_Labels_In_Form {
         #
         # Did we find a <label> tag with a matching for= value ?
         #
+        ($line, $column, $input_is_visible, $input_is_hidden) = split(/:/, $input_id_location{"$label_id"});
         if ( ! defined($label_for_location{"$label_id"}) ) {
-            ($line, $column) = split(/:/, $input_id_location{"$label_id"});
             Record_Result("WCAG_2.0-F68", $line, $column, "",
                           String_Value("No label matching id attribute") .
                           "'$label_id'" . String_Value("for tag") .
@@ -11153,12 +11689,12 @@ sub Check_Missing_And_Extra_Labels_In_Form {
         # Have a label
         #
         else {
-            ($line, $column, $is_visible, $is_hidden) = split(/:/, $label_for_location{"$label_id"});
-            print "Check label id = $label_id, $line:$column:$is_visible:$is_hidden\n" if $debug;
+            ($line, $column, $label_is_visible, $label_is_hidden) = split(/:/, $label_for_location{"$label_id"});
+            print "Check label id = $label_id, $line:$column:$label_is_visible:$label_is_hidden\n" if $debug;
             #
-            # Is the label hidden ?
+            # Is input visible and the label hidden ?
             #
-            if ( $is_hidden ) {
+            if ( $input_is_visible && $label_is_hidden ) {
                 Record_Result("WCAG_2.0-H44", $line, $column, "",
                               String_Value("Label referenced by") .
                               " 'id=\"$label_id\"' " .
@@ -11167,9 +11703,9 @@ sub Check_Missing_And_Extra_Labels_In_Form {
                               " $line:$column");
             }
             #
-            # Is the label visible ?
+            # Is the input visible and the label visible ?
             #
-            elsif ( ! $is_visible ) {
+            elsif ( $input_is_visible && (! $label_is_visible) ) {
                 Record_Result("WCAG_2.0-H44", $line, $column, "",
                               String_Value("Label referenced by") .
                               " 'id=\"$label_id\"' " .
@@ -11778,7 +12314,7 @@ sub Import_Packages {
                           "javascript_check", "tqa_testcases",
                           "url_check", "tqa_result_object", "textcat",
                           "pdf_check", "content_sections", "language_map",
-                          "crawler");
+                          "crawler", "tqa_tag_object");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
