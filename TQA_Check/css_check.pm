@@ -2,9 +2,9 @@
 #
 # Name:   css_check.pm
 #
-# $Revision: 6717 $
+# $Revision: 6821 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/css_check.pm $
-# $Date: 2014-07-22 12:33:59 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-10-31 10:37:14 -0400 (Fri, 31 Oct 2014) $
 #
 # Description:
 #
@@ -23,6 +23,7 @@
 #     CSS_Check_Does_Style_Have_Emphasis
 #     CSS_Check_Style_Has_Property_Value
 #     CSS_Check_Style_Get_Property_Value
+#     CSS_Check_Check_Styled_Text
 #
 # Terms and Conditions of Use
 # 
@@ -82,6 +83,7 @@ BEGIN {
                   CSS_Check_Does_Style_Have_Emphasis
                   CSS_Check_Style_Has_Property_Value
                   CSS_Check_Style_Get_Property_Value
+                  CSS_Check_Check_Styled_Text
                   );
     $VERSION = "1.0";
 }
@@ -138,13 +140,14 @@ my %string_table_en = (
     "GIF animation exceeds 5 seconds",  "GIF animation exceeds 5 seconds",
     "GIF flashes more than 3 times in 1 second", "GIF flashes more than 3 times in 1 second",
     "The luminosity contrast",      "The luminosity contrast ratio",
-    "is insufficient for",          "is insufficient for the chosen colours",
     "for styles",                   "for styles",
     "The color contrast",           "The color contrast difference",
     "The color brightness",         "The color brightness difference",
-    "is too low for",               "is too low for the chosen colours",
+    "is too low for",               "is too low for colours",
     "non-decorative content in class", "non-decorative content in class ",
     "not specified in em units",    "not specified in 'em' units for (class : value) ",
+    "Loaded in style",              "Loaded in style",
+    "from CSS in",                  "from CSS in",
     );
 
 my %string_table_fr = (
@@ -156,13 +159,14 @@ my %string_table_fr = (
     "GIF flashes more than 3 times in 1 second", "Clignotement de l'image GIF supérieur à 3 par seconde",
     "The luminosity contrast",      "Le contraste de luminosité
 ",
-    "is insufficient for",          "ne suffit pas pour les couleurs choisies",
     "for styles",                   "pour les styles",
     "The color contrast",           "La différence entre les couleurs",
     "The color brightness",         "La différence de luminosité",
     "is too low for",               "ne suffit pas pour les couleurs choisies",
     "non-decorative content in class", "contenu non décoratif de la classe ",
     "not specified in em units",    "n'est pas exprimé en unités 'em' pour (classe : valeur) ",
+    "Loaded in style",              "Chargé dans le style",
+    "from CSS in",                  "de css dans",
     );
 
 #
@@ -361,29 +365,6 @@ sub Initialize_Test_Results {
     #
     $current_css_check_profile = $css_check_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
-
-#
-#***********************************************************************
-#
-# Do not report validation failures of supporting files (CSS, JavaScript)
-# as WCAG 2.0 failures.  Failures apply only to the validity of the
-# HTML markup.
-#
-#***********************************************************************
-#
-#    #
-#    # Check to see if we were told that this document is not
-#    # valid CSS
-#    #
-#    if ( $is_valid_markup == 0 ) {
-#        Record_Result("WCAG_2.0-G134", -1, 0, "",
-#                      String_Value("Fails validation"));
-#    }
-
-
-    #
-    # Initialize other global variables
-    #
 }
 
 #***********************************************************************
@@ -625,145 +606,6 @@ sub Get_Color {
 
 #***********************************************************************
 #
-# Name: min
-#
-# Parameters: value1 - value
-#             value2 - value
-#
-# Description:
-#
-#   This function returns the minimum of values 1 & 2.
-#
-# Returns:
-#   min
-#
-#***********************************************************************
-sub min {
-    my ( $value1, $value2 ) = @_;
-
-    if ( $value1 < $value2 ) {
-        return ($value1);
-    }
-    return ($value2);
-}
-
-#***********************************************************************
-#
-# Name: max
-#
-# Parameters: value1 - value
-#             value2 - value
-#
-# Description:
-#
-#   This function returns the maximum of values 1 & 2.
-#
-# Returns:
-#   min
-#
-#***********************************************************************
-sub max {
-    my ( $value1, $value2 ) = @_;
-
-    if ( $value1 > $value2 ) {
-        return ($value1);
-    }
-    return ($value2);
-}
-
-#***********************************************************************
-#
-# Name: Compute_Color_Contrast
-#
-# Parameters: color1 - color value
-#             color2 - color value
-#
-# Description:
-#
-#   This function computes the color contrast difference and the
-# brightness difference values for 2 colors.
-# Algorithm taken from http://www.w3.org/TR/AERT#color-contrast
-# Color brightness is determined by the following formula:
-# ((Red value X 299) + (Green value X 587) + (Blue value X 114)) / 1000
-# Note: This algorithm is taken from a formula for converting RGB
-# values to YIQ values. This brightness value gives a perceived
-# brightness for a color.
-#
-# See http://snook.ca/technical/colour_contrast/colour.html for
-# an online implementation of this algorithm.
-#
-# Returns:
-#   color difference
-#   brightness difference
-#
-#***********************************************************************
-sub Compute_Color_Differences {
-    my ( $color1, $color2 ) = @_;
-
-    my ( $brightness1, $brightness2, $bright_diff, $color_diff );
-    my ( $r1, $r2, $g1, $g2, $b1, $b2 );
-
-    #
-    # Convert color1 hex string into decimal rgb values
-    #
-    if ( $color1 =~ /^(..)(..)(..)$/ ) {
-        $r1 = hex($1);
-        $g1 = hex($2);
-        $b1 = hex($3);
-    }
-
-    #
-    # Convert color2 hex string into decimal rgb values
-    #
-    if ( $color2 =~ /^(..)(..)(..)$/ ) {
-        $r2 = hex($1);
-        $g2 = hex($2);
-        $b2 = hex($3);
-    }
-
-    #
-    # Compute color brightness.
-    # Algorithm taken from http://www.w3.org/TR/AERT#color-contrast
-    # Color brightness is determined by the following formula:
-    # ((Red value X 299) + (Green value X 587) + (Blue value X 114)) / 1000
-    # Note: This algorithm is taken from a formula for converting RGB
-    # values to YIQ values. This brightness value gives a perceived
-    # brightness for a color.
-    #
-    $brightness1 = ( ( $r1 * 299 ) + ( $g1 * 587 ) + ( $b1 * 114 ) ) / 1000;
-    $brightness2 = ( ( $r2 * 299 ) + ( $g2 * 587 ) + ( $b2 * 114 ) ) / 1000;
-
-    #
-    # Get the difference in the brightness values
-    #
-    $bright_diff = abs($brightness1 - $brightness2);
-
-    #
-    # Compute color difference.
-    # Algorithm taken from http://www.w3.org/TR/AERT#color-contrast
-    # Color difference is determined by the following formula:
-    #    (maximum (Red value 1, Red value 2) -
-    #     minimum (Red value 1, Red value 2)) +
-    #    (maximum (Green value 1, Green value 2) -
-    #     minimum (Green value 1, Green value 2)) +
-    #    (maximum (Blue value 1, Blue value 2) -
-    #     minimum (Blue value 1, Blue value 2))
-    #
-    $color_diff =
-      ( max( $r1, $r2 ) - min( $r1, $r2 ) ) +
-      ( max( $g1, $g2 ) - min( $g1, $g2 ) ) +
-      ( max( $b1, $b2 ) - min( $b1, $b2 ) );
-
-    #
-    # Return color and brightness differences
-    #
-    print "Color contrast difference $color_diff, brightness difference $bright_diff\n"
-      if $debug;
-    return (($color_diff, $bright_diff));
-}
-
-#***********************************************************************
-#
 # Name: Relative_Luminance
 #
 # Parameters: color - color value
@@ -834,9 +676,11 @@ sub Relative_Luminance {
 #
 # Name: Luminosity_Color_Contrast_Ratio_Check
 #
-# Parameters: name - selector (class) name
-#             color1 - a color value
+# Parameters: color1 - a color value
 #             color2 - a color value
+#             line - line number
+#             column - column number
+#             text - text from tag
 #
 # Description:
 #
@@ -874,14 +718,14 @@ sub Relative_Luminance {
 #
 #***********************************************************************
 sub Luminosity_Color_Contrast_Ratio_Check {
-    my ($name, $color1, $color2) = @_;
+    my ($color1, $color2, $line, $column, $text) = @_;
 
     my ($L1, $L2, $contrast);
 
     #
     # Get relative luminance values of the 2 colors
     #
-    print "Luminosity_Color_Contrast_Ratio_Check: check on style $name, foreground $color1, background $color2\n" if $debug;
+    print "Luminosity_Color_Contrast_Ratio_Check: foreground $color1, background $color2\n" if $debug;
     $L1 = Relative_Luminance($color1);
     $L2 = Relative_Luminance($color2);
 
@@ -899,24 +743,22 @@ sub Luminosity_Color_Contrast_Ratio_Check {
     #
     if ( $contrast < 3.0 ) {
         $contrast = sprintf("%4.2f", $contrast);
-        Record_Result("WCAG_2.0-G145", -1, 0, "",
+        Record_Result("WCAG_2.0-G145", $line, $column, $text,
                       String_Value("The luminosity contrast") .
                       " ($contrast) " .
                       String_Value("is too low for") .
-                      " (#$color1, #$color2) " .
-                      String_Value("for styles") ." $name");
+                      " (#$color1, #$color2)");
     }
     #
     # Is the contrast sufficient for the less stringent check ?
     #
     elsif ( $contrast < 4.5 ) {
         $contrast = sprintf("%4.2f", $contrast);
-        Record_Result("WCAG_2.0-G18", -1, 0, "",
+        Record_Result("WCAG_2.0-G18", $line, $column, $text,
                       String_Value("The luminosity contrast") .
                       " ($contrast) " .
                       String_Value("is too low for") .
-                      " (#$color1, #$color2) " .
-                      String_Value("for styles") ." $name");
+                      " (#$color1, #$color2)");
     }
 }
 
@@ -924,9 +766,11 @@ sub Luminosity_Color_Contrast_Ratio_Check {
 #
 # Name: Check_Color_Contrast
 #
-# Parameters: name - selector (class) name
-#             color1 - a color value
+# Parameters: color1 - a color value
 #             color2 - a color value
+#             line - line number
+#             column - column number
+#             text - text from tag
 #
 # Description:
 #
@@ -936,133 +780,15 @@ sub Luminosity_Color_Contrast_Ratio_Check {
 #
 #***********************************************************************
 sub Check_Color_Contrast {
-    my ($name, $color1, $color2) = @_;
-
-    #
-    # Is this a horizontal rule style ? If so there can be no
-    # colour contrast issue with the foreground and background.
-    #
-    if ( ($name =~ /^hr$/i) || ($name =~ /^hr\./i) ) {
-        print "Skip colour contrast check on horizontal rule\n" if $debug;
-        return;
-    }
+    my ($color1, $color2, $line, $column, $text) = @_;
 
     #
     # Check if WCAG 2.0 algorithm is to be used.
     #
     if ( defined($$current_css_check_profile{"WCAG_2.0-G18"})  ||
          defined($$current_css_check_profile{"WCAG_2.0-G145"}) ) {
-        Luminosity_Color_Contrast_Ratio_Check($name, $color1, $color2);
-    }
-}
-
-#***********************************************************************
-#
-# Name: Color_Property
-#
-# Parameters: name - selector (class) name
-#             value - property value
-#
-# Description:
-#
-#   This function checks the value of a color property. It saves any color
-# value in the global foreground_color variable.
-#
-#***********************************************************************
-sub Color_Property {
-    my ($name, $value) = @_;
-
-    #
-    # Get color value
-    #
-    $foreground_color = Get_Color($value);
-    print "Color_Property: foreground color for style $name is $foreground_color\n" if $debug;
-}
-
-#***********************************************************************
-#
-# Name: Background_Color_Property
-#
-# Parameters: name - selector (class) name
-#             value - property value
-#
-# Description:
-#
-#   This function checks the value of a color property. It saves any color
-# value in the global background_color variable.
-#
-#***********************************************************************
-sub Background_Color_Property {
-    my ($name, $value) = @_;
-
-    #
-    # Get color value
-    #
-    $background_color = Get_Color($value);
-    print "Background_Color_Property: background color for style $name is $background_color\n" if $debug;
-}
-
-#***********************************************************************
-#
-# Name: Font_Size_Property
-#
-# Parameters: name - selector (class) name
-#             value - font size property value
-#
-# Description:
-#
-#   This function checks the value of a font-size property.
-#
-#***********************************************************************
-sub Font_Size_Property {
-    my ($name, $value) = @_;
-
-    my (@fields);
-
-    #
-    # Is the font-size 0 ? if so, skip the rest of the checks.
-    #
-    print "Check $name, font-size = $value\n" if $debug;
-    if ( $value == 0 ) {
-        print "Zero size font\n" if $debug;
-        return;
-    }
-
-    #
-    # We may have font size as well as other terms (e.g. !important).
-    # We only need the first value, which should be the size.
-    #
-    @fields = split(/\s+/, $value);
-    $value = $fields[0];
-
-    #
-    # Is this a relative sized font ?
-    # WCAG 2.0 technique C13: Using named font sizes
-    #
-    if ( index($relative_font_sizes, " $value ") != -1 )  {
-        print "Relative size font found\n" if $debug;
-    }
-    #
-    # Is font size in em units ?
-    # WCAG 2.0 technique C14: Using em units for font sizes
-    #
-    elsif ( ($value =~ /em\s*$/) ) {
-        print "Font size is in em units\n" if $debug;
-    }
-    #
-    # Is font size a percentage ?
-    # WCAG 2.0 technique C12: Using percent for font sizes
-    #
-    elsif ( ($value =~ /%\s*$/) ) {
-        print "Font size is in percentages\n" if $debug;
-    }
-    #
-    # Looks like we do not have a scalable font size
-    #
-    else {
-        Record_Result("WCAG_2.0-G142", -1, 0,
-                      "", String_Value("No scalable font") . 
-                      "$name : $value");
+        Luminosity_Color_Contrast_Ratio_Check($color1, $color2,
+                                              $line, $column, $text);
     }
 }
 
@@ -1072,6 +798,9 @@ sub Font_Size_Property {
 #
 # Parameters: name - selector (class) name
 #             value - text decoration property value
+#             line - line number
+#             column - column number
+#             text - text from tag
 #
 # Description:
 #
@@ -1079,15 +808,15 @@ sub Font_Size_Property {
 #
 #***********************************************************************
 sub Text_Decoration_Property {
-    my ($name, $value) = @_;
+    my ($name, $value, $line, $column, $text) = @_;
 
     #
     # Does the value include blink ?
     #
     print "Class $name, text-decoration value $value\n" if $debug;
     if ( $value =~ /blink/i ) {
-        Record_Result("WCAG_2.0-F4", -1, 0,
-                      "", String_Value("blink text decoration in class") . 
+        Record_Result("WCAG_2.0-F4", $line, $column, $text,
+                      String_Value("blink text decoration in class") . 
                       $name);
     }
 }
@@ -1098,6 +827,9 @@ sub Text_Decoration_Property {
 #
 # Parameters: name - selector (class) name
 #             value - content property value
+#             line - line number
+#             column - column number
+#             text - text from tag
 #
 # Description:
 #
@@ -1107,7 +839,7 @@ sub Text_Decoration_Property {
 #
 #***********************************************************************
 sub Content_Property {
-    my ($name, $value) = @_;
+    my ($name, $value, $line, $column, $text) = @_;
 
     #
     # Check for :before or :after qualifier in the style name.
@@ -1148,7 +880,7 @@ sub Content_Property {
                 #
                 # Record failure
                 #
-                Record_Result("WCAG_2.0-F87", -1, 0, "",
+                Record_Result("WCAG_2.0-F87", $line, $column, $text,
                               String_Value("non-decorative content in class") .
                               $name . " content: \"$value\"");
             }
@@ -1158,214 +890,11 @@ sub Content_Property {
 
 #***********************************************************************
 #
-# Name: Height_Property
-#
-# Parameters: name - selector (class) name
-#             value - property value
-#
-# Description:
-#
-#   This function checks the value of a height property.
-#
-#***********************************************************************
-sub Height_Property {
-    my ($name, $value) = @_;
-
-    #
-    # Does this look like an input class ?
-    #
-    if ( ($name =~ /^input$/i) || ($name =~ /^input\./i) ) {
-        #
-        # Is height size in em units ?
-        #
-        if ( ($value =~ /em\s*$/) ) {
-            print "Height is in em units\n" if $debug;
-        }
-        else {
-            Record_Result("WCAG_2.0-C28", -1, 0, "", "'height' " .
-                          String_Value("not specified in em units") .
-                          "$name : $value");
-        }
-    }
-}
-
-#***********************************************************************
-#
-# Name: Width_Property
-#
-# Parameters: name - selector (class) name
-#             value - property value
-#
-# Description:
-#
-#   This function checks the value of a width property.
-#
-#***********************************************************************
-sub Width_Property {
-    my ($name, $value) = @_;
-
-    #
-    # Does this look like an input class ?
-    #
-    if ( $name =~ /^input\./i ) {
-        #
-        # Is width size in em units ?
-        #
-        if ( ($value =~ /em\s*$/) ) {
-            print "Width is in em units\n" if $debug;
-        }
-        else {
-            Record_Result("WCAG_2.0-C28", -1, 0, "", "'width' " .
-                          String_Value("not specified in em units") .
-                          "$name : $value");
-        }
-    }
-}
-
-#***********************************************************************
-#
-# Name: Parse_CSS_Content
-#
-# Parameters: content_ptr - css content pointer
-#
-# Description:
-#
-#   This function parses the CSS content and checks for errors.
-#
-#***********************************************************************
-sub Parse_CSS_Content {
-    my ($content_ptr) = @_;
-
-    my ($css, $style, @properties, $property, $value, $hash, $this_prop);
-    my ($selector, $name, $content);
-
-    #
-    # Remove any comments from the CSS content
-    #
-    print "Parse_CSS_Content\n" if $debug;
-    $content = $$content_ptr;
-    $content =~ s/<!--.+?-->//gs;
-    $content =~ s!/\*.+?\*/!!gs;
-
-    #
-    # Create a CSS parser object and set the output adaptor.
-    #
-    $css = CSS->new({ 'parser' => 'CSS::Parse::Lite_Style_Set' });
-    $css->set_adaptor('CSS::Adaptor::Objects');
-
-    #
-    # Parse the CSS content
-    #
-    $css->read_string($content);
-
-    #
-    # Check each style in the list of styles
-    #
-    for $style (@{$css->{styles}}){
-        #
-        # Process each selector within the style
-        #
-        for $selector (@{$style->{selectors}}) {
-            $name = $selector->{name};
-            print "Processing selector $name\n" if $debug;
-            
-            #
-            # Initialize foreground and background colors
-            #
-            $foreground_color = undef;
-            $background_color = undef;
-
-            #
-            # Get the list of properties for this selector/class name.
-            # Process each one.
-            #
-            @properties = $style->properties;
-            for $this_prop (@properties) {
-                #
-                # Get the property name and its value
-                #
-                $hash = $$this_prop{"options"};
-                $property = $$hash{"property"};
-                $value = $$hash{"value"};
-
-                #
-                # Remove any !important qualifier
-                #
-                $value =~ s/!important//gi;
-                print "Property $property, value $value\n" if $debug;
-
-                #
-                # Look for background property
-                #
-                if ( $property eq "background" ) {
-                    Background_Color_Property($name, $value);
-                }
-                #
-                # Look for background-color property
-                #
-                elsif ( $property eq "background-color" ) {
-                    Background_Color_Property($name, $value);
-                }
-                #
-                # Look for color property
-                #
-                elsif ( $property eq "color" ) {
-                    Color_Property($name, $value);
-                }
-                #
-                # Look for content property
-                #
-                elsif ( $property eq "content" ) {
-                    Content_Property($name, $value);
-                }
-                #
-                # Look for font-size property
-                #
-                elsif ( $property eq "font-size" ) {
-                    Font_Size_Property($name, $value);
-                }
-                #
-                # Look for height property
-                #
-                elsif ( $property eq "height" ) {
-                    Height_Property($name, $value);
-                }
-                #
-                # Look for text-decoration property
-                #
-                elsif ( $property eq "text-decoration" ) {
-                    Text_Decoration_Property($name, $value);
-                }
-                #
-                # Look for width property
-                #
-                elsif ( $property eq "width" ) {
-                    Width_Property($name, $value);
-                }
-            }
-
-            #
-            # Checks performed on all properties of the style.
-            #
-            #
-            # Do we have both foreground and background color
-            #
-            if ( defined($background_color) && defined($foreground_color) ) {
-                #
-                # Check colour contrast
-                #
-                Check_Color_Contrast($name, $foreground_color,
-                                     $background_color);
-            }
-        }
-    }
-}
-
-#***********************************************************************
-#
 # Name: Check_Flickering_Image
 #
-# Parameters: url - url to check
+# Parameters: url - url of image to check
+#             style - name of CSS style
+#             css_url - URL of CSS file with style
 #
 # Description:
 #
@@ -1374,7 +903,7 @@ sub Parse_CSS_Content {
 #
 #***********************************************************************
 sub Check_Flickering_Image {
-    my ($url) = @_;
+    my ($url, $style, $css_url) = @_;
 
     my ($resp, %image_details, $abs_url);
 
@@ -1404,7 +933,9 @@ sub Check_Flickering_Image {
             #
             Record_Result("WCAG_2.0-G152", -1, 0, "", 
                         String_Value("GIF animation exceeds 5 seconds") .
-                        " $url");
+                        " \"$url\". " .
+                        String_Value("Loaded in style") . " \"$style\" " .
+                        String_Value("from CSS in") . " \"$css_url\"");
         }
 
         #
@@ -1417,7 +948,9 @@ sub Check_Flickering_Image {
             #
             Record_Result("WCAG_2.0-G19", -1, 0, "",
                         String_Value("GIF flashes more than 3 times in 1 second")
-                        . " $url");
+                        . " \"$url\". " .
+                        String_Value("Loaded in style") . " \"$style\" " .
+                        String_Value("from CSS in") . " \"$css_url\"");
         }
     }
 }
@@ -1470,30 +1003,10 @@ sub CSS_Check {
     Initialize_Test_Results($profile, \@tqa_results_list);
 
     #
-    # Did we get any content ?
+    # Nothing to check for, checks moved to CSS_Check_Check_Styled_Text
+    # function.  Leave this function here for possible future use if there
+    # are checks that apply to the whole of a CSS file.
     #
-    if ( length($$content) > 0 ) {
-        #
-        # Parse the content and check for errors
-        #
-        Parse_CSS_Content($content);
-
-        #
-        # Extract any URLs from the content, these may be URLs for
-        # images which have to be checked.
-        #
-        @urls = CSS_Extract_Links($this_url, $this_url, $language, $content);
-        foreach $url (@urls) {
-            #
-            # Is this a flickering image ?
-            #
-            Check_Flickering_Image($url->abs_url);
-        }
-    }
-    else {
-        print "No content passed to CSS_Check\n" if $debug;
-        return(@tqa_results_list);
-    }
 
     #
     # Reset valid markup flag to unknown before we are called again
@@ -1597,7 +1110,7 @@ sub CSS_Check_Get_Styles_From_Content {
     my ($this_url, $content, $mime_type) = @_;
 
     my ($parser, %style_hash, $style, $css, $selector, $name, $addr);
-    my (@properties, $this_prop, $property, $value, $hash);
+    my (@properties, $this_prop, $property, $value, $hash, @values);
     my ($first_style, $previous_prop, $previous_hash, $previous_value);
 
     #
@@ -1642,12 +1155,41 @@ sub CSS_Check_Get_Styles_From_Content {
             for $selector (@{$style->{selectors}}) {
                 $name = $selector->{name};
                 print "Processing selector $name\n" if $debug;
+                
+                #
+                # Does this style have a media property ?
+                #
+                $property = $style->get_property_by_name("media");
+                if ( $property != 0 ) {
+                    $hash = $$property{"options"};
+                    $value = $$hash{"value"};
+                    print "Media property value = $value\n" if $debug;
+                    
+                    #
+                    # Is the media type screen ?
+                    #
+                    if ( ! ($value =~ /screen/i) ) {
+                        print "Did not find screen media value\n" if $debug;
+                        next;
+                    }
+                }
 
                 #
                 # Save the style object in the style_hash
                 #
                 if ( ! defined($style_hash{"$name"}) ) {
                     $style_hash{"$name"} = $style;
+                    
+                    #
+                    # Add a property to the style object to record the URL
+                    # this style is found in.
+                    #
+                    $property = $style->get_property_by_name("WPSS_CSS_URL");
+                    if ( $property == 0 ) {
+                        $property = CSS::Property->new({property => "WPSS_CSS_URL",
+                                                        value => $this_url});
+                        $style->add_property($property);
+                                        }
                 }
                 else {
                     #
@@ -1679,26 +1221,28 @@ sub CSS_Check_Get_Styles_From_Content {
                         # Do we already have this property from a previous
                         # instance of this style ?
                         #
-                        $previous_prop = $first_style->get_property_by_name($property);
-                        if ( $previous_prop != 0 ) {
-                            #
-                            # Is the value different ?
-                            #
-                            $previous_hash = $$previous_prop{"options"};
-                            $previous_value = $$previous_hash{"value"};
-                            if ( $value ne $previous_value ) {
-                                print "Style $name already has property $property\n" if $debug;
-                                print "  Previous $property: $previous_value\n" if $debug;
-                                print "  new      $property: $value\n" if $debug;
+                        if ( $property ne "WPSS_CSS_URL" ) {
+                            $previous_prop = $first_style->get_property_by_name($property);
+                            if ( $previous_prop != 0 ) {
+                                #
+                                # Is the value different ?
+                                #
+                                $previous_hash = $$previous_prop{"options"};
+                                $previous_value = $$previous_hash{"value"};
+                                if ( $value ne $previous_value ) {
+                                    print "Style $name already has property $property\n" if $debug;
+                                    print "  Previous $property: $previous_value\n" if $debug;
+                                    print "  new      $property: $value\n" if $debug;
+                                }
                             }
-                        }
-                        else {
-                            #
-                            # Add this property to the first instance of
-                            # the style
-                            #
-                            print "Add property to first instance of style\n" if $debug;
-                            $first_style->add_property($this_prop);
+                            else {
+                                #
+                                # Add this property to the first instance of
+                                # the style
+                                #
+                                print "Add property to first instance of style\n" if $debug;
+                                $first_style->add_property($this_prop);
+                            }
                         }
                     }
                 }
@@ -1949,6 +1493,208 @@ sub CSS_Check_Style_Get_Property_Value {
     # Return property value
     #
     return($value);
+}
+
+#***********************************************************************
+#
+# Name: CSS_Check_Check_Styled_Text
+#
+# Parameters: this_url - page URL
+#             profile - testcase profile
+#             tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             style_list - a list of CSS style names for this tag
+#             css_styles - address of a table of CSS styles for the web page
+#
+# Description:
+#
+#   This function checks for possible foreground and background colour
+# specifications for this tag. If colours are found, a check of the contrast
+# is performed and the results of the check are returned.
+#
+#***********************************************************************
+sub CSS_Check_Check_Styled_Text {
+    my ($this_url, $profile, $tagname, $line, $column, $text, 
+        $style_list, $css_styles) = @_;
+
+    my ($style, $style_object, $important, @tqa_results_list);
+    my (@properties, $property, $value, $hash, $this_prop);
+    my ($foreground, $background, $tag_foreground, $tag_background);
+    my ($css_url, @style_urls, $url);
+
+    #
+    # Save URL in global variable
+    #
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
+        $current_url = $this_url;
+    }
+    else {
+        #
+        # Doesn't look like a URL.  Could be just a block of CSS
+        # from the standalone validator which does not have a URL.
+        #
+        $current_url = "";
+    }
+
+    #
+    # Initialize the test case pass/fail table.
+    #
+    Initialize_Test_Results($profile, \@tqa_results_list);
+
+    #
+    # Do we have a CSS style for the style name ?
+    #
+    print "CSS_Check_Check_Styled_Text tag $tagname, styles $style_list, profile $profile\n" if $debug;
+    foreach $style (split(/\s+/, $style_list)) {
+        if ( defined($$css_styles{$style}) ) {
+            $style_object = $$css_styles{$style};
+            
+            #
+            # Get the URL for this CSS style
+            #
+            $property = $style_object->get_property_by_name("WPSS_CSS_URL");
+            if ( $property != 0 ) {
+                $hash = $$property{"options"};
+                $value = $$hash{"value"};
+                $css_url = $value;
+            }
+            else {
+                $css_url = "";
+            }
+
+            #
+            # Check for flickering images in in the style
+            #
+            @style_urls = CSS_Extract_Links_From_CSS_Style($css_url, $style,
+                                                           $style_object);
+            foreach $url (@style_urls) {
+                #
+                # Is this a flickering image ?
+                #
+                Check_Flickering_Image($url->abs_url, $style, $css_url);
+            }
+
+            #
+            # Get the list of properties for this selector/class name.
+            # Process each one.
+            #
+            @properties = $style_object->properties;
+            for $this_prop (@properties) {
+                #
+                # Get the property name and its value
+                #
+                $hash = $$this_prop{"options"};
+                $property = $$hash{"property"};
+                $value = $$hash{"value"};
+
+                #
+                # Is this an important style ?
+                #
+                if ( $value =~ /!important/i ) {
+                    #
+                    # Remove any !important qualifier
+                    #
+                    $value =~ s/!important//gi;
+                    $important = 1;
+                }
+                else {
+                    $important = 0;
+                }
+
+                #
+                # Look for background, or background-color property
+                #
+                print "Check property $property, value $value\n" if $debug;
+                if ( ($property eq "background") ||
+                     ($property eq "background-color") ) {
+                    $background = Get_Color($value);
+                    print "Property $property, value $background\n" if $debug;
+
+                    #
+                    # Do we already have a background colour ?
+                    #
+                    if ( (! defined($tag_background)) || $important ) {
+                        #
+                        # Use this style's colour
+                        #
+                        $tag_background = $background;
+                    }
+                    else {
+                        #
+                        # Use this colour if it is darker
+                        #
+                        if ( hex($background) > hex($tag_background) ) {
+                            print "Use darker background colour\n" if $debug;
+                            $tag_background = $background;
+                        }
+                    }
+                }
+                #
+                # Look for color property
+                #
+                elsif ( $property eq "color" ) {
+                    $foreground = Get_Color($value);
+                    print "Property $property, value $foreground\n" if $debug;
+
+                    #
+                    # Do we already have a foreground colour ?
+                    #
+                    if ( (! defined($tag_foreground)) || $important ) {
+                        #
+                        # Use this style's colour
+                        #
+                        $tag_foreground = $foreground;
+                    }
+                    else {
+                        #
+                        # Use this colour if it is lighter
+                        #
+                        if ( hex($foreground) < hex($tag_foreground) ) {
+                            print "Use lighter foreground colour\n" if $debug;
+                            $tag_foreground = $foreground;
+                        }
+                    }
+                }
+                #
+                # Look for content property
+                #
+                elsif ( $property eq "content" ) {
+                    Content_Property($style, $value, $line, $column, $text);
+                }
+                #
+                # Look for text-decoration property
+                #
+                elsif ( $property eq "text-decoration" ) {
+                    Text_Decoration_Property($style, $value, $line,
+                                             $column, $text);
+                }
+            }
+        }
+    }
+
+    #
+    #
+    # Do we have both foreground and background color
+    #
+    if ( defined($tag_background) && defined($tag_foreground) ) {
+        #
+        # Check colour contrast
+        #
+#
+# Disable this check as unnamed styles may specify colours that
+# override the named styles.
+#
+        #
+        #Check_Color_Contrast($tag_foreground, $tag_background,
+        #                     $line, $column, $text);
+    }
+
+    #
+    # Return testcase results
+    #
+    return(@tqa_results_list);
 }
 
 #***********************************************************************
