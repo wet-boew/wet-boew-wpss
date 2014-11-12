@@ -2,9 +2,9 @@
 #
 # Name: content_sections.pm
 #
-# $Revision: 6582 $
+# $Revision: 6832 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/content_sections.pm $
-# $Date: 2014-03-12 15:22:46 -0400 (Wed, 12 Mar 2014) $
+# $Date: 2014-11-10 13:21:47 -0500 (Mon, 10 Nov 2014) $
 #
 # Description:
 #
@@ -335,6 +335,12 @@ sub check_start_tag {
         print "Found property attribute " . $attr{"property"} . "\n" if $debug;
         $marker_list .= " " . $attr{"property"};
     }
+    
+    #
+    # Add tag name to the marker list as it may define the beginning of
+    # a section (e.g. <body> starts CONTENT.
+    #
+    $marker_list .= " $tag";
     $marker_list =~ s/^\s*//g;
 
     #
