@@ -2,9 +2,9 @@
 #
 # Name:   validate_markup.pm
 #
-# $Revision: 6739 $
+# $Revision: 6910 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/validate_markup.pm $
-# $Date: 2014-07-25 14:53:50 -0400 (Fri, 25 Jul 2014) $
+# $Date: 2014-12-15 16:11:01 -0500 (Mon, 15 Dec 2014) $
 #
 # Description:
 #
@@ -233,17 +233,16 @@ sub Validate_Markup {
         #
         # Is this XML content
         #
-        elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
-                ($mime_type =~ /application\/atom\+xml/) ||
+        elsif ( ($mime_type =~ /application\/atom\+xml/) ||
+                ($mime_type =~ /application\/ttml\+xml/) ||
+                ($mime_type =~ /application\/xhtml\+xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($this_url =~ /\.xml$/i) ) {
             #
-            # Determine if the XML document is a Web Feed.
+            # Validate the XML content.
             #
-            if ( Feed_Validate_Is_Web_Feed($this_url, $content) ) {
-                print "Validate XML Web feed content\n" if $debug;
-                @results_list = Feed_Validate_Content($this_url, $content);
-            }
+            print "Validate XML content\n" if $debug;
+            @results_list = XML_Validate_Content($this_url, $content);
         }
     }
     else {
@@ -277,7 +276,8 @@ sub Import_Packages {
     my ($package);
     my (@package_list) = ("css_validate", "html_validate",
                           "javascript_validate", "robots_check",
-                          "tqa_result_object", "feed_validate");
+                          "tqa_result_object", "feed_validate",
+                          "xml_validate");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
