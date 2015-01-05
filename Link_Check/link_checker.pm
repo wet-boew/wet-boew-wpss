@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 6720 $
+# $Revision: 6957 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
-# $Date: 2014-07-22 12:34:54 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2015-01-05 15:14:04 -0500 (Mon, 05 Jan 2015) $
 #
 # Description:
 #
@@ -2018,6 +2018,16 @@ sub Link_Checker_Get_Link_Status {
         }
 
         #
+        # Did we get a 401 (Not Authorized) code ?
+        #
+        if ( $resp->code == 401 ) {
+            #
+            # Since we did not get the URL, we don't report errors since
+            # we don't KNOW if it is broken or not.
+            #
+            $visited_url_status{$this_link} = $link_check_success;
+        }
+        #
         # If we don't already have a status or if status is
         # success, perform other checks (e.g. anchors)
         #
@@ -2025,28 +2035,26 @@ sub Link_Checker_Get_Link_Status {
              ($visited_url_status{$this_link} == $link_check_success) ||
              ($visited_url_status{$this_link} == $link_check_broken_anchor) ) {
             #
-            # Now check to see if there is a named anchor in the
+            # Assume the link is valid
+            #
+            $visited_url_status{$this_link} = $link_check_success;
+            
+            #
+            # Check to see if there is a named anchor in the
             # URL (e.g. http://domain/document.html#section.
             # If the document exists but the anchor does not, the
             # GET operation is still a success (browser places
             # user at the top of the document).
             #
-            if ( defined($link->query) && ($link->query =~ /#/) ) {
+            if ( ($resp->is_success)
+                 && defined($link->query)
+                 && ($link->query =~ /#/) ) {
                 #
                 # Is this named anchor in the document ?
                 #
-                if ( Anchor_In_HTML($resp, $this_link, $link->query) ) {
-                    $visited_url_status{$this_link} = $link_check_success;
-                }
-                else {
-                    #
-                    # Anchor not found
-                    #
+                if ( ! Anchor_In_HTML($resp, $this_link, $link->query) ) {
                     $visited_url_status{$this_link} = $link_check_broken_anchor;
                 }
-            }
-            else {
-                $visited_url_status{$this_link} = $link_check_success;
             }
         }
 
