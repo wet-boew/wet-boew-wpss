@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 6705 $
+# $Revision: 6876 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2014-07-22 12:16:37 -0400 (Tue, 22 Jul 2014) $
+# $Date: 2014-12-03 16:08:38 -0500 (Wed, 03 Dec 2014) $
 #
 # Description:
 #
@@ -29,7 +29,6 @@
 #     Set_Crawler_HTTP_Response_Callback
 #     Set_Crawler_HTTP_401_Callback
 #     Set_Crawler_Login_Logout
-#     Set_Crawler_Set_Maximum_URLs_To_Return
 #     Set_Crawler_URL_Ignore_Patterns
 #
 # Terms and Conditions of Use
@@ -106,7 +105,6 @@ BEGIN {
                   Set_Crawler_HTTP_Response_Callback
                   Set_Crawler_HTTP_401_Callback
                   Set_Crawler_Login_Logout
-                  Set_Crawler_Set_Maximum_URLs_To_Return
                   Crawler_Set_Proxy
                   Set_Crawler_URL_Ignore_Patterns);
     $VERSION = "1.0";
@@ -139,12 +137,12 @@ if ( $have_threads ) {
 
 my ($user_agent_name) = "Crawler";
 my ($user_agent_max_size) = 10000000;
-my ($default_max_urls_between_sleeps) = 2;
 my ($debug) = 0;
 my ($max_urls_to_return) = 0;
 my ($max_redirects) = 10;
 my ($max_401s) = 2;
 my ($respect_robots_txt) = 1;
+my ($max_crawl_depth) = 0;
 
 #***********************************************************************
 #
@@ -239,34 +237,13 @@ sub Crawler_Get_User_Agent {
     # Do we have a  user agent ?
     #
     if ( ! defined($user_agent) ) {
-        $user_agent = Create_User_Agent($default_max_urls_between_sleeps);
+        $user_agent = Create_User_Agent();
     }
 
     #
     # Return user agent
     #
     return($user_agent);
-}
-
-#***********************************************************************
-#
-# Name: Set_Crawler_Set_Maximum_URLs_To_Return
-#
-# Parameters: max_urls - maximum number of URLs
-#
-# Description:
-#
-#   This function sets the maximum number of URLs to return
-# from the crawling process.
-#
-#***********************************************************************
-sub Set_Crawler_Set_Maximum_URLs_To_Return {
-    my ($max_urls) = @_;
-
-    #
-    # Copy value into global variable.
-    #
-    $max_urls_to_return = $max_urls;
 }
 
 #***********************************************************************
@@ -767,7 +744,7 @@ sub Crawler_Decode_Content {
 #
 # Name: Create_User_Agent
 #
-# Parameters: max_urls_between_sleeps
+# Parameters: none
 #
 # Description:
 #
@@ -776,7 +753,6 @@ sub Crawler_Decode_Content {
 #
 #***********************************************************************
 sub Create_User_Agent {
-    my ($max_urls_between_sleeps) = @_;
 
     #
     # Local variables
@@ -796,11 +772,11 @@ sub Create_User_Agent {
     #
     # Setup user agent to handle HTTP requests
     #
-    print "Create user agent $user_agent_name, delay = $max_urls_between_sleeps\n" if $debug;
+    print "Create user agent $user_agent_name\n" if $debug;
     $ua = LWP::RobotUA->new("$user_agent_name", "$user_agent_name\@$host");
     $ua->ssl_opts(verify_hostname => 0);
     $ua->timeout("60");
-    $ua->delay(1/(60 * $max_urls_between_sleeps));
+    $ua->delay(1/120);
 
     #
     # Set maximum document size
@@ -853,7 +829,7 @@ sub Crawler_Set_Proxy {
     # Do we have a  user agent ?
     #
     if ( ! defined($user_agent) ) {
-        $user_agent = Create_User_Agent($default_max_urls_between_sleeps);
+        $user_agent = Create_User_Agent();
     }
 
     #
@@ -1114,7 +1090,7 @@ sub Set_Site_URL_Patterns {
 #
 #***********************************************************************
 sub Initialize_Crawler_Variables {
-    my ( $site_dir_e, $site_dir_f, $max_urls_between_sleeps ) = @_;
+    my ($site_dir_e, $site_dir_f) = @_;
 
     my ($dir_e, $dir_f, $day, $month, $year);
     my ($protocol, $query, $new_url);
@@ -1123,7 +1099,7 @@ sub Initialize_Crawler_Variables {
     # Create user agent
     #
     if ( ! defined($user_agent) ) {
-        $user_agent = Create_User_Agent($max_urls_between_sleeps);
+        $user_agent = Create_User_Agent();
     }
 
     #
@@ -1258,7 +1234,7 @@ sub Crawler_Get_HTTP_Response {
     # Do we have a  user agent ?
     #
     if ( ! defined($user_agent) ) {
-        $user_agent = Create_User_Agent($default_max_urls_between_sleeps);
+        $user_agent = Create_User_Agent();
     }
 
     #
@@ -2300,7 +2276,7 @@ sub Set_Initial_Crawl_List {
 sub Get_Login_Form {
     my ($url, $resp) = @_;
 
-    my (@forms, $this_form, $login_form);
+    my (@forms, $this_form, $login_form, $name);
 
     #
     # Parse forms from content
@@ -2317,28 +2293,32 @@ sub Get_Login_Form {
         # of forms.
         #
         if ( defined($login_form_name) && ($login_form_name ne "") ) {
+            print "Look for form with name or id = \"$login_form_name\"\n" if $debug;
             foreach $this_form (@forms) {
-                if ( $debug ) {
-                    print "Found form ";
-                    if ( defined($this_form->attr("name")) ) {
-                        print "name = " . $this_form->attr("name");
+                #
+                # Check form name attribute
+                #
+                if ( defined($this_form->attr("name")) ) {
+                    $name = $this_form->attr("name");
+                    print "Found form name = \"$name\"\n" if $debug;
+                    if ( $name eq $login_form_name ) {
+                        $login_form = $this_form;
+                        print "Found login form\n" if $debug;
+                        last;
                     }
-                    if ( defined($this_form->attr("id")) ) {
-                        print " id = " . $this_form->attr("id");
-                    }
-                    print "\n" if $debug;
                 }
 
                 #
-                # Check both the name & id attributes
+                # Check form id attribute
                 #
-                if ( (defined($this_form->attr("name")) && 
-                        ($this_form->attr("name") eq $login_form_name)) ||
-                     (defined($this_form->attr("id")) && 
-                        ($this_form->attr("id") eq $login_form_name)) ) {
-                    $login_form = $this_form;
-                    print "Found login form\n" if $debug;
-                    last;
+                if ( defined($this_form->attr("id")) ) {
+                    $name = $this_form->attr("id");
+                    print "Found form id = \"$name\"\n" if $debug;
+                    if ( $name eq $login_form_name ) {
+                        $login_form = $this_form;
+                        print "Found login form\n" if $debug;
+                        last;
+                    }
                 }
             }
         }
@@ -3012,14 +2992,49 @@ sub Content_Checksum {
 
 #***********************************************************************
 #
+# Name: Set_Crawler_Options
+#
+# Parameters: crawler_options - hash table of options
+#
+# Description:
+#   This function sets a number of crawler options.
+#
+#***********************************************************************
+sub Set_Crawler_Options {
+    my ($crawler_options) = @_;
+
+    #
+    # Check for maximum crawl depth
+    #
+    if ( defined($crawler_options)
+         && defined($$crawler_options{"crawl_depth"})) {
+        $max_crawl_depth = $$crawler_options{"crawl_depth"};
+    }
+    else {
+        $max_crawl_depth = 0;
+    }
+
+    #
+    # Check for maximum number of URLs to return
+    #
+    if ( defined($crawler_options)
+         && (defined($$crawler_options{"max_urls_to_return"})) ) {
+        $max_urls_to_return = $$crawler_options{"max_urls_to_return"};
+    }
+    else {
+        $max_urls_to_return = 0;
+    }
+}
+
+#***********************************************************************
+#
 # Name: Crawl_Site
 #
 # Parameters: site_dir_e - English site domain & directory
 #             site_dir_f - French site domain & directory
 #             site_entry_e - English entry page
 #             site_entry_f - French entry page
-#             max_urls_between_sleeps - number of URLs to get between sleeps
-#             this_debug - debug flag
+#             crawler_options - address of a hash table of options
 #             url_list - reference to list to contain list of site URLs
 #             url_type - reference to list to contain URL mime type
 #             url_last_modified - reference to list to contain URL
@@ -3040,33 +3055,21 @@ sub Content_Checksum {
 #***********************************************************************
 sub Crawl_Site {
     my ( $site_dir_e, $site_dir_f, $site_entry_e, $site_entry_f, 
-         $max_urls_between_sleeps, $this_debug, 
-         $url_list, $url_type, $url_last_modified,
+         $crawler_options, $url_list, $url_type, $url_last_modified,
          $url_size, $url_referer ) = @_;
 
-    my (@links, $link, @link_href);
+    my (@links, $link, @link_href, $referer);
     my ($resp, $content, $url, %url_referer_map, @urls_to_crawl);
     my ($n_links, $i, $header, $day, $month, $year, $last_modified);
     my ($rewritten_url, %urls_to_crawl_map, $content_type);
     my (%url_list_map, %url_checksum_map, $checksum, $list_length);
-    my ($size, $lang, $base, $login_url);
+    my ($size, $lang, $base, $login_url, $crawl_depth);
     my ($logged_in) = 0;
 
     #
-    # Set global debug flag.
+    # Set crawler options
     #
-    $debug = $this_debug;
-    if ( $debug ) {
-        print "Crawl_Site: English entry = $site_dir_e/$site_entry_e\n";
-        print "            French  entry = $site_dir_f/$site_entry_f\n";
-    }
-
-    #
-    # Check the maximum number of URLs between sleeps
-    #
-    if ( $max_urls_between_sleeps < 1 ) {
-        $max_urls_between_sleeps = $default_max_urls_between_sleeps;
-    }
+    Set_Crawler_Options($crawler_options);
 
     #
     # Initialize lists to empty lists
@@ -3080,8 +3083,9 @@ sub Crawl_Site {
     #
     # Initialize crawler variables.
     #
-    Initialize_Crawler_Variables($site_dir_e, $site_dir_f,
-                                 $max_urls_between_sleeps);
+    Initialize_Crawler_Variables($site_dir_e, $site_dir_f);
+    print "Crawl_Site: English entry = $site_dir_e/$site_entry_e\n" if $debug;
+    print "            French  entry = $site_dir_f/$site_entry_f\n" if $debug;
 
     #
     # Check for a robots.txt file
@@ -3146,7 +3150,21 @@ sub Crawl_Site {
         print "URLs to crawl list length is $list_length\n" if $debug;
         $url = pop(@urls_to_crawl);
         $urls_to_crawl_map{$url} = 1;
-        print "URL to crawl = $url\n" if $debug;
+        
+        #
+        # Determine the crawl depth if this URL has a referrer
+        #
+        if ( defined($url_referer_map{$url}) ) {
+            $referer = $url_referer_map{$url};
+            $crawl_depth = $url_list_map{$referer} + 1;
+        }
+        else {
+            #
+            # Must be a top level URL
+            #
+            $crawl_depth = 0;
+        }
+        print "Depth $crawl_depth url = $url\n" if $debug;
 
         #
         # Get HTTP::Response object for the URL.
@@ -3203,7 +3221,6 @@ sub Crawl_Site {
             # there may be multiple URLs for the same document.
             #
             if ( defined($url_checksum_map{$checksum}) ) {
-$url_checksum_map{$checksum} . "\n";
                 print "Duplicate content, previously seen at\n  --> " .
                       $url_checksum_map{$checksum} . "\n" if $debug;
                 next;
@@ -3211,7 +3228,7 @@ $url_checksum_map{$checksum} . "\n";
             else {
                 $url_checksum_map{$checksum} = $rewritten_url;
                 $url_checksum_map{$checksum} = $url;
-                $url_list_map{$rewritten_url} = 1;
+                $url_list_map{$rewritten_url} = $crawl_depth;
             }
 
             #
@@ -3224,7 +3241,7 @@ $url_checksum_map{$checksum} . "\n";
             #
             $header = $resp->headers;
             push (@$url_list, $url);
-            $url_list_map{$url} = 1;
+            $url_list_map{$url} = $crawl_depth;
             $content_type = $header->content_type;
             push (@$url_type, $content_type);
 
@@ -3266,6 +3283,15 @@ $url_checksum_map{$checksum} . "\n";
                  ($max_urls_to_return <= @$url_list) ) {
                 print "Reached maximum number of URLs to return $max_urls_to_return\n" if $debug;
                 last;
+            }
+            
+            #
+            # Have we reached the crawl depth ? if so we don't extract links
+            # from this page.
+            #
+            if ( ($max_crawl_depth > 0 ) && ($crawl_depth >= $max_crawl_depth) ) {
+                print "Reached crawl depth, skip URL\n" if $debug;
+                next;
             }
 
             #
@@ -3327,7 +3353,7 @@ $url_checksum_map{$checksum} . "\n";
                 #
                 if ( defined($login_url) && 
                      (! defined($url_list_map{$login_url})) ) {
-                    $url_list_map{$login_url} = 1;
+                    $url_list_map{$login_url} = 0;
                     push (@$url_list, $login_url);
                 }
 
