@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6818 $
+# $Revision: 6941 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2014-10-31 10:32:12 -0400 (Fri, 31 Oct 2014) $
+# $Date: 2014-12-23 11:06:22 -0500 (Tue, 23 Dec 2014) $
 #
 # Description:
 #
@@ -2907,8 +2907,9 @@ sub Extract_Links {
         #
         # Is the file XML ? or does the URL end in a .xml ?
         #
-        elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
-                ($mime_type =~ /application\/atom\+xml/) ||
+        elsif ( ($mime_type =~ /application\/atom\+xml/) ||
+                ($mime_type =~ /application\/ttml\+xml/) ||
+                ($mime_type =~ /application\/xhtml\+xml/) ||
                 ($mime_type =~ /application\/xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($url =~ /\.xml$/i) ) {
