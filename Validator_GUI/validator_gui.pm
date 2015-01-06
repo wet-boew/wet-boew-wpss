@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6730 $
+# $Revision: 6856 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2014-07-24 11:19:03 -0400 (Thu, 24 Jul 2014) $
+# $Date: 2014-11-19 13:46:21 -0500 (Wed, 19 Nov 2014) $
 #
 # Description:
 #
@@ -195,6 +195,7 @@ my (%site_configuration_fields) = (
     "logoutpagef", "",
     "loginformname", "",
     "crawllimit", "",
+    "crawl_depth", "",
     "logininterstitialcount", "",
     "logoutinterstitialcount", "",
     "logoutinterstitialcount", "",
@@ -203,6 +204,7 @@ my (%site_configuration_fields) = (
 
 my ($language) = "eng";
 my ($default_crawllimit) = 100;
+my ($default_crawl_depth) = 0;
 
 #
 # Label width for site configuration window
@@ -264,6 +266,8 @@ my %string_table_en = (
     "Password",			"Password",
     "Crawl Limit",		"Crawl Limit",
     "The maximum number of URLs",	"The maximum number of URLs to crawl from the site (0 = unlimited)",
+    "Crawl Depth",		"Crawl Depth",
+    "The maximum crawl depth",	"The maximum crawl depth (0 = unlimited)",
     "URL List",			"URL List",
     "Check URL List",		"Check URL List",
     "No URLs supplied",		"No URLs supplied",
@@ -358,7 +362,9 @@ my %string_table_fr = (
     "User Name",		"Nom d'utilisateur",
     "Password",			"Mot de passe",
     "Crawl Limit",		"Limite de l'exploration",
-    "The maximum number of URLs",	"Le nombre maximal d'adresses URL",
+    "The maximum number of URLs",	"Le nombre maximal d'adresses URL (0 = illimité)",
+    "Crawl Depth",		"Profondeur D'Exploration",
+    "The maximum crawl depth",	"La profondeur d'exploration maximale (0 = illimité)",
     "URL List",			"Liste d'adresses URL",
     "No URLs supplied",		"Aucune de URL fournie",
     "Check URL List",		"Vérifier la liste d'adresses URL",
@@ -1727,6 +1733,13 @@ sub Validator_GUI_DoSite_Click {
     #
     if ( $crawl_details{"crawllimit"} eq "" ) {
         $crawl_details{"crawllimit"} = $default_crawllimit;
+    }
+
+    #
+    # If we don't have a crawl depth, use default
+    #
+    if ( $crawl_details{"crawl_depth"} eq "" ) {
+        $crawl_details{"crawl_depth"} = $default_crawl_depth;
     }
 
     #
@@ -3228,6 +3241,21 @@ sub Add_Site_Crawl_Fields {
     $main_window->ConfigTabs->$name->Text("$default_crawllimit");
 
     #
+    # Add field for crawl depth
+    #
+    $current_pos = Add_Text_Field_And_Example_Text($main_window->ConfigTabs,
+                          $tabid, "crawl_depth",
+                          String_Value("Crawl Depth"),
+                          String_Value("The maximum crawl depth"),
+                          $current_pos, $site_label_width);
+
+    #
+    # Set default crawl limit
+    #
+    $name = "crawl_depth$site_config_tabid";
+    $main_window->ConfigTabs->$name->Text("$default_crawl_depth");
+
+    #
     # Add field for http proxy
     #
     $current_pos = Add_Text_Field_And_Example_Text($main_window->ConfigTabs,
@@ -3235,12 +3263,6 @@ sub Add_Site_Crawl_Fields {
                           String_Value("Proxy"),
                           String_Value("Proxy address to use"),
                           $current_pos, $site_label_width);
-
-    #
-    # Set default crawl limit
-    #
-    $name = "crawllimit$site_config_tabid";
-    $main_window->ConfigTabs->$name->Text("$default_crawllimit");
 
     #
     # Add button to check an entire site.
