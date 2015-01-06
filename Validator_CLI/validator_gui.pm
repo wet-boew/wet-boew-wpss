@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6754 $
+# $Revision: 6853 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2014-09-10 13:29:39 -0400 (Wed, 10 Sep 2014) $
+# $Date: 2014-11-19 13:43:40 -0500 (Wed, 19 Nov 2014) $
 #
 # Description:
 #
@@ -149,6 +149,7 @@ my (%site_configuration_fields) = (
     "logoutpagef", "",
     "loginformname", "",
     "crawllimit", "",
+    "crawl_depth", "",
     "logininterstitialcount", "",
     "logoutinterstitialcount", "",
     "logoutinterstitialcount", "",
@@ -158,6 +159,7 @@ my (%site_configuration_fields) = (
 
 my ($language) = "eng";
 my ($default_crawllimit) = 100;
+my ($default_crawl_depth) = 0;
 
 #
 # String table for UI strings.
@@ -1714,6 +1716,13 @@ sub Read_Crawl_File {
     }
 
     #
+    # If we don't have a crawl depth, use default
+    #
+    if ( $crawl_details{"crawl_depth"} eq "" ) {
+        $crawl_details{"crawl_depth"} = $default_crawl_depth;
+    }
+
+    #
     # Do we have values for all fields
     #
     if ( $crawl_details{"sitedire"} eq "" ) {
@@ -2263,7 +2272,7 @@ sub Validator_GUI_Start {
     
     my ($urls, %report_options, $url_file, $crawl_file, $arg, %crawl_details);
     my ($crawl_limit, $html_file, $content, $login_credentials_file);
-    my ($open_data_file, $dataset_urls);
+    my ($open_data_file, $dataset_urls, $crawl_depth);
     
     #
     # Check argument list
@@ -2283,6 +2292,22 @@ sub Validator_GUI_Start {
             }
             else {
                 print "Error: Missing path after -c\n";
+                exit(1);
+            }
+        }
+        #
+        # Look for -d <crawl depth>
+        #
+        elsif ( $arg eq "-d" ) {
+            #
+            # Do we have a crawl depth ?
+            #
+            if ( @args > 0 ) {
+                $crawl_depth = shift(@args);
+                print "Got crawl depth $crawl_depth\n" if $debug;
+            }
+            else {
+                print "Error: Missing number after -d\n";
                 exit(1);
             }
         }
@@ -2311,7 +2336,7 @@ sub Validator_GUI_Start {
             #
             if ( @args > 0 ) {
                 $crawl_limit = shift(@args);
-                print "Got crrawl limit $crawl_limit\n" if $debug;
+                print "Got crawl limit $crawl_limit\n" if $debug;
             }
             else {
                 print "Error: Missing number after -l\n";
@@ -2397,6 +2422,13 @@ sub Validator_GUI_Start {
             $crawl_details{"crawllimit"} = $crawl_limit;
         }
         
+        #
+        # See if there was a crawl depth specified
+        #
+        if ( defined($crawl_depth) ) {
+            $crawl_details{"crawl_depth"} = $crawl_depth;
+        }
+
         #
         # Doing a site crawl
         #
