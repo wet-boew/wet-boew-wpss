@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 6827 $
+# $Revision: 6953 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2014-11-06 10:00:03 -0500 (Thu, 06 Nov 2014) $
+# $Date: 2014-12-24 11:36:48 -0500 (Wed, 24 Dec 2014) $
 #
 # Description:
 #
@@ -89,7 +89,6 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my (%tqa_check_profile_map, $current_tqa_check_profile,
     $current_a_href, $current_tqa_check_profile_name,
-    $last_heading_line_number, $last_heading_column_number,
     %input_id_location, %label_for_location, %accesskey_location,
     $table_nesting_index, @table_start_line, @table_header_values,
     @table_start_column, @table_has_headers, @table_summary,
@@ -132,7 +131,8 @@ my (%tqa_check_profile_map, $current_tqa_check_profile,
     $current_a_arialabel, %last_option_attributes, $tag_is_visible,
     $current_tag_styles, $tag_is_hidden, @table_th_td_in_thead_count,
     $modified_content, $first_html_tag_lang, $summary_tag_content,
-    @table_th_td_in_tfoot_count, @inside_tfoot,
+    @table_th_td_in_tfoot_count, @inside_tfoot, $inside_video,
+    %track_kind_map,
 );
 
 my ($is_valid_html) = -1;
@@ -725,7 +725,6 @@ my (%html_phrasing_tags) = (
     "ruby", 1,
     "s", 1,
     "samp", 1,
-    "script", 1,
     "select", 1,
     "shadow", 1,
     "small", 1,
@@ -805,164 +804,170 @@ my (%landmark_role) = (
 # String table for error strings.
 #
 my %string_table_en = (
-    "Fails validation",               "Fails validation, see validation results for details.",
-    "DOCTYPE missing",                "DOCTYPE missing",
-    "Metadata missing",               "Metadata missing",
-    "Missing alt attribute for",      "Missing 'alt' attribute for ",
-    "Missing alt content for",        "Missing 'alt' content for ",
-    "Insufficient color contrast for tag",                 "Insufficient color contrast for tag ",
-    "color is",                       " color is ",
-    "Missing title attribute for",   "Missing 'title' attribute for ",
-    "Missing table summary",         "Missing table 'summary'",
-    "No legend found in fieldset",   "No <legend> found in <fieldset>",
-    "No table header tags found",    "No table header tags found",
-    "Missing id attribute for",      "Missing 'id' attribute for ",
-    "Invalid CSS file referenced",   "Invalid CSS file referenced",
-    "No table header reference",     "No table header reference",
-    "Missing html language attribute",  "Missing <html> attribute",
-    "Page redirect not allowed",     "Page redirect not allowed",
-    "Page refresh not allowed",      "Page refresh not allowed",
-    "Deprecated tag found",          "Deprecated tag found ",
-    "Deprecated attribute found",    "Deprecated attribute found ",
-    "E-mail domain",                 "E-mail domain ",
-    "Link contains JavaScript",      "Link contains JavaScript",
-    "New heading level",             "New heading level ",
-    "is not equal to last level",    " is not equal to last level ",
-    "Missing text in",               "Missing text in ",
-    "Missing text in table header",  "Missing text in table header ",
-    "click here link found",         "'click here' link found",
-    "Multiple links with same anchor text", "Multiple links with same anchor text ",
-    "Multiple links with same title text", "Multiple links with same 'title' text ",
-    "Previous instance found at",    "Previous instance found at (line:column) ",
-    "Required testcase not executed","Required testcase not executed",
-    "No tag with id attribute",      "No tag with 'id' attribute ",
-    "No label matching id attribute","No <label> matching 'id' attribute ",
-    "No label for",                  "No <label> for ",
-    "Missing template comment",      "content",
-    "or",                            " or ",
-    "and",                           "and",
-    "link",                          "link",
-    "No matching noembed for embed", "No matching <noembed> for <embed>",
-    "Duplicate table summary and caption", "Duplicate table 'summary' and <caption>",
-    "Found label before input type",   "Found <label> before <input> type ",
-    "Missing label before",            "Missing <label> before ",
-    "Missing title content for",       "Missing 'title' content for ",
-    "Combining adjacent image and text links for the same resource",   "Combining adjacent image and text links for the same resource",
-    "Missing longdesc content for",    "Missing 'longdesc' content for ",
-    "Broken link in longdesc for",     "Broken link in 'longdesc' for ",
-    "Invalid URL in longdesc for",     "Invalid URL in 'longdesc' for ",
-    "Missing cite content for",        "Missing 'cite' content for ",
-    "Broken link in cite for",         "Broken link in 'cite' for ",
-    "Missing alt or title in",         "Missing 'alt' or 'title' in ",
-    "Missing label id or title for",   "Missing <label> 'id' or 'title' for ",
-    "Missing event handler from pair", "Missing event handler from pair ",
-    "for tag",                         " for tag ",
-    "in tag",                          " in tag ",
-    "No button found in form",         "No button found in form",
-    "Image alt same as src",           "Image 'alt' same as 'src'",
-    "Meta refresh with timeout",       "Meta 'refresh' with timeout ",
-    "Mismatching lang and xml:lang attributes", "Mismatching 'lang' and 'xml:lang' attributes",
+    "Alt attribute not allowed on this tag", "'alt' attribute not allowed on this tag.",
     "Anchor and image alt text the same", "Anchor and image 'alt' text the same",
-    "Missing value attribute in",       "Missing 'value' attribute in ",
-    "Missing value in",                 "Missing value in ",
-    "Missing id content for",           "Missing 'id' content for ",
-    "Duplicate anchor name",            "Duplicate anchor name ",
-    "Duplicate label id",               "Duplicate <label> 'id' ",
-    "Duplicate id",                     "Duplicate 'id' ",
-    "Duplicate id in headers",          "Duplicate 'id' in 'headers'",
-    "Missing",                          "Missing",
-    "found in header",                  "found in header",
-    "Self reference in headers",        "Self reference in 'headers'",
-    "Header defined at",                "Header defined at (line:column)",
-    "defined at",                       "defined at (line:column)",
-    "id defined at",                    "'id' defined at (line:column)",
-    "Duplicate",                        "Duplicate",
-    "Duplicate accesskey",              "Duplicate 'accesskey' ",
-    "Invalid content for",              "Invalid content for ",
-    "Blinking text in",                 "Blinking text in ",
+    "Anchor text is a URL",          "Anchor text is a URL",
+    "Anchor text same as href",      "Anchor text same as 'href'",
+    "Anchor text same as title",     "Anchor text same as 'title'",
+    "Anchor title same as href",     "Anchor 'title' same as 'href'",
+    "and",                           "and",
+    "at line:column",                " at (line:column) ",
+    "Blinking text in",              "Blinking text in ",
+    "Broken link in cite for",       "Broken link in 'cite' for ",
+    "Broken link in longdesc for",   "Broken link in 'longdesc' for ",
+    "Broken link in src for",        "Broken link in 'src' for ",
+    "click here link found",         "'click here' link found",
+    "color is",                      " color is ",
+    "Combining adjacent image and text links for the same resource",   "Combining adjacent image and text links for the same resource",
+    "Content does not contain letters for", "Content does not contain letters for ",
+    "Content referenced by",         "Content referenced by",
+    "Content same as title for",     "Content same as 'title' for ",
+    "Content type does not match",   "Content type does not match",
+    "Content values do not match for",  "Content values do not match for ",
+    "defined at",                    "defined at (line:column)",
+    "Deprecated attribute found",    "Deprecated attribute found ",
+    "Deprecated tag found",          "Deprecated tag found ",
+    "DOCTYPE missing",               "DOCTYPE missing",
+    "does not match content language",  "does not match content language",
+    "does not match previous value", "does not match previous value",
+    "Duplicate accesskey",           "Duplicate 'accesskey' ",
+    "Duplicate anchor name",         "Duplicate anchor name ",
+    "Duplicate attribute",           "Duplicate attribute ",
+    "Duplicate id in headers",       "Duplicate 'id' in 'headers'",
+    "Duplicate id",                  "Duplicate 'id' ",
+    "Duplicate label id",            "Duplicate <label> 'id' ",
+    "Duplicate table summary and caption", "Duplicate table 'summary' and <caption>",
+    "Duplicate",                     "Duplicate",
+    "E-mail domain",                 "E-mail domain ",
+    "End tag",                       "End tag",
+    "Expecting end tag",             "Expecting end tag",
+    "Fails validation",              "Fails validation, see validation results for details.",
+    "followed by",                   " followed by ",
+    "for tag",                       " for tag ",
+    "for",                           "for ",
+    "forbidden",                     "forbidden",
+    "found in header",               "found in header",
+    "found inside of link",          "found inside of link",
+    "Found label before input type", "Found <label> before <input> type ",
+    "found outside of a form",       "found outside of a <form>",
+    "Found tag",                     "Found tag ",
+    "Found",                         "Found",
+    "found",                         "found",
     "GIF animation exceeds 5 seconds",  "GIF animation exceeds 5 seconds",
     "GIF flashes more than 3 times in 1 second", "GIF flashes more than 3 times in 1 second",
-    "Missing <title> tag",              "Missing <title> tag",
-    "Found tag",                        "Found tag ",
-    "label not allowed for",            "<label> not allowed for ",
-    "label not allowed before",         "<label> not allowed before ",
-    "Label found for hidden input",      "<label> found for <input type=\"hidden\">",
-    "Duplicate attribute",              "Duplicate attribute ",
-    "Missing xml:lang attribute",       "Missing 'xml:lang' attribute ",
-    "Missing lang attribute",           "Missing 'lang' attribute ",
-    "Anchor text same as href",         "Anchor text same as 'href'",
-    "Anchor text same as title",        "Anchor text same as 'title'",
-    "Anchor title same as href",        "Anchor 'title' same as 'href'",
-    "onclick or onkeypress found in tag", "'onclick' or 'onkeypress' found in tag ",
-    "Unused label, for attribute",      "Unused <label>, 'for' attribute ",
-    "at line:column",                   " at (line:column) ",
-    "Anchor text is a URL",             "Anchor text is a URL",
-    "found",                            "found",
-    "previously found",                 "previously found",
-    "in",                               " in ",
-    "No headings found",                "No headings found in content area",
-    "No links found",                   "No links found",
-    "Missing fieldset",                 "Missing <fieldset> tag",
-    "HTML language attribute",          "HTML language attribute",
-    "does not match content language",  "does not match content language",
-    "does not match previous value",    "does not match previous value",
-    "Label not explicitly associated to", "Label not explicitly associated to ",
-    "Previous label not explicitly associated to", "Previous label not explicitly associated to ",
-    "Text",                             "Text",
-    "not marked up as a <label>",       "not marked up as a <label>",
-    "Expecting end tag",                "Expecting end tag",
-    "Span language attribute",          "Span language attribute",
-    "Mouse only event handlers found",  "Mouse only event handlers found",
-    "Invalid title",                    "Invalid title",
-    "End tag",                          "End tag",
-    "forbidden",                        "forbidden",
-    "Invalid alt text value",           "Invalid 'alt' text value",
-    "Invalid aria-label text value",    "Invalid 'aria-label' text value",
-    "Invalid title text value",         "Invalid 'title' text value",
-    "Link inside of label",             "Link inside of <label>",
-    "found inside of link",             "found inside of link",
-    "Null alt on an image",             "Null alt on an image where the image is the only content in a link",
-    "Using white space characters to control spacing within a word in tag", "Using white space characters to control spacing within a word in tag",
-    "found outside of a form",          "found outside of a <form>",
-    "Using script to remove focus when focus is received", "Using script to remove focus when focus is received",
-    "Missing close tag for",            "Missing close tag for",
-    "started at line:column",           "started at (line:column) ",
-    "Multiple instances of",            "Multiple instances of",
-    "Title values do not match for",    "'title' values do not match for",
-    "Found",                            "Found",
-    "Content same as title for",        "Content same as 'title' for ",
-    "Content values do not match for",  "Content values do not match for ",
-    "Missing content in",               "Missing content in ",
-    "No li found in list",              "No <li> found in list ",
-    "No dt found in list",              "No <dt> found in list ",
-    "used for decoration",              "used for decoration",
-    "followed by",                      " followed by ",
-    "Tag not allowed here",             "Tag not allowed here ",
-    "Missing content before new list",  "Missing content before new list ",
-    "for",                              "for ",
-    "Missing href, id or name in <a>",  "Missing attribute href, id or name in <a>",
-    "Missing rel attribute in",       "Missing 'rel' attribute in ",
-    "Missing rel value in",           "Missing 'rel' value in ",
-    "Invalid rel value",              "Invalid 'rel' value",
-    "Missing rel value",              "Missing 'rel' value",
-    "Content does not contain letters for", "Content does not contain letters for ",
-    "Invalid attribute combination found", "Invalid attribute combination found",
-    "Table headers",                  "Table 'headers'",
-    "not defined within table",       "not defined within <table>",
+    "Header defined at",             "Header defined at (line:column)",
     "Heading text greater than 500 characters",  "Heading text greater than 500 characters",
-    "Title text greater than 500 characters",            "Title text greater than 500 characters",
-    "Title same as id for",               "'title' same as 'id' for ",
-    "Text styled to appear like a heading", "Text styled to appear like a heading",
-    "Unable to determine content language, possible languages are", "Unable to determine content language, possible languages are",
-    "Content referenced by",           "Content referenced by",
-    "Label referenced by",             "<label> referenced by",
-    "is hidden",                       "is hidden",
+    "HTML language attribute",       "HTML language attribute",
+    "id defined at",                 "'id' defined at (line:column)",
+    "Image alt same as src",         "Image 'alt' same as 'src'",
     "in tag used to convey information or relationships", "in tag used to convey information or relationships",
+    "in tag",                        " in tag ",
+    "in",                            " in ",
+    "Insufficient color contrast for tag",                 "Insufficient color contrast for tag ",
+    "Invalid alt text value",        "Invalid 'alt' text value",
+    "Invalid aria-label text value", "Invalid 'aria-label' text value",
+    "Invalid attribute combination found", "Invalid attribute combination found",
+    "Invalid content for",           "Invalid content for ",
+    "Invalid CSS file referenced",   "Invalid CSS file referenced",
+    "Invalid rel value",             "Invalid 'rel' value",
+    "Invalid title text value",      "Invalid 'title' text value",
+    "Invalid title",                 "Invalid title",
+    "Invalid URL in longdesc for",   "Invalid URL in 'longdesc' for ",
+    "Invalid URL in src for",        "Invalid URL in 'src' for ",
+    "is hidden",                     "is hidden",
+    "is not equal to last level",    " is not equal to last level ",
+    "is not visible",                "is not visible",
+    "Label found for hidden input",  "<label> found for <input type=\"hidden\">",
+    "label not allowed before",      "<label> not allowed before ",
+    "label not allowed for",         "<label> not allowed for ",
+    "Label not explicitly associated to", "Label not explicitly associated to ",
+    "Label referenced by",           "<label> referenced by",
+    "Link contains JavaScript",      "Link contains JavaScript",
+    "Link inside of label",          "Link inside of <label>",
+    "link",                          "link",
+    "Meta refresh with timeout",     "Meta 'refresh' with timeout ",
+    "Metadata missing",              "Metadata missing",
+    "Mismatching lang and xml:lang attributes", "Mismatching 'lang' and 'xml:lang' attributes",
+    "Missing <title> tag",           "Missing <title> tag",
+    "Missing alt attribute for",     "Missing 'alt' attribute for ",
+    "Missing alt content for",       "Missing 'alt' content for ",
+    "Missing alt or title in",       "Missing 'alt' or 'title' in ",
+    "Missing cite content for",      "Missing 'cite' content for ",
+    "Missing close tag for",         "Missing close tag for",
+    "Missing content before new list",  "Missing content before new list ",
+    "Missing content in",            "Missing content in ",
+    "Missing event handler from pair", "Missing event handler from pair ",
+    "Missing fieldset",              "Missing <fieldset> tag",
+    "Missing href, id or name in <a>",  "Missing attribute href, id or name in <a>",
+    "Missing html language attribute",  "Missing <html> attribute",
+    "Missing id content for",        "Missing 'id' content for ",
+    "Missing label before",          "Missing <label> before ",
+    "Missing label id or title for", "Missing <label> 'id' or 'title' for ",
+    "Missing lang attribute",        "Missing 'lang' attribute ",
+    "Missing longdesc content for",  "Missing 'longdesc' content for ",
+    "Missing rel attribute in",      "Missing 'rel' attribute in ",
+    "Missing rel value in",          "Missing 'rel' value in ",
+    "Missing src attribute",         "Missing 'src' attribute ",
+    "Missing src value",             "Missing 'src' value ",
+    "Missing table summary",         "Missing table 'summary'",
+    "Missing template comment",      "content",
+    "Missing text in table header",  "Missing text in table header ",
+    "Missing text in",               "Missing text in ",
+    "Missing title attribute for",   "Missing 'title' attribute for ",
+    "Missing title content for",     "Missing 'title' content for ",
+    "Missing value attribute in",    "Missing 'value' attribute in ",
+    "Missing value in",              "Missing value in ",
+    "Missing xml:lang attribute",    "Missing 'xml:lang' attribute ",
+    "Missing",                       "Missing",
+    "Mouse only event handlers found",  "Mouse only event handlers found",
+    "Multiple instances of",         "Multiple instances of",
+    "Multiple links with same anchor text", "Multiple links with same anchor text ",
+    "Multiple links with same title text", "Multiple links with same 'title' text ",
+    "New heading level",             "New heading level ",
+    "No button found in form",       "No button found in form",
+    "No captions found for video",   "No captions found for video",
+    "No closed caption content found", "No closed caption content found",
+    "No content found in track",     "No content found in track",
+    "No dt found in list",           "No <dt> found in list ",
+    "No headers found inside thead", "No headers found inside <thead>",
+    "No headings found",             "No headings found in content area",
+    "No label for",                  "No <label> for ",
+    "No label matching id attribute","No <label> matching 'id' attribute ",
+    "No legend found in fieldset",   "No <legend> found in <fieldset>",
+    "No li found in list",           "No <li> found in list ",
+    "No links found",                "No links found",
+    "No matching noembed for embed", "No matching <noembed> for <embed>",
+    "No table header reference",     "No table header reference",
+    "No table header tags found",    "No table header tags found",
+    "No tag with id attribute",      "No tag with 'id' attribute ",
+    "No td, th found inside tfoot",  "No <td>, <th> found inside <tfoot>",
     "Non-decorative image loaded via CSS with", "Non-decorative image loaded via CSS with",
-    "Alt attribute not allowed on this tag", "'alt' attribute not allowed on this tag.",
-    "is not visible",                  "is not visible",
-    "No headers found inside thead",   "No headers found inside <thead>",
-    "No td, th found inside tfoot",    "No <td>, <th> found inside <tfoot>",
+    "not defined within table",       "not defined within <table>",
+    "not marked up as a <label>",       "not marked up as a <label>",
+    "Null alt on an image",             "Null alt on an image where the image is the only content in a link",
+    "onclick or onkeypress found in tag", "'onclick' or 'onkeypress' found in tag ",
+    "or",                            " or ",
+    "Page redirect not allowed",     "Page redirect not allowed",
+    "Page refresh not allowed",      "Page refresh not allowed",
+    "Previous instance found at",    "Previous instance found at (line:column) ",
+    "Previous label not explicitly associated to", "Previous label not explicitly associated to ",
+    "previously found",                 "previously found",
+    "Required testcase not executed","Required testcase not executed",
+    "Self reference in headers",        "Self reference in 'headers'",
+    "Span language attribute",          "Span language attribute",
+    "started at line:column",           "started at (line:column) ",
+    "Table headers",                  "Table 'headers'",
+    "Tag not allowed here",             "Tag not allowed here ",
+    "Text styled to appear like a heading", "Text styled to appear like a heading",
+    "Text",                             "Text",
+    "Title same as id for",               "'title' same as 'id' for ",
+    "Title text greater than 500 characters",            "Title text greater than 500 characters",
+    "Title values do not match for",    "'title' values do not match for",
+    "Unable to determine content language, possible languages are", "Unable to determine content language, possible languages are",
+    "Unused label, for attribute",      "Unused <label>, 'for' attribute ",
+    "used for decoration",              "used for decoration",
+    "Using script to remove focus when focus is received", "Using script to remove focus when focus is received",
+    "Using white space characters to control spacing within a word in tag", "Using white space characters to control spacing within a word in tag",
 );
 
 
@@ -970,164 +975,170 @@ my %string_table_en = (
 # String table for error strings (French).
 #
 my %string_table_fr = (
-    "Fails validation",              "Échoue la validation, voir les résultats de validation pour plus de détails.",
-    "DOCTYPE missing",               "DOCTYPE manquant",
-    "Metadata missing",              "Métadonnées manquantes",
-    "Missing alt attribute for",     "Attribut 'alt' manquant pour ",
-    "Missing alt content for",       "Le contenu de 'alt' est manquant pour ",
-    "Insufficient color contrast for tag", "Contrast de couleurs insuffisant pour balise ",
-    "color is",                      " la couleur est ",
-    "Missing title attribute for",   "Attribut 'title' manquant pour ",
-    "Missing table summary",         "Résumé de tableau manquant",
-    "No legend found in fieldset",   "Aucune <legend> retrouvé dans le <fieldset>",
-    "No table header tags found",    "Aucune balise d'en-tête de tableau retrouvée",
-    "Missing id attribute for",      "Attribut 'id' manquant pour ",
-    "Invalid CSS file referenced",   "Fichier CSS non valide retrouvé",
-    "No table header reference",     "Aucun en-tête de tableau retrouvé",
-    "Missing html language attribute","Attribut manquant pour <html>",
-    "Page redirect not allowed",     "Page rediriger pas autorisé",
-    "Page refresh not allowed",      "Page raffraîchissement pas autorisé",
-    "Deprecated tag found",          "Balise dépréciée retrouvée ",
-    "Deprecated attribute found",    "Attribut dépréciée retrouvée ",
-    "E-mail domain",                 "Domaine du courriel ",
-    "Link contains JavaScript",      "Lien contient du JavaScript",
-    "New heading level",             "Nouveau niveau d'en-tête ",
-    "is not equal to last level",    " n'est pas égal à au dernier niveau ",
-    "Missing text in",               "Texte manquant dans ",
-    "Missing text in table header",  "Texte manquant tête de tableau ",
-    "click here link found",         "Lien 'cliquez ici' retrouvé",
-    "Multiple links with same anchor text",  "Liens multiples avec la même texte de lien ",
-    "Multiple links with same title text",  "Liens multiples avec la même texte de 'title' ",
-    "Previous instance found at",    "Instance précédente trouvée à (la ligne:colonne) ",
-    "Required testcase not executed","Cas de test requis pas exécuté",
-    "No tag with id attribute",      "Aucon balise avec l'attribut 'id'",
-    "No label matching id attribute","Aucun <label> correspondant à l'attribut 'id' ",
-    "No label for",                  "Aucun <label> pour ",
-    "Missing template comment",      "Commentaire manquant dans le modèle",
-    "or",                            " ou ",
-    "and",                           "et",
-    "link",                          "lien",
-    "No matching noembed for embed", "Aucun <noembed> correspondant à <embed>",
-    "Duplicate table summary and caption", "Éléments 'summary' et <caption> du tableau en double",
-    "Found label before input type",   "<label> trouvé devant le type <input> ",
-    "Missing label before",            "Élément <label> manquant avant ",
-    "Missing title content for",       "Contenu de l'élément 'title' manquant pour ",
-    "Combining adjacent image and text links for the same resource",   "Combiner en un même lien une image et un intitulé de lien pour la même ressource",
-    "Missing longdesc content for",    "Contenu de l'élément 'longdesc' manquant pour ",
-    "Broken link in longdesc for",     "Lien brisé dans l'élément 'longdesc' pour ",
-    "Invalid URL in longdesc for",     "URL non valide dans 'longdesc' pour ",
-    "Missing cite content for",        "Contenu de l'élément 'cite' manquant pour ",
-    "Broken link in cite for",         "Lien brisé dans l'élément 'cite' pour ",
-    "Missing alt or title in",         "Attribut 'alt' ou 'title' manquant dans  ",
-    "Missing label id or title for",   "Éléments 'id' ou 'title' de l'élément <label> manquants pour ",
-    "Missing event handler from pair", "Gestionnaire d'événements manquant dans la paire ",
-    "for tag",                         " pour balise ",
-    "in tag",                          " dans balise ",
-    "No button found in form",         "Aucun bouton trouvé dans le <form>",
-    "Image alt same as src",           "'alt' et 'src'identiques pour l'image",
-    "Meta refresh with timeout",       "Méta 'refresh' avec délai d'inactivité ",
-    "Mismatching lang and xml:lang attributes", "Erreur de correspondance des attributs 'lang' et 'xml:lang'",
+    "Alt attribute not allowed on this tag", "L'attribut 'alt' pas autorisés sur cette balise.",
     "Anchor and image alt text the same", "Textes de l'ancrage et de l'attribut 'alt' de l'image identiques",
-    "Missing value attribute in",       "Attribut 'value' manquant dans ",
-    "Missing value in",                 "Valeur manquante dans ",
-    "Missing id content for",           "Contenu de l'élément 'id' manquant pour ",
-    "Duplicate anchor name",            "Doublon du nom d'ancrage ",
-    "Duplicate label id",               "Doublon <label> 'id' ",
-    "Duplicate id",                     "Doublon 'id' ",
-    "Duplicate id in headers",          "Doublon 'id' dans 'headers'",
-    "Missing",                          "Manquantes",
-    "found in header",                  "trouvé dans les en-têtes",
-    "Self reference in headers",        "référence auto dans 'headers'",
-    "Header defined at",                "En-tête défini à (la ligne:colonne)",
-    "id defined at",                    "'id' défini à (la ligne:colonne)",
-    "defined at",                       "défini à (la ligne:colonne)",
-    "Duplicate",                        "Doublon",
-    "Duplicate accesskey",              "Doublon 'accesskey' ",
-    "Invalid content for",              "Contenu invalide pour ",
-    "Blinking text in",                 "Texte clignotant dans ",
-    "GIF animation exceeds 5 seconds",  "Clignotement de l'image GIF supérieur à 5 secondes",
-    "GIF flashes more than 3 times in 1 second", "Clignotement de l'image GIF supérieur à 3 par seconde",
-    "Missing <title> tag",              "Balise <title> manquant",
-    "Found tag",                        "Balise trouvé ",
-    "label not allowed for",            "<label> pas permis pour ",
-    "label not allowed before",         "<label> pas permis avant ",
-    "Label found for hidden input",     "<label> trouvé pour <input type=\"hidden\">",
-    "Duplicate attribute",              "Doublon attribut ",
-    "Missing xml:lang attribute",       "Attribut 'xml:lang' manquant ",
-    "Missing lang attribute",           "Attribut 'lang' manquant ",
-    "Anchor text same as href",         "Texte d'ancrage identique à 'href'",
-    "Anchor text same as title",        "Texte d'ancrage identique à 'title'",
-    "Anchor title same as href",        "'title' d'ancrage identique à 'href'",
-    "onclick or onkeypress found in tag", "'onclick' ou 'onkeypress' trouvé dans la balise ",
-    "Unused label, for attribute",      "<label> ne pas utilisé, l'attribut 'for' ",
-    "at line:column",                   " à (la ligne:colonne) ",
-    "Anchor text is a URL",             "Texte d'ancrage est une URL",
-    "found",                            "trouvé",
-    "previously found",                 "trouvé avant",
-    "in",                               " dans ",
-    "No headings found",                "Pas des têtes qui se trouvent dans la zone de contenu",
-    "No links found",                   "Pas des liens qui se trouvent",
-    "Missing fieldset",                 "Élément <fieldset> manquant",
-    "HTML language attribute",          "L'attribut du langage HTML",
-    "does not match content language",  "ne correspond pas à la langue de contenu",
-    "does not match previous value",    "ne correspond pas à la valeur précédente",
-    "Label not explicitly associated to", "Étiquette pas explicitement associée à la ",
-    "Previous label not explicitly associated to", "Étiquette précédente pas explicitement associée à la ",
-    "Text",                            "Texte",
-    "not marked up as a <label>",      "pas marqué comme un <label>",
-    "Expecting end tag",               "S'attendant balise de fin",
-    "Span language attribute",         "Attribut de langue 'span'",
-    "Mouse only event handlers found", "Gestionnaires de la souris ne se trouve que l'événement",
-    "Invalid title",                   "Titre invalide",
+    "Anchor text is a URL",            "Texte d'ancrage est une URL",
+    "Anchor text same as href",        "Texte d'ancrage identique à 'href'",
+    "Anchor text same as title",       "Texte d'ancrage identique à 'title'",
+    "Anchor title same as href",       "'title' d'ancrage identique à 'href'",
+    "and",                             "et",
+    "at line:column",                  " à (la ligne:colonne) ",
+    "Blinking text in",                "Texte clignotant dans ",
+    "Broken link in cite for",         "Lien brisé dans l'élément 'cite' pour ",
+    "Broken link in longdesc for",     "Lien brisé dans l'élément 'longdesc' pour ",
+    "Broken link in src for",          "Lien brisé dans l'élément 'src' pour ",
+    "click here link found",           "Lien 'cliquez ici' retrouvé",
+    "color is",                        " la couleur est ",
+    "Combining adjacent image and text links for the same resource",   "Combiner en un même lien une image et un intitulé de lien pour la même ressource",
+    "Content does not contain letters for", "Contenu ne contient pas des lettres pour ",
+    "Content referenced by",           "Contenu référencé par",
+    "Content same as title for",       "Contenu et 'title' identiques pour ",
+    "Content type does not match",     "Content type does not match",
+    "Content values do not match for", "Valeurs contenu ne correspondent pas pour ",
+    "defined at",                      "défini à (la ligne:colonne)",
+    "Deprecated attribute found",      "Attribut dépréciée retrouvée ",
+    "Deprecated tag found",            "Balise dépréciée retrouvée ",
+    "DOCTYPE missing",                 "DOCTYPE manquant",
+    "does not match content language", "ne correspond pas à la langue de contenu",
+    "does not match previous value",   "ne correspond pas à la valeur précédente",
+    "Duplicate accesskey",             "Doublon 'accesskey' ",
+    "Duplicate anchor name",           "Doublon du nom d'ancrage ",
+    "Duplicate attribute",             "Doublon attribut ",
+    "Duplicate id in headers",         "Doublon 'id' dans 'headers'",
+    "Duplicate id",                    "Doublon 'id' ",
+    "Duplicate label id",              "Doublon <label> 'id' ",
+    "Duplicate table summary and caption", "Éléments 'summary' et <caption> du tableau en double",
+    "Duplicate",                       "Doublon",
+    "E-mail domain",                   "Domaine du courriel ",
     "End tag",                         "Balise de fin",
+    "Expecting end tag",               "S'attendant balise de fin",
+    "Fails validation",                "Échoue la validation, voir les résultats de validation pour plus de détails.",
+    "followed by",                     " suivie par ",
+    "for tag",                         " pour balise ",
+    "for",                             "pour ",
     "forbidden",                       "interdite",
+    "found in header",                 "trouvé dans les en-têtes",
+    "found inside of link",            "trouvé dans une lien",
+    "Found label before input type",   "<label> trouvé devant le type <input> ",
+    "found outside of a form",         "trouvé en dehors d'une <form>",
+    "Found tag",                       "Balise trouvé ",
+    "found",                           "trouvé",
+    "Found",                           "Trouvé",
+    "GIF animation exceeds 5 seconds", "Clignotement de l'image GIF supérieur à 5 secondes",
+    "GIF flashes more than 3 times in 1 second", "Clignotement de l'image GIF supérieur à 3 par seconde",
+    "Header defined at",               "En-tête défini à (la ligne:colonne)",
+    "Heading text greater than 500 characters",  "Texte du têtes supérieure 500 caractères",
+    "HTML language attribute",         "L'attribut du langage HTML",
+    "id defined at",                   "'id' défini à (la ligne:colonne)",
+    "Image alt same as src",           "'alt' et 'src'identiques pour l'image",
+    "in tag used to convey information or relationships", "dans la balise utilisée pour transmettre des informations ou des relations",
+    "in tag",                          " dans balise ",
+    "in",                              " dans ",
+    "Insufficient color contrast for tag", "Contrast de couleurs insuffisant pour balise ",
     "Invalid alt text value",          "Valeur de texte 'alt' est invalide",
     "Invalid aria-label text value",   "Valeur de texte 'aria-label' est invalide",
-    "Invalid title text value",        "Valeur de texte 'title' est invalide",
-    "Link inside of label",            "lien dans une <label>",
-    "found inside of link",            "trouvé dans une lien",
-    "Null alt on an image",            "Utiliser un attribut alt vide pour une image qui est le seul contenu d'un lien",
-    "Using white space characters to control spacing within a word in tag", "Utiliser des caractères blancs pour contrôler l'espacement à l'intérieur d'un mot dans balise",
-    "found outside of a form",         "trouvé en dehors d'une <form>",
-    "Using script to remove focus when focus is received", "Utiliser un script pour enlever le focus lorsque le focus est reçu",
-    "Missing close tag for",           "Balise de fin manquantes pour",
-    "started at line:column",          "a commencé à (la ligne:colonne) ",
-    "Multiple instances of",           "Plusieurs instances de",
-    "Title values do not match for",   "Valeurs 'title' ne correspondent pas pour ",
-    "Found",                           "Trouvé",
-    "Content same as title for",       "Contenu et 'title' identiques pour ",
-    "Content values do not match for", "Valeurs contenu ne correspondent pas pour ",
-    "Missing content in",              "Contenu manquant dans ",
-    "No li found in list",             "Pas de <li> trouvé dans la liste ",
-    "No dt found in list",             "Pas de <dt> trouvé dans la liste ",
-    "used for decoration",             "utilisé pour la dcoration",
-    "followed by",                     " suivie par ",
-    "Tag not allowed here",            "Balise pas autorisé ici ",
-    "Missing content before new list", "Contenu manquant avant la nouvelle liste ",
-    "for",                             "pour ",
-    "Missing href, id or name in <a>", "Attribut href, id ou name manquant dans <a>",
-    "Missing rel attribute in",        "Attribut 'rel' manquant dans ",
-    "Missing rel value in",            "Valeur manquante dans 'rel' ",
-    "Invalid rel value",               "Valeur de texte 'rel' est invalide",
-    "Missing rel value",               "Valeur manquante pour 'rel'",
-    "Content does not contain letters for", "Contenu ne contient pas des lettres pour ",
     "Invalid attribute combination found", "Combinaison d'attribut non valide trouvé",
-    "Table headers",                   "'headers' de tableau",
-    "not defined within table",        "pas défini dans le <table>",
-    "Heading text greater than 500 characters",  "Texte du têtes supérieure 500 caractères",
-    "Title text greater than 500 characters",    "Texte du title supérieure 500 caractères",
-    "Title same as id for",               "'title' identique à 'id' pour ",
-    "Text styled to appear like a heading", "Texte de style pour apparaître comme un titre",
-    "Unable to determine content language, possible languages are", "Impossible de déterminer la langue du contenu, les langues possibles sont",
-    "Content referenced by",           "Contenu référencé par",
-    "Label referenced by",             "<label> référencé par",
+    "Invalid content for",             "Contenu invalide pour ",
+    "Invalid CSS file referenced",     "Fichier CSS non valide retrouvé",
+    "Invalid rel value",               "Valeur de texte 'rel' est invalide",
+    "Invalid title text value",        "Valeur de texte 'title' est invalide",
+    "Invalid title",                   "Titre invalide",
+    "Invalid URL in longdesc for",     "URL non valide dans 'longdesc' pour ",
+    "Invalid URL in src for",          "URL non valide dans 'src' pour ",
     "is hidden",                       "est caché",
-    "in tag used to convey information or relationships", "dans la balise utilisée pour transmettre des informations ou des relations",
-    "Non-decorative image loaded via CSS with", "Image non-décoratif chargé par CSS avec",
-    "Alt attribute not allowed on this tag", "L'attribut 'alt' pas autorisés sur cette balise.",
+    "is not equal to last level",      " n'est pas égal à au dernier niveau ",
     "is not visible",                  "est pas visible",
-    "No headers found inside thead",   "Pas de têtes trouvées à l'intérieur de <thead>",
-    "No td, th found inside tfoot",    "Pas de <td>, <th> trouve à l'intérieur de <tfoot>",
+    "Label found for hidden input",    "<label> trouvé pour <input type=\"hidden\">",
+    "label not allowed before",        "<label> pas permis avant ",
+    "label not allowed for",           "<label> pas permis pour ",
+    "Label not explicitly associated to", "Étiquette pas explicitement associée à la ",
+    "Label referenced by",             "<label> référencé par",
+    "Link contains JavaScript",      "Lien contient du JavaScript",
+    "Link inside of label",            "lien dans une <label>",
+    "link",                          "lien",
+    "Meta refresh with timeout",       "Méta 'refresh' avec délai d'inactivité ",
+    "Metadata missing",              "Métadonnées manquantes",
+    "Mismatching lang and xml:lang attributes", "Erreur de correspondance des attributs 'lang' et 'xml:lang'",
+    "Missing <title> tag",              "Balise <title> manquant",
+    "Missing alt attribute for",     "Attribut 'alt' manquant pour ",
+    "Missing alt content for",       "Le contenu de 'alt' est manquant pour ",
+    "Missing alt or title in",         "Attribut 'alt' ou 'title' manquant dans  ",
+    "Missing cite content for",        "Contenu de l'élément 'cite' manquant pour ",
+    "Missing close tag for",           "Balise de fin manquantes pour",
+    "Missing content before new list", "Contenu manquant avant la nouvelle liste ",
+    "Missing content in",              "Contenu manquant dans ",
+    "Missing event handler from pair", "Gestionnaire d'événements manquant dans la paire ",
+    "Missing fieldset",                 "Élément <fieldset> manquant",
+    "Missing href, id or name in <a>", "Attribut href, id ou name manquant dans <a>",
+    "Missing html language attribute","Attribut manquant pour <html>",
+    "Missing id content for",        "Contenu de l'élément 'id' manquant pour ",
+    "Missing label before",          "Élément <label> manquant avant ",
+    "Missing label id or title for", "Éléments 'id' ou 'title' de l'élément <label> manquants pour ",
+    "Missing lang attribute",        "Attribut 'lang' manquant ",
+    "Missing longdesc content for",  "Contenu de l'élément 'longdesc' manquant pour ",
+    "Missing rel attribute in",      "Attribut 'rel' manquant dans ",
+    "Missing rel value in",          "Valeur manquante dans 'rel' ",
+    "Missing src attribute",         "Valeur manquante dans 'src' ",
+    "Missing src value",             "Missing 'src' value ",
+    "Missing table summary",         "Résumé de tableau manquant",
+    "Missing template comment",      "Commentaire manquant dans le modèle",
+    "Missing text in table header",  "Texte manquant tête de tableau ",
+    "Missing text in",               "Texte manquant dans ",
+    "Missing title attribute for",   "Attribut 'title' manquant pour ",
+    "Missing title content for",     "Contenu de l'élément 'title' manquant pour ",
+    "Missing value attribute in",    "Attribut 'value' manquant dans ",
+    "Missing value in",              "Valeur manquante dans ",
+    "Missing xml:lang attribute",    "Attribut 'xml:lang' manquant ",
+    "Missing",                       "Manquantes",
+    "Mouse only event handlers found", "Gestionnaires de la souris ne se trouve que l'événement",
+    "Multiple instances of",         "Plusieurs instances de",
+    "Multiple links with same anchor text",  "Liens multiples avec la même texte de lien ",
+    "Multiple links with same title text",  "Liens multiples avec la même texte de 'title' ",
+    "New heading level",             "Nouveau niveau d'en-tête ",
+    "No button found in form",       "Aucun bouton trouvé dans le <form>",
+    "No captions found for video",   "Pas de sous-titres trouvés pour la vidéo",
+    "No closed caption content found", "Aucun de sous-titrage trouvé",
+    "No content found in track",     "Contenu manquant dans <track>",
+    "No dt found in list",           "Pas de <dt> trouvé dans la liste ",
+    "No headers found inside thead", "Pas de têtes trouvées à l'intérieur de <thead>",
+    "No headings found",             "Pas des têtes qui se trouvent dans la zone de contenu",
+    "No label for",                  "Aucun <label> pour ",
+    "No label matching id attribute","Aucun <label> correspondant à l'attribut 'id' ",
+    "No legend found in fieldset",   "Aucune <legend> retrouvé dans le <fieldset>",
+    "No li found in list",           "Pas de <li> trouvé dans la liste ",
+    "No links found",                "Pas des liens qui se trouvent",
+    "No matching noembed for embed", "Aucun <noembed> correspondant à <embed>",
+    "No table header reference",     "Aucun en-tête de tableau retrouvé",
+    "No table header tags found",    "Aucune balise d'en-tête de tableau retrouvée",
+    "No tag with id attribute",      "Aucon balise avec l'attribut 'id'",
+    "No td, th found inside tfoot",  "Pas de <td>, <th> trouve à l'intérieur de <tfoot>",
+    "Non-decorative image loaded via CSS with", "Image non-décoratif chargé par CSS avec",
+    "not defined within table",        "pas défini dans le <table>",
+    "not marked up as a <label>",      "pas marqué comme un <label>",
+    "Null alt on an image",            "Utiliser un attribut alt vide pour une image qui est le seul contenu d'un lien",
+    "onclick or onkeypress found in tag", "'onclick' ou 'onkeypress' trouvé dans la balise ",
+    "or",                            " ou ",
+    "Page redirect not allowed",     "Page rediriger pas autorisé",
+    "Page refresh not allowed",      "Page raffraîchissement pas autorisé",
+    "Previous instance found at",    "Instance précédente trouvée à (la ligne:colonne) ",
+    "Previous label not explicitly associated to", "Étiquette précédente pas explicitement associée à la ",
+    "previously found",                 "trouvé avant",
+    "Required testcase not executed","Cas de test requis pas exécuté",
+    "Self reference in headers",        "référence auto dans 'headers'",
+    "Span language attribute",         "Attribut de langue 'span'",
+    "started at line:column",          "a commencé à (la ligne:colonne) ",
+    "Table headers",                   "'headers' de tableau",
+    "Tag not allowed here",            "Balise pas autorisé ici ",
+    "Text styled to appear like a heading", "Texte de style pour apparaître comme un titre",
+    "Text",                            "Texte",
+    "Title same as id for",               "'title' identique à 'id' pour ",
+    "Title text greater than 500 characters",    "Texte du title supérieure 500 caractères",
+    "Title values do not match for",   "Valeurs 'title' ne correspondent pas pour ",
+    "Unable to determine content language, possible languages are", "Impossible de déterminer la langue du contenu, les langues possibles sont",
+    "Unused label, for attribute",      "<label> ne pas utilisé, l'attribut 'for' ",
+    "used for decoration",             "utilisé pour la dcoration",
+    "Using script to remove focus when focus is received", "Utiliser un script pour enlever le focus lorsque le focus est reçu",
+    "Using white space characters to control spacing within a word in tag", "Utiliser des caractères blancs pour contrôler l'espacement à l'intérieur d'un mot dans balise",
 );
 
 #
@@ -1360,6 +1371,8 @@ sub Initialize_Test_Results {
     @missing_table_headers = ();
     @table_header_locations = ();
     $inside_h_tag_set      = 0;
+    $inside_video          = 0;
+    %track_kind_map        = ();
     %anchor_text_href_map  = ();
     %anchor_location       = ();
     %anchor_name           = ();
@@ -5081,6 +5094,307 @@ sub End_Tfoot_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Check_Track_Src
+#
+# Parameters: resp - HTTP::Response object
+#             src - URL of src attribute
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks to see if the mime-type and content type of the
+# track's src URL match the data type.
+#
+#***********************************************************************
+sub Check_Track_Src {
+    my ($resp, $src, $line, $column, $text, %attr) = @_;
+
+    my ($header, $mime_type, $content, $data_type, $is_ttml, $ttml_content);
+
+    #
+    # Get mime-type of content
+    #
+    $header = $resp->headers;
+    $mime_type = $header->content_type;
+    $content = Crawler_Decode_Content($resp);
+    print "Check_Track_Src, url = $src, data-type = $data_type, mime-type = $mime_type\n" if $debug;
+
+    #
+    # Do we have content ?
+    #
+    if ( length($content) == 0 ) {
+        Record_Result("WCAG_2.0-F8", $line, $column, $text,
+                      String_Value("No content found in track"));
+        return;
+    }
+
+    #
+    # Check for optional data-type attribute
+    #
+    if ( defined($attr{"data-type"}) ) {
+        $data_type = $attr{"data-type"};
+    }
+    else {
+        $data_type = "";
+    }
+    
+    #
+    # Is the content XML ?
+    #
+    if ( ($mime_type =~ /application\/atom\+xml/) ||
+         ($mime_type =~ /application\/ttml\+xml/) ||
+         ($mime_type =~ /application\/xhtml\+xml/) ||
+         ($mime_type =~ /text\/xml/) ||
+         ($src =~ /\.xml$/i) ) {
+        #
+        # Is the content TTML ?
+        #
+        $is_ttml = XML_TTML_Validate_Is_TTML($src, \$content);
+    }
+    else {
+        $is_ttml = 0;
+    }
+    
+    #
+    # Check that the track data-type attribute.
+    # If the content is TTML, does the data-type match ?
+    #
+    if ( $data_type ne "" ) {
+        if ( $is_ttml && ($data_type =~ /application\/ttml\+xml/i) ) {
+            print "data-type is TTML\n" if $debug;
+        }
+        else {
+            print "data-type does not match content type\n" if $debug;
+            Record_Result("WCAG_2.0-F8", $line, $column, $text,
+                          String_Value("Content type does not match") .
+                          " data-type=\"$data_type\" src=\"$src\"" .
+                          String_Value("for tag") . "<track>");
+        }
+    }
+    
+    #
+    # If this is TTML content, do we have any captions in the content
+    #
+    if ( $is_ttml ) {
+        $ttml_content = XML_TTML_Extract_Text($content);
+
+        #
+        # Did we find any content ?
+        #;
+        $ttml_content =~ s/\n|\r| |\t//g;
+        print "TTML content = \"$ttml_content\"\n" if $debug;
+        if ( $ttml_content eq "" ) {
+            Record_Result("WCAG_2.0-F8", $line, $column, $text,
+                          String_Value("No closed caption content found"));
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Track_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the track tag.
+#
+#***********************************************************************
+sub Track_Tag_Handler {
+    my ($line, $column, $text, %attr) = @_;
+
+    my ($src, $kind, $tcid, $href, $resp_url, $resp);
+
+    #
+    # Are we inside a video tag ?
+    #
+    if ( $inside_video ) {
+        #
+        # Do we have a kind attribute ?
+        #
+        if ( defined($attr{"kind"}) ) {
+            $kind = $attr{"kind"};
+        }
+        else {
+            $kind = "subtitles";
+        }
+        $track_kind_map{$kind} = 1;
+
+        #
+        # Is this a caption or description track ?
+        #
+        if ( ($kind eq "captions") || ($kind eq "descriptions") ) {
+            $tcid = "WCAG_2.0-F8";
+        }
+        else {
+            $tcid = "WCAG_2.0-H88";
+        }
+
+        #
+        # Do we have a src attribute ?
+        #
+        if ( defined($attr{"src"}) ) {
+            $src = $attr{"src"};
+            $src =~ s/^\s*//g;
+            $src =~ s/\s*$//g;
+        }
+        else {
+            #
+            # Missing src attribute
+            #
+            Record_Result($tcid, $line, $column,
+                          $text, String_Value("Missing src attribute") .
+                          String_Value("for tag") . "<track>");
+        }
+
+        #
+        # Check for valid src
+        #
+        if ( defined($src) ) {
+            #
+            # Is src an empty string ?
+            #
+            if ( $src eq "" ) {
+                #
+                # Missing src attribute
+                #
+                Record_Result($tcid, $line, $column,
+                              $text, String_Value("Missing src value") .
+                              String_Value("for tag") . "<track>");
+            }
+            #
+            # Check to see if the track is available (check only for
+            # captions and description tracks).
+            #
+            elsif ( ($kind eq "captions") || ($kind eq "descriptions") ) {
+                #
+                # Convert possible relative url into an absolute one based
+                # on the URL of the current document.  If we don't have
+                # a current URL, then HTML_Check was called with just a block
+                # of HTML text rather than the result of a GET.
+                #
+                if ( $current_url ne "" ) {
+                    $href = URL_Check_Make_URL_Absolute($src, $current_url);
+                    print "src url = $href\n" if $debug;
+
+                    #
+                    # Get track URL
+                    #
+                    ($resp_url, $resp) = Crawler_Get_HTTP_Response($href,
+                                                                   $current_url);
+
+                    #
+                    # Is this a valid URI ?
+                    #
+                    if ( ! defined($resp) ) {
+                        Record_Result("WCAG_2.0-F8", $line, $column, $text,
+                                      String_Value("Invalid URL in src for") .
+                                      "<track>");
+                    }
+                    #
+                    # Is it a broken link ?
+                    #
+                    elsif ( ! $resp->is_success ) {
+                        Record_Result("WCAG_2.0-F8", $line, $column, $text,
+                                      String_Value("Broken link in src for") .
+                                      "<track>");
+                    }
+                    else {
+                        #
+                        # Check track src
+                        #
+                        Check_Track_Src($resp, $resp_url, $line, $column,
+                                        $text, %attr);
+                    }
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: End_Track_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles the end track tag.
+#
+#***********************************************************************
+sub End_Track_Tag_Handler {
+    my ($line, $column, $text) = @_;
+
+}
+
+#***********************************************************************
+#
+# Name: Video_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the video tag.
+#
+#***********************************************************************
+sub Video_Tag_Handler {
+    my ($line, $column, $text, %attr) = @_;
+
+    #
+    # Set flag to indicate we are inside a video tag set.
+    #
+    $inside_video = 1;
+    %track_kind_map = ();
+}
+
+#***********************************************************************
+#
+# Name: End_Video_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles the end video tag.
+#
+#***********************************************************************
+sub End_Video_Tag_Handler {
+    my ($line, $column, $text) = @_;
+
+    #
+    # No longer in a <video> .. </video> pair
+    #
+    $inside_video = 0;
+    
+    #
+    # Did we find any closed captions or decsriptions tracks for
+    # the video ?
+    #
+    if (     (! defined($track_kind_map{"captions"}))
+          && (! defined($track_kind_map{"descriptions"})) ) {
+        Record_Result("WCAG_2.0-G87", $line, $column, $text,
+                      String_Value("No captions found for video"));
+    }
+}
+
+#***********************************************************************
+#
 # Name: Area_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -5166,7 +5480,7 @@ sub Check_Longdesc_Attribute {
             # of HTML text rather than the result of a GET.
             #
             if ( $current_url ne "" ) {
-                $href = url($longdesc)->abs($current_url);
+                $href = URL_Check_Make_URL_Absolute($longdesc, $current_url);
                 print "longdesc url = $href\n" if $debug;
 
                 #
@@ -5286,7 +5600,8 @@ sub Check_Flickering_Image {
 sub Image_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my ($alt, $invalid_alt, $aria_label);
+    my ($alt, $invalid_alt, $aria_label, $src, $src_url);
+    my ($protocol, $domain, $query, $new_url, $file_name, $file_name_no_suffix);
 
     #
     # Are we inside an anchor tag ?
@@ -5384,14 +5699,33 @@ sub Image_Tag_Handler {
     #
     # Check for alt and src attributes
     #
-    if ( defined($attr{"alt"}) && defined($attr{"src"}) ) {
+    if (    defined($attr{"alt"})
+         && ($attr{"alt"} ne "")
+         && defined($attr{"src"}) ) {
         print "Have alt = " . $attr{"alt"} . " and src = " . $attr{"src"} .
               " in image\n" if $debug;
 
         #
-        # Check for duplicate alt and src (using a URL for the alt text)
+        # Convert the src attribute into an absolute URL
         #
-        if ( $attr{"alt"} eq $attr{"src"} ) {
+        $src = $attr{"src"};
+        $src_url = URL_Check_Make_URL_Absolute($src, $current_url);
+        ($protocol, $domain, $file_name, $query, $new_url) = URL_Check_Parse_URL($src_url);
+        $file_name =~ s/^.*\///g;
+        $file_name_no_suffix = $file_name;
+        $file_name_no_suffix =~ s/\.[^.]*$//g;
+
+        #
+        # Check for
+        #  1. duplicate alt and src (using a URL for the alt text)
+        #  2. alt is the absolute URL for src
+        #  3. alt is src file name component (directory paths removed)
+        #  4. alt is the src file name minus file suffix
+        #
+        if ( ($attr{"alt"} eq $src)
+              || ($attr{"alt"} eq $src_url)
+              || ($attr{"alt"} eq $file_name)
+              || ($attr{"alt"} eq $file_name_no_suffix) ) {
             print "src eq alt\n" if $debug;
             Record_Result("WCAG_2.0-F30", $line, $column, $text,
                           String_Value("Image alt same as src"));
@@ -6337,20 +6671,19 @@ sub Start_H_Tag_Handler {
     $inside_h_tag_set = 1;
 
     #
-    # Save new heading level and line number
+    # Save new heading level
     #
     $current_heading_level = $level;
-    $last_heading_line_number = $line;
-    $last_heading_column_number = $column;
-
+    
     #
-    # Did we find a <hr> tag being used for decoration prior to this tag ?
+    # Did we find a <hr> tag being used for decoration prior a <h1> tag ?
     #
-    if ( $last_tag eq "hr" ) {
+    if ( ($level == 1) && ($last_tag eq "hr") ) {
         Record_Result("WCAG_2.0-F43", $line, $column, $text,
                       "<hr>" . String_Value("followed by") . "<$tagname> " .
                       String_Value("used for decoration"));
     }
+
 }
 
 #***********************************************************************
@@ -10472,12 +10805,25 @@ sub Start_Handler {
     }
 
     #
+    # Check track tag
+    #
+    elsif ( $tagname eq "track" ) {
+        Track_Tag_Handler( $line, $column, $text, %attr_hash );
+    }
+
+    #
     # Check ul tag
     #
     elsif ( $tagname eq "ul" ) {
         Ol_Ul_Tag_Handler( $self, $tagname, $line, $column, $text, %attr_hash );
     }
 
+    #
+    # Check video tag
+    #
+    elsif ( $tagname eq "video" ) {
+        Video_Tag_Handler( $line, $column, $text, %attr_hash );
+    }
     #
     # Check for tags that are not handled above, yet must still
     # contain some text between the start and end tags.
@@ -11349,7 +11695,7 @@ sub End_Handler {
     # Check dt tag
     #
     elsif ( $tagname eq "dt" ) {
-        End_Dt_Tag_Handler( $self, $line, $column, $text );
+        End_Dt_Tag_Handler($self, $line, $column, $text);
     }
 
     #
@@ -11426,7 +11772,7 @@ sub End_Handler {
     # Check li tag
     #
     elsif ( $tagname eq "li" ) {
-        End_Li_Tag_Handler( $self, $line, $column, $text );
+        End_Li_Tag_Handler($self, $line, $column, $text);
     }
 
     #
@@ -11504,21 +11850,21 @@ sub End_Handler {
     # Check tfoot tag
     #
     elsif ( $tagname eq "tfoot" ) {
-        End_Tfoot_Tag_Handler( $self, $line, $column, $text );
+        End_Tfoot_Tag_Handler($self, $line, $column, $text);
     }
 
     #
     # Check th tag
     #
     elsif ( $tagname eq "th" ) {
-        End_TH_Tag_Handler( $self, $line, $column, $text );
+        End_TH_Tag_Handler($self, $line, $column, $text);
     }
 
     #
     # Check thead tag
     #
     elsif ( $tagname eq "thead" ) {
-        End_Thead_Tag_Handler( $self, $line, $column, $text );
+        End_Thead_Tag_Handler($self, $line, $column, $text);
     }
 
     #
@@ -11529,10 +11875,24 @@ sub End_Handler {
     }
 
     #
+    # Check track tag
+    #
+    elsif ( $tagname eq "track" ) {
+        End_Track_Tag_Handler($line, $column, $text);
+    }
+
+    #
     # Check ul tag
     #
     elsif ( $tagname eq "ul" ) {
         End_Ol_Ul_Tag_Handler($tagname, $line, $column, $text);
+    }
+
+    #
+    # Check video tag
+    #
+    elsif ( $tagname eq "video" ) {
+        End_Video_Tag_Handler($line, $column, $text);
     }
 
     #
@@ -12314,7 +12674,8 @@ sub Import_Packages {
                           "javascript_check", "tqa_testcases",
                           "url_check", "tqa_result_object", "textcat",
                           "pdf_check", "content_sections", "language_map",
-                          "crawler", "tqa_tag_object");
+                          "crawler", "tqa_tag_object", "xml_ttml_validate",
+                          "xml_ttml_check");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
