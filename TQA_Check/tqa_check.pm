@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6823 $
+# $Revision: 6944 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2014-10-31 10:39:15 -0400 (Fri, 31 Oct 2014) $
+# $Date: 2014-12-23 11:10:13 -0500 (Tue, 23 Dec 2014) $
 #
 # Description:
 #
@@ -432,9 +432,10 @@ sub Set_TQA_Check_Valid_Markup {
                 ($mime_type =~ "text\/javascript") ) {
             Set_JavaScript_Check_Valid_Markup($validity);
         }
-        elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
-                ($mime_type =~ /application\/atom\+xml/) ||
+        elsif ( ($mime_type =~ /application\/atom\+xml/) ||
                 ($mime_type =~ /application\/rss\+xml/) ||
+                ($mime_type =~ /application\/ttml\+xml/) ||
+                ($mime_type =~ /application\/xhtml\+xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($this_url =~ /\.xml$/i) ) {
             Set_XML_Check_Valid_Markup($validity);
@@ -979,8 +980,9 @@ sub Check_Link_Anchor_Alt_Title_Check {
             if ( defined($testcase_data{"WCAG_2.0-G197"}) ) {
                 $ignore_link = 0;
                 foreach $ignored_link_text (split(/\n/, $testcase_data{"WCAG_2.0-G197"})) {
-                    if ( lc($ignored_link_text) eq lc(Clean_Text($anchor)) ) {
-                        print "Ignore link text \'$anchor\'\n" if $debug;
+                    #if ( lc($ignored_link_text) eq lc(Clean_Text($anchor)) ) {
+                    if ( index(lc(Clean_Text($anchor)), lc($ignored_link_text)) != -1 ) {
+                        print "Ignore link text \'$ignored_link_text\' found in \'$anchor\'\n" if $debug;
                         $ignore_link = 1;
                         last;
                     }
