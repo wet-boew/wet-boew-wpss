@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6826 $
+# $Revision: 6923 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2014-10-31 10:46:24 -0400 (Fri, 31 Oct 2014) $
+# $Date: 2014-12-16 13:40:03 -0500 (Tue, 16 Dec 2014) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ]
@@ -3080,10 +3080,11 @@ sub HTTP_Response_Callback {
         #
         # Is the file XML ? or does the URL end in a .xml ?
         #
-        elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
-                ($mime_type =~ /application\/atom\+xml/) ||
-                ($mime_type =~ /application\/xml/) ||
+        elsif ( ($mime_type =~ /application\/atom\+xml/) ||
                 ($mime_type =~ /application\/rss\+xml/) ||
+                ($mime_type =~ /application\/ttml\+xml/) ||
+                ($mime_type =~ /application\/xhtml\+xml/) ||
+                ($mime_type =~ /application\/xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($url =~ /\.xml$/i) ) {
             #
@@ -3501,7 +3502,7 @@ sub Direct_HTML_Input_Callback {
     #
     # Site analysis complete, print report footer
     #
-    Print_Results_Footer(0);
+    Print_Results_Footer(0, 0);
 }
 
 #***********************************************************************
@@ -3955,7 +3956,7 @@ sub URL_List_Callback {
     #
     # Site analysis complete, print report footer
     #
-    Print_Results_Footer(0);
+    Print_Results_Footer(0, 0);
 
     #
     # Close the web page details list
@@ -4020,7 +4021,7 @@ sub Runtime_Error_Callback {
     #
     # Site analysis complete, print report footer
     #
-    Print_Results_Footer(0);
+    Print_Results_Footer(0, 0);
 
     #
     # Close the web page details list
@@ -4634,6 +4635,7 @@ sub Print_Results_Summary_Table {
 #
 # Parameters: reached_crawl_limit - flag to indicate if crawl reached
 #              limit
+#             crawl_depth - crawl depth value
 #
 # Description:
 #
@@ -4641,7 +4643,7 @@ sub Print_Results_Summary_Table {
 #
 #***********************************************************************
 sub Print_Results_Footer {
-    my ($reached_crawl_limit) = @_;
+    my ($reached_crawl_limit, $crawl_depth) = @_;
 
     my ($sec, $min, $hour, $mday, $mon, $year);
     my ($date, $tab);
@@ -4682,6 +4684,15 @@ sub Print_Results_Footer {
                 Validator_GUI_Update_Results($tab,
                                          String_Value("Crawl limit set to") .
                                          " $crawllimit URLs\n");
+            }
+
+            #
+            # Do we add note about crawl depth ?
+            #
+            if ( $crawl_depth > 0 ) {
+                Validator_GUI_Update_Results($tab,
+                                         String_Value("Crawl depth set to") .
+                                         " $crawl_depth\n");
             }
 
             #
@@ -5304,8 +5315,8 @@ sub Perform_Site_Crawl {
 
     my ($site_dir_e, $site_dir_f, $site_entry_e, $site_entry_f);
     my (@url_list, @url_type, @url_last_modified, @url_size, @url_referrer);
-    my ($content, $url, $resp_url, $tab, $i);
-    my (@site_link_check_ignore_patterns);
+    my ($content, $url, $resp_url, $tab, $i, $depth);
+    my (@site_link_check_ignore_patterns, %crawler_options);
     my ($sec, $min, $hour, $mday, $mon, $year, $date, $rc);
 
     #
@@ -5432,12 +5443,24 @@ sub Perform_Site_Crawl {
     # Print report header in results window.
     #
     Print_Results_Header($site_dir_e, $site_dir_f);
+    
+    #
+    # Set crawler options
+    #
+    $crawler_options{"max_urls_to_return"} = $crawllimit;
+    $crawler_options{"max_urls_between_sleeps"} = $max_urls_between_sleeps;
+    if ( defined($crawl_details{"crawl_depth"}) ) {
+        $crawler_options{"crawl_depth"} = $crawl_details{"crawl_depth"};
+        $depth = $crawl_details{"crawl_depth"};
+    }
+    else {
+        $depth = 0;
+    }
 
     #
     # Set maximum number of URLs to crawl.
     # Set Link check ignore patters to ignore the logout pages.
     #
-    Set_Crawler_Set_Maximum_URLs_To_Return($crawllimit);
     @site_link_check_ignore_patterns = @link_ignore_patterns;
     if ( defined($logoutpagee) && ($logoutpagee ne "") ) {
         push(@site_link_check_ignore_patterns, "$logoutpagee");
@@ -5477,7 +5500,7 @@ sub Perform_Site_Crawl {
         print "                   process_pdf = $process_pdf\n";
     }
     $rc = Crawl_Site($site_dir_e, $site_dir_f, $site_entry_e, $site_entry_f,
-                     $max_urls_between_sleeps, $debug,
+                     \%crawler_options,
                      \@url_list, \@url_type, \@url_last_modified,
                      \@url_size, \@url_referrer);
 
@@ -5524,13 +5547,13 @@ sub Perform_Site_Crawl {
     #
     if ( ! $cgi_mode ) {
         if ( $crawllimit == @url_list ) {
-            Print_Results_Footer(1);
+            Print_Results_Footer(1, $depth);
         }
         else {
             #
             # Site analysis complete, print report footer
             #
-            Print_Results_Footer(0);
+            Print_Results_Footer(0, $depth);
         }
     }
 
@@ -5683,7 +5706,7 @@ sub Perform_Markup_Validation {
             elsif ( $result_object->testcase eq "JAVASCRIPT_VALIDATION" ) {
                 $is_valid_markup{"application/x-javascript"} = ($result_object->status == 0);
             }
-            elsif ( $result_object->testcase eq "FEED_VALIDATION" ) {
+            elsif ( $result_object->testcase eq "XML_VALIDATION" ) {
                 $is_valid_markup{"text/xml"} = ($result_object->status == 0);
             }
         }
@@ -6425,10 +6448,11 @@ sub Perform_Interop_Check {
         #
         # If this appears to be a Web feed, get the feed details
         #
-        elsif ( ($mime_type =~ /application\/xhtml\+xml/) ||
-                ($mime_type =~ /application\/atom\+xml/) ||
-                ($mime_type =~ /application\/xml/) ||
+        elsif ( ($mime_type =~ /application\/atom\+xml/) ||
                 ($mime_type =~ /application\/rss\+xml/) ||
+                ($mime_type =~ /application\/ttml\+xml/) ||
+                ($mime_type =~ /application\/xhtml\+xml/) ||
+                ($mime_type =~ /application\/xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($url =~ /\.xml$/i) ) {
             $feed_object = Interop_Check_Feed_Details($url, $content);
@@ -7474,7 +7498,7 @@ sub Open_Data_Callback {
     #
     # Site analysis complete, print report footer
     #
-    Print_Results_Footer(0);
+    Print_Results_Footer(0, 0);
 }
 
 #***********************************************************************
