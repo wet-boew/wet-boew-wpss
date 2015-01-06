@@ -2,9 +2,9 @@
 #
 # Name:   xml_check.pm
 #
-# $Revision: 6741 $
+# $Revision: 6921 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/xml_check.pm $
-# $Date: 2014-07-25 14:55:37 -0400 (Fri, 25 Jul 2014) $
+# $Date: 2014-12-16 13:37:06 -0500 (Tue, 16 Dec 2014) $
 #
 # Description:
 #
@@ -14,9 +14,9 @@
 # Public functions:
 #     Set_XML_Check_Language
 #     Set_XML_Check_Debug
+#     Set_XML_Check_Valid_Markup
 #     Set_XML_Check_Testcase_Data
 #     Set_XML_Check_Test_Profile
-#     Set_XML_Check_Valid_Markup
 #     XML_Check
 #
 # Terms and Conditions of Use
@@ -68,9 +68,9 @@ BEGIN {
     @ISA     = qw(Exporter);
     @EXPORT  = qw(Set_XML_Check_Language
                   Set_XML_Check_Debug
+                  Set_XML_Check_Valid_Markup
                   Set_XML_Check_Testcase_Data
                   Set_XML_Check_Test_Profile
-                  Set_XML_Check_Valid_Markup
                   XML_Check
                   );
     $VERSION = "1.0";
@@ -100,12 +100,16 @@ my ($xml_check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
+    "Duplicate attribute",        "Duplicate attribute ",
     "Fails validation",           "Fails validation, see validation results for details.",
+    "for tag",                    " for tag ",
     "Incorrect use of start and end tags", "Incorrect use of start and end tags.",
     );
 
 my %string_table_fr = (
-    "Fails validation",          "Échoue la validation, voir les résultats de validation pour plus de détails.",
+    "Duplicate attribute",        "Doublon attribut ",
+    "Fails validation",           "Échoue la validation, voir les résultats de validation pour plus de détails.",
+    "for tag",                    " pour balise ",
     "Incorrect use of start and end tags", "Utilisation incorrecte de début et de fin balises.",
     );
 
@@ -137,6 +141,7 @@ sub Set_XML_Check_Debug {
     # Set other debug flags
     #
     Set_Feed_Check_Debug($debug);
+    Set_XML_TTML_Check_Debug($debug);
 }
 
 #**********************************************************************
@@ -171,7 +176,40 @@ sub Set_XML_Check_Language {
     # Set language in supporting modules
     #
     Set_Feed_Check_Language($language);
+    Set_XML_TTML_Check_Language($language);
 }
+
+#***********************************************************************
+#
+# Name: Set_XML_Check_Valid_Markup
+#
+# Parameters: valid_html - flag
+#
+# Description:
+#
+#   This function copies the passed flag into the global
+# variable is_valid_xtml.  The possible values are
+#    1 - valid XML
+#    0 - not valid XML
+#   -1 - unknown validity.
+# This value is used when assessing WCAG 2.0-G134
+#
+#***********************************************************************
+sub Set_XML_Check_Valid_Markup {
+    my ($valid_xml) = @_;
+
+    #
+    # Copy the data into global variable
+    #
+    if ( defined($valid_xml) ) {
+        $is_valid_markup = $valid_xml;
+    }
+    else {
+        $is_valid_markup = -1;
+    }
+    print "Set_XML_Check_Valid_Markup, validity = $is_valid_markup\n" if $debug;
+}
+
 
 #**********************************************************************
 #
@@ -232,6 +270,7 @@ sub Set_XML_Check_Testcase_Data {
     # Set testcase data in supporting modules
     #
     Set_Feed_Check_Testcase_Data($testcase, $data);
+    Set_XML_TTML_Check_Testcase_Data($data);
 }
 
 #***********************************************************************
@@ -264,37 +303,7 @@ sub Set_XML_Check_Test_Profile {
     # Set profile in supporting modules
     #
     Set_Feed_Check_Test_Profile($profile, $xml_checks);
-}
-
-#***********************************************************************
-#
-# Name: Set_XML_Check_Valid_Markup
-#
-# Parameters: valid_markup - flag
-#
-# Description:
-#
-#   This function copies the passed flag into the global
-# variable is_valid_markup.  The possible values are
-#    1 - valid markup
-#    0 - not valid markup
-#   -1 - unknown validity.
-# This value is used when assessing WCAG technique G134
-#
-#***********************************************************************
-sub Set_XML_Check_Valid_Markup {
-    my ($valid_markup) = @_;
-
-    #
-    # Copy the data into global variable
-    #
-    if ( defined($valid_markup) ) {
-        $is_valid_markup = $valid_markup;
-    }
-    else {
-        $is_valid_markup = -1;
-    }
-    print "Set_XML_Check_Valid_Markup, validity = $is_valid_markup\n" if $debug;
+    Set_XML_TTML_Check_Test_Profile($profile, $xml_checks);
 }
 
 #***********************************************************************
@@ -317,15 +326,6 @@ sub Initialize_Test_Results {
     #
     $current_xml_check_profile = $xml_check_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
-
-    #
-    # Check to see if we were told that this document is not
-    # valid XML
-    #
-    if ( $is_valid_markup == 0 ) {
-        Record_Result("WCAG_2.0-G134", -1, 0, "",
-                      String_Value("Fails validation"));
-    }
 }
 
 #***********************************************************************
@@ -410,11 +410,9 @@ sub Record_Result {
 #***********************************************************************
 sub Start_Handler {
     my ($self, $tagname, %attr) = @_;
-   
-    my ($key, $value);
 
     #
-    # Check tags.
+    # Check start handler
     #
     print "Start_Handler tag $tagname\n" if $debug;
 }
@@ -439,7 +437,65 @@ sub End_Handler {
     # Check tag
     #
     print "End_Handler tag $tagname\n" if $debug;
+}
 
+#***********************************************************************
+#
+# Name: General_XML_Check
+#
+# Parameters: content - XML content pointer
+#
+# Description:
+#
+#   This function runs a number of technical QA checks on XML content.
+#
+#***********************************************************************
+sub General_XML_Check {
+    my ($content) = @_;
+
+    my ($parser, $eval_output, $result_object);
+
+    #
+    # Create a document parser
+    #
+    print "General_XML_Check\n" if $debug;
+    $parser = XML::Parser->new;
+
+    #
+    # Add handlers for some of the XML tags
+    #
+    $parser->setHandlers(Start => \&Start_Handler);
+    $parser->setHandlers(End => \&End_Handler);
+
+    #
+    # Parse the content.
+    #
+    eval { $parser->parse($$content, ErrorContext => 2); };
+    $eval_output = $@ if $@;
+
+    #
+    # Do we have any parsing errors ?
+    #
+    if ( defined($eval_output) ) {
+        $eval_output =~ s/\n at .* line \d*$//g;
+        $eval_output =~ s/\n at .* line \d* thread \d*\.$//g;
+        print "eval_output = $eval_output\n" if $debug;
+
+        #
+        # Is this a mismatched tag error
+        #
+        if ( $eval_output =~ /mismatched tag at/i ) {
+            Record_Result("WCAG_2.0-F70", -1, 0, "$eval_output",
+                          String_Value("Incorrect use of start and end tags"));
+        }
+        #
+        # Are there duplicate attributes ?
+        #
+        elsif ( $eval_output =~ /duplicate attribute at/i ) {
+            Record_Result("WCAG_2.0-F77", -1, 0, "$eval_output",
+                          String_Value("Duplicate attribute"));
+        }
+    }
 }
 
 #***********************************************************************
@@ -459,8 +515,7 @@ sub End_Handler {
 sub XML_Check {
     my ($this_url, $language, $profile, $content) = @_;
 
-    my ($parser, @urls, $url, @tqa_results_list, $result_object, $testcase);
-    my ($eval_output, @feed_results);
+    my (@tqa_results_list, $result_object, @feed_results, @ttml_results);
 
     #
     # Do we have a valid profile ?
@@ -491,6 +546,15 @@ sub XML_Check {
     Initialize_Test_Results($profile, \@tqa_results_list);
 
     #
+    # Check to see if we were told that this document is not
+    # valid XML
+    #
+    if ( $is_valid_markup == 0 ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Fails validation"));
+    }
+
+    #
     # Did we get any content ?
     #
     if ( length($$content) == 0 ) {
@@ -499,68 +563,37 @@ sub XML_Check {
     }
     else {
         #
-        # Create a document parser
+        # Is this a web feed ? if so perform feed specific checks checks
         #
-        $parser = XML::Parser->new;
+        if ( Feed_Validate_Is_Web_Feed($this_url, $content) ) {
+            @feed_results = Feed_Check($this_url, $language, $profile, $content);
 
-        #
-        # Add handlers for some of the XML tags
-        #
-        $parser->setHandlers(Start => \&Start_Handler);
-        $parser->setHandlers(End => \&End_Handler);
-
-        #
-        # Parse the content.
-        #
-        #$eval_output = eval { $parser->parse($content, ErrorContext => 2); } ;
-        eval { $parser->parse($$content, ErrorContext => 2); };
-        $eval_output = $@ if $@;
-
-        #
-        # If we don't have a validation status we should report the parser
-        # errors.  We don't have a parser for all types of XML documents
-        #
-        if ( $is_valid_markup != 0 ) {
             #
-            # Either no validation errors have been reported or validation
-            # was not performed.  Were there any errors reported by the above
-            # parse call ?
+            # Add TTML results to the overall results list
             #
-            if ( defined($eval_output) && ($eval_output ne "") ) {
-                $eval_output =~ s/\n at .* line \d*$//g;
-
-                #
-                # Is this a mismatched tag error
-                #
-                if ( $eval_output =~ /mismatched tag at/i ) {
-                    Record_Result("WCAG_2.0-F70", -1, 0, "$eval_output",
-                                  String_Value("Incorrect use of start and end tags"));
-                }
-                else {
-                    Record_Result("WCAG_2.0-G134", -1, 0, "$eval_output",
-                                  String_Value("Fails validation"));
-                }
-            }
+            foreach $result_object (@feed_results) {
+                push(@tqa_results_list, $result_object);
+           }
         }
-    }
+        #
+        # Is this a TTML file ? if so perform TTML specific checks checks
+        #
+        elsif ( XML_TTML_Validate_Is_TTML($this_url, $content) ) {
+            @ttml_results = XML_TTML_Check($this_url, $language, $profile,
+                                           $content);
 
-    #
-    # Reset valid markup flag to unknown before we are called again
-    #
-    $is_valid_markup = -1;
-    
-    #
-    # Is this a web feed ? if so perform additional checks
-    #
-    if ( Feed_Validate_Is_Web_Feed($this_url, $content) ) {
-        @feed_results = Feed_Check($this_url, $language, $profile, $content);
-        
-        #
-        # Add feed results to the XML results
-        #
-        foreach $result_object (@feed_results) {
-            push(@tqa_results_list, $result_object);
+            #
+            # Add TTML results to the overall results list
+            #
+            foreach $result_object (@ttml_results) {
+                push(@tqa_results_list, $result_object);
+           }
         }
+
+        #
+        # Perform general XML checks
+        #
+        General_XML_Check($content);
     }
 
     #
@@ -598,7 +631,8 @@ sub Import_Packages {
     my ($package);
     my (@package_list) = ("tqa_result_object", "tqa_testcases",
                           "language_map", "textcat", "feed_check",
-                          "feed_validate");
+                          "feed_validate", "xml_ttml_check",
+                          "xml_ttml_validate");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
