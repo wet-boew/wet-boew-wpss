@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 6650 $
+# $Revision: 6874 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2014-05-16 12:07:25 -0400 (Fri, 16 May 2014) $
+# $Date: 2014-12-03 16:06:09 -0500 (Wed, 03 Dec 2014) $
 #
 # Description:
 #
@@ -113,6 +113,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-F2", "1.3.1 F2: Failure of Success Criterion 1.3.1 due to using changes in text presentation to convey information without using the appropriate markup or text",
 "WCAG_2.0-F3", "1.1.1 F3: Failure of Success Criterion 1.1.1 due to using CSS to include images that convey important information",
 "WCAG_2.0-F4", "2.2.2 F4: Failure of Success Criterion 2.2.2 due to using text-decoration:blink without a mechanism to stop it in less than five seconds",
+"WCAG_2.0-F8", "1.2.2 F8: Failure of Success Criterion 1.2.2 due to captions omitting some dialogue or important sound effects",
 "WCAG_2.0-F16", "2.2.2 F16: Failure of Success Criterion 2.2.2 due to including scrolling content where movement is not essential to the activity without also including a mechanism to pause and restart the content",
 "WCAG_2.0-F17", "1.3.1, 4.1.1 F17: Failure of Success Criterion 1.3.1 and 4.1.1 due to insufficient information in DOM to determine one-to-one relationships (e.g. between labels with same id) in HTML",
 "WCAG_2.0-F25", "2.4.2 F25: Failure of Success Criterion 2.4.2 due to the title of a Web page not identifying the contents",
@@ -164,6 +165,7 @@ my (%testcase_description_en) = (
 # G80: Providing a submit button to initiate a change of context
 #      Failures of this technique are reported under technique H32
 #
+"WCAG_2.0-G87", "1.2.2 G87: Providing closed captions",
 #
 # G88: Providing descriptive titles for Web pages
 #      Failures of this technique are reported under technique H25, PDF18
@@ -275,6 +277,7 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-F2", "1.3.1 F2 : Échec du critère de succès 1.3.1 consistant à utiliser les changements dans la présentation du texte pour véhiculer de l'information sans utiliser le balisage ou le texte approprié",
 "WCAG_2.0-F3", "1.1.1 F3: Échec du critère de succès 1.1.1 consistant à utiliser les CSS pour inclure une image qui véhicule une information importante",
 "WCAG_2.0-F4", "2.2.2 F4: Échec du critère de succès 2.2.2 consistant à utiliser text-decoration:blink sans mécanisme pour l'arrêter en moins de 5 secondes",
+"WCAG_2.0-F8", "1.2.2 F8: Échec du critère de succès 1.2.2 consistant à omettre certains dialogues ou effets sonores importants dans les sous-titres",
 "WCAG_2.0-F16", "2.2.2 F16: Échec du critère de succès 2.2.2 consistant à inclure un contenu défilant lorsque le mouvement n'est pas essentiel à l'activité sans inclure aussi un mécanisme pour mettre ce contenu en pause et pour le redémarrer",
 "WCAG_2.0-F17", "1.3.1, 4.1.1 F17: Échec du critère de succès 1.3.1 et 4.1.1 lié à l'insuffisance d'information dans le DOM pour déterminer des relations univoques en HTML (par exemple entre les étiquettes ayant un même id)",
 "WCAG_2.0-F25", "2.4.2 F25: Échec du critère de succès 2.4.2 survenant quand le titre de la page Web n'identifie pas son contenu",
@@ -326,6 +329,7 @@ my (%testcase_description_fr) = (
 # G80: Providing a submit button to initiate a change of context
 #      Failures of this technique are reported under technique H32
 #
+"WCAG_2.0-G87", "1.2.2 G87 : Fournir des sous-titres fermés (à la demande)",
 #
 # G88: Providing descriptive titles for Web pages
 #      Failures of this technique are reported under technique H25, PDF18
@@ -435,6 +439,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-F2", "1.3.1",
 "WCAG_2.0-F3", "1.1.1",
 "WCAG_2.0-F4", "2.2.2",
+"WCAG_2.0-F8", "1.2.2",
 "WCAG_2.0-F16", "2.2.2",
 "WCAG_2.0-F17", "1.3.1, 4.1.1",
 "WCAG_2.0-F25", "2.4.2",
@@ -460,6 +465,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-F92", "1.3.1",
 "WCAG_2.0-G18", "1.4.3",
 "WCAG_2.0-G19", "2.3.1",
+"WCAG_2.0-G87", "1.2.2",
 #"WCAG_2.0-G94", "1.1.1",
 "WCAG_2.0-G115", "1.3.1",
 "WCAG_2.0-G125", "2.4.5",
