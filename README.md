@@ -1,32 +1,30 @@
-WPSS Validation Tool version 4.7.0
+WPSS Validation Tool version 4.8.0
 -----------------------------------
 
 The WPSS Validation Tool provides web developers and quality assurance testers the ability to perform a number of web site and web page validation tasks at one time. The tool crawls a site to find all of the documents then analyses each document with a number of validation tools.
 
-Version 4.7.0 contains the following updates and additions
+Version 4.8.0 contains the following updates and additions
 
 WPSS_Tool
 ---------
 
-    - Reduce the memory requirements to avoid "Out of memory" errors.
-    - If no DOC type line is found in HTML markup, don't run markup validator.
-    - Change CSS checks from checking the entire CSS content to checking styles in actual use.
-    - Check for ARIA attributes as possible labels.
-    - Don't extract links from PDF documents.
-    - Clean up temporary files when program exist.
-    - Check for @media diectives in CSS. When checking styles for accessibility, only check styles with no media or media = screen.
-    - Check for aria-label attribute additional tags (e.g. in fieldset).
-    - Don't report WCAG_2.0-H33 error for empty title attribute in link.
-    - Check for empty <thead> and <tfoot> tags - WCAG_2.0-G115.
+    - Add crawl depth option to limit the depth of a crawl.
+    - Check if image alt is the same as the src URL or the image file
+      name (with or without suffix) - WCAG_2.0-F30
+    - Check for missing, invalid or broken src in <track> tags - WCAG_2.0-F8
+    - Check for missing captions and descriptions tracks in <video> tag - WCAG_2.0-G87
+    - Add Nu Markup Checker for HTML5 validation - WCAG_2.0-G134
+    - Add W3C TTML validaton for ttml/xml validation - WCAG_2.0-G134
+    - Check for duplicate attributes in XML content - WCAG_2.0-F77
+    - Only report error for <hr /> that preceeds a <h1> heading
+      not any other heading - WCAG_2.0-F43
  
 
-Reminder: The WPSS Tool DOES NOT validate HTML5 markup.
+Note: <b>The WPSS Tool NOW DOES validate HTML5 markup.</b>
 
 
 Open Data Tool
 --------------
-
-    - Check for and validate PWGSC XML data dictionary format - TP_PW_OD_XML_1
  
 
 WPSS_Tool Installer
@@ -44,4 +42,4 @@ The WPSS_Tool has been tested on the following platforms
 - Windows 7 (32 bit), Strawberry Perl 5.18 (32 bit), Python 2.7.6
 
 The WPSS Tool installer is available as a release in this repository
-  - https://github.com/wet-boew/wet-boew-wpss/releases/download/4.7.0/WPSS_Tool.exe
+  - https://github.com/wet-boew/wet-boew-wpss/releases/download/4.8.0/WPSS_Tool.exe
