@@ -20,7 +20,7 @@ WPSS_Tool
       not any other heading - WCAG_2.0-F43
  
 
-Note: <b>The WPSS Tool NOW DOES validate HTML5 markup.</b>
+Note: <b>The WPSS Tool now validates HTML5 markup.</b>
 
 
 Open Data Tool
