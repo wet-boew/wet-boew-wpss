@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 6814 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2014-10-28 15:21:09 -0400 (Tue, 28 Oct 2014) $
+# $Revision: 7053 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
+# $Date: 2015-04-02 11:12:53 -0400 (Thu, 02 Apr 2015) $
 #
 # Description:
 #
@@ -599,50 +599,6 @@ sub Set_TP_PW_Check_Testcase_Data {
             # Save trusted domain value
             #
             $$hash{$value} = 1;
-        }
-    }
-    #
-    # Do we have TP_PW_SITE testcase specific data?
-    #
-    elsif ( $testcase eq "TP_PW_SITE" ) {
-        #
-        # Get the site includes data type
-        #
-        ($type, $value) = split(/\s+/, $data, 2);
-
-        #
-        # Do we have a site includes directory ?
-        #
-        if ( ($type eq "DIRECTORY") && defined($value) ) {
-            if ( ! ($object->has_field("site_inc_directory")) ) {
-                $object->add_field("site_inc_directory", "scalar");
-                $object->set_scalar_field("site_inc_directory", $value);
-            }
-        }
-        #
-        # Do we have the site includes repository ?
-        #
-        elsif ( ($type eq "REPOSITORY") && defined($value) ) {
-            if ( ! ($object->has_field("site_inc_repository")) ) {
-                $object->add_field("site_inc_repository", "scalar");
-                $object->set_scalar_field("site_inc_repository", $value);
-            }
-        }
-        #
-        # Do we have a trusted domain ? one that we do not
-        # have to perform a check of site includes.
-        #
-        elsif ( ($type eq "TRUSTED") && defined($value) ) {
-            if ( ! ($object->has_field("trusted_site_inc_domains")) ) {
-                $object->add_field("trusted_site_inc_domains", "hash");
-            }
-            $hash = $object->get_field("trusted_site_inc_domains");
-
-            #
-            # Save trusted domain value
-            #
-            $$hash{$value} = 1;
-
         }
     }
     #
@@ -2210,161 +2166,6 @@ sub Verify_Template_Checksums {
 
 #***********************************************************************
 #
-# Name: Verify_Site_Includes_Version
-#
-# Parameters: domain - protocol and domain of server
-#             template_directory_parent - template top level directory
-#             site_inc_subdirectory - site includes subdirectory
-#             profile - template profile
-#
-# Description:
-#
-#    This function verifies the version of the site includes package.  It
-# checks that the version on the supplied domain matches the version
-# in the site includes repository.
-#
-#***********************************************************************
-sub Verify_Site_Includes_Version {
-    my ($domain, $template_directory_parent, $site_inc_subdirectory,
-        $profile) = @_;
-
-    my ($version_url, $url, $resp, $line, $file_path);
-    my ($local_version, $repository_versions, $version_string, $valid_version);
-    my ($object, $site_inc_repository, $trusted_site_inc_domains);
-    my ($site_inc_directory);
-
-    #
-    # Get testcase data object
-    $object = $testcase_data_objects{$profile};
-
-    #
-    # Get site includes repository and directory values
-    #
-    $site_inc_repository = $object->get_field("site_inc_repository");
-    $site_inc_directory = $object->get_field("site_inc_directory");
-
-    #
-    # Get table of trusted site include domain values
-    #
-    $trusted_site_inc_domains = $object->get_field("trusted_site_inc_domains");
-
-    #
-    # Is this a trusted domain or a local file (domain = file:) ? 
-    # if so we don't have to check the site includes version.
-    #
-    print "Verify_Site_Includes_Version for domain $domain\n" if $debug;
-    if ( ($domain =~ /^file:/i) || 
-         (defined($trusted_site_inc_domains) &&
-          defined($$trusted_site_inc_domains{$domain})) ) {
-        print "Skipping site includes version check for domain $domain\n" if $debug;
-        return;
-    }
-
-    #
-    # Do we have a site includes repository value ?
-    #
-    if ( ! defined($site_inc_repository) ) {
-        return;
-    }
-
-    #
-    # Have we already checked the site includes version for this domain ?
-    #
-    if ( ! defined($site_inc_version{$domain}) ) {
-        #
-        # Get the site includes version information from the site
-        # includes subdirectory (may not exist in older packages)
-        #
-        $version_url = "$domain/$template_directory_parent$site_inc_directory/$site_inc_subdirectory/version.txt";
-        print "Get site includes version file $version_url\n" if $debug;
-        ($url, $resp) = Crawler_Get_HTTP_Response($version_url, "");
-
-        #
-        # Did we get the version file ?
-        #
-        if ( ! defined($resp) || (! $resp->is_success) ) {
-            #
-            # Get the site includes version information from the top
-            # level site includes directory.
-            #
-            $version_url = "$domain/$template_directory_parent$site_inc_directory/version.txt";
-            print "Get site includes version file $version_url\n" if $debug;
-            ($url, $resp) = Crawler_Get_HTTP_Response($version_url, "");
-        }
-
-        #
-        # Did we get the version file ?
-        #
-        if ( defined($resp) && $resp->is_success ) {
-            #
-            # Get the site includes version value.
-            # Strip off any possible trailing CR/LF.
-            #
-            $local_version = $resp->content;
-            chop($local_version);
-            $local_version =~ s/\r$//g;
-            $local_version =~ s/\n$//g;
-
-            #
-            # Get the repository version information.
-            #
-            $version_url = "$site_inc_repository/valid_versions.txt";
-            print "Get repository site includes valid version file $version_url\n" if $debug;
-            ($url, $resp) = Crawler_Get_HTTP_Response($version_url, "");
-
-            #
-            # Did we get the version file ?
-            #
-            if ( defined($resp) && $resp->is_success ) {
-                #
-                # Get the repository site includes valid versions
-                #
-                $repository_versions = $resp->content;
-
-                #
-                # Check to see if this site's version is in the
-                # list of valid versions.
-                #
-                $valid_version = 0;
-                foreach $version_string (split(/\n/, $repository_versions)) {
-                    if ( $local_version eq $version_string ) {
-                        print "Found valid version $version_string\n" if $debug;
-                        $valid_version = 1;
-                        last;
-                   }
-                }
-
-                #
-                # Did we find a valid version ?
-                #
-                if ( ! $valid_version ) {
-                    print "Invalid site includes version $local_version, valid versions = $repository_versions\n" if $debug;
-                    Record_Result("TP_PW_SITE", -1, -1, "",
-                                  String_Value("Invalid site includes version") . 
-                                  " \"$local_version\" " .
-                                  String_Value("expecting one of") .
-                                  " \"$repository_versions\"");
-                }
-            }
-        }
-        else {
-            #
-            # Failed to get version file
-            #
-            Record_Result("TP_PW_SITE", -1, -1, "",
-                          String_Value("Site includes file not found") .
-                                          " \"$version_url\" ");
-        }
-
-        #
-        # Completed site includes version check for this domain.
-        #
-        $site_inc_version{$domain} = 1;
-    }
-}
-
-#***********************************************************************
-#
 # Name: Verify_Template_Version
 #
 # Parameters: domain - protocol and domain of server
@@ -2864,13 +2665,6 @@ sub Check_Site_Includes_Links {
             }
         }
     }
-
-    #
-    # Verify the site includes version.
-    #
-    Verify_Site_Includes_Version($site_inc_domain,
-                                 $template_directory_parent,
-                                 $site_inc_subdirectory, $profile);
 }
 
 #***********************************************************************
