@@ -2,9 +2,9 @@
 #
 # Name:   validate_markup.pm
 #
-# $Revision: 6910 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/validate_markup.pm $
-# $Date: 2014-12-15 16:11:01 -0500 (Mon, 15 Dec 2014) $
+# $Revision: 7020 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/HTML_Validate/Tools/validate_markup.pm $
+# $Date: 2015-03-05 11:32:31 -0500 (Thu, 05 Mar 2015) $
 #
 # Description:
 #
@@ -236,6 +236,7 @@ sub Validate_Markup {
         elsif ( ($mime_type =~ /application\/atom\+xml/) ||
                 ($mime_type =~ /application\/ttml\+xml/) ||
                 ($mime_type =~ /application\/xhtml\+xml/) ||
+                ($mime_type =~ /application\/xml/) ||
                 ($mime_type =~ /text\/xml/) ||
                 ($this_url =~ /\.xml$/i) ) {
             #
