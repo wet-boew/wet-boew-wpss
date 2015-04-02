@@ -2,9 +2,9 @@
 #
 # Name: textcat.pm
 #
-# $Revision: 6732 $
+# $Revision: 6992 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/textcat.pm $
-# $Date: 2014-07-24 11:21:19 -0400 (Thu, 24 Jul 2014) $
+# $Date: 2015-01-19 09:42:14 -0500 (Mon, 19 Jan 2015) $
 #
 # Description
 #
@@ -22,9 +22,7 @@
 # Public functions:
 #     TextCat_Debug
 #     TextCat_Extract_Text_From_HTML
-#     TextCat_Extract_Text_From_XML
 #     TextCat_HTML_Language
-#     TextCat_XML_Language
 #     TextCat_Text_Language
 #     TextCat_Supported_Language
 #     TextCat_Verbose
@@ -53,9 +51,7 @@ BEGIN {
     @ISA     = qw(Exporter);
     @EXPORT  = qw(TextCat_Debug
                   TextCat_Extract_Text_From_HTML
-                  TextCat_Extract_Text_From_XML
                   TextCat_HTML_Language
-                  TextCat_XML_Language
                   TextCat_Text_Language
                   TextCat_Supported_Language
                   TextCat_Verbose
@@ -119,7 +115,7 @@ my ($INVALID_CONTENT) = -3;
 my ($CATAGORIZATION_OK) = 0;
 
 #
-# Variables for HTML and XML text parsing
+# Variables for HTML text parsing
 #
 my (%inside_html_tag, %language_text, $current_tag, $current_lang, $all_text);
 my (@lang_stack, @tag_lang_stack, $last_lang_tag, $html_lang_value);
@@ -142,9 +138,6 @@ my (%html_tags_with_no_end_tag) = (
         "source", "source",
         "track", "track",
         "wbr", "wbr",
-);
-my (%xml_tags_with_no_end_tag) = (
-        "link",  "link",
 );
 
 #********************************************************
@@ -471,315 +464,6 @@ sub TextCat_Extract_Text_From_HTML {
     return($all_text);
 }
 
-#***********************************************************************
-#
-# Name: XML_Start_Handler
-#
-# Parameters: self - reference to this parser
-#             tagname - name of tag
-#             attr - hash table of attributes
-#
-# Description:
-#
-#   This function is a callback handler for XML parsing that
-# handles the start of XML tags.
-#
-#***********************************************************************
-sub XML_Start_Handler {
-    my ($self, $tagname, %attr_hash) = @_;
-
-    my ($lang);
-
-    #
-    # Check for entry tag.
-    #
-    print "XML_Start_Handler tag $tagname\n" if $debug;
-
-    #
-    # Update current tag name.  It doesn't matter if the tag
-    # has an end (e.g <a> ... </a> or not, we really only care
-    # about the <script> and <style> tags, which do have an end.
-    #
-    $current_tag = $tagname;
-
-    #
-    # Check for xml:lang
-    #
-    if ( defined($attr_hash{"xml:lang"})) {
-        $lang = lc($attr_hash{"xml:lang"});
-
-        #
-        # Remove any language dialect
-        #
-        $lang =~ s/-.*$//g;
-        #print "Found xml:lang $lang in $tagname at $line:$column\n" if $debug;
-
-        #
-        # Convert possible 2 character code into a 3 character code.
-        #
-        if ( defined($language_map::iso_639_1_iso_639_2T_map{$lang}) ) {
-            $lang = $language_map::iso_639_1_iso_639_2T_map{$lang};
-        }
-
-        #
-        # Does this tag have a matching end tag ?
-        #
-        if ( ! defined ($xml_tags_with_no_end_tag{$tagname}) ) {
-            #
-            # Update the current language and push this one on the language
-            # stack. Save the current tag name also.
-            #
-            push(@lang_stack, $current_lang);
-            push(@tag_lang_stack, $last_lang_tag);
-            $last_lang_tag = $tagname;
-            print "Push language $current_lang on language stack for $tagname\n" if $debug;
-            $current_lang = $lang;
-            print "Current language = $lang\n" if $debug;
-        }
-    }
-    else {
-        #
-        # No language.  If this tagname is the same as the last one with a
-        # language, pretend this one has a language also.  This avoids
-        # premature ending of a language span when the end tag is reached
-        # (and the language is popped off the stack).
-        #
-        if ( $tagname eq $last_lang_tag ) {
-            push(@lang_stack, $current_lang);
-            push(@tag_lang_stack, $tagname);
-            print "Push copy of language  $current_lang on language stack for $tagname\n" if $debug;
-        }
-    }
-
-    #
-    # Is this the <feed> tag ? If so remember it's language value
-    #
-    if ( $tagname eq "feed" ) {
-        $feed_lang_value = $current_lang;
-    }
-    #
-    # If this is an icon tag, don't save its text
-    #
-    elsif ( $tagname eq "icon" ) {
-        $save_text = 0;
-    }
-    #
-    # If this is an id tag, don't save its text
-    #
-    elsif ( $tagname eq "id" ) {
-        $save_text = 0;
-    }
-    #
-    # If this is a logo tag, don't save its text
-    #
-    elsif ( $tagname eq "logo" ) {
-        $save_text = 0;
-    }
-    #
-    # If this is a published tag, don't save its text
-    #
-    elsif ( $tagname eq "published" ) {
-        $save_text = 0;
-    }
-    #
-    # If this is an updated tag, don't save its text
-    #
-    elsif ( $tagname eq "updated" ) {
-        $save_text = 0;
-    }
-    #
-    # If this is an uri tag, don't save its text
-    #
-    elsif ( $tagname eq "uri" ) {
-        $save_text = 0;
-    }
-}
-
-#***********************************************************************
-#
-# Name: XML_End_Handler
-#
-# Parameters: self - reference to this parser
-#             tagname - name of tag
-#
-# Description:
-#
-#   This function is a callback handler for XML parsing that
-# handles end tags.
-#
-#***********************************************************************
-sub XML_End_Handler {
-    my ($self, $tagname) = @_;
-
-    #
-    # Check for entry tag
-    #
-    print "XML_End_Handler tag $tagname\n" if $debug;
-    $current_tag = "";
-
-    #
-    # Is this tag the last one that had a language ?
-    #
-    if ( $tagname eq $last_lang_tag ) {
-        #
-        # Pop the last language and tag name from the stacks
-        #
-        $current_lang = pop(@lang_stack);
-        $last_lang_tag = pop(@tag_lang_stack);
-        if ( ! defined($last_lang_tag) ) {
-            print "last_lang_tag not defined\n" if $debug;
-        }
-        print "Pop language $current_lang from language stack for $tagname\n" if $debug;
-    }
-
-    #
-    # If this is an icon tag, restart text saving
-    #
-    if ( $tagname eq "icon" ) {
-        $save_text = 1;
-    }
-    #
-    # If this is an id tag, restart text saving
-    #
-    elsif ( $tagname eq "id" ) {
-        $save_text = 1;
-    }
-    #
-    # If this is a logo tag, restart text saving
-    #
-    elsif ( $tagname eq "logo" ) {
-        $save_text = 1;
-    }
-    #
-    # If this is a published tag, restart text saving
-    #
-    elsif ( $tagname eq "published" ) {
-        $save_text = 1;
-    }
-    #
-    # If this is an updated tag, restart text saving
-    #
-    elsif ( $tagname eq "updated" ) {
-        $save_text = 1;
-    }
-    #
-    # If this is an uri tag, restart text saving
-    #
-    elsif ( $tagname eq "uri" ) {
-        $save_text = 1;
-    }
-}
-
-#***********************************************************************
-#
-# Name: XML_Char_Handler
-#
-# Parameters: self - reference to this parser
-#             string - text
-#
-# Description:
-#
-#   This function is a callback handler for XML parsing that
-# handles text content between tags.
-#
-#***********************************************************************
-sub XML_Char_Handler {
-    my ($self, $string) = @_;
-
-    #
-    # Are we saving text ?
-    #
-    if ( $save_text ) {
-        $language_text{$current_lang} .= $string;
-        $all_text .= $string;
-        #print "Current language = $current_lang text = $string\n" if $debug;
-    }
-}
-
-#********************************************************
-#
-# Name: TextCat_Extract_Text_From_XML
-#
-# Parameters: input - block of XML text
-#
-# Description:
-#
-#   This function extracts text from a block of XML markup.
-#
-# Returns:
-#  text
-#
-#********************************************************
-sub TextCat_Extract_Text_From_XML {
-    my ($input) = @_;
-
-    my ($parser, $lang, $content, $eval_output);
-
-    #
-    # Do we have any content ?
-    #
-    if ( ! defined($input) || ($input eq "") ) {
-        print "TextCat_Extract_Text_From_XML: No content\n" if $debug;
-    }
-    print "TextCat_Extract_Text_From_XML, content length = " . length($input) .
-          "\n" if $debug;
-
-    #
-    # Initialize global variables
-    #
-    %language_text = ();
-    $all_text = "";
-    %inside_html_tag = ();
-    $current_lang = "eng";
-    push(@lang_stack, $current_lang);
-    push(@tag_lang_stack, "top");
-    $current_tag = "";
-    $last_lang_tag = "top";
-    $save_text = 1;
-    $feed_lang_value = "eng";
-
-    #
-    # Did we get any content ?
-    #
-    if ( length($input) > 0 ) {
-        #
-        # Create a parser to parse the XML content.
-        #
-        print "Create parser object\n" if $debug;
-        $parser = XML::Parser->new;
-
-        #
-        # Add handlers for some of the XML tags
-        #
-        $parser->setHandlers(Start => \&XML_Start_Handler);
-        $parser->setHandlers(End => \&XML_End_Handler);
-        $parser->setHandlers(Char => \&XML_Char_Handler);
-
-        #
-        # Parse the content.
-        #
-        print "Parse the XML content\n" if $debug;
-        $eval_output = eval { $parser->parse($input); } ;
-        #$parser->parse($input);
-    }
-
-    #
-    # Print content by language
-    #
-    if ( $debug ) {
-        while ( ($lang, $content) = each %language_text ) {
-            print "Language = $lang Content length = " . length($content) . "\n";
-        }
-    }
-
-    #
-    # Return all the content.
-    #
-    print "TextCat_Extract_Text_From_XML, returned length = " .
-          length($all_text) . "\n" if $debug;
-    return($all_text);
-}
-
 #********************************************************
 #
 # Name: TextCat_All_Language_Spans
@@ -836,46 +520,6 @@ sub TextCat_HTML_Language {
     # Get the content that matches the <html> tag's lang attribute
     #
     $content = $language_text{$html_lang_value};
-
-    #
-    # Return the language of this text
-    #
-    return(TextCat_Text_Language(\$content));
-}
-
-#********************************************************
-#
-# Name: TextCat_XML_Language
-#
-# Parameters: input - block of XML text
-#
-# Description:
-#
-#   This function determines the language of the input string that
-# contains XML markup.  The text is extracted from the markup and
-# the language of the text that is not in a language specific span
-# (e.g. <span lang="..">some text</span>) is returned.
-#
-# Returns:
-#
-#  language_code - ISO 639 3 letter language code
-#  language
-#
-#********************************************************
-sub TextCat_XML_Language {
-    my ($input) = @_;
-
-    my ($content);
-
-    #
-    # Extract the text from the XML markup.
-    #
-    $content = TextCat_Extract_Text_From_XML($input);
-    
-    #
-    # Get the content that matches the <feed> tag's lang attribute
-    #
-    $content = $language_text{$feed_lang_value};
 
     #
     # Return the language of this text
