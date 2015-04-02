@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 6816 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2014-10-31 10:30:43 -0400 (Fri, 31 Oct 2014) $
+# $Revision: 7052 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
+# $Date: 2015-04-02 11:12:04 -0400 (Thu, 02 Apr 2015) $
 #
 # Description:
 #
@@ -6629,6 +6629,13 @@ sub Check_Skip_Links {
                 $i++;
             }
         }
+    }
+    elsif ( defined($$link_sets{"SKIP_LINKS"}) ) {
+        #
+        # We have a skip links section but we are not checking href
+        # values.
+        #
+        print "Found skip links section\n" if $debug;
     }
     else {
         #
