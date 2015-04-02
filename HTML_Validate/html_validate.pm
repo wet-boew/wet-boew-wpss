@@ -2,9 +2,9 @@
 #
 # Name:   html_validate.pm
 #
-# $Revision: 6909 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/HTML_Validate/Tools/html_validate.pm $
-# $Date: 2014-12-15 16:05:41 -0500 (Mon, 15 Dec 2014) $
+# $Revision: 7039 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/HTML_Validate/Tools/html_validate.pm $
+# $Date: 2015-03-20 11:27:07 -0400 (Fri, 20 Mar 2015) $
 #
 # Description:
 #
@@ -413,6 +413,13 @@ sub Validate_HTML5_Content {
             else {
                 print "Messages is not a array, $ref_type\n" if $debug;
             }
+        }
+        #
+        # Look from error with Java
+        #
+        elsif ( $validator_output =~ /is not recognized/i ) {
+            print "Error, validator failed to run\n" if $debug;
+            $errors .= String_Value("Error") . $validator_output . "\n";
         }
         else {
             #
