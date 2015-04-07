@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision: 6788 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_testcases.pm $
-# $Date: 2014-10-07 15:37:14 -0400 (Tue, 07 Oct 2014) $
+# $Revision: 7041 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_testcases.pm $
+# $Date: 2015-03-20 11:28:56 -0400 (Fri, 20 Mar 2015) $
 #
 # Description:
 #
@@ -106,7 +106,6 @@ my (%testcase_description_en) = (
 "OD_3",     "OD_3: Mark-up Language Requirements",
 "OD_CSV_1", "OD_CSV_1: CSV Data",
 "OD_TXT_1", "OD_TXT_1: TXT Dictionary",
-
 "OD_ZIP_1", "OD_ZIP_1: ZIP Archive",
 
 #
@@ -133,7 +132,6 @@ my (%testcase_description_fr) = (
 "OD_3",     "OD_3: Exigences relatives au langage de balisage",
 "OD_CSV_1", "OD_CSV_1: Données CSV",
 "OD_TXT_1", "OD_TXT_1: TXT Dictionnaire",
-
 "OD_ZIP_1", "OD_ZIP_1: Archive ZIP",
 
 #
