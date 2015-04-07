@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 6944 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2014-12-23 11:10:13 -0500 (Tue, 23 Dec 2014) $
+# $Revision: 7022 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
+# $Date: 2015-03-05 11:39:00 -0500 (Thu, 05 Mar 2015) $
 #
 # Description:
 #
@@ -122,31 +122,31 @@ my ($tqa_check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
+    "Alt text missing from non-decorative image", "Alt text missing from non-decorative image. ",
+    "Alt text",                       "Alt text",
+    "Alt values do not match for link to", "Alt values do not match for link to ",
+    "Anchor values do not match for link to", "Anchor values do not match for link to",
+    "at line:column",                 " at (line:column) ",
+    "Found",                          "Found",
     "HTTP header redirect not allowed", "HTTP header redirect not allowed",
     "HTTP header refresh not allowed",  "HTTP header refresh not allowed",
-    "at line:column",                   " at (line:column) ",
-    "Anchor values do not match for link to", "Anchor values do not match for link to",
-    "Title values do not match for link to", "Title values do not match for link to",
-    "Alt values do not match for link to", "Alt values do not match for link to ",
-    "Found",                          "Found",
-    "previously found",               "previously found",
-    "in",                             " in ",
-    "Navigation link",                "Navigation link ",
-    "out of order, should precede",   " out of order, should precede ",
-    "in URL",                         " in URL ",
-    "Alt text",                       "Alt text",
-    "Alt text missing from non-decorative image", "Alt text missing from non-decorative image. ",
     "Image first found in URL",       "Image first found in URL ",
-    "Missing alt attribute in decorative image", "Missing alt attribute in decorative image. ",
+    "Image URL in decorative list",   "Image URL found in decorative image list",
     "Image URL in non-decorative list", "Image URL found in non-decorative image list",
-    "Image URL in decorative list",     "Image URL found in decorative image list",
-    "Non null alt text",               "Non null 'alt' text",
-    "Non null",                        "Non null",
-    "in decorative image",             "in decorative image.",
-    "in non-decorative image",         "in non-decorative image",
+    "in decorative image",            "in decorative image.",
+    "in non-decorative image",        "in non-decorative image",
+    "in URL",                         " in URL ",
+    "in",                             " in ",
+    "Invalid role text value",        "Invalid 'role' text value",
+    "Missing alt attribute in decorative image", "Missing alt attribute in decorative image. ",
+    "Navigation link",                "Navigation link ",
+    "Non null alt text",              "Non null 'alt' text",
+    "Non null title text",            "Non null 'title' text",
+    "Non null",                       "Non null",
     "Non-decorative image loaded via CSS", "Non-decorative image loaded via CSS. ",
-    "Non null title text",              "Non null 'title' text",
-    "Invalid role text value",          "Invalid 'role' text value",
+    "out of order, should precede",   " out of order, should precede ",
+    "previously found",               "previously found",
+    "Title values do not match for link to", "Title values do not match for link to",
     );
 
 
@@ -154,31 +154,31 @@ my %string_table_en = (
 # String table for error strings (French).
 #
 my %string_table_fr = (
-    "HTTP header redirect not allowed", "En-têtes HTTP rediriger pas autorisé",
-    "HTTP header refresh not allowed",  "En-têtes HTTP raffraîchissement pas autorisé",
-    "at line:column",                  " à (la ligne:colonne) ",
-    "Anchor text is a URL",            "Texte d'ancrage est une URL",
-    "Anchor values do not match for link to", "Valeurs d'ancrage ne correspondent pas pour le lien vers",
-    "Title values do not match for link to", "Valeurs 'title' ne correspondent pas pour le lien vers",
-    "Alt values do not match for link to", "Valeurs 'alt' ne correspondent pas pour le lien vers",
-    "Found",                          "trouvé",
-    "previously found",               "trouvé avant",
-    "in",                             " dans ",
-    "Navigation link",                "Lien de navigation ",
-    "out of order, should precede",   " de l'ordre, doit précéder ",
-    "in URL",                         " dans URL ",
     "Alt text",                       "Alt texte",
-    "Image first found in URL",        "Image d'abord trouvé dans les URL ",
+    "Alt values do not match for link to", "Valeurs 'alt' ne correspondent pas pour le lien vers",
+    "Anchor text is a URL",           "Texte d'ancrage est une URL",
+    "Anchor values do not match for link to", "Valeurs d'ancrage ne correspondent pas pour le lien vers",
+    "at line:column",                 " à (la ligne:colonne) ",
+    "Found",                          "trouvé",
+    "HTTP header redirect not allowed", "En-têtes HTTP rediriger pas autorisé",
+    "HTTP header refresh not allowed",  "En-têtes HTTP raffranchissement pas autorisé",
+    "Image first found in URL",       "Image d'abord trouvé dans les URL ",
+    "Image URL in decorative list",   "URL de l'image son trouvé dans la liste des images décoratives.",
+    "Image URL in non-decorative list", "URL de l'image son trouvé dans la liste des images non décoratives.",
+    "in decorative image",            "dans l'image décoratives.",
+    "in non-decorative image",        "dans l'image non-décoratives.",
+    "in URL",                         " dans URL ",
+    "in",                             " dans ",
+    "Invalid role text value",        "Valeur de texte 'role' est invalide",
     "Missing alt attribute in decorative image", "Attribut alt manquant dans l'image décoratives. ",
-    "Image URL in non-decorative list", "URL de l'image son trouve dans la liste des images non décoratives.",
-    "Image URL in decorative list",     "URL de l'image son trouve dans la liste des images décoratives.",
-    "Non null alt text",               "Non le texte 'alt' nuls",
-    "Non null",                        "Non nuls",
-    "in decorative image",             "dans l'image décoratives.",
-    "in non-decorative image",         "dans l'image non-décoratives.",
+    "Navigation link",                "Lien de navigation ",
+    "Non null alt text",              "Non le texte 'alt' nuls",
+    "Non null title text",            "Non le texte 'title' nuls",
+    "Non null",                       "Non nuls",
     "Non-decorative image loaded via CSS", "Non-décorative image chargée via CSS. ",
-    "Non null title text",             "Non le texte 'title' nuls",
-    "Invalid role text value",         "Valeur de texte 'role' est invalide",
+    "out of order, should precede",   " de l'ordre, doit précéder ",
+    "previously found",               "trouvé avant",
+    "Title values do not match for link to", "Valeurs 'title' ne correspondent pas pour le lien vers",
     );
 
 #
@@ -972,6 +972,15 @@ sub Check_Link_Anchor_Alt_Title_Check {
             $in_list = $link->in_list;
             $list_heading = $link->list_heading;
             print "Check link anchor = \"$anchor\", lang = $lang, alt = \"$alt\" url = $link_url at $line_no:$column_no\n" if $debug;
+            
+            #
+            # Is this a <input type="image" ? If so we skip it as any alt
+            # or title attribute belong to the input not the image.
+            #
+            if ( $link_type eq "input" ) {
+                print "Skip input type=image\n" if $debug;
+                next;
+            }
 
             #
             # Does the link text match any of those we should ignore
