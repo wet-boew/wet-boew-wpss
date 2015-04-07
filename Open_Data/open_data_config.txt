@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision: 6787 $
+# $Revision: 6980 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_config.txt $
-# $Date: 2014-10-07 15:32:52 -0400 (Tue, 07 Oct 2014) $
+# $Date: 2015-01-13 16:11:39 -0500 (Tue, 13 Jan 2015) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -74,6 +74,17 @@ tcid OD_API_3
 tcid TP_PW_OD_CSV_1
 tcid TP_PW_OD_XML_1
 tcid TP_PW_OD_ZIP_1
+
+#
+# Testcase data
+#
+
+#
+# Supporting file URL pattern
+#
+Testcase_Data OD_3 SUPPORT_URL support
+Testcase_Data OD_3 SUPPORT_URL soutien
+
 #
 #***********************************************************************
 #
