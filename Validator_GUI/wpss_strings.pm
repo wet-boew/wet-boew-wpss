@@ -2,9 +2,9 @@
 #
 # Name: wpss_strings.pm
 #
-# $Revision: 6855 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_strings.pm $
-# $Date: 2014-11-19 13:45:28 -0500 (Wed, 19 Nov 2014) $
+# $Revision: 7038 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/wpss_strings.pm $
+# $Date: 2015-03-20 11:26:24 -0400 (Fri, 20 Mar 2015) $
 #
 # Description:
 #
@@ -15,6 +15,7 @@
 # Public functions:
 #     Set_String_Table_Language
 #     String_Value
+#     All_String_Values
 #
 # Terms and Conditions of Use
 # 
@@ -61,7 +62,8 @@ BEGIN {
 
     @ISA     = qw(Exporter);
     @EXPORT  = qw(Set_String_Table_Language
-                  String_Value);
+                  String_Value
+                  All_String_Values);
     $VERSION = "1.0";
 }
 
@@ -82,7 +84,7 @@ Site:
 
 Site:
 ",
-   "CLF report header", "The following is a list of web documents from your site that contain CLF Check errors.
+   "CLF report header", "The following is a list of web documents from your site that contain Layout and Design Check errors.
 
 Site:
 ",
@@ -124,8 +126,8 @@ Site:
     "Link Check Profile",		"Link Check Profile",
     "Metadata Profile",		"Metadata Profile",
     "PDF Property Profile",	"PDF Property Profile",
-    "ACC Testcase Profile",	"ACC Testcase Profile",
-    "CLF Testcase Profile",	"CLF Testcase Profile",
+    "ACC Testcase Profile",	"Accessibility Testcase Profile",
+    "CLF Testcase Profile",	"Layout and Design Testcase Profile",
     "Web Analytics Testcase Profile",	"Web Analytics Testcase Profile",
     "Interop Testcase Profile",	"Interoperability Testcase Profile",
     "Open Data Testcase Profile", "Open Data Testcase Profile",
@@ -183,6 +185,7 @@ Site:
     "Analysis Aborted",                 "**** Analysis Aborted ****",
     "Not reviewed",                     "**** Not reviewed ****",
     "Runtime Error Analysis Aborted",   "**** Runtime Error Analysis Aborted ****",
+    "Testcase Profile Groups",          "Testcase Profile Groups",
     );
 
 my %string_table_fr = (
@@ -202,7 +205,7 @@ Site:
 
 Site:
 ",
-    "CLF report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs NSI.
+    "CLF report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de mise et la conception.
 
 Site:
 ",
@@ -244,12 +247,12 @@ Site :
     "Link Check Profile",		"Profil de vérifier des liens",
     "Metadata Profile",		"Profil de métadonnées",
     "PDF Property Profile",	"Profil de propriété de PDF",
-    "ACC Testcase Profile",	"Profil des cas de test de ACC",
-    "CLF Testcase Profile",	"Profil des cas de test de NSI",
+    "ACC Testcase Profile",	"Profil des cas de test de accessibilité",
+    "CLF Testcase Profile",	"Profil des cas de test de mise et la conception",
     "Web Analytics Testcase Profile",	"Profil des cas de test de Web analytique",
     "Interop Testcase Profile",	"Profil des cas de test de Interoperability",
     "Open Data Testcase Profile",  "Profil des cas de test de Données Ouvertes",
-    "Department Check Testcase Profile",	"Profil des cas de test de department ",
+    "Department Check Testcase Profile",	"Profil des cas de test de département ",
     "Yes",			"Oui",
     "No",			"Non",
     "Report testcases that pass","Rapporter les cas de test qui passent",
@@ -258,6 +261,7 @@ Site :
     "INT",        "Interop",
     "Link", 			"Lien",
     "Content",  		"Contenu",
+    "Department", 			"Département",
     "Document Features",		"Fonctions des documents",
     "Document Features Profile",	"Profil des fonctions des documents",
     "pass", 			"succès",
@@ -306,6 +310,7 @@ Site :
     "Analysis Aborted",	                "**** Analyse abandonné ****",
     "Not reviewed",                     "**** Non révisé ****",
     "Runtime Error Analysis Aborted",   "**** Erreur D'Exécution Analyse abandonné ****",
+    "Testcase Profile Groups",          "Groupes des profils des cas de test",
 );
 
 #
@@ -347,6 +352,39 @@ sub String_Value {
     }
 }
 
+#**********************************************************************
+#
+# Name: All_String_Values
+#
+# Parameters: key - string table key
+#
+# Description:
+#
+#   This function returns all the possible language values for the
+# specified key.  If there is no entry in the table an error string
+# is returned.
+#
+#**********************************************************************
+sub All_String_Values {
+    my ($key) = @_;
+
+    #
+    # Do we have a string table entry for this key ?
+    #
+    if ( defined($string_table_en{$key}) ) {
+        #
+        # return values
+        #
+        return (($string_table_en{$key}, $string_table_fr{$key}));
+    }
+    else {
+        #
+        # No string table entry, either we are missing a string or
+        # we have a typo in the key name.
+        #
+        return ();
+    }
+}
 #**********************************************************************
 #
 # Name: Set_String_Table_Language
