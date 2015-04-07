@@ -2,9 +2,9 @@
 #
 # Name:   xml_check.pm
 #
-# $Revision: 6922 $
+# $Revision: 6997 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/feed_check.pm $
-# $Date: 2014-12-16 13:38:39 -0500 (Tue, 16 Dec 2014) $
+# $Date: 2015-01-19 09:48:09 -0500 (Mon, 19 Jan 2015) $
 #
 # Description:
 #
@@ -146,6 +146,11 @@ sub Set_Feed_Check_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+    
+    #
+    # Set debug flag in supporting modules
+    #
+    Feed_Text_Debug($debug);
 }
 
 #**********************************************************************
@@ -910,6 +915,7 @@ sub Feed_Check {
 
     my ($parser, @urls, $url, @tqa_results_list, $result_object, $testcase);
     my ($eval_output, $lang_code, $lang, $status, @validate_results);
+    my ($feed_content);
 
     #
     # Do we have a valid profile ?
@@ -948,9 +954,14 @@ sub Feed_Check {
     }
     else {
         #
+        # Get news feed content
+        #
+        ($lang_code, $feed_content) = Feed_Text_Extract_Text($$content);
+        
+        #
         # Get content language
         #
-        ($lang_code, $lang, $status) = TextCat_XML_Language($$content);
+        ($lang_code, $lang, $status) = TextCat_Text_Language(\$feed_content);
 
         #
         # Did we get a language from the content ?
@@ -1018,7 +1029,7 @@ sub Import_Packages {
 
     my ($package);
     my (@package_list) = ("tqa_result_object", "tqa_testcases",
-                          "language_map", "textcat");
+                          "language_map", "textcat", "feed_text");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
