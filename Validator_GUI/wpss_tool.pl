@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 6923 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2014-12-16 13:40:03 -0500 (Tue, 16 Dec 2014) $
+# $Revision: 7063 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
+# $Date: 2015-04-02 11:49:09 -0400 (Thu, 02 Apr 2015) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ]
@@ -139,7 +139,7 @@ my ($command_line_debug) = 0;
 my ($max_urls_between_sleeps) = 2;
 my ($user_agent_name) = "wpss_test.pl";
 
-my (%report_options, %results_file_suffixes, %report_options_labels);
+my (%report_options, %results_file_suffixes);
 my ($crawled_urls_tab, $validation_tab, $metadata_tab, $doc_list_tab,
     $acc_tab, $link_tab, $dept_tab, $doc_features_tab,
     $clf_tab, $interop_tab, $open_data_tab, $crawllimit);
@@ -161,6 +161,10 @@ my ($tool_warning)       = 2;
 #
 my (@link_check_profiles, $link_check_profile, $link_check_profile_label);
 my ($link_testcase_url_help_file_name, %link_check_profile_map);
+my (%link_check_profiles_languages);
+my (%networkscope_map, %domain_alias_map, %link_check_config);
+my (@redirect_ignore_patterns, @link_ignore_patterns);
+my (%link_error_url_count, %link_error_instance_count);
 
 #
 # PDF Check Variables
@@ -168,7 +172,7 @@ my ($link_testcase_url_help_file_name, %link_check_profile_map);
 my (@pdf_property_profiles, $pdf_property_profile_label);
 my (%pdf_property_profile_tag_required_map,
     %pdf_property_profile_content_required_map,
-    $pdf_property_profile);
+    $pdf_property_profile, %pdf_property_profiles_languages);
 
 #
 # Metadata Check Variables
@@ -179,7 +183,8 @@ my (%metadata_profile_tag_required_map,
     %metadata_profile_content_type_map,
     %metadata_profile_scheme_values_map,
     %metadata_profile_invalid_content_map,
-    $metadata_profile);
+    $metadata_profile,
+    %metadata_profiles_languages);
 my (%metadata_error_url_count, %metadata_error_instance_count);
 my (%metadata_help_url, %metadata_results);
 
@@ -192,6 +197,7 @@ my (%html_titles, %pdf_titles, %title_html_url);
 my (%dept_error_url_count, %dept_error_instance_count);
 my ($dept_testcase_url_help_file_name);
 my (%headings_table, %content_section_markers);
+my (%dept_check_profiles_languages);
 
 #
 # TQA Check variables
@@ -203,23 +209,23 @@ my ($tqa_testcase_url_help_file_name, %site_navigation_links);
 my (%decorative_images,%non_decorative_images);
 my (@decorative_image_urls, @non_decorative_image_urls);
 my (%tqa_testcase_profile_types);
-my ($tqa_check_exempted);
+my ($tqa_check_exempted, %tqa_check_profiles_languages);
 
 #
-# CLF Check variables
+# Layout and design Check variables
 #
 my (%clf_check_profile_map);
 my (@clf_check_profiles, $clf_profile_label, $clf_check_profile);
 my (%clf_error_url_count, %clf_error_instance_count);
 my ($clf_testcase_url_help_file_name, %clf_other_tool_results);
-my ($is_archived, %clf_site_links);
+my ($is_archived, %clf_site_links, %clf_check_profiles_languages);
 
 #
 # Standard on Privacy and Web Analytics variables
 #
 my (%wa_check_profile_map);
 my (@wa_check_profiles, $wa_profile_label, $wa_check_profile);
-my ($wa_testcase_url_help_file_name);
+my ($wa_testcase_url_help_file_name, %wa_check_profiles_languages);
 
 #
 # Interoperability Check variables
@@ -227,7 +233,7 @@ my ($wa_testcase_url_help_file_name);
 my (%interop_check_profile_map);
 my (@interop_check_profiles, $interop_profile_label, $interop_check_profile);
 my (%interop_error_url_count, %interop_error_instance_count);
-my ($interop_testcase_url_help_file_name);
+my ($interop_testcase_url_help_file_name, %interop_check_profiles_languages);
 
 #
 # Open Data Check variables
@@ -237,13 +243,7 @@ my ($open_data_profile_label, $open_data_check_profile);
 my (%open_data_error_url_count, %open_data_error_instance_count);
 my ($open_data_testcase_url_help_file_name, %open_data_dictionary);
 my (@open_data_file_types) = ("DICTIONARY", "DATA", "RESOURCE", "API");
-
-#
-# Link Check variables
-#
-my (%networkscope_map, %domain_alias_map, %link_check_config);
-my (@redirect_ignore_patterns, @link_ignore_patterns);
-my (%link_error_url_count, %link_error_instance_count);
+my (%open_data_check_profiles_languages);
 
 #
 # Document Features variables
@@ -251,6 +251,7 @@ my (%link_error_url_count, %link_error_instance_count);
 my (%doc_features_profile_map, %doc_feature_list);
 my (@doc_features_profiles, $doc_profile_label, $current_doc_features_profile);
 my (%doc_features_metadata_profile_map, @doc_directory_paths);
+my (%doc_features_profiles_languages);
 
 #
 # Mobile check variables
@@ -261,10 +262,18 @@ my ($mobile_check_profile, $web_page_size_file_handle);
 # Web Page Details variables
 #
 my (@web_page_details_fields) = ("url", "title", "lang", "h1", "breadcrumb",
+                                 "archived", "mime-type",
                                  "dcterms.issued", "dcterms.modified",
                                  "dcterms.subject", "dcterms.creator", 
                                  "content size");
 my (%web_page_details_values, $web_page_details_fh);
+
+#
+# Testcase profile group variables
+#
+my (@testcase_profile_groups, %testcase_profile_group_map);
+my (%testcase_profile_groups_profiles_languages);
+my ($testcase_profile_group_label);
 
 #
 # Other configuration items.
@@ -362,6 +371,7 @@ sub New_HTML_Features_Profile_Hash_Table {
     push(@doc_features_profiles, $profile_name);
     $doc_features_profile_map{$profile_name} = \%profile_table;
     $doc_features_metadata_profile_map{$profile_name} = \%metadata_table;
+    $doc_features_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
@@ -386,6 +396,7 @@ sub Read_HTML_Features_Config_File {
 
     my (@fields, $config_type, $feature_id, $value, $metadata_feature_list);
     my ($feature_list, $html_features_profile_name, $other_profile_name);
+    my (@alternate_lang_profiles);
 
     #
     # Check to see that the configuration file exists
@@ -428,29 +439,57 @@ sub Read_HTML_Features_Config_File {
         $config_type = $fields[0];
 
         #
-        # Check for a new profile start tag
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
         #
         if ( $config_type eq "HTML_Features_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($feature_list);
+            undef($metadata_feature_list);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "HTML_Features_Profile_" . $lang ) {
             #
-            # Start of a new document features profile. Get hash tables to
-            # store tag ids
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $html_features_profile_name = $fields[1];
             ($feature_list, $metadata_feature_list) =
                 New_HTML_Features_Profile_Hash_Table($html_features_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $doc_features_profile_map{$other_profile_name} = $feature_list;
+                $doc_features_metadata_profile_map{$other_profile_name} = $metadata_feature_list;
+                $doc_features_profiles_languages{$other_profile_name} = $html_features_profile_name;
+            }
         }
         #
         # Alternate language label for this profile
         #
         elsif ( $config_type =~ "HTML_Features_Profile_" ) {
             #
-            # Match this profile name to the current English profile.
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
             #
             @fields = split(/\s+/, $_, 2);
             $other_profile_name = $fields[1];
-            $doc_features_profile_map{$other_profile_name} = $feature_list;
-            $doc_features_metadata_profile_map{$other_profile_name} = $metadata_feature_list;
+            if ( defined($feature_list) ) {
+                $doc_features_profile_map{$other_profile_name} = $feature_list;
+                $doc_features_metadata_profile_map{$other_profile_name} = $metadata_feature_list;
+                $doc_features_profiles_languages{$other_profile_name} = $html_features_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
         }
         elsif ( $config_type =~ /html_feature/i ) {
            #
@@ -476,7 +515,6 @@ sub Read_HTML_Features_Config_File {
            $feature_id = $fields[1];
            push(@doc_directory_paths, $feature_id);
         }
-
     }
     close(CONFIG_FILE);
 }
@@ -509,6 +547,7 @@ sub New_Metadata_Profile_Hash_Tables {
     $metadata_profile_content_type_map{$profile_name} = \%content_type;
     $metadata_profile_scheme_values_map{$profile_name} = \%scheme_values;
     $metadata_profile_invalid_content_map{$profile_name} = \%invalid_content;
+    $metadata_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
@@ -534,7 +573,7 @@ sub Read_Metadata_Config_File {
     my (@fields, $config_type, $tag, $value, $tag_required, $content_required);
     my ($content_type, $metadata_profile_name, $scheme_values);
     my ($invalid_content, $thesaurus_language, $scheme, $filename);
-    my ($other_profile_name, $url);
+    my ($other_profile_name, $url, @alternate_lang_profiles);
 
     #
     # Check to see that the configuration file exists
@@ -576,33 +615,67 @@ sub Read_Metadata_Config_File {
         $config_type = $fields[0];
 
         #
-        # Check for a new profile start tag
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
         #
         if ( $config_type eq "Metadata_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($tag_required);
+            undef($content_required);
+            undef($content_type);
+            undef($scheme_values);
+            undef($invalid_content);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "Metadata_Profile_" . $lang ) {
             #
-            # Start of a new Metadata profile. Get hash tables to
-            # store metadata item attributes
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $metadata_profile_name = $fields[1];
             ($tag_required, $content_required, $content_type, $scheme_values,
              $invalid_content) =
                 New_Metadata_Profile_Hash_Tables($metadata_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $metadata_profile_tag_required_map{$other_profile_name} = $tag_required;
+                $metadata_profile_content_required_map{$other_profile_name} = $content_required;
+                $metadata_profile_content_type_map{$other_profile_name} = $content_type;
+                $metadata_profile_scheme_values_map{$other_profile_name} = $scheme_values;
+                $metadata_profile_invalid_content_map{$other_profile_name} = $invalid_content;
+                $metadata_profiles_languages{$other_profile_name} = $metadata_profile_name;
+            }
         }
         #
         # Alternate language label for this profile
         #
         elsif ( $config_type =~ "Metadata_Profile_" ) {
             #
-            # Match this profile name to the current English profile.
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
             #
             @fields = split(/\s+/, $_, 2);
             $other_profile_name = $fields[1];
-            $metadata_profile_tag_required_map{$other_profile_name} = $tag_required;
-            $metadata_profile_content_required_map{$other_profile_name} = $content_required;
-            $metadata_profile_content_type_map{$other_profile_name} = $content_type;
-            $metadata_profile_scheme_values_map{$other_profile_name} = $scheme_values;
-            $metadata_profile_invalid_content_map{$other_profile_name} = $invalid_content;
+            if ( defined($tag_required) ) {
+                $metadata_profile_tag_required_map{$other_profile_name} = $tag_required;
+                $metadata_profile_content_required_map{$other_profile_name} = $content_required;
+                $metadata_profile_content_type_map{$other_profile_name} = $content_type;
+                $metadata_profile_scheme_values_map{$other_profile_name} = $scheme_values;
+                $metadata_profile_invalid_content_map{$other_profile_name} = $invalid_content;
+                $metadata_profiles_languages{$other_profile_name} = $metadata_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
         }
         elsif ( $config_type =~ /help_url_$lang/i ) {
             #
@@ -723,6 +796,7 @@ sub New_PDF_Properties_Profile_Hash_Tables {
     push(@pdf_property_profiles, $profile_name);
     $pdf_property_profile_tag_required_map{$profile_name} = \%tag_required;
     $pdf_property_profile_content_required_map{$profile_name} = \%content_required;
+    $pdf_property_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
@@ -745,7 +819,7 @@ sub Read_PDF_Property_Config_File {
     my ($config_file) = $_[0];
 
     my (@fields, $config_type, $tag, $value, $tag_required, $content_required);
-    my ($profile_name, $other_profile_name);
+    my ($profile_name, $other_profile_name, @alternate_lang_profiles);
 
     #
     # Check to see that the configuration file exists
@@ -787,29 +861,57 @@ sub Read_PDF_Property_Config_File {
         $config_type = $fields[0];
 
         #
-        # Check for a new profile start tag
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
         #
         if ( $config_type eq "Property_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($tag_required);
+            undef($content_required);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "Property_Profile_" . $lang ) {
             #
-            # Start of a new PDF properties profile. Get hash tables to
-            # store property item attributes
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $profile_name = $fields[1];
             ($tag_required, $content_required) =
                 New_PDF_Properties_Profile_Hash_Tables($profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $pdf_property_profile_tag_required_map{$other_profile_name} = $tag_required;
+                $pdf_property_profile_content_required_map{$other_profile_name} = $content_required;
+                $pdf_property_profiles_languages{$other_profile_name} = $profile_name;
+            }
         }
         #
         # Alternate language label for this profile
         #
         elsif ( $config_type =~ "Property_Profile_" ) {
             #
-            # Match this profile name to the current English profile.
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
             #
             @fields = split(/\s+/, $_, 2);
             $other_profile_name = $fields[1];
-            $pdf_property_profile_tag_required_map{$other_profile_name} = $tag_required;
-            $pdf_property_profile_content_required_map{$other_profile_name} = $content_required;
+            if ( defined($tag_required) ) {
+                $pdf_property_profile_tag_required_map{$other_profile_name} = $tag_required;
+                $pdf_property_profile_content_required_map{$other_profile_name} = $content_required;
+                $pdf_property_profiles_languages{$other_profile_name} = $profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
         }
         elsif ( $config_type =~ /required_property/i ) {
            #
@@ -854,6 +956,7 @@ sub New_TQA_Check_Profile_Hash_Tables {
     #
     push(@tqa_check_profiles, $profile_name);
     $tqa_check_profile_map{$profile_name} = \%testcases;
+    $tqa_check_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
@@ -878,6 +981,7 @@ sub Read_TQA_Check_Config_File {
     my (@fields, $config_type, $testcase_id, $value, $testcases);
     my ($tqa_check_profile_name, $profile_type, $other_profile_name);
     my (@profile_names, $exemption_type, $exemption_value);
+    my (@alternate_lang_profiles);
 
     #
     # Open configuration file at specified path
@@ -910,29 +1014,36 @@ sub Read_TQA_Check_Config_File {
         $config_type = $fields[0];
 
         #
-        # Start of a new TQA testcase profile. Get hash tables to
-        # store TQA Check attributes
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
         #
         if ( $config_type eq "TQA_Check_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+            undef(@profile_names);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "TQA_Check_Profile_" . $lang ) {
             #
-            # Start of a new TQA testcase profile. Get hash tables to
-            # store TQA Check attributes
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $tqa_check_profile_name = $fields[1];
+            push(@profile_names, $tqa_check_profile_name);
             ($testcases) =
                 New_TQA_Check_Profile_Hash_Tables($tqa_check_profile_name);
-            @profile_names = ($tqa_check_profile_name);
-        }
-        elsif ( $config_type =~ /TQA_Check_Profile_Type/i ) {
+
             #
-            # Profile type value.
+            # Do we have alternate language names for this profile ?
             #
-            if ( defined($tqa_check_profile_name) ) {
-                $profile_type = $fields[1];
-                foreach $other_profile_name (@profile_names) {
-                    $tqa_testcase_profile_types{$other_profile_name} = $profile_type;
-                }
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $tqa_check_profile_map{$other_profile_name} = $testcases;
+                $tqa_check_profiles_languages{$other_profile_name} = $tqa_check_profile_name;
             }
         }
         #
@@ -940,13 +1051,28 @@ sub Read_TQA_Check_Config_File {
         #
         elsif ( $config_type =~ "TQA_Check_Profile_" ) {
             #
-            # Match this profile name to the current English profile.
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
             #
             @fields = split(/\s+/, $_, 2);
             $other_profile_name = $fields[1];
-            if ( ! defined($tqa_check_profile_map{$other_profile_name}) ) {
+            push(@profile_names, $other_profile_name);
+            if ( defined($testcases) ) {
                 $tqa_check_profile_map{$other_profile_name} = $testcases;
-                push(@profile_names, $other_profile_name);
+                $tqa_check_profiles_languages{$other_profile_name} = $tqa_check_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
+        }
+        elsif ( $config_type =~ /TQA_Check_Profile_Type/i ) {
+            #
+            # Profile type value.
+            #
+            $profile_type = $fields[1];
+            foreach $other_profile_name (@profile_names) {
+                $tqa_testcase_profile_types{$other_profile_name} = $profile_type;
             }
         }
         elsif ( $config_type =~ /tcid/i ) {
@@ -1018,6 +1144,7 @@ sub New_CLF_Check_Profile_Hash_Tables {
     #
     push(@clf_check_profiles, $profile_name);
     $clf_check_profile_map{$profile_name} = \%testcases;
+    $clf_check_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
@@ -1041,7 +1168,7 @@ sub Read_CLF_Check_Config_File {
 
     my (@fields, $config_type, $testcase_id, $value, $testcases);
     my ($clf_check_profile_name, $other_profile_name, $archived_type);
-    my ($archived_value);
+    my ($archived_value, @alternate_lang_profiles);
 
     #
     # Open configuration file at specified path
@@ -1074,30 +1201,54 @@ sub Read_CLF_Check_Config_File {
         $config_type = $fields[0];
 
         #
-        # Start of a new CLF testcase profile. Get hash tables to
-        # store CLF Check attributes
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
         #
         if ( $config_type eq "CLF_Check_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "CLF_Check_Profile_" . $lang ) {
             #
-            # Start of a new CLF testcase profile. Get hash tables to
-            # store CLF Check attributes
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $clf_check_profile_name = $fields[1];
             ($testcases) =
                 New_CLF_Check_Profile_Hash_Tables($clf_check_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $clf_check_profile_map{$other_profile_name} = $testcases;
+                $clf_check_profiles_languages{$other_profile_name} = $clf_check_profile_name;
+            }
         }
         #
         # Alternate language label for this profile
         #
         elsif ( $config_type =~ "CLF_Check_Profile_" ) {
             #
-            # Match this profile name to the current English profile.
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
             #
             @fields = split(/\s+/, $_, 2);
             $other_profile_name = $fields[1];
-            $clf_check_profile_map{$other_profile_name} = $testcases;
-
+            if ( defined($testcases) ) {
+                $clf_check_profile_map{$other_profile_name} = $testcases;
+                $clf_check_profiles_languages{$other_profile_name} = $clf_check_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
         }
         elsif ( $config_type =~ /tcid/i ) {
             #
@@ -1168,6 +1319,7 @@ sub New_WA_Check_Profile_Hash_Tables {
     #
     push(@wa_check_profiles, $profile_name);
     $wa_check_profile_map{$profile_name} = \%testcases;
+    $wa_check_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
@@ -1190,7 +1342,7 @@ sub Read_WA_Check_Config_File {
     my ($config_file) = $_[0];
 
     my (@fields, $config_type, $testcase_id, $value, $testcases);
-    my ($wa_check_profile_name, $other_profile_name);
+    my ($wa_check_profile_name, $other_profile_name, @alternate_lang_profiles);
 
     #
     # Open configuration file at specified path
@@ -1223,30 +1375,54 @@ sub Read_WA_Check_Config_File {
         $config_type = $fields[0];
 
         #
-        # Start of a new WA testcase profile. Get hash tables to
-        # store WA Check attributes
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
         #
         if ( $config_type eq "Web_Analytics_Check_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "Web_Analytics_Check_Profile_" . $lang ) {
             #
-            # Start of a new WA testcase profile. Get hash tables to
-            # store WA Check attributes
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $wa_check_profile_name = $fields[1];
             ($testcases) =
                 New_WA_Check_Profile_Hash_Tables($wa_check_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $wa_check_profile_map{$other_profile_name} = $testcases;
+                $wa_check_profiles_languages{$other_profile_name} = $wa_check_profile_name;
+            }
         }
         #
         # Alternate language label for this profile
         #
         elsif ( $config_type =~ "Web_Analytics_Check_Profile_" ) {
             #
-            # Match this profile name to the current English profile.
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
             #
             @fields = split(/\s+/, $_, 2);
             $other_profile_name = $fields[1];
-            $wa_check_profile_map{$other_profile_name} = $testcases;
-
+            if ( defined($testcases) ) {
+                $wa_check_profile_map{$other_profile_name} = $testcases;
+                $wa_check_profiles_languages{$other_profile_name} = $wa_check_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
         }
         elsif ( $config_type =~ /tcid/i ) {
             #
@@ -1306,6 +1482,7 @@ sub New_Link_Check_Profile_Hash_Tables {
     #
     push(@link_check_profiles, $profile_name);
     $link_check_profile_map{$profile_name} = \%testcases;
+    $link_check_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
@@ -1329,7 +1506,7 @@ sub Read_Link_Check_Config_File {
 
     my (@fields, $config_type, $testcase_id, $value, $testcases);
     my ($link_check_profile_name, $other_profile_name, $archived_type);
-    my ($archived_value);
+    my ($archived_value, @alternate_lang_profiles);
 
     #
     # Open configuration file at specified path
@@ -1362,30 +1539,54 @@ sub Read_Link_Check_Config_File {
         $config_type = $fields[0];
 
         #
+        # Start of a new Link testcase profile. Empty out the alternate
+        # language list and testcase hash table address
+        #
+        if ( $config_type eq "Link_Check_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+        }
+
+        #
         # Start of a new Link testcase profile. Get hash tables to
         # store Link Check attributes
         #
-        if ( $config_type eq "Link_Check_Profile_eng" ) {
+        if ( $config_type eq "Link_Check_Profile_" . $lang ) {
             #
-            # Start of a new Link testcase profile. Get hash tables to
-            # store Link Check attributes
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $link_check_profile_name = $fields[1];
             ($testcases) =
                 New_Link_Check_Profile_Hash_Tables($link_check_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $link_check_profile_map{$other_profile_name} = $testcases;
+                $link_check_profiles_languages{$other_profile_name} = $link_check_profile_name;
+            }
         }
         #
         # Alternate language label for this profile
         #
         elsif ( $config_type =~ "Link_Check_Profile_" ) {
             #
-            # Match this profile name to the current English profile.
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
             #
             @fields = split(/\s+/, $_, 2);
             $other_profile_name = $fields[1];
-            $link_check_profile_map{$other_profile_name} = $testcases;
-
+            if ( defined($testcases) ) {
+                $link_check_profile_map{$other_profile_name} = $testcases;
+                $link_check_profiles_languages{$other_profile_name} = $link_check_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
         }
         elsif ( $config_type =~ /tcid/i ) {
             #
@@ -1429,6 +1630,7 @@ sub New_Interop_Check_Profile_Hash_Tables {
     #
     push(@interop_check_profiles, $profile_name);
     $interop_check_profile_map{$profile_name} = \%testcases;
+    $interop_check_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
@@ -1453,6 +1655,7 @@ sub Read_Interop_Check_Config_File {
 
     my (@fields, $config_type, $testcase_id, $value, $testcases);
     my ($interop_check_profile_name, $other_profile_name);
+    my (@alternate_lang_profiles);
 
     #
     # Open configuration file at specified path
@@ -1485,30 +1688,54 @@ sub Read_Interop_Check_Config_File {
         $config_type = $fields[0];
 
         #
-        # Start of a new Interoperability testcase profile. Get hash tables to
-        # store Interoperability Check attributes
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
         #
         if ( $config_type eq "Interop_Check_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "Interop_Check_Profile_" . $lang ) {
             #
-            # Start of a new Interoperability testcase profile. Get hash tables to
-            # store Interoperability Check attributes
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $interop_check_profile_name = $fields[1];
             ($testcases) =
                 New_Interop_Check_Profile_Hash_Tables($interop_check_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $interop_check_profile_map{$other_profile_name} = $testcases;
+                $interop_check_profiles_languages{$other_profile_name} = $interop_check_profile_name;
+            }
         }
         #
         # Alternate language label for this profile
         #
         elsif ( $config_type =~ "Interop_Check_Profile_" ) {
             #
-            # Match this profile name to the current English profile.
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
             #
             @fields = split(/\s+/, $_, 2);
             $other_profile_name = $fields[1];
-            $interop_check_profile_map{$other_profile_name} = $testcases;
-
+            if ( defined($testcases) ) {
+                $interop_check_profile_map{$other_profile_name} = $testcases;
+                $interop_check_profiles_languages{$other_profile_name} = $interop_check_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
         }
         elsif ( $config_type =~ /tcid/i ) {
             #
@@ -1568,6 +1795,7 @@ sub New_Dept_Check_Profile_Hash_Tables {
     #
     push(@dept_check_profiles, $profile_name);
     $dept_check_profile_map{$profile_name} = \%testcases;
+    $dept_check_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
@@ -1590,7 +1818,8 @@ sub Read_Dept_Check_Config_File {
     my ($config_file) = $_[0];
 
     my (@fields, $config_type, $testcase_id, $testcases);
-    my ($dept_check_profile_name, $value);
+    my ($dept_check_profile_name, $value, @alternate_lang_profiles);
+    my ($other_profile_name);
 
     #
     # Open configuration file at specified path
@@ -1623,18 +1852,54 @@ sub Read_Dept_Check_Config_File {
         $config_type = $fields[0];
 
         #
-        # Start of a new Content testcase profile. Get hash tables to
-        # store deprtment Check attributes
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
+        #
+        if ( $config_type eq "Dept_Check_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
         #
         if ( $config_type eq "Dept_Check_Profile_" . $lang ) {
             #
-            # Start of a new Content testcase profile. Get hash tables to
-            # store department Check attributes
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $dept_check_profile_name = $fields[1];
             ($testcases) =
                 New_Dept_Check_Profile_Hash_Tables($dept_check_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $dept_check_profile_map{$other_profile_name} = $testcases;
+                $dept_check_profiles_languages{$other_profile_name} = $dept_check_profile_name;
+            }
+        }
+        #
+        # Alternate language label for this profile
+        #
+        elsif ( $config_type =~ "Dept_Check_Profile_" ) {
+            #
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
+            #
+            @fields = split(/\s+/, $_, 2);
+            $other_profile_name = $fields[1];
+            if ( defined($testcases) ) {
+                $dept_check_profile_map{$other_profile_name} = $testcases;
+                $dept_check_profiles_languages{$other_profile_name} = $dept_check_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
         }
         elsif ( $config_type =~ /tcid/i ) {
            #
@@ -1806,13 +2071,13 @@ sub New_Open_Data_Check_Profile_Hash_Tables {
     #
     push(@open_data_check_profiles, $profile_name);
     $open_data_check_profile_map{$profile_name} = \%testcases;
+    $open_data_check_profiles_languages{$profile_name} = $profile_name;
 
     #
     # Return addresses
     #
     return(\%testcases);
 }
-
 
 #***********************************************************************
 #
@@ -1830,6 +2095,7 @@ sub Read_Open_Data_Check_Config_File {
 
     my (@fields, $config_type, $testcase_id, $value, $testcases);
     my ($open_data_check_profile_name, $other_profile_name);
+    my (@alternate_lang_profiles);
 
     #
     # Open configuration file at specified path
@@ -1862,30 +2128,54 @@ sub Read_Open_Data_Check_Config_File {
         $config_type = $fields[0];
 
         #
-        # Start of a new Open Data testcase profile. Get hash tables to
-        # store Open Data Check attributes
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
         #
         if ( $config_type eq "Open_Data_Check_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "Open_Data_Check_Profile_" . $lang ) {
             #
-            # Start of a new Open Data testcase profile. Get hash tables to
-            # store Open Data Check attributes
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
             #
             @fields = split(/\s+/, $_, 2);
             $open_data_check_profile_name = $fields[1];
             ($testcases) =
                 New_Open_Data_Check_Profile_Hash_Tables($open_data_check_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $open_data_check_profile_map{$other_profile_name} = $testcases;
+                $open_data_check_profiles_languages{$other_profile_name} = $open_data_check_profile_name;
+            }
         }
         #
         # Alternate language label for this profile
         #
         elsif ( $config_type =~ "Open_Data_Check_Profile_" ) {
             #
-            # Match this profile name to the current English profile.
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
             #
             @fields = split(/\s+/, $_, 2);
             $other_profile_name = $fields[1];
-            $open_data_check_profile_map{$other_profile_name} = $testcases;
-
+            if ( defined($testcases) ) {
+                $open_data_check_profile_map{$other_profile_name} = $testcases;
+                $open_data_check_profiles_languages{$other_profile_name} = $open_data_check_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
         }
         elsif ( $config_type =~ /tcid/i ) {
             #
@@ -1924,6 +2214,37 @@ sub Read_Open_Data_Check_Config_File {
 
 #***********************************************************************
 #
+# Name: New_Testcase_Profile_Group_Hash_Table
+#
+# Parameters: profile_name - name of profile
+#
+# Description:
+#
+#   This function create a hash tables for testcase profile groups
+# and saves the address in the global test case profile
+# table.
+#
+#***********************************************************************
+sub New_Testcase_Profile_Group_Hash_Table {
+    my ($profile_name) = @_;
+
+    my (%testcases);
+
+    #
+    # Save address of hash tables
+    #
+    push(@testcase_profile_groups, $profile_name);
+    $testcase_profile_group_map{$profile_name} = \%testcases;
+    $testcase_profile_groups_profiles_languages{$profile_name} = $profile_name;
+
+    #
+    # Return addresses
+    #
+    return(\%testcases);
+}
+
+#***********************************************************************
+#
 # Name: Read_Config_File
 #
 # Parameters: path - the path to configuration file
@@ -1936,7 +2257,9 @@ sub Read_Open_Data_Check_Config_File {
 sub Read_Config_File {
     my ($config_file) = $_[0];
 
-    my (@fields, $config_type);
+    my (@fields, $config_type, @alternate_lang_profiles, $testcases);
+    my ($other_profile_name, $tc_profile_group_name, $name, $value);
+    my ($inside_testcase_group) = 0;
 
     #
     # Check to see that the configuration file exists
@@ -1976,35 +2299,41 @@ sub Read_Config_File {
         #
         @fields = split;
         $config_type = $fields[0];
+        
 
         #
-        # Check for crawler link ignore patterns
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
+        #
+        if ( $config_type eq "Testcase_Profile_Group_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+        }
+
+        #
+        # Configuration types
         #
         if ( $config_type eq "Crawler_Link_Ignore_Pattern" ) {
             #
-            # Save pattern
+            # Save crawler ignore pattern
             #
             if ( @fields > 1 ) {
                 push(@crawler_link_ignore_patterns, $fields[1]);
             }
         }
-        #
-        # Check configuration variable type
-        #
+        elsif ( $config_type =~ /Decorative_Image_URL/i ) {
+            #
+            # List of decorative image URLs
+            #
+            @fields = split(/\s+/, $_, 2);
+            push(@decorative_image_urls, $fields[1]);
+        }
         elsif ( $config_type eq "Domain_Alias" ) {
             #
             # Save domain and its alias
             #
             if ( @fields > 2 ) {
                 $domain_alias_map{$fields[2]} = $fields[1];
-            }
-        }
-        elsif ( $config_type eq "Domain_Prod_Dev" ) {
-            #
-            # Save production and development domains
-            #
-            if ( @fields > 2 ) {
-                $domain_prod_dev_map{$fields[1]} = $fields[2];
             }
         }
         elsif ( $config_type eq "Domain_Networkscope" ) {
@@ -2015,37 +2344,99 @@ sub Read_Config_File {
                 $networkscope_map{$fields[1]} = $fields[2];
             }
         }
-        #
-        # Check for firewall pattern
-        #
+        elsif ( $config_type eq "Domain_Prod_Dev" ) {
+            #
+            # Save production and development domains
+            #
+            if ( @fields > 2 ) {
+                $domain_prod_dev_map{$fields[1]} = $fields[2];
+            }
+        }
         elsif ( $config_type eq "Firewall_Block_Pattern" ) {
             #
-            # Save pattern
+            # Save firewall block pattern
             #
             if ( @fields > 1 ) {
                 $link_config_vars{$config_type} = $fields[1];
             }
         }
-
         elsif ( $config_type eq "Link_Ignore_Pattern" ) {
             #
-            # Save pattern
+            # Save link check ignore pattern
             #
             if ( @fields > 1 ) {
                 push(@link_ignore_patterns, $fields[1]);
             }
         }
+        elsif ( $config_type =~ /Non_Decorative_Image_URL/i ) {
+            #
+            # List of non-decorative image URLs
+            #
+            @fields = split(/\s+/, $_, 2);
+            push(@non_decorative_image_urls, $fields[1]);
+        }
         elsif ( $config_type eq "Redirect_Ignore_Pattern" ) {
             #
-            # Save value
+            # Save link redirect ignore value
             #
             if ( @fields > 1 ) {
                 push(@redirect_ignore_patterns, $fields[1]);
             }
         }
+        elsif ( $config_type eq "Testcase_Profile_Group_End" ) {
+            #
+            # End of testcase group profile
+            #
+            $inside_testcase_group = 0;
+        }
+        elsif ( $config_type eq "Testcase_Profile_Group_" . $lang ) {
+            #
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
+            #
+            @fields = split(/\s+/, $_, 2);
+            $tc_profile_group_name = $fields[1];
+            ($testcases) =
+                New_Testcase_Profile_Group_Hash_Table($tc_profile_group_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $testcase_profile_group_map{$other_profile_name} = $testcases;
+                $testcase_profile_groups_profiles_languages{$other_profile_name} = $tc_profile_group_name;
+                
+            }
+            $inside_testcase_group = 1;
+        }
+        elsif ( $config_type =~ "Testcase_Profile_Group_" ) {
+            #
+            # Alternate language label for this profile
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
+            #
+            @fields = split(/\s+/, $_, 2);
+            $other_profile_name = $fields[1];
+            if ( defined($testcases) ) {
+                $testcase_profile_group_map{$other_profile_name} = $testcases;
+                $testcase_profile_groups_profiles_languages{$other_profile_name} = $tc_profile_group_name
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
+            $inside_testcase_group = 1;
+        }
+        elsif ( $config_type =~ /TQA_CHECK_Ignore_Pattern/i ) {
+            #
+            # Pattern of URLs to skip for TQA Check testing
+            #
+            @fields = split(/\s+/, $_, 2);
+            push(@tqa_url_skip_patterns, $fields[1]);
+        }
         elsif ( $config_type eq "User_Agent_Hostname" ) {
             #
-            # Save value
+            # Save user agent host name value
             #
             if ( @fields > 1 ) {
                 $user_agent_hostname = $fields[1];
@@ -2054,13 +2445,15 @@ sub Read_Config_File {
         }
         elsif ( $config_type eq "User_Agent_Max_Size" ) {
             #
-            # Save value
+            # Save user agent maximum HTTP response size value
             #
-            $crawler_config_vars{"user_agent_max_size"} = $fields[1];
+            if ( @fields > 1 ) {
+                $crawler_config_vars{"user_agent_max_size"} = $fields[1];
+            }
         }
         elsif ( $config_type eq "User_Agent_Name" ) {
             #
-            # Save value
+            # Save user agent name value
             #
             if ( @fields > 1 ) {
                 @fields = split(/\s+/, $_, 2);
@@ -2075,26 +2468,14 @@ sub Read_Config_File {
             @fields = split(/\s+/, $_, 2);
             push(@validation_url_skip_patterns, $fields[1]);
         }
-        elsif ( $config_type =~ /TQA_CHECK_Ignore_Pattern/i ) {
+        elsif ( $inside_testcase_group ) {
             #
-            # Pattern of URLs to skip for TQA Check testing
+            # Are we inside a testcase profile group ?
             #
-            @fields = split(/\s+/, $_, 2);
-            push(@tqa_url_skip_patterns, $fields[1]);
-        }
-        elsif ( $config_type =~ /Non_Decorative_Image_URL/i ) {
-            #
-            # List of non-decorative image URLs
-            #
-            @fields = split(/\s+/, $_, 2);
-            push(@non_decorative_image_urls, $fields[1]);
-        }
-        elsif ( $config_type =~ /Decorative_Image_URL/i ) {
-            #
-            # List of decorative image URLs
-            #
-            @fields = split(/\s+/, $_, 2);
-            push(@decorative_image_urls, $fields[1]);
+            ($name, $value) = split(/\s+/, $_, 2);
+            if ( defined($value) && defined($testcases) ) {
+                $$testcases{$name} = $value;
+            }
         }
     }
     close(CONFIG_FILE);
@@ -2440,7 +2821,9 @@ sub Initialize {
     #
     # Configure the crawler package
     #
+    $crawler_config_vars{"content_file"} = 0;
     Crawler_Config(%crawler_config_vars);
+
     Set_Crawler_Domain_Alias_Map(%domain_alias_map);
     Set_Crawler_Domain_Prod_Dev_Map(%domain_prod_dev_map);
     Set_Crawler_HTTP_Response_Callback(\&HTTP_Response_Callback);
@@ -3093,6 +3476,13 @@ sub HTTP_Response_Callback {
             $language = XML_Document_Language($url, \$content);
 
             #
+            # Save web page details
+            #
+            $web_page_details_values{"url"} = $url;
+            $web_page_details_values{"lang"} = $language;
+            $web_page_details_values{"content size"} = length($content);
+
+            #
             # Perform link check
             #
             Perform_Link_Check($url, $mime_type, $resp, \$content, $language);
@@ -3169,6 +3559,14 @@ sub HTTP_Response_Callback {
         #
         Validator_GUI_End_URL($crawled_urls_tab, $url, $referrer,
                               $supporting_file);
+
+        #
+        # Are we saving web page details for this URL ?
+        #
+        if ( defined($web_page_details_values{"url"}) ) {
+            $web_page_details_values{"mime-type"} = $mime_type;
+            $web_page_details_values{"archived"} = $is_archived;
+        }
 
         #
         # Save web page details
@@ -3268,10 +3666,8 @@ sub XML_Document_Language {
     $lang_code = URL_Check_GET_URL_Language($url);
     if ( $lang_code eq "" ) {
         #
-        # Cannot determine language from file name, try the content
+        # Cannot determine language from file name
         #
-        ($lang_code, $lang, $status) = TextCat_XML_Language($$content);
-        print "XML_Document_Language TextCat language is $lang_code\n" if $debug;
     }
 
     #
@@ -4237,7 +4633,9 @@ sub Results_Save_Callback {
     print "Page size file name = $save_filename\n" if $debug;
     unlink($save_filename);
     print "Copy $shared_web_page_size_filename, $save_filename\n" if $debug;
-    copy($shared_web_page_size_filename, $save_filename);
+    if ( -f $shared_web_page_size_filename ) {
+        copy($shared_web_page_size_filename, $save_filename);
+    }
     unlink($shared_web_page_size_filename);
 
     #
@@ -4251,7 +4649,9 @@ sub Results_Save_Callback {
     $save_filename = $filename . "_page_inventory.csv";
     unlink($save_filename);
     print "Copy $shared_web_page_details_filename, $save_filename\n" if $debug;
-    copy($shared_web_page_details_filename, $save_filename);
+    if ( -f $shared_web_page_details_filename ) {
+        copy($shared_web_page_details_filename, $save_filename);
+    }
     unlink($shared_web_page_details_filename);
 }
 
@@ -4278,7 +4678,8 @@ sub Print_Results_Header {
     #
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                  $doc_list_tab, $doc_features_tab, $interop_tab) {
+                  $doc_list_tab, $doc_features_tab, $interop_tab,
+                  $open_data_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Clear_Results($tab);
             Validator_GUI_Update_Results($tab,
@@ -5122,6 +5523,11 @@ sub Remove_Temporary_Files {
         #
         rmdir($shared_save_content_directory);
     }
+    
+    #
+    # Remove temporary files from Validator GUI module
+    #
+    Validator_GUI_Remove_Temporary_Files();
 }
 
 #***********************************************************************
@@ -5142,7 +5548,7 @@ sub Initialize_Tool_Globals {
     my ($html_profile_table, $html_feature_id);
 
     #
-    # Clean up any temporary file from a possioble previous analysis run
+    # Clean up any temporary file from a possible previous analysis run
     #
     Remove_Temporary_Files();
 
@@ -5619,17 +6025,20 @@ sub Increment_Counts_and_Print_URL {
     my ($tab, $url, $has_errors) = @_;
 
     #
-    # Increment document & error counters
+    # Do we have a valid tab and URL ?
     #
-    $document_count{$tab}++;
-    if ( $has_errors ) {
-        $error_count{$tab}++;
-    }
+    if ( defined($tab) && ($url ne "") ) {
+        #
+        # Increment document & error counters
+        #
+        $document_count{$tab}++;
+        if ( $has_errors ) {
+            $error_count{$tab}++;
+        }
 
-    #
-    # Print URL
-    #
-    if ( defined($tab) ) {
+        #
+        # Print URL
+        #
         if ( $report_fails_only ) {
             if ( $has_errors ) {
                 Print_URL_To_Tab($tab, $url, $error_count{$tab});
@@ -7169,13 +7578,13 @@ sub Perform_Open_Data_Check {
     my ( $url, $format, $data_file_type, $resp ) = @_;
 
     my ($contents, $zip, @members, $member_name, $header, $mime_type);
-    my (@results, $zip_file_name, $member_url, $content);
+    my (@results, $member_url, $member, $filename);
 
     #
     # Check for possible ZIP content (a zip file containing the
     # open data files).
     #
-    print "Perform_Open_Data_Check check for ZIP content\n" if $debug;
+    print "Perform_Open_Data_Check check for content\n" if $debug;
     if ( defined($resp) &&  $resp->is_success ) {
         $header = $resp->headers;
         $mime_type = $header->content_type;
@@ -7205,8 +7614,8 @@ sub Perform_Open_Data_Check {
         #
         # Get the ZIP file contents
         #
-        ($zip, $zip_file_name, @results) = Open_Data_Check_Zip_Content($url,
-                                                      $open_data_check_profile,
+        ($zip, @results) = Open_Data_Check_Zip_Content($url,
+                                                       $open_data_check_profile,
                                                        $data_file_type,
                                                        $resp);
 
@@ -7229,8 +7638,13 @@ sub Perform_Open_Data_Check {
         # Process each member of the zip archive
         #
         if ( defined($zip) ) {
-            @members = $zip->memberNames();
-            foreach $member_name (@members) {
+            @members = $zip->members();
+            foreach $member (@members) {
+                #
+                # Get file name
+                #
+                $member_name = $member->fileName();
+                
                 #
                 # If we are doing process monitoring, print out some resource
                 # usage statistics
@@ -7241,10 +7655,12 @@ sub Perform_Open_Data_Check {
                 }
 
                 #
-                # Get contents for this member
+                # Get contents for this member in a file
                 #
                 print "Process zip member $member_name\n" if $debug;
-                $contents = $zip->contents($member_name);
+                (undef, $filename) = tempfile(OPEN => 0);
+                print "Extract member to $filename\n" if $debug;
+                $member->extractToFileNamed($filename);
 
                 #
                 # Create and a URL for the member of the ZIP
@@ -7261,8 +7677,16 @@ sub Perform_Open_Data_Check {
                 @results = Open_Data_Check($member_url, $format,
                                            $open_data_check_profile,
                                            $data_file_type, $resp,
-                                           \$contents, \%open_data_dictionary);
+                                           $filename, \%open_data_dictionary);
                 Record_Open_Data_Check_Results($member_url, @results);
+                
+                #
+                # Remove temporary file
+                #
+                print "Remove ZIP member file $filename\n" if $debug;
+                if ( ! unlink($filename) ) {
+                    print "Error, failed to remove ZIP member file\n" if $debug;
+                }
 
                 #
                 # If we are doing process monitoring, print out some resource
@@ -7274,11 +7698,6 @@ sub Perform_Open_Data_Check {
                 }
             }
         }
-
-        #
-        # Remove temporary zip file
-        #
-        unlink($zip_file_name);
     }
     else {
         #
@@ -7294,10 +7713,10 @@ sub Perform_Open_Data_Check {
         # Treat URL as a single open data file
         #
         print "Single open data file\n" if $debug;
-        $content = Crawler_Decode_Content($resp);
+        $filename = $resp->header("WPSS-Content-File");
         @results = Open_Data_Check($url, $format, $open_data_check_profile,
                                    $data_file_type, $resp,
-                                   \$content, \%open_data_dictionary);
+                                   $filename, \%open_data_dictionary);
         Record_Open_Data_Check_Results($url, @results);
 
         #
@@ -7308,6 +7727,15 @@ sub Perform_Open_Data_Check {
             Print_Resource_Usage($url, "after",
                                  $document_count{$crawled_urls_tab});
         }
+    }
+    
+    #
+    # Remove URL content file
+    #
+    $filename = $resp->header("WPSS-Content-File");
+    print "Remove content file $filename\n" if $debug;
+    if ( ! unlink($filename) ) {
+        print "Error, failed to remove URL content file $filename\n" if $debug;
     }
 }
 
@@ -7328,7 +7756,7 @@ sub Open_Data_Callback {
     my ($dataset_urls, %report_options) = @_;
 
     my (@url_list, $i, $key, $value, $resp_url, $resp, $header);
-    my ($data_file_type, $item, $format, $url, $tab, @results);
+    my ($data_file_type, $item, $format, $url, $tab, @results, $filename);
 
     #
     # Initialize tool global variables
@@ -7367,6 +7795,7 @@ sub Open_Data_Callback {
         $url = $$dataset_urls{"DESCRIPTION"};
         print "Process open data description url $url\n" if $debug;
         ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
+        Crawler_Uncompress_Content_File($resp);
         push(@all_urls, "DESCRIPTION $url");
 
         #
@@ -7388,9 +7817,11 @@ sub Open_Data_Callback {
         #
         # Extract the dataset URLs from the description
         #
+        $filename = $resp->header("WPSS-Content-File");
         @results = Open_Data_Check_Read_JSON_Description($url,
-                                              $open_data_check_profile,
-                                              $resp, \$dataset_urls);
+                                                         $open_data_check_profile,
+                                                         $resp, $filename,
+                                                         \$dataset_urls);
 
         #
         # Record results
@@ -7405,6 +7836,12 @@ sub Open_Data_Callback {
             Print_Resource_Usage($url, "after",
                                  $document_count{$crawled_urls_tab});
         }
+
+        #
+        # Remove URL content file
+        #
+        print "Remove content file $filename\n" if $debug;
+        unlink($filename);
     }
 
     #
@@ -7455,6 +7892,7 @@ sub Open_Data_Callback {
                 #
                 print "Process open data url $url\n" if $debug;
                 ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
+                Crawler_Uncompress_Content_File($resp);
                 push(@all_urls, "$data_file_type $url");
 
                 #
@@ -7485,6 +7923,18 @@ sub Open_Data_Callback {
                                          0);
         }
     }
+    else {
+        #
+        # Check dataset consistency (e.g. matching English & French files)
+        #
+        @results = Open_Data_Check_Dataset_Files($open_data_check_profile,
+                                                 $dataset_urls);
+
+        #
+        # Record results
+        #
+        Record_Open_Data_Check_Results("", @results);
+    }
 
     #
     # Site crawl is complete, print sorted list of URLs in URLs tab.
@@ -7513,10 +7963,15 @@ sub Open_Data_Callback {
 #
 #***********************************************************************
 sub Setup_HTML_Tool_GUI {
+
+    my (%report_options_labels, %report_options_values_languages);
+    my (%robots_languages, %status_401_languages, $value, @values);
+
     #
     # Get report option labels
     #
     $link_check_profile_label = String_Value("Link Check Profile");
+    $testcase_profile_group_label = String_Value("Testcase Profile Groups");
     $metadata_profile_label = String_Value("Metadata Profile");
     $pdf_property_profile_label = String_Value("PDF Property Profile");
     $tqa_profile_label = String_Value("ACC Testcase Profile");
@@ -7542,23 +7997,68 @@ sub Setup_HTML_Tool_GUI {
                        $doc_profile_label, \@doc_features_profiles,
                        $robots_label, \@robots_options,
                        $status_401_label, \@status_401_options);
-    %report_options_labels = ("link_profile", $link_check_profile_label,
+    %report_options_labels = ("clf_profile", $clf_profile_label,
+                              "dept_profile", $dept_check_profile_label,
+                              "group_profile", $testcase_profile_group_label,
+                              "html_profile", $doc_profile_label,
+                              "interop_profile", $interop_profile_label,
+                              "link_profile", $link_check_profile_label,
                               "metadata_profile", $metadata_profile_label,
                               "pdf_profile", $pdf_property_profile_label,
-                              "tqa_profile", $tqa_profile_label,
-                              "clf_profile", $clf_profile_label,
-                              "wa_profile", $wa_profile_label,
-                              "interop_profile", $interop_profile_label,
-                              "content_profile", $dept_check_profile_label,
-                              "html_profile", $doc_profile_label,
                               "robots_handling", $robots_label,
+                              "tqa_profile", $tqa_profile_label,
+                              "wa_profile", $wa_profile_label,
                               "401_handling", $status_401_label);
 
     #
-    # Setup the validator GUI
+    # Get hash table of testcase profile option and all the
+    # various language values.
     #
-    Validator_GUI_Report_Option_Labels(%report_options_labels);
+    @values = All_String_Values("Ignore robots.txt");
+    foreach $value (@values) {
+        $robots_languages{$value} = String_Value("Ignore robots.txt");
+    }
+    @values = All_String_Values("Respect robots.txt");
+    foreach $value (@values) {
+        $robots_languages{$value} = String_Value("Respect robots.txt");
+    }
+    @values = All_String_Values("Ignore");
+    foreach $value (@values) {
+        $status_401_languages{$value} = String_Value("Ignore");
+    }
+    @values = All_String_Values("Prompt for credentials");
+    foreach $value (@values) {
+        $status_401_languages{$value} = String_Value("Prompt for credentials");
+    }
 
+    %report_options_values_languages = (
+                    "clf_profile", \%clf_check_profiles_languages,
+                    "dept_profile", \%dept_check_profiles_languages,
+                    "group_profile", \%testcase_profile_groups_profiles_languages,
+                    "html_profile", \%clf_check_profiles_languages,
+                    "interop_profile", \%interop_check_profiles_languages,
+                    "link_profile", \%link_check_profiles_languages,
+                    "metadata_profile", \%metadata_profiles_languages,
+                    "pdf_profile", \%pdf_property_profiles_languages,
+                    "robots_handling", \%robots_languages,
+                    "tqa_profile", \%tqa_check_profiles_languages,
+                    "wa_profile", \%wa_check_profiles_languages,
+                    "401_handling", \%status_401_languages);
+
+    #
+    # Setup the validator GUI configuration options
+    #
+    Validator_GUI_Report_Option_Labels(\%report_options_labels,
+                                       \%report_options_values_languages);
+    
+    #
+    # Setup the validator GUI configuration testcase profile groups
+    #
+    Validator_GUI_Report_Option_Testcase_Groups("group_profile",
+                                                $testcase_profile_group_label,
+                                                \@testcase_profile_groups,
+                                                \%testcase_profile_group_map);
+    
     #
     # Get label for the various result tabs and the file suffix
     # when saving results
@@ -7619,6 +8119,42 @@ sub Setup_HTML_Tool_GUI {
 
 #***********************************************************************
 #
+# Name: Open_Data_Runtime_Error_Callback
+#
+# Parameters: message - runtime error message
+#
+# Description:
+#
+#   This function is a callback function used by the validator package.
+# It is called when the validator engine has a runtime error and
+# aborts.  The result tabs are updated with an error message.
+#
+#***********************************************************************
+sub Open_Data_Runtime_Error_Callback {
+    my ($message) = @_;
+
+    my ($tab);
+
+    #
+    # Add a note to all tabs indicating that analysis failed due
+    # runtime error.
+    #
+    foreach $tab ($crawled_urls_tab, $open_data_tab, $doc_list_tab) {
+        Validator_GUI_Update_Results($tab, "", 0);
+        Validator_GUI_Update_Results($tab,
+                                     String_Value("Runtime Error Analysis Aborted"),
+                                     0);
+        Validator_GUI_Update_Results($tab, $message, 0);
+    }
+
+    #
+    # Site analysis complete, print report footer
+    #
+    Print_Results_Footer(0, 0);
+}
+
+#***********************************************************************
+#
 # Name: Setup_Open_Data_Tool_GUI
 #
 # Parameters: none
@@ -7629,27 +8165,33 @@ sub Setup_HTML_Tool_GUI {
 #
 #***********************************************************************
 sub Setup_Open_Data_Tool_GUI {
+
+    my (%report_options_labels, %report_options_labels_languages);
+    my (%report_options_values_languages);
+    
     #
     # Get report option labels
     #
     $open_data_profile_label = String_Value("Open Data Testcase Profile");
     %report_options = ($open_data_profile_label,
                        \@open_data_check_profiles);
-    %report_options_labels = ("open_data_profile",
-                              $open_data_profile_label);
+    %report_options_values_languages = ("open_data_profile",
+                                        $open_data_profile_label);
 
     #
     # Set user agent max size if it has not been specified.
     #
+    $crawler_config_vars{"content_file"} = 1;
     if ( ! defined($crawler_config_vars{"user_agent_max_size"}) ) {
-        $crawler_config_vars{"user_agent_max_size"} = 100000000;
-        Crawler_Config(%crawler_config_vars);
+        $crawler_config_vars{"user_agent_max_size"} = 1000000000;
     }
+    Crawler_Config(%crawler_config_vars);
 
     #
-    # Setup the validator GUI
+    # Setup the validator GUI configuration options
     #
-    Validator_GUI_Report_Option_Labels(%report_options_labels);
+    Validator_GUI_Report_Option_Labels(\%report_options_labels,
+                                       \%report_options_values_languages);
 
     #
     # Get label for the various result tabs and the file suffix when
@@ -7672,6 +8214,7 @@ sub Setup_Open_Data_Tool_GUI {
     #
     Validator_GUI_Open_Data_Setup($lang, \&Open_Data_Callback,
                                   %report_options);
+    Validator_GUI_Runtime_Error_Callback(\&Open_Data_Runtime_Error_Callback);
 
     #
     # Add result tabs
