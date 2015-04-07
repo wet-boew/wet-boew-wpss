@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6856 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2014-11-19 13:46:21 -0500 (Wed, 19 Nov 2014) $
+# $Revision: 7064 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
+# $Date: 2015-04-02 11:50:22 -0400 (Thu, 02 Apr 2015) $
 #
 # Description:
 #
@@ -37,8 +37,10 @@
 #     Validator_GUI_401_Login
 #     Validator_GUI_Debug
 #     Validator_GUI_Report_Option_Labels
+#     Validator_GUI_Report_Option_Testcase_Groups
 #     Validator_GUI_Open_Data_Setup
 #     Validator_GUI_Runtime_Error_Callback
+#     Validator_GUI_Remove_Temporary_Files
 #
 # Exported functions - these are required by the Win32::GUI package
 # and should not be used by anyone else.
@@ -83,14 +85,21 @@
 
 package validator_gui;
 
-use threads;
+my $have_threads = eval 'use threads; 1';
+if ( $have_threads ) {
+    $have_threads = eval 'use threads::shared; 1';
+}
+
 use strict;
 use warnings;
 
 use Encode;
 use File::Temp();
 use File::Basename;
+use File::Copy;
 use Win32::GUI();
+use File::Temp qw/ tempfile tempdir /;
+use Text::CSV;
 #use Win32::GUI::AxWindow();
 #
 # Cannot do a 'use' here as there is a bug with threads and the
@@ -135,8 +144,10 @@ BEGIN {
                   Validator_GUI_401_Login
                   Validator_GUI_Debug
                   Validator_GUI_Report_Option_Labels
+                  Validator_GUI_Report_Option_Testcase_Groups
                   Validator_GUI_Open_Data_Setup
                   Validator_GUI_Runtime_Error_Callback
+                  Validator_GUI_Remove_Temporary_Files
 
                   Validator_GUI_Browser_Terminate
                   Validator_GUI_Continue_Terminate
@@ -171,6 +182,16 @@ my ($results_save_callback, %report_options_labels, $ie, $browser_close_window);
 my ($browser_close_window_open, %report_options_field_names);
 my (%report_options_config_options, %url_401_user, %url_401_password);
 my ($process_pdf, $runtime_error_callback);
+my ($testcase_profile_groups_label, $testcase_profile_groups_names);
+my ($testcase_profile_groups_values, %report_options_values);
+my ($testcase_profile_groups_config_option);
+
+my ($csv_results_fh, $csv_results_file_name, $csv_object);
+my (@csv_results_fields) = ("type", "url", "testcase", "description", "line_no",
+                            "column_no", "page_no","source_line","message");
+if ( $have_threads ) {
+    share(\$csv_results_file_name);
+}
 
 my ($xml_output_mode) = 0;
 my ($xml_tab_label) = "";
@@ -432,7 +453,34 @@ sub Validator_GUI_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+}
 
+#***********************************************************************
+#
+# Name: Validator_GUI_Remove_Temporary_Files
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function removes any temporary files that may have been
+# created by this module.
+#
+#***********************************************************************
+sub Validator_GUI_Remove_Temporary_Files {
+
+    #
+    # Do we have a CSV results file ?
+    #
+    if ( defined($csv_results_file_name) ) {
+        #
+        # Do we have an open results file ?
+        #
+        if ( defined($csv_results_fh) ) {
+            close($csv_results_fh);
+        }
+        unlink($csv_results_file_name);
+    }
 }
 
 #**********************************************************************
@@ -666,6 +714,63 @@ sub Validator_GUI_Update_Results {
 
 #***********************************************************************
 #
+# Name: Print_TQA_Result_to_CSV
+#
+# Parameters: tab_label - label of tab to update
+#             result_object - tqa_result_object item
+#
+# Description:
+#
+#   This function prints the attributes of the tqa_results_object item
+# to the CSV results file.
+#
+#***********************************************************************
+sub Print_TQA_Result_to_CSV {
+    my ($tab_label, $result_object) = @_;
+    
+    my (@fields, $status);
+
+    #
+    # Do we have a CSV file yet ?
+    #
+    if ( ! defined($csv_results_file_name) ) {
+        #
+        # Create temporary CSV file for testcase results
+        #
+        ($csv_results_fh, $csv_results_file_name) = tempfile( SUFFIX => '.csv');
+        if ( ! defined($csv_results_fh) ) {
+            print "Error: Failed to create temporary file in Print_TQA_Result_to_CSV\n";
+            return;
+        }
+        binmode $csv_results_fh, ":utf8";
+        print "Temporary testcase results CSV file $csv_results_file_name\n" if $debug;
+        
+        #
+        # Create CSV object
+        #
+        $csv_object = Text::CSV->new ( { binary => 1, eol => $/ } );
+        $csv_object->print($csv_results_fh, \@csv_results_fields);
+    }
+    
+    #
+    # Save fields of the result object in the CSV file
+    #
+    @fields = ($tab_label, $result_object->url, $result_object->testcase,
+               $result_object->description, $result_object->line_no,
+               $result_object->column_no, $result_object->page_no,
+               $result_object->source_line, $result_object->message);
+    if ( defined($csv_object) ) {
+        $status = $csv_object->print($csv_results_fh, \@fields);
+        if ( ! $status ) {
+            print "Error in CSV print, status = $status, " .
+                  $csv_object->error_diag() . ", tab = $tab_label " .
+                  $result_object->testcase . ", " . $result_object->url . "\n";
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Validator_GUI_Print_TQA_Result
 #
 # Parameters: tab_label - label of tab to update
@@ -743,6 +848,11 @@ sub Validator_GUI_Print_TQA_Result {
         # Place blank line after error
         #
         Update_Results_Tab($tab_label, "");
+        
+        #
+        # Output the TQA result to the CSV results file
+        #
+        Print_TQA_Result_to_CSV($tab_label, $result_object);
     }
 }
 
@@ -1497,6 +1607,13 @@ sub Run_URL_List_Callback {
     print "Child: Return from url_list_callback\n" if $debug;
 
     #
+    # Close results CSV file
+    #
+    if ( defined($csv_results_fh) ) {
+        close($csv_results_fh);
+    }
+
+    #
     # Close browser window if we had it open
     #
     Close_Browser_Window();
@@ -1682,6 +1799,13 @@ sub Run_Site_Crawl {
        }
     }
     print "Child: Return from site_crawl_callback\n" if $debug;
+    
+    #
+    # Close results CSV file
+    #
+    if ( defined($csv_results_fh) ) {
+        close($csv_results_fh);
+    }
 
     #
     # Close browser window if we had it open
@@ -2010,6 +2134,16 @@ sub Results_Save_As {
             #
             while ( ($tab, $suffix) = each %results_file_suffixes ) {
                 Save_Tab_Results_To_File($tab, $suffix, $filename);
+            }
+            
+            #
+            # Save CSV results
+            #
+            if ( defined($csv_results_file_name) ) {
+                print "Copy results CSV\n" if $debug;
+                copy($csv_results_file_name, $filename . "_rslt.csv");
+                unlink($csv_results_file_name);
+                undef($csv_results_file_name);
             }
 
             #
@@ -2840,6 +2974,57 @@ sub Add_Direct_Input_Fields {
 
 #***********************************************************************
 #
+# Name: Validate_Option_Value
+#
+# Parameters: option_name - name of report option
+#             option_value - value of option field
+#
+# Description:
+#
+#   This function validates the value of a particular option against
+# the set of valid values.  It returns the language appropriate value
+# for the option (e.g. translates it from the supplied value into
+# the value for the current language of the tool).
+#
+#***********************************************************************
+sub Validate_Option_Value {
+    my ($option_name, $option_value) = @_;
+
+    my ($name, $value, $possible_values);
+    my ($valid_value) = 0;
+
+    #
+    # Get the valid values for this report option type
+    #
+    if ( defined($report_options_values{$option_name}) ) {
+        $possible_values = $report_options_values{$option_name};
+
+        #
+        # Convert the current value into the language appropriate
+        # value
+        #
+        if ( defined($$possible_values{$option_value}) ) {
+            print "Replace option value $option_value with " .
+                  $$possible_values{$option_value} . " in $option_name\n" if $debug;
+            $option_value = $$possible_values{$option_value};
+            $valid_value = 1;
+        }
+        else {
+            print "No language specific value for $option_value in $option_name\n" if $debug;
+        }
+    }
+    else {
+        print "No report_options_values entry for $option_name\n" if $debug;
+    }
+
+    #
+    # Return validated value
+    #
+    return($valid_value, $option_value);
+}
+
+#***********************************************************************
+#
 # Name: GUI_Do_Load_URL_List_from_File_Click
 #
 # Parameters: self - reference to main dialog
@@ -2853,6 +3038,7 @@ sub GUI_Do_Load_URL_List_from_File_Click {
     my ($self) = @_;
 
     my ($filename, $line, $url_list, $name, $field_name, $value, $type, $url);
+    my ($valid_value, $got_group_profile);
 
     #
     # Get name of file to read configuration from
@@ -2879,6 +3065,12 @@ sub GUI_Do_Load_URL_List_from_File_Click {
         #
         %url_401_user = ();
         %url_401_password = ();
+        $got_group_profile = 0;
+
+        #
+        # Initialize group profile to custom
+        #
+        Select_Custom_Testcase_Profile_Group();
 
         #
         # Open the URL list file
@@ -2922,8 +3114,18 @@ sub GUI_Do_Load_URL_List_from_File_Click {
                     # Load value into main dialog
                     #
                     $name = $report_options_field_names{$field_name};
-                    print "Set configuration selector $name to $value\n" if $debug;
-                    $main_window->ConfigTabs->$name->SelectString("$value");
+                    ($valid_value, $value) = Validate_Option_Value($field_name, $value);
+                    if ( $valid_value ) {
+                        print "Set configuration selector $name to $value\n" if $debug;
+                        $main_window->ConfigTabs->$name->SelectString("$value");
+
+                        #
+                        # Is this a group profile option ?
+                        #
+                        if ( $field_name eq $testcase_profile_groups_config_option ) {
+                            $got_group_profile = 1;
+                        }
+                    }
                 }
                 elsif ( $field_name eq "HTTP_401" ) {
                     #
@@ -2955,6 +3157,16 @@ sub GUI_Do_Load_URL_List_from_File_Click {
                 }
             }
             close(FILE);
+
+            #
+            # Did we find a group profile value ?
+            #
+            if ( $got_group_profile ) {
+                #
+                # Update all the other testcase profile options
+                #
+                Select_Testcase_Profile_Group();
+            }
 
             #
             # Set URL list in main window
@@ -3103,7 +3315,7 @@ sub Add_Config_Fields {
 
     my ($current_pos) = 50;
     my ($tabid, $name, $h, $w, $num_options, $option_label);
-    my ($option_list_addr);
+    my ($option_list_addr, $x_pos);
 
     #
     # Add title to the tab and increment tab count
@@ -3126,6 +3338,28 @@ sub Add_Config_Fields {
     $h = $main_window->ConfigTabs->Height - 20;
 
     #
+    # Add selector for this configuration option
+    #
+    if ( defined($testcase_profile_groups_label) ) {
+        Add_Report_Option_Testcase_Profile_Group_Selector($main_window->ConfigTabs,
+                                       $tabid, $current_pos,
+                                       $testcase_profile_groups_label,
+                                       $testcase_profile_groups_names);
+                                       
+        #
+        # Start testcase selectors to the right of the
+        # testcase profile group selector.
+        #
+        $x_pos = 300;
+    }
+    else {
+        #
+        # Start testcase selectors to the left of the tab.
+        #
+        $x_pos = 50;
+    }
+
+    #
     # Add selector for each option. Present options in alphabetical order
     #
     foreach $option_label (sort(keys %report_options)) {
@@ -3134,10 +3368,10 @@ sub Add_Config_Fields {
         #
         $option_list_addr = $report_options{$option_label};
         $current_pos = Add_Report_Option_Selector($main_window->ConfigTabs,
-                                   $tabid, $current_pos,
+                                   $tabid, $current_pos, $x_pos,
                                    $option_label, $option_list_addr);
     }
-
+    
     #
     # Return tab count
     #
@@ -3417,6 +3651,7 @@ sub Add_Site_Login_Logout_Fields {
 # Parameters: tab_strip - TabStrip handle
 #             tabid - tab identifier
 #             current_pos - current position in the window
+#             x_pos - horizontal positioning
 #             report_options - report options table
 #
 # Description:
@@ -3425,7 +3660,7 @@ sub Add_Site_Login_Logout_Fields {
 #
 #***********************************************************************
 sub Add_Report_Option_Selector {
-    my ($tab_strip, $tabid, $current_pos, $option_label,
+    my ($tab_strip, $tabid, $current_pos, $x_pos, $option_label,
         $option_list_addr) = @_;
 
     my ($num_options, $name, $config_option);
@@ -3445,10 +3680,11 @@ sub Add_Report_Option_Selector {
     $tab_strip->AddCombobox(
         -name         => $name,
         -dropdownlist => 1,
-        -pos          => [50,$current_pos],
+        -pos          => [$x_pos, $current_pos],
         -height       => 20 * $num_options + 20,
-        -width        => 150,
-        -tabstop => 1,
+        -width        => 200,
+        -tabstop      => 1,
+        -onChange     => \&Select_Custom_Testcase_Profile_Group,
     );
     $tab_strip->$name->Add(@$option_list_addr);
     $tab_strip->$name->SetCurSel(0);
@@ -3472,9 +3708,190 @@ sub Add_Report_Option_Selector {
     $tab_strip->AddLabel(
         -name => $name,
         -text => $option_label,
-        -pos => [205,$current_pos],
+        -pos => [$x_pos + 205,$current_pos],
     );
     $current_pos += 50;
+
+    #
+    # Return current window position
+    #
+    return($current_pos);
+}
+
+#***********************************************************************
+#
+# Name: Select_Testcase_Profile_Group
+#
+# Parameters: self - reference to main dialog
+#
+# Description:
+#
+#   This function runs when a testcase profile group is selected.
+#
+#***********************************************************************
+sub Select_Testcase_Profile_Group {
+    my ($self) = @_;
+    
+    my ($name, $group_name, $value, $profiles, $selector);
+    my ($valid_value, $custom_value);
+    
+    #
+    # Get the testcase profile group name
+    #
+    $name = $option_combobox_map{$testcase_profile_groups_label};
+    $group_name = $main_window->ConfigTabs->$name->Text();
+    print "Select_Testcase_Profile_Group, name = $group_name\n" if $debug;
+    
+    #
+    # Is the testcase profile group the "Custom" group ?
+    # If so, we don't update the testcase profile values, we leave them
+    # the way the user set them.
+    #
+    ($valid_value, $custom_value) = Validate_Option_Value($testcase_profile_groups_config_option, "Custom");
+    if ( $valid_value && ($group_name eq $custom_value) ) {
+        print "Don't set testcase profile values, custom group used\n" if $debug;
+        return;
+    }
+
+    #
+    # Set the testcase profile values for the individual checks
+    # to the values for this profile group.
+    #
+    $profiles = $$testcase_profile_groups_values{$group_name};
+    while ( ($name, $value) = each %$profiles ) {
+        #
+        # Get the selector name
+        #
+        $selector = $report_options_field_names{$name};
+
+        #
+        # Get the valid values for this testcase profile type
+        #
+        ($valid_value, $value) = Validate_Option_Value($name, $value);
+        if ( $valid_value ) {
+            print "Select testcase profile $name, selector $selector to $value\n" if $debug;
+            $main_window->ConfigTabs->$selector->SelectString("$value");
+        }
+
+        #
+        # Update the configuration tab
+        #
+        Win32::GUI::DoEvents();
+    }
+}
+
+#***********************************************************************
+#
+# Name: Select_Custom_Testcase_Profile_Group
+#
+# Parameters: self - reference to main dialog
+#
+# Description:
+#
+#   This function runs when a testcase profile is selected. It sets the
+# testcase profile group to the "Custom" value.
+#
+#***********************************************************************
+sub Select_Custom_Testcase_Profile_Group {
+    my ($self) = @_;
+
+    my ($name, $valid_value, $value);
+
+    #
+    # Initialize group profile to custom
+    #
+    print "Select_Custom_Testcase_Profile_Group\n" if $debug;
+    if ( defined($testcase_profile_groups_config_option) ) {
+        $name = $report_options_field_names{$testcase_profile_groups_config_option};
+        ($valid_value, $value) = Validate_Option_Value($testcase_profile_groups_config_option,
+                                      "Custom");
+        if ( $valid_value ) {
+            print "Set configuration selector $name to $value\n" if $debug;
+            $main_window->ConfigTabs->$name->SelectString("$value");
+
+            #
+            # Update the configuration tab
+            #
+            Win32::GUI::DoEvents();
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Add_Report_Option_Testcase_Profile_Group_Selector
+#
+# Parameters: tab_strip - TabStrip handle
+#             tabid - tab identifier
+#             current_pos - current position in the window
+#             option_label - label
+#             option_list_addr - pointer to a list of values
+#
+# Description:
+#
+#   This function adds the testcase profile group options to the main window.
+#
+#***********************************************************************
+sub Add_Report_Option_Testcase_Profile_Group_Selector {
+    my ($tab_strip, $tabid, $current_pos, $option_label,
+        $option_list_addr) = @_;
+
+    my ($num_options, $name, $config_option, %option_values, $key, $value);
+
+    #
+    # Add label for testcase profile groups
+    #
+    $name = "Label_" . $option_label . $tabid;
+    $name =~ s/\s+/_/g;
+    $name =~ s/\*/_/g;
+
+    $tab_strip->AddLabel(
+        -name => $name,
+        -text => $option_label,
+        -pos => [50,$current_pos],
+    );
+    $current_pos += 50;
+    
+    #
+    # Create combobox name and store it in a hash table
+    # so we can associate the user defined label with the combobox name
+    # when we return selected values.  Since the user defined label can have
+    # white space in it, convert spaces into underscores
+    #
+    print "Add_Report_Option_Testcase_Profile_Group_Selector\n" if $debug;
+    $name = "Combobox_" . $option_label . $tabid;
+    $name =~ s/\s+/_/g;
+    $name =~ s/\*/_/g;
+    $option_combobox_map{$option_label} = $name;
+    
+    #
+    # Get number of options in the list
+    #
+    $num_options = scalar(@$option_list_addr);
+
+    #
+    # Add the combobox for testcase profile groups
+    #
+    $tab_strip->AddCombobox(
+        -name         => $name,
+        -dropdownlist => 1,
+        -pos          => [50,$current_pos],
+        -height       => 20 * $num_options + 20,
+        -width        => 200,
+        -tabstop      => 1,
+        -onChange     => \&Select_Testcase_Profile_Group,
+    );
+    $tab_strip->$name->Add(@$option_list_addr);
+    $tab_strip->$name->SetCurSel(0);
+
+    #
+    # Save field name
+    #
+    if ( defined($report_options_config_options{$option_label}) ) {
+        $config_option = $report_options_config_options{$option_label};
+        $report_options_field_names{$config_option} = $name;
+        print "Add configuration type $config_option fieldname $name to report_options_field_names\n" if $debug;
+    }
 
     #
     # Return current window position
@@ -3497,6 +3914,7 @@ sub Load_Site_Config {
     my ($self) = @_;
 
     my ($filename, $line, $field_name, $value, $name, $type, $url);
+    my ($valid_value, $got_group_profile);
 
     #
     # Get name of file to read configuration from
@@ -3522,6 +3940,12 @@ sub Load_Site_Config {
         #
         %url_401_user = ();
         %url_401_password = ();
+        
+        #
+        # Initialize group profile to custom
+        #
+        Select_Custom_Testcase_Profile_Group();
+        $got_group_profile = 0;
 
         #
         # Open the configuration file
@@ -3568,20 +3992,30 @@ sub Load_Site_Config {
                     $main_window->ConfigTabs->$name->Text("$value"); 
 
                     #
-                    # Update the results page
+                    # Update the configuration
                     #
                     Win32::GUI::DoEvents();
                 }
                 elsif ( defined($report_options_field_names{$field_name}) ) {
                     #
-                    # Load value into main dialog
+                    # Load value into main dialog configuration tab
                     #
                     $name = $report_options_field_names{$field_name};
-                    print "Set configuration selector $name to $value\n" if $debug;
-                    $main_window->ConfigTabs->$name->SelectString("$value"); 
+                    ($valid_value, $value) = Validate_Option_Value($field_name, $value);
+                    if ( $valid_value ) {
+                        print "Set configuration selector $name to $value\n" if $debug;
+                        $main_window->ConfigTabs->$name->SelectString("$value");
+
+                        #
+                        # Is this a group profile option ?
+                        #
+                        if ( $field_name eq $testcase_profile_groups_config_option ) {
+                            $got_group_profile = 1;
+                        }
+                    }
 
                     #
-                    # Update the results page
+                    # Update the configuration
                     #
                     Win32::GUI::DoEvents();
                 }
@@ -3603,6 +4037,16 @@ sub Load_Site_Config {
                 }
             }
             close(FILE);
+            
+            #
+            # Did we find a group profile value ?
+            #
+            if ( $got_group_profile ) {
+                #
+                # Update all the other testcase profile options
+                #
+                Select_Testcase_Profile_Group();
+            }
         }
         else {
             Error_Message_Popup("Failed to open site configuration file $filename");
@@ -3625,7 +4069,8 @@ sub Save_Site_Config {
     my ($self) = @_;
 
     my ($filename, $line, $field_name, $value, $tab_field_name);
-    my ($url, $user, $password);
+    my ($url, $user, $password, $valid_value, $custom_value);
+    my ($save_all_options);
 
     #
     # Get name of file to save configuration in
@@ -3659,11 +4104,35 @@ sub Save_Site_Config {
                 $value = $main_window->ConfigTabs->$tab_field_name->Text();
                 print FILE "$field_name $value\n";
             }
-            foreach $field_name (sort keys %report_options_field_names) {
-                $tab_field_name = $report_options_field_names{$field_name};
+            
+            #
+            # Check for group profile option
+            #
+            $save_all_options = 1;
+            if ( defined($report_options_field_names{$testcase_profile_groups_config_option}) ) {
+                ($valid_value, $custom_value) = Validate_Option_Value($testcase_profile_groups_config_option, "Custom");
+                $tab_field_name = $report_options_field_names{$testcase_profile_groups_config_option};
                 $value = $main_window->ConfigTabs->$tab_field_name->Text();
-                print FILE "$field_name $value\n";
+                if ( $valid_value && ($value ne $custom_value) ) {
+                    print FILE "$testcase_profile_groups_config_option $value\n";
+                    $save_all_options = 0;
+                }
             }
+
+            #
+            # Save all report options
+            #
+            if ( $save_all_options ) {
+                foreach $field_name (sort keys %report_options_field_names) {
+                    $tab_field_name = $report_options_field_names{$field_name};
+                    $value = $main_window->ConfigTabs->$tab_field_name->Text();
+                    print FILE "$field_name $value\n";
+                }
+            }
+            
+            #
+            # Save username/password settings
+            #
             foreach $url (sort keys %url_401_user) {
                 $user = $url_401_user{$url};
                 $password = $url_401_password{$url};
@@ -4464,7 +4933,8 @@ sub Validator_GUI_Setup {
 #
 # Name: Validator_GUI_Report_Option_Labels
 #
-# Parameters: option_labels - hash table
+# Parameters: options_labels - pointer to hash table of option labels
+#             options_values - pointer to a hash table of option values
 #
 # Description:
 #
@@ -4473,13 +4943,42 @@ sub Validator_GUI_Setup {
 #
 #***********************************************************************
 sub Validator_GUI_Report_Option_Labels {
-    my (%option_labels) = @_;
+    my ($options_labels, $options_values) = @_;
 
     #
     # Copy content to global variable
     #
-    %report_options_labels = %option_labels;
-    %report_options_config_options = reverse %option_labels;
+    %report_options_labels = %$options_labels;
+    %report_options_config_options = reverse %$options_labels;
+    %report_options_values = %$options_values;
+}
+
+#***********************************************************************
+#
+# Name: Validator_GUI_Report_Option_Testcase_Groups
+#
+# Parameters: config_option_label - label for configuration/profile file option
+#             label - label for option
+#             names - pointer to a list of names
+#             values - pointer to hash table of values
+#
+# Description:
+#
+#   This function copies the testcase profile group options information
+# into global variables.
+#
+#***********************************************************************
+sub Validator_GUI_Report_Option_Testcase_Groups {
+    my ($config_option_label, $label, $names, $values) = @_;
+
+    #
+    # Copy information to global variables
+    #
+    print "Validator_GUI_Report_Option_Testcase_Groups\n" if $debug;
+    $testcase_profile_groups_config_option = $config_option_label;
+    $testcase_profile_groups_label = $label;
+    $testcase_profile_groups_names = $names;
+    $testcase_profile_groups_values = $values;
 }
 
 #***********************************************************************
@@ -4527,6 +5026,17 @@ sub Validator_GUI_Start {
     #
     print "Show main window and enter Win32::GUI::Dialog\n" if $debug;
     Main_Window_Tabstrip_Click();
+    
+    #
+    # Set testcase profiles based on default group profile value.
+    #
+    if ( defined($testcase_profile_groups_label) ) {
+        Select_Testcase_Profile_Group();
+    }
+
+    #
+    # Show the main window and start the UI
+    #
     $main_window->Show();
     $rc = Win32::GUI::Dialog();
     print "Exit Win32::GUI::Dialog, rc = $rc\n" if $debug;
@@ -4546,6 +5056,8 @@ sub Validator_GUI_Start {
 #***********************************************************************
 sub Run_Open_Data_Callback {
     my ($dataset_urls, %report_options) = @_;
+    
+    my ($eval_output);
 
     #
     # Add a signal handler to exit a thread.
@@ -4570,8 +5082,26 @@ sub Run_Open_Data_Callback {
     # Call the Open Data callback function
     #
     print "Child: Call open_data_callback\n" if $debug;
-    &$open_data_callback($dataset_urls, %report_options);
+    $eval_output = eval { &$open_data_callback($dataset_urls, %report_options); 1 };
+    if ( ! $eval_output ) {
+        print STDERR "open_data_callback fail, eval_output = \"$@\"\n";
+        print "open_data_callback fail, eval_output = \"$@\"\n" if $debug;
+
+        #
+        # Report run time error to parent thread
+        #
+        if ( defined($runtime_error_callback) ) {
+            &$runtime_error_callback($@);
+       }
+    }
     print "Child: Return from open_data_callback\n" if $debug;
+
+    #
+    # Close results CSV file
+    #
+    if ( defined($csv_results_fh) ) {
+        close($csv_results_fh);
+    }
 }
 
 #***********************************************************************
@@ -4697,7 +5227,7 @@ sub Load_Open_Data_Config {
 
     my ($filename, $line, $field_name, $value, $name, $type, $url);
     my ($data_list, $dictionary_list, $resource_list, $api_list);
-    my ($description_url);
+    my ($description_url, $valid_value, $got_group_profile);
 
     #
     # Get name of file to read configuration from
@@ -4730,6 +5260,7 @@ sub Load_Open_Data_Config {
             $resource_list = "";
             $api_list = "";
             $description_url = "";
+            $got_group_profile = 0;
 
             #
             # Read all lines from the file looking for the configuration
@@ -4772,7 +5303,7 @@ sub Load_Open_Data_Config {
                     $main_window->ConfigTabs->$name->Text("$value"); 
 
                     #
-                    # Update the results page
+                    # Update the configuration
                     #
                     Win32::GUI::DoEvents();
                 }
@@ -4781,11 +5312,21 @@ sub Load_Open_Data_Config {
                     # Load value into main dialog
                     #
                     $name = $report_options_field_names{$field_name};
-                    print "Set configuration selector $name to $value\n" if $debug;
-                    $main_window->ConfigTabs->$name->SelectString("$value"); 
+                    ($valid_value, $value) = Validate_Option_Value($field_name, $value);
+                    if ( $valid_value ) {
+                        print "Set configuration selector $name to $value\n" if $debug;
+                        $main_window->ConfigTabs->$name->SelectString("$value");
+                        
+                        #
+                        # Is this a group profile option ?
+                        #
+                        if ( $field_name eq $testcase_profile_groups_config_option ) {
+                            $got_group_profile = 1;
+                        }
+                    }
 
                     #
-                    # Update the results page
+                    # Update the configuration
                     #
                     Win32::GUI::DoEvents();
                 }
@@ -4821,6 +5362,16 @@ sub Load_Open_Data_Config {
                 }
             }
             close(FILE);
+            
+            #
+            # Did we find a group profile value ?
+            #
+            if ( $got_group_profile ) {
+                #
+                # Update all the other testcase profile options
+                #
+                Select_Testcase_Profile_Group();
+            }
 
             #
             # Set URL lists in main window
