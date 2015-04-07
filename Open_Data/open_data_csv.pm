@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 6815 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2014-10-30 11:11:54 -0400 (Thu, 30 Oct 2014) $
+# $Revision: 7025 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
+# $Date: 2015-03-06 10:17:34 -0500 (Fri, 06 Mar 2015) $
 #
 # Description:
 #
@@ -17,6 +17,7 @@
 #     Set_Open_Data_CSV_Testcase_Data
 #     Set_Open_Data_CSV_Test_Profile
 #     Open_Data_CSV_Check_Data
+#     Open_Data_CSV_Check_Get_Row_Count
 #
 # Terms and Conditions of Use
 #
@@ -54,6 +55,7 @@ use strict;
 use URI::URL;
 use File::Basename;
 use Text::CSV;
+use IO::Handle;
 use File::Temp qw/ tempfile tempdir /;
 
 #***********************************************************************
@@ -71,6 +73,7 @@ BEGIN {
                   Set_Open_Data_CSV_Testcase_Data
                   Set_Open_Data_CSV_Test_Profile
                   Open_Data_CSV_Check_Data
+                  Open_Data_CSV_Check_Get_Row_Count
                   );
     $VERSION = "1.0";
 }
@@ -82,7 +85,7 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (%testcase_data, $results_list_addr);
+my (%testcase_data, $results_list_addr, $last_csv_row_count);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 
@@ -97,21 +100,23 @@ my ($check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
-    "Parse error in line",           "Parse error in line",
-    "Inconsistent number of fields, found", "Inconsistent number of fields, found ",
     "expecting",                     "expecting",
-    "No content in file",            "No content in file",
-    "Missing header row terms",      "Missing header row terms",
+    "Inconsistent number of fields, found", "Inconsistent number of fields, found ",
     "Missing header row",            "Missing header row",
+    "Missing header row terms",      "Missing header row terms",
+    "No content in file",            "No content in file",
+    "No content in row",             "No content in row",
+    "Parse error in line",           "Parse error in line",
     );
 
 my %string_table_fr = (
-    "Parse error in line",           "Parse error en ligne",
-    "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté ",
     "expecting",                     "expectant",
-    "No content in file",            "Aucun contenu dans fichier",
-    "Missing header row terms",      "Manquant termes de lignes d'en-tête",
+    "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté ",
     "Missing header row",            "Manquant lignes d'en-tête",
+    "Missing header row terms",      "Manquant termes de lignes d'en-tête",
+    "No content in file",            "Aucun contenu dans fichier",
+    "No content in row",             "Aucun contenu dans ligne",
+    "Parse error in line",           "Parse error en ligne",
     );
 
 #
@@ -271,6 +276,11 @@ sub Initialize_Test_Results {
     #
     $current_open_data_profile = $open_data_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
+    
+    #
+    # Initialize global variables
+    #
+    $last_csv_row_count = 0;
 }
 
 #***********************************************************************
@@ -387,7 +397,7 @@ sub Check_First_Data_Row {
             #
             # An unmatched field, save it for possible use later
             #
-            push (@unmatched_fields, "'$field'");
+            push (@unmatched_fields, "$field");
             print "No dictionary value for \"$field\"\n" if $debug;
         }
     }
@@ -428,11 +438,73 @@ sub Check_First_Data_Row {
 
 #***********************************************************************
 #
+# Name: Check_UTF8_BOM
+#
+# Parameters: tcsv_file - CSV file object
+#
+# Description:
+#
+#   This function reads the passed file object and checks to see
+# if a UTF-8 BOM is present.  If one is, the current reading position
+# is set to just after the BOM.  The avoids parsing errors with the
+# file.
+#
+# UTF-8 BOM = $EF $BB $BF
+# Byte Order Mark - http://en.wikipedia.org/wiki/Byte_order_mark
+#
+#***********************************************************************
+sub Check_UTF8_BOM {
+    my ($csv_file) = @_;
+    
+    my ($line, $char);
+    
+    #
+    # Get a line of content from the file
+    #
+    print "Check_UTF8_BOM\n" if $debug;
+    $line = $csv_file->getline();
+
+    #
+    # Check first character of line for character 65279 (xFEFF)
+    #
+    print "line = \"$line\"\n" if $debug;
+    $char = substr($line, 0, 1);
+    if ( ord($char) == 65279 ) {
+        #
+        # Set reading position at character 3
+        #
+        print "Skip over BOM xFEFF\n" if $debug;
+        seek($csv_file, 3, 0);
+        $line = $csv_file->getline();
+        print "line = \"$line\"\n" if $debug;
+        seek($csv_file, 3, 0);
+    }
+    elsif ( $line =~ s/^\xEF\xBB\xBF// ) {
+        #
+        # Set reading position at character 3
+        #
+        print "Skip over BOM xFEBBBF\n" if $debug;
+        seek($csv_file, 3, 0);
+        $line = $csv_file->getline();
+        print "line = \"$line\"\n" if $debug;
+        seek($csv_file, 3, 0);
+    }
+    else {
+        #
+        # Reposition to the beginning of the file
+        #
+        print "Reset reading position to beginning of the file\n" if $debug;
+        seek($csv_file, 0, 0);
+    }
+}
+
+#***********************************************************************
+#
 # Name: Open_Data_CSV_Check_Data
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - CSV content pointer
+#             filename - CSV content file
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -441,11 +513,12 @@ sub Check_First_Data_Row {
 #
 #***********************************************************************
 sub Open_Data_CSV_Check_Data {
-    my ($this_url, $profile, $content, $dictionary) = @_;
+    my ($this_url, $profile, $filename, $dictionary) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($line, @fields, $line_no, $status, $found_fields, $field_count);
-    my ($csv_file, $csv_file_name, $rows, $message, $local_content);
+    my ($csv_file, $csv_file_name, $rows, $message, $content);
+    my ($row_content, $eval_output);
 
     #
     # Do we have a valid profile ?
@@ -476,111 +549,134 @@ sub Open_Data_CSV_Check_Data {
     Initialize_Test_Results($profile, \@tqa_results_list);
 
     #
-    # Did we get any content ?
+    # Open the CSV file for reading.
     #
-    if ( length($$content) == 0 ) {
-        print "No content passed to Open_Data_CSV_Check_Data\n" if $debug;
-        Record_Result("OD_3", -1, 0, "",
-                      String_Value("No content in file"));
-    }
-    else {
+    print "Open CSV file $filename\n" if $debug;
+    open($csv_file, "$filename") ||
+        die "Open_Data_CSV_Check_Data: Failed to open $filename for reading\n";
+    binmode $csv_file, ":utf8";
+    
+    #
+    # Check for UTF-8 BOM (Byte Order Mark) at the top of the
+    # file
+    #
+    Check_UTF8_BOM($csv_file);
+
+    #
+    # Create a document parser
+    #
+    $parser = Text::CSV->new({ binary => 1,
+                               eol => $\,
+                               max_line_length => 100000 });
+
+    #
+    # Parse each line/record of the content
+    #
+    $eval_output = eval { $rows = $parser->getline($csv_file); 1 };
+    $line_no = 0;
+    while ( $eval_output && defined($rows) ) {
         #
-        # Remove BOM from UTF-8 content ($EF $BB $BF)
-        #  Byte Order Mark - http://en.wikipedia.org/wiki/Byte_order_mark
+        # Increment record/line number
         #
-        $local_content = $$content;
-        $local_content =~ s/^\xEF\xBB\xBF//;
+        $line_no++;
+        
+        #
+        # Get the set of fields from the parsed line/record
+        #
+        @fields = @$rows;
+        print "Line # $line_no, field count " . scalar(@fields) . "\n" if $debug;
 
         #
-        # Create a temporary file for the CSV content.
+        # Is this the first row ? If so check for a possible heading
+        # row (i.e. the field values are the dictionary terms)
         #
-        print "Create temporary CSV file\n" if $debug;
-        ($csv_file, $csv_file_name) = tempfile( SUFFIX => '.csv');
-        if ( ! defined($csv_file) ) {
-            print "Error: Failed to create temporary file in Open_Data_CSV_Check_Data\n";
-            return(@tqa_results_list);
+        if ( $line_no == 1 ) {
+            Check_First_Data_Row($dictionary, @fields);
+
+            #
+            # Set the number of expected fields
+            #
+            $field_count = @fields;
+            print "Expected fields count = $field_count\n" if $debug;
         }
-        binmode $csv_file;
-        print $csv_file $local_content;
-        close($csv_file);
-        $local_content = "";
-
         #
-        # Open the temporary file for reading.
+        # Did we get an error ?
         #
-        open($csv_file, "$csv_file_name") ||
-            die "Open_Data_CSV_Check_Data: Failed to open $csv_file_name for reading\n";
-
-        #
-        # Create a document parser
-        #
-        $parser = Text::CSV->new ({ binary => 1, eol => $/ });
-
-        #
-        # Parse each line/record of the content
-        #
-        $line_no = 0;
-        while ( $rows = $parser->getline($csv_file) ) {
-            #
-            # Increment record/line number
-            #
-            $line_no++;
-
-            #
-            # Get the set of fields from the parsed line/record
-            #
-            @fields = @$rows;
-            print "Line # $line_no, field count " . scalar(@fields) . "\n" if $debug;
-
-            #
-            # Is this the first row ? If so check for a possible heading
-            # row (i.e. the field values are the dictionary terms)
-            #
-            if ( $line_no == 1 ) {
-                Check_First_Data_Row($dictionary, @fields);
-            }
-
-            #
-            # Do we have the number of expected fields ?
-            #
-            if ( ! defined($field_count) ) {
-                $field_count = @fields;
-                print "Expected fields count = $field_count\n" if $debug;
-            }
-            #
-            # Does the field count match the expected number of fields ?
-            #
-            elsif ( $field_count != @fields ) {
-                $found_fields = @fields;
-                Record_Result("OD_CSV_1", $line_no, 0, "$line",
-                      String_Value("Inconsistent number of fields, found") .
-                       " $found_fields " . String_Value("expecting") .
-                       " $field_count");
-            }
-        }
-
-        #
-        # Did we get to the end of file or did we encounter a parsing error
-        #
-        if ( ! $parser->eof() ) {
+        elsif ( ! $parser->status() ) {
             $line = $parser->error_input();
             $message = $parser->error_diag();
             print "CSV file error at line $line_no, line = \"$line\"\n" if $debug;
             print "parser->error_diag = \"$message\"\n" if $debug;
             Record_Result("OD_3", $line_no, 0, $line,
-                          String_Value("Parse error in line"));
+                          String_Value("Parse error in line") .
+                          " \"$message\"");
+            last;
         }
-        close($csv_file);
-        unlink($csv_file_name);
-
         #
-        # Did we find any rows in the CSV content ?
+        # Does the field count match the expected number of fields ?
         #
-        if ( $line_no == 0 ) {
-            Record_Result("OD_3", -1, 0, "",
-                          String_Value("No content in file"));
+        elsif ( $field_count != @fields ) {
+            $found_fields = @fields;
+            Record_Result("OD_CSV_1", $line_no, 0, "$line",
+                  String_Value("Inconsistent number of fields, found") .
+                   " $found_fields " . String_Value("expecting") .
+                   " $field_count");
+            if ( $debug ) {
+               print "Field values are\n";
+               $field_count = 0;
+               foreach (@fields) {
+                   $field_count++;
+                   print " Field $field_count \"$_\"\n";
+               }
+           }
         }
+            
+        #
+        # Check for a blank row.  Join all fields and remove whitespace
+        #
+        $row_content = join("", @fields);
+        $row_content =~ s/\s|\n|\r//g;
+        if ( $row_content eq "" ) {
+            Record_Result("OD_CSV_1", $line_no, 0, "$line",
+                  String_Value("No content in row"));
+        }
+        
+        #
+        # Get next line from the CSV file
+        #
+        $eval_output = eval { $rows = $parser->getline($csv_file); 1 };
     }
+
+    #
+    # Did we get a runtime error ?
+    #
+    $last_csv_row_count = $line_no;
+    if ( ! $eval_output ) {
+        print STDERR "parser->getline fail, eval_output = \"$@\"\n";
+        print "parser->getline fail, eval_output = \"$@\"\n" if $debug;
+        Record_Result("OD_3", $line_no, 0, $line,
+                      String_Value("Parse error in line") .
+                      " \"$@\"");
+    }
+    #
+    # Did we get an error on the last line ?
+    #
+    elsif ( defined($parser) && (! $parser->eof()) && (! $parser->status()) ) {
+        $line = $parser->error_input();
+        $message = $parser->error_diag();
+        print "CSV file error at end of CSV at line $line_no, line = \"$line\"\n" if $debug;
+        print "parser->error_diag = \"$message\"\n" if $debug;
+        Record_Result("OD_3", $line_no, 0, $line,
+                      String_Value("Parse error in line") .
+                      " \"$message\"");
+    }
+    #
+    # Did we find any rows in the CSV content ?
+    #
+    elsif ( $line_no == 0 ) {
+        Record_Result("OD_3", -1, 0, "", String_Value("No content in file"));
+    }
+    close($csv_file);
 
     #
     # Print testcase information
@@ -597,6 +693,34 @@ sub Open_Data_CSV_Check_Data {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_CSV_Check_Data
+#
+# Parameters: this_url - a URL
+##
+# Description:
+#
+#   This function runs the number of rows found in the last CSV file
+# analysed.
+#
+#***********************************************************************
+sub Open_Data_CSV_Check_Get_Row_Count {
+    my ($this_url) = @_;
+
+    #
+    # Check that the last URL process matches the one requested
+    #
+    if ( $this_url eq $current_url ) {
+        print "Open_Data_CSV_Check_Get_Row_Count url = $this_url, row count = $last_csv_row_count\n" if $debug;
+        return($last_csv_row_count);
+    }
+    else {
+        print "Error: Open_Data_CSV_Check_Get_Row_Count url = $this_url, current_url = $current_url\n"if $debug;
+        return(-1);
+    }
 }
 
 #***********************************************************************
