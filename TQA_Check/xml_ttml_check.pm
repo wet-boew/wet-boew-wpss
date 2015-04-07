@@ -2,9 +2,9 @@
 #
 # Name:   xml_ttml_check.pm
 #
-# $Revision: 6954 $
+# $Revision: 6999 $
 # $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/xml_ttml_check.pm $
-# $Date: 2014-12-24 11:38:55 -0500 (Wed, 24 Dec 2014) $
+# $Date: 2015-01-19 09:49:46 -0500 (Mon, 19 Jan 2015) $
 #
 # Description:
 #
@@ -17,7 +17,6 @@
 #     Set_XML_TTML_Check_Testcase_Data
 #     Set_XML_TTML_Check_Test_Profile
 #     XML_TTML_Check
-#     XML_TTML_Extract_Text
 #
 # Terms and Conditions of Use
 #
@@ -71,7 +70,6 @@ BEGIN {
                   Set_XML_TTML_Check_Testcase_Data
                   Set_XML_TTML_Check_Test_Profile
                   XML_TTML_Check
-                  XML_TTML_Extract_Text
                   );
     $VERSION = "1.0";
 }
@@ -86,7 +84,7 @@ my ($debug) = 0;
 my (%testcase_data, $results_list_addr);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%xml_ttml_check_profile_map, $current_xml_ttml_check_profile, $current_url);
-my ($save_text_between_tags, $saved_text);
+my ($save_text_between_tags, $saved_text, $current_content_lang_code);
 
 my ($max_error_message_string)= 2048;
 
@@ -99,11 +97,15 @@ my ($xml_ttml_check_fail) = 1;
 # String table for error strings.
 #
 my %string_table_en = (
+    "does not match content language", "does not match content language",
     "Missing tt language attribute",   "Missing <tt> language attribute",
+    "TT language attribute",           "<tt> language attribute",
     );
 
 my %string_table_fr = (
+    "does not match content language", "ne correspond pas à la langue de contenu",
     "Missing tt language attribute",   "Attribut manquant pour <tt>",
+    "TT language attribute",           "L'attribut du langage <tt>",
     );
 
 #
@@ -269,6 +271,7 @@ sub Initialize_Test_Results {
     #
     $save_text_between_tags = 0;
     $saved_text = "";
+    $current_content_lang_code = "unknown";
 }
 
 #***********************************************************************
@@ -384,6 +387,19 @@ sub TT_Tag_Handler {
         else {
             print "Unknown tt language $lang\n" if $debug;
         }
+
+        #
+        # Does the lang attribute match the content language ?
+        #
+        if ( ($current_content_lang_code ne "" ) &&
+             ($lang ne $current_content_lang_code) ) {
+            Record_Result("WCAG_2.0-SC3.1.1", $self->current_line,
+                      $self->current_column, $self->original_string,
+                          String_Value("TT language attribute") .
+                          " '$lang' " .
+                          String_Value("does not match content language") .
+                          " '$current_content_lang_code'");
+        }
     }
 }
 
@@ -477,8 +493,8 @@ sub Char_Handler {
 sub XML_TTML_Check {
     my ($this_url, $language, $profile, $content) = @_;
 
-    my (@tqa_results_list, $result_object, @feed_results, $parser);
-    my ($eval_output);
+    my (@tqa_results_list, $result_object, $parser, $eval_output);
+    my ($lang_code, $lang, $ttml_content, $status);
 
     #
     # Do we have a valid profile ?
@@ -517,9 +533,32 @@ sub XML_TTML_Check {
     }
     else {
         #
+        # Get TTML content
+        #
+        ($lang_code, $ttml_content) = XML_TTML_Text_Extract_Text($$content);
+
+        #
+        # Get content language
+        #
+        ($lang_code, $lang, $status) = TextCat_Text_Language(\$ttml_content);
+
+        #
+        # Did we get a language from the content ?
+        #
+        if ( $status == 0 ) {
+            #
+            # Save language in a global variable
+            #
+            $current_content_lang_code = $lang_code;
+        }
+        else {
+            $current_content_lang_code = "";
+        }
+
+        #
         # Create a document parser
         #
-        print "General_XML_Check\n" if $debug;
+        print "XML_TTML_Check\n" if $debug;
         $parser = XML::Parser->new;
 
         #
@@ -554,79 +593,6 @@ sub XML_TTML_Check {
     return(@tqa_results_list);
 }
 
-#********************************************************
-#
-# Name: XML_TTML_Extract_Text
-#
-# Parameters: input - block of TTML text
-#
-# Description:
-#
-#   This function extracts text from a block of TTML markup.
-#
-# Returns:
-#  text
-#
-#********************************************************
-sub XML_TTML_Extract_Text {
-    my ($input) = @_;
-
-    my ($parser, $eval_output);
-
-    #
-    # Do we have any content ?
-    #
-    if ( ! defined($input) || ($input eq "") ) {
-        print "XML_TTML_Extract_Text: No content\n" if $debug;
-    }
-    print "XML_TTML_Extract_Text, content length = " . length($input) .
-          "\n" if $debug;
-
-    #
-    # Initialize global variables
-    #
-    $save_text_between_tags = 1;
-    $saved_text = "";
-
-    #
-    # Did we get any content ?
-    #
-    if ( length($input) > 0 ) {
-        #
-        # Create a parser to parse the XML content.
-        #
-        print "Create parser object\n" if $debug;
-        $parser = XML::Parser->new;
-
-        #
-        # Add handlers for some of the XML tags
-        #
-        $parser->setHandlers(Char => \&Char_Handler);
-
-        #
-        # Parse the content.
-        #
-        print "Parse the XML content\n" if $debug;
-        eval { $parser->parse($input); } ;
-        $eval_output = $@ if $@;
-        print "Eval output = \"$eval_output\"\n" if $debug;
-        if ( $eval_output ne "" ) {
-            #
-            # A parsing error, set saved_text to place holder content
-            # so we don't mistake the parsing error for a lack of content.
-            #
-            $saved_text = "***** XML parsing error *****";
-        }
-    }
-
-    #
-    # Return all the content.
-    #
-    print "XML_TTML_Extract_Text, returned length = " .
-          length($saved_text) . "\n" if $debug;
-    return($saved_text);
-}
-
 #***********************************************************************
 #
 # Name: Import_Packages
@@ -643,8 +609,7 @@ sub Import_Packages {
 
     my ($package);
     my (@package_list) = ("tqa_result_object", "tqa_testcases",
-                          "language_map", "textcat", "feed_check",
-                          "feed_validate");
+                          "language_map", "textcat", "xml_ttml_text");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
