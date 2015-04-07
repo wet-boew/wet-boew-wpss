@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 6853 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2014-11-19 13:43:40 -0500 (Wed, 19 Nov 2014) $
+# $Revision: 7062 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
+# $Date: 2015-04-02 11:38:25 -0400 (Thu, 02 Apr 2015) $
 #
 # Description:
 #
@@ -39,8 +39,10 @@
 #     Validator_GUI_401_Login
 #     Validator_GUI_Debug
 #     Validator_GUI_Report_Option_Labels
+#     Validator_GUI_Report_Option_Testcase_Groups
 #     Validator_GUI_Open_Data_Setup
 #     Validator_GUI_Runtime_Error_Callback
+#     Validator_GUI_Remove_Temporary_Files
 #
 # Terms and Conditions of Use
 # 
@@ -74,11 +76,17 @@
 
 package validator_gui;
 
+my $have_threads = eval 'use threads; 1';
+if ( $have_threads ) {
+    $have_threads = eval 'use threads::shared; 1';
+}
+
 use strict;
 use warnings;
 
 use File::Temp();
 use File::Basename;
+use Text::CSV;
 
 #***********************************************************************
 #
@@ -115,8 +123,10 @@ BEGIN {
                   Validator_GUI_401_Login
                   Validator_GUI_Debug
                   Validator_GUI_Report_Option_Labels
+                  Validator_GUI_Report_Option_Testcase_Groups
                   Validator_GUI_Open_Data_Setup
                   Validator_GUI_Runtime_Error_Callback
+                  Validator_GUI_Remove_Temporary_Files
                   );
     $VERSION = "1.0";
 }
@@ -134,6 +144,16 @@ my (%report_options_labels, $results_file_name, $open_data_callback);
 my (%results_file_suffixes, $first_results_tab, $runtime_error_callback);
 my (%login_credentials, $results_save_callback);
 my (%url_401_user, %url_401_password);
+my ($testcase_profile_groups_label, $testcase_profile_groups_names);
+my ($testcase_profile_groups_values, %report_options_values);
+my ($testcase_profile_groups_config_option);
+
+my ($csv_results_fh, $csv_results_file_name, $csv_object);
+my (@csv_results_fields) = ("type", "url", "testcase", "description", "line_no",
+                            "column_no", "page_no","source_line","message");
+if ( $have_threads ) {
+    share(\$csv_results_file_name);
+}
 
 my ($debug) = 0;
 my ($xml_output_mode) = 0;
@@ -241,6 +261,22 @@ sub Validator_GUI_Debug {
         unlink("$program_dir/stdout.txt");
         open( STDOUT, ">$program_dir/stdout.txt");
     }
+}
+
+#***********************************************************************
+#
+# Name: Validator_GUI_Remove_Temporary_Files
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function removes any temporary files that may have been
+# created by this module.
+#
+#***********************************************************************
+sub Validator_GUI_Remove_Temporary_Files {
+
 }
 
 #**********************************************************************
@@ -367,6 +403,7 @@ sub Update_Results_Tab {
             # Append text to the end of the file
             #
             if ( open(FILE, ">>$file_name") ) {
+                binmode FILE;
                 print(FILE "$text\n");
                 close(FILE);
             }
@@ -405,6 +442,79 @@ sub Validator_GUI_Update_Results {
     if ( ! $xml_output_mode ) {
         Update_Results_Tab($tab_label, $text);
     }
+}
+
+#***********************************************************************
+#
+# Name: Print_TQA_Result_to_CSV
+#
+# Parameters: tab_label - label of tab to update
+#             result_object - tqa_result_object item
+#
+# Description:
+#
+#   This function prints the attributes of the tqa_results_object item
+# to the CSV results file.
+#
+#***********************************************************************
+sub Print_TQA_Result_to_CSV {
+    my ($tab_label, $result_object) = @_;
+
+    my (@fields, $status);
+
+    #
+    # Do we have a CSV file yet ?
+    #
+    if ( ! defined($csv_results_file_name) ) {
+        #
+        # Create CSV file for testcase results
+        #
+        $csv_results_file_name = $results_file_name . "_rslt.csv";
+        unlink($csv_results_file_name);
+        if ( ! open($csv_results_fh, ">$csv_results_file_name") ) {
+            print "Error: Failed to create file $csv_results_file_name in Print_TQA_Result_to_CSV\n";
+            return;
+        }
+        binmode $csv_results_fh, ":utf8";
+        print "Testcase results CSV file $csv_results_file_name\n" if $debug;
+
+        #
+        # Create CSV object
+        #
+        $csv_object = Text::CSV->new ( { binary => 1, eol => $/ } );
+        $csv_object->print($csv_results_fh, \@csv_results_fields);
+    }
+    else {
+        #
+        # Open existing results CSV file
+        #
+        if ( ! open($csv_results_fh, ">>$csv_results_file_name") ) {
+            print "Error: Failed to open file $csv_results_file_name in Print_TQA_Result_to_CSV\n";
+            return;
+        }
+        binmode $csv_results_fh, ":utf8";
+    }
+
+    #
+    # Save fields of the result object in the CSV file
+    #
+    @fields = ($tab_label, $result_object->url, $result_object->testcase,
+               $result_object->description, $result_object->line_no,
+               $result_object->column_no, $result_object->page_no,
+               $result_object->source_line, $result_object->message);
+    if ( defined($csv_object) ) {
+        $status = $csv_object->print($csv_results_fh, \@fields);
+        if ( ! $status ) {
+            print "Error in CSV print, status = $status, " .
+                  $csv_object->error_diag() . ", tab = $tab_label " .
+                  $result_object->testcase . ", " . $result_object->url . "\n";
+        }
+    }
+    
+    #
+    # Close the file
+    #
+    close($csv_results_fh);
 }
 
 #***********************************************************************
@@ -486,6 +596,11 @@ sub Validator_GUI_Print_TQA_Result {
         # Place blank line after error
         #
         Update_Results_Tab($tab_label, "");
+
+        #
+        # Output the TQA result to the CSV results file
+        #
+        Print_TQA_Result_to_CSV($tab_label, $result_object);
     }
 }
 
@@ -1080,7 +1195,12 @@ sub Run_Direct_HTML_Input_Callback {
 sub Run_URL_List_Callback {
     my ($url_list, %report_options) = @_;
 
-    my ($eval_output);
+    my ($eval_output, $key, $value);
+    
+    print "Run_URL_List_Callback\n" if $debug;
+    while ( ($key, $value) = each %report_options ) {
+        print "$key = $value\n" if $debug;
+    }
 
     #
     # Call the URL list callback function
@@ -1099,14 +1219,19 @@ sub Run_URL_List_Callback {
                 &$runtime_error_callback($@);
            }
         }
-
         print "Return from url_list_callback\n" if $debug;
+
+        #
+        # Close results CSV file
+        #
+        if ( defined($csv_results_fh) ) {
+            close($csv_results_fh);
+        }
     }
     else {
         print "Error: Missing url list callback function in Run_URL_List_Callback\n";
         exit(1);
     }
-
 }
 
 #***********************************************************************
@@ -1144,6 +1269,13 @@ sub Run_Site_Crawl {
         }
 
         print "Return from site_crawl_callback\n" if $debug;
+
+        #
+        # Close results CSV file
+        #
+        if ( defined($csv_results_fh) ) {
+            close($csv_results_fh);
+        }
     }
     else {
         print "Error: Missing crawler callback function in Run_Site_Crawl\n";
@@ -1166,16 +1298,36 @@ sub Run_Site_Crawl {
 sub Run_Open_Data_Callback {
     my ($dataset_urls, %report_options) = @_;
 
+    my ($eval_output);
+
     #
     # Call the Open Data callback function
     #
     print "Child: Call open_data_callback\n" if $debug;
     if ( defined($open_data_callback) ) {
-        &$open_data_callback($dataset_urls, %report_options);
+        $eval_output = eval { &$open_data_callback($dataset_urls, %report_options); 1 };
+        if ( ! $eval_output ) {
+            print STDERR "open_data_callback fail, eval_output = \"$@\"\n";
+            print "open_data_callback fail, eval_output = \"$@\"\n" if $debug;
+
+            #
+            # Report run time error to parent thread
+            #
+            if ( defined($runtime_error_callback) ) {
+                &$runtime_error_callback($@);
+            }
+        }
         print "Child: Return from open_data_callback\n" if $debug;
+
+        #
+        # Close results CSV file
+        #
+        if ( defined($csv_results_fh) ) {
+            close($csv_results_fh);
+        }
     }
     else {
-        print "Error: Missing Open Data callback function in Run_Site_Crawl\n";
+        print "Error: Missing Open Data callback function in Run_Open_Data_Callback\n";
         exit(1);
     }
 }
@@ -1372,7 +1524,8 @@ sub Validator_GUI_Setup {
 #
 # Name: Validator_GUI_Report_Option_Labels
 #
-# Parameters: option_labels - hash table
+# Parameters: options_labels - pointer to hash table of option labels
+#             options_values - pointer to a hash table of option values
 #
 # Description:
 #
@@ -1381,12 +1534,40 @@ sub Validator_GUI_Setup {
 #
 #***********************************************************************
 sub Validator_GUI_Report_Option_Labels {
-    my (%option_labels) = @_;
+    my ($options_labels, $options_values) = @_;
 
     #
     # Copy content to global variable
     #
-    %report_options_labels = %option_labels;
+    %report_options_labels = %$options_labels;
+    %report_options_values = %$options_values;
+}
+#***********************************************************************
+#
+# Name: Validator_GUI_Report_Option_Testcase_Groups
+#
+# Parameters: config_option_label - label for configuration/profile file option
+#             label - label for option
+#             names - pointer to a list of names
+#             values - pointer to hash table of values
+#
+# Description:
+#
+#   This function copies the testcase profile group options information
+# into global variables.
+#
+#***********************************************************************
+sub Validator_GUI_Report_Option_Testcase_Groups {
+    my ($config_option_label, $label, $names, $values) = @_;
+
+    #
+    # Copy information to global variables
+    #
+    print "Validator_GUI_Report_Option_Testcase_Groups\n" if $debug;
+    $testcase_profile_groups_config_option = $config_option_label;
+    $testcase_profile_groups_label = $label;
+    $testcase_profile_groups_names = $names;
+    $testcase_profile_groups_values = $values;
 }
 
 #***********************************************************************
@@ -1515,6 +1696,105 @@ sub Parse_Site_URL {
 
 #***********************************************************************
 #
+# Name: Validate_Option_Value
+#
+# Parameters: option_name - name of report option
+#             option_value - value of option field
+#
+# Description:
+#
+#   This function validates the value of a particular option against
+# the set of valid values.  It returns the language appropriate value
+# for the option (e.g. translates it from the supplied value into
+# the value for the current language of the tool).
+#
+#***********************************************************************
+sub Validate_Option_Value {
+    my ($option_name, $option_value) = @_;
+
+    my ($name, $value, $possible_values);
+    my ($valid_value) = 0;
+
+    #
+    # Get the valid values for this report option type
+    #
+    if ( defined($report_options_values{$option_name}) ) {
+        $possible_values = $report_options_values{$option_name};
+
+        #
+        # Convert the current value into the language appropriate
+        # value
+        #
+        if ( defined($$possible_values{$option_value}) ) {
+            print "Replace option value $option_value with " .
+                  $$possible_values{$option_value} . " in $option_name\n" if $debug;
+            $option_value = $$possible_values{$option_value};
+            $valid_value = 1;
+        }
+        else {
+            print "No language specific value for $option_value in $option_name\n" if $debug;
+        }
+    }
+    else {
+        print "No report_options_values entry for $option_name\n" if $debug;
+    }
+
+    #
+    # Return validated value
+    #
+    return($valid_value, $option_value);
+}
+
+#***********************************************************************
+#
+# Name: Select_Testcase_Profile_Group
+#
+# Parameters: group_name - testcase profile group name
+#             report_options - pointer to a report options hash table
+#
+# Description:
+#
+#   TSelect the individual testcase profile values based on the group
+# specified.
+#
+#***********************************************************************
+sub Select_Testcase_Profile_Group {
+    my ($group_name, $report_options) = @_;
+
+    my ($name, $value, $profiles, $valid_value, $custom_value, $label);
+
+    #
+    # Is the testcase profile group the "Custom" group ?
+    # If so, we don't update the testcase profile values, we leave them
+    # the way the user set them.
+    #
+    print "Select_Testcase_Profile_Group, name = $group_name\n" if $debug;
+    ($valid_value, $custom_value) = Validate_Option_Value($testcase_profile_groups_config_option, "Custom");
+    if ( $valid_value && ($group_name eq $custom_value) ) {
+        print "Don't set testcase profile values, custom group used\n" if $debug;
+        return;
+    }
+
+    #
+    # Set the testcase profile values for the individual checks
+    # to the values for this profile group.
+    #
+    $profiles = $$testcase_profile_groups_values{$group_name};
+    while ( ($name, $value) = each %$profiles ) {
+        #
+        # Get the valid values for this testcase profile type
+        #
+        ($valid_value, $value) = Validate_Option_Value($name, $value);
+        if ( $valid_value ) {
+            print "Select testcase profile $name to $value\n" if $debug;
+            $label = $report_options_labels{$name};
+            $$report_options{$label} = $value;
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Read_Crawl_File
 #
 # Parameters: crawl_file - path of crawl details file
@@ -1588,7 +1868,7 @@ sub Read_Crawl_File {
         # a key and value pair.
         #
         ($key, $value) = split(/\s+/, $line, 2);
-
+        
         #
         # If we don't have a value, set it to an empty string
         #
@@ -1638,6 +1918,16 @@ sub Read_Crawl_File {
             print "Report options type $key, value = $value\n" if $debug;
             $label = $report_options_labels{$key};
             $crawl_details{$label} = $value;
+            
+            #
+            # Is this a group profile option ?
+            #
+            if ( $key eq $testcase_profile_groups_config_option ) {
+                #
+                # Update all the other testcase profile options
+                #
+                Select_Testcase_Profile_Group($value, \%crawl_details);
+            }
         }
         #
         # Is an output file specified
@@ -1838,6 +2128,16 @@ sub Read_URL_File {
                 $label = $report_options_labels{$key};
                 $report_options{$label} = $value;
             }
+
+            #
+            # Is this a group profile option ?
+            #
+            if ( $key eq $testcase_profile_groups_config_option ) {
+                #
+                # Update all the other testcase profile options
+                #
+                Select_Testcase_Profile_Group($value, \%report_options);
+            }
         }
         #
         # Is an output file specified
@@ -1981,6 +2281,16 @@ sub Read_HTML_File {
             if ( defined($value) ) {
                 $label = $report_options_labels{$key};
                 $report_options{$label} = $value;
+            }
+
+            #
+            # Is this a group profile option ?
+            #
+            if ( $key eq $testcase_profile_groups_config_option ) {
+                #
+                # Update all the other testcase profile options
+                #
+                Select_Testcase_Profile_Group($value, \%report_options);
             }
         }
         #
@@ -2179,6 +2489,16 @@ sub Read_Open_Data_File {
         if ( defined($default_report_options{$field_name}) ) {
             $report_options{$field_name} = $value;
             print "Set configuration selector $field_name to $value\n" if $debug;
+
+            #
+            # Is this a group profile option ?
+            #
+            if ( $key eq $testcase_profile_groups_config_option ) {
+                #
+                # Update all the other testcase profile options
+                #
+                Select_Testcase_Profile_Group($value, \%report_options);
+            }
         }
         #
         # Data file URL ?
