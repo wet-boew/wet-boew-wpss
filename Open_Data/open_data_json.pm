@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 6702 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_json.pm $
-# $Date: 2014-07-22 12:15:17 -0400 (Tue, 22 Jul 2014) $
+# $Revision: 7025 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_json.pm $
+# $Date: 2015-03-06 10:17:34 -0500 (Fri, 06 Mar 2015) $
 #
 # Description:
 #
@@ -336,7 +336,7 @@ sub Record_Result {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - JSON content pointer
+#             filename - JSON content filename
 #
 # Description:
 #
@@ -344,9 +344,10 @@ sub Record_Result {
 #
 #***********************************************************************
 sub Open_Data_JSON_Check_API {
-    my ( $this_url, $profile, $content, $dictionary ) = @_;
+    my ( $this_url, $profile, $filename) = @_;
 
     my (@tqa_results_list, $result_object, $testcase, $eval_output, $ref);
+    my ($content, $line);
 
     #
     # Do we have a valid profile ?
@@ -372,6 +373,22 @@ sub Open_Data_JSON_Check_API {
     }
 
     #
+    # Open the API content file
+    #
+    open(FH, "$filename") ||
+        die "Open_Data_JSON_Check_API: Failed to open $filename for reading\n";
+    binmode FH;
+
+    #
+    # Read the content
+    #
+    $content = "";
+    while ( $line = <FH> ) {
+        $content .= $line;
+    }
+    close(FH);
+    
+    #
     # Initialize the test case pass/fail table.
     #
     Initialize_Test_Results($profile, \@tqa_results_list);
@@ -388,7 +405,7 @@ sub Open_Data_JSON_Check_API {
         #
         # Parse the content.
         #
-        $eval_output = eval { $ref = decode_json($$content); 1 } ;
+        $eval_output = eval { $ref = decode_json($content); 1 } ;
 
         #
         # Did the parse fail ?

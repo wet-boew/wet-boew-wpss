@@ -2,9 +2,9 @@
 #
 # Name:   open_data_txt.pm
 #
-# $Revision: 6820 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_txt.pm $
-# $Date: 2014-10-31 10:33:40 -0400 (Fri, 31 Oct 2014) $
+# $Revision: 7025 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_txt.pm $
+# $Date: 2015-03-06 10:17:34 -0500 (Fri, 06 Mar 2015) $
 #
 # Description:
 #
@@ -53,6 +53,7 @@ package open_data_txt;
 use strict;
 use URI::URL;
 use File::Basename;
+use Encode;
 
 #***********************************************************************
 #
@@ -96,33 +97,35 @@ my ($check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
-    "Fails validation",              "Fails validation",
-    "No terms in found data dictionary", "No terms found in data dictionary",
-    "No content in file",            "No content in file",
-    "Multiple lines found in term",  "Multiple lines found in term",
+    "Duplicate definition",          "Duplicate definition",
     "Duplicate term",                "Duplicate term",
-    "Previous instance found at",    "Previous instance found at line ",
-    "Multiple blank lines after term", "Multiple blank lines after term",
     "Expect at least 2 blank lines after definition", "Expect at least 2 blank lines after definition",
     "Extra term in dictionary",      "Extra term in dictionary",
-    "Term missing from dictionary",  "Term missing from dictionary",
+    "Fails validation",              "Fails validation",
+    "Multiple blank lines after term", "Multiple blank lines after term",
+    "Multiple lines found in term",  "Multiple lines found in term",
+    "No content in file",            "No content in file",
     "No definition for term",        "No definition for term",
     "No terms found in dictionary",  "No terms found in dictionary",
+    "No terms in found data dictionary", "No terms found in data dictionary",
+    "Previous instance found at",    "Previous instance found at line ",
+    "Term missing from dictionary",  "Term missing from dictionary",
     );
 
 my %string_table_fr = (
-    "Fails validation",              "Échoue la validation",
-    "No terms found in data dictionary", "Pas de termes trouvés dans dictionnaire de données",
-    "No content in file",            "Aucun contenu dans fichier",
-    "Multiple lines found in term",  "Plusieurs lignes trouvées dans le terme",
+    "Duplicate definition",          "Doublon définition",
     "Duplicate term",                "Doublon term",
-    "Previous instance found at",    "Instance précédente trouvée à la ligne ",
-    "Multiple blank lines after term", "Plusieurs lignes vides aprés terme",
     "Expect at least 2 blank lines after definition", "Attendez au moins 2 lignes vides aprés définition",
     "Extra term in dictionary",      "Terme supplémentaire dans dictionnaire",
-    "Term missing from dictionary",  "Terme manquant de dictionnaire",
+    "Fails validation",              "Échoue la validation",
+    "Multiple blank lines after term", "Plusieurs lignes vides aprés terme",
+    "Multiple lines found in term",  "Plusieurs lignes trouvées dans le terme",
+    "No content in file",            "Aucun contenu dans fichier",
     "No definition for term",        "Aucune définition pour terme",
+    "No terms found in data dictionary", "Pas de termes trouvés dans dictionnaire de données",
     "No terms found in dictionary",  "Pas de termes trouvés dans le dictionnaire",
+    "Previous instance found at",    "Instance précédente trouvée à la ligne ",
+    "Term missing from dictionary",  "Terme manquant de dictionnaire",
     );
 
 #
@@ -353,7 +356,7 @@ sub Record_Result {
 #
 # Name: Parse_Text_Dictionary
 #
-# Parameters: content - text content pointer
+# Parameters: filename - text content file
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -371,11 +374,12 @@ sub Record_Result {
 #
 #***********************************************************************
 sub Parse_Text_Dictionary {
-    my ($content, $dictionary) = @_;
+    my ($filename, $dictionary) = @_;
 
     my ($in_term, $found_term, $in_definition, $line, $term);
     my ($line_no, $blank_line_count, $current_text);
     my (%terms_and_definitions, %term_location, $have_dictionary);
+    my (%definitions_and_terms, $term_count);
 
     #
     # Initialize flags and counters
@@ -390,11 +394,14 @@ sub Parse_Text_Dictionary {
     # Do we already have a dictionary of terms ? (this could be the first
     # call to this routine).
     #
-    if ( keys(%$dictionary) > 0 ) {
+    $term_count = keys(%$dictionary);
+    if ( $term_count > 0 ) {
         $have_dictionary = 1;
+        print "Already have dictionary with $term_count terms\n" if $debug;
     }
     else {
         $have_dictionary = 0;
+        print "Starting a new dictionary\n" if $debug;
     }
 
     #
@@ -405,9 +412,25 @@ sub Parse_Text_Dictionary {
     $blank_line_count = 2;
 
     #
-    # Split the content on newline
+    # Read content of file
     #
-    foreach $line (split(/\n/, $$content)) {
+    if ( ! open(FH, $filename) ) {
+        print "Error: Parse_Text_Dictionary failed to open $filename\n";
+        exit(0);
+    }
+
+    #
+    # Read the dictionary file
+    #
+    binmode FH;
+    while ( $line = <FH> ) {
+        #
+        # Remove possible BOM from UTF-8 content ($EF $BB $BF)
+        #  Byte Order Mark - http://en.wikipedia.org/wiki/Byte_order_mark
+        #
+        if ( $line_no == 0 ) {
+            $line =~ s/^\xEF\xBB\xBF//;
+        }
         $line_no++;
 
         #
@@ -419,12 +442,12 @@ sub Parse_Text_Dictionary {
         #
         # Is this a blank line ?
         #
-        if ( $line =~ /^$/ ) {
+        if ( $line eq "" ) {
             #
             # Increment blank line counter
             #
             $blank_line_count++;
-            print "Have blank line $blank_line_count\n" if $debug;
+            print "Blank line at $line_no, count = $blank_line_count\n" if $debug;
 
             #
             # Are we inside a term ? This blank line would be the end of the
@@ -495,6 +518,24 @@ sub Parse_Text_Dictionary {
                 #
                 print "Add term $term to dictionary\n" if $debug;
                 $terms_and_definitions{$term} = $current_text;
+                
+#                #
+#                # Have we seen this definition before ?
+#                #
+#                $current_text = lc($current_text);
+#                if ( defined($definitions_and_terms{$current_text}) ) {
+#                    Record_Result("OD_TXT_1", $line_no, 0, "$current_text",
+#                                  String_Value("Duplicate definition") .
+#                                  " $term = \"$current_text\" " .
+#                                  String_Value("Previous instance found at") .
+#                                  $definitions_and_terms{$current_text});
+#                }
+#                else {
+#                    #
+#                    # Save this definition
+#                    #
+#                    $definitions_and_terms{$current_text} = $term;
+#                }
 
                 #
                 # Clear current term and definitions.
@@ -528,7 +569,7 @@ sub Parse_Text_Dictionary {
             # Are we inside a term ? This would be an error, terms are
             # expected to contain only 1 line of text.
             #
-            print "Non blank line, in_term = $in_term, in_definition = $in_definition\n" if $debug;
+            print "Non blank line at $line_no, in_term = $in_term, in_definition = $in_definition\n" if $debug;
             if ( $in_term ) {
                 print "Blank line expected after term at line $line_no\n" if $debug;
                 Record_Result("OD_TXT_1", $line_no, 0, "$line",
@@ -620,35 +661,35 @@ sub Parse_Text_Dictionary {
         print "Use current dictionary as expected dictionary\n" if $debug;
         %$dictionary = %terms_and_definitions;
     }
+
     #
     # Look for terms in the expected dictionary that are missing from the
     # one we just parsed.
     #
+    if ( keys(%terms_and_definitions) == 0 ) {
+        Record_Result("OD_3", -1, 0, "",
+                      String_Value("No terms found in dictionary"));
+    }
     else {
         #
-        # Did we find any terms in this data dictionary ?
+        # Check for missing terms.
         #
-        if ( keys(%terms_and_definitions) == 0 ) {
-            Record_Result("OD_3", -1, 0, "",
-                          String_Value("No terms found in dictionary") . 
-                          " \"$term\"");
-        }
-        else {
-            #
-            # Check for missing terms.
-            #
-            foreach $term (keys(%$dictionary)) {
-                if ( ! defined($terms_and_definitions{$term}) ) {
-                    #
-                    # Missing term.
-                    #
-                    Record_Result("OD_TXT_1", -1, 0, "",
-                                 String_Value("Term missing from dictionary") . 
-                                  " \"$term\"");
-                }
+        foreach $term (keys(%$dictionary)) {
+            if ( ! defined($terms_and_definitions{$term}) ) {
+                #
+                # Missing term.
+                #
+                Record_Result("OD_TXT_1", -1, 0, "",
+                              String_Value("Term missing from dictionary") .
+                              " \"$term\"");
             }
         }
     }
+
+    #
+    # Close the dictionary file
+    #
+    close(FH);
 }
 
 #***********************************************************************
@@ -657,7 +698,7 @@ sub Parse_Text_Dictionary {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - text content pointer
+#             filename - text content file
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -666,10 +707,10 @@ sub Parse_Text_Dictionary {
 #
 #***********************************************************************
 sub Open_Data_TXT_Check_Dictionary {
-    my ( $this_url, $profile, $content, $dictionary ) = @_;
+    my ( $this_url, $profile, $filename, $dictionary ) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
-    my ($local_content);
+    my ($content);
 
     #
     # Do we have a valid profile ?
@@ -698,30 +739,12 @@ sub Open_Data_TXT_Check_Dictionary {
     # Initialize the test case pass/fail table.
     #
     Initialize_Test_Results($profile, \@tqa_results_list);
-
+    
     #
-    # Did we get any content ?
+    # Parse the text looking for terms and definitions.
+    # Make sure there is a blank line at the end of the content.
     #
-    if ( length($$content) == 0 ) {
-        print "No content passed to Open_Data_TXT_Check_Dictionary\n" if $debug;
-        Record_Result("OD_3", -1, 0, "",
-                      String_Value("No content in file"));
-    }
-    else {
-        #
-        # Remove BOM from UTF-8 content ($EF $BB $BF)
-        #  Byte Order Mark - http://en.wikipedia.org/wiki/Byte_order_mark
-        #
-        $local_content = $$content;
-        $local_content =~ s/^\xEF\xBB\xBF//;
-        $local_content .= "\n";
-
-        #
-        # Parse the text looking for terms and definitions.
-        # Make sure there is a blank line at the end of the content.
-        #
-        Parse_Text_Dictionary(\$local_content, $dictionary);
-    }
+    Parse_Text_Dictionary($filename, $dictionary);
 
     #
     # Print testcase information

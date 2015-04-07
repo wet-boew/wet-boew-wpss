@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 6820 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2014-10-31 10:33:40 -0400 (Fri, 31 Oct 2014) $
+# $Revision: 7025 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_xml.pm $
+# $Date: 2015-03-06 10:17:34 -0500 (Fri, 06 Mar 2015) $
 #
 # Description:
 #
@@ -95,6 +95,7 @@ my ($current_heading, $current_description_lang, $found_heading);
 my ($header_count, $current_dictionary, %term_location);
 my ($have_pwgsc_data_dictionary, $inside_pwgsc_data_dictionary);
 my (%expected_description_languages, %found_description_languages);
+my (%definitions_and_terms);
 
 my ($max_error_message_string)= 2048;
 
@@ -107,53 +108,55 @@ my ($check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
-    "Fails validation",            "Fails validation",
-    "No terms in found data dictionary", "No terms found in data dictionary",
-    "No content in file",          "No content in file",
-    "No content in API",           "No content in API",
-    "Encoding is not UTF-8, found", "Encoding is not UTF-8, found",
-    "Missing xml:lang in <description>", "Missing xml:lang in <description> for <heading>",
-    "Missing text in <description>",  "Missing text in <description> for <heading>",
-    "Missing text in <heading>",   "Missing text in <heading>",
-    "found outside of",            "found outside of",
-    "Missing",                     "Missing",
-    "in",                          "in",
-    "tags found in",               "tags found in",
-    "Multiple",                    "Multiple",
+    "Duplicate definition",        "Duplicate definition",
     "Duplicate term",              "Duplicate term",
-    "Previous instance found at",  "Previous instance found at line ",
-    "No",                          "No",
-    "found in",                    "found in",
-    "found for",                   "found for",
+    "Encoding is not UTF-8, found", "Encoding is not UTF-8, found",
+    "Fails validation",            "Fails validation",
     "for",                         "for",
+    "found for",                   "found for",
+    "found in",                    "found in",
+    "found outside of",            "found outside of",
+    "in",                          "in",
     "Invalid PWGSC XML data dictionary", "Invalid PWGSC XML data dictionary",
     "Invalid",                     "Invalid",
+    "Missing text in <description>",  "Missing text in <description> for <heading>",
+    "Missing text in <heading>",   "Missing text in <heading>",
+    "Missing xml:lang in <description>", "Missing xml:lang in <description> for <heading>",
     "Missing",                     "Missing",
+    "Missing",                     "Missing",
+    "Multiple",                    "Multiple",
+    "No content in API",           "No content in API",
+    "No content in file",          "No content in file",
+    "No terms in found data dictionary", "No terms found in data dictionary",
+    "No",                          "No",
+    "Previous instance found at",  "Previous instance found at line ",
+    "tags found in",               "tags found in",
     );
 
 my %string_table_fr = (
-    "Fails validation",            "Échoue la validation",
-    "No terms found in data dictionary", "Pas de termes trouvés dans dictionnaire de données",
-    "No content in file",          "Aucun contenu dans fichier",
-    "No content in API",           "Aucun contenu dans API",
+    "Duplicate definition",        "Doublon définition",
+    "Duplicate term",              "Doublon term",
     "Encoding is not UTF-8, found", "Encoding ne pas UTF-8, trouvé",
-    "Missing xml:lang in <description>", "Manquant xml:lang dans <description> pour <heading>",
+    "Fails validation",            "Échoue la validation",
+    "for",                         "pour",
+    "found for",                   "trouvé pour",
+    "found in",                    "trouvé dans",
+    "found outside of",            "trouvent à l'extirieur de",
+    "in",                          "dans",
+    "Invalid PWGSC XML data dictionary", "TPSGC dictionnaire de donnies XML non valide",
+    "Invalid",                     "Non valide",
     "Missing text in <description>",  "Manquant texte dans <description> pour <heading>",
     "Missing text in <heading>",   "Manquant texte dans <heading>",
-    "found outside of",            "trouvent à l'extérieur de",
+    "Missing xml:lang in <description>", "Manquant xml:lang dans <description> pour <heading>",
     "Missing",                     "Manquant",
-    "in",                          "dans",
-    "tags found in",               "balises trouvées dans",
+    "Missing",                     "Manquant",
     "Multiple",                    "Plusieurs",
-    "Duplicate term",              "Doublon term",
-    "Previous instance found at",  "Instance précédente trouvée à la ligne ",
+    "No content in API",           "Aucun contenu dans API",
+    "No content in file",          "Aucun contenu dans fichier",
+    "No terms found in data dictionary", "Pas de termes trouvés dans dictionnaire de données",
     "No",                          "Aucun",
-    "found in",                    "trouvé dans",
-    "found for",                   "trouvé pour",
-    "for",                         "pour",
-    "Invalid PWGSC XML data dictionary", "TPSGC dictionnaire de données XML non valide",
-    "Invalid",                     "Non valide",
-    "Missing",                     "Manquant",
+    "Previous instance found at",  "Instance précédente trouvée à la ligne ",
+    "tags found in",               "balises trouvées dans",
     );
 
 #
@@ -313,6 +316,10 @@ sub Initialize_Test_Results {
     #
     $current_open_data_profile = $open_data_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
+    %definitions_and_terms = ();
+    $tag_count = 0;
+    $save_text_between_tags = 0;
+    $saved_text = "";
 }
 
 #***********************************************************************
@@ -450,9 +457,10 @@ sub Declaration_Handler {
         print "Found UTF-8 encoding\n" if $debug;
     }
     else {
-        Record_Result("OD_2", 0, -1, "",
-                  String_Value("Encoding is not UTF-8, found") .
-                  " \"$encoding\"");
+        Record_Result("OD_2", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Encoding is not UTF-8, found") .
+                      " \"$encoding\"");
     }
 }
 
@@ -510,7 +518,7 @@ sub Data_End_Handler {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - XML content pointer
+#             filename - XML content filename
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -519,7 +527,7 @@ sub Data_End_Handler {
 #
 #***********************************************************************
 sub Open_Data_XML_Check_Data {
-    my ( $this_url, $profile, $content, $dictionary ) = @_;
+    my ( $this_url, $profile, $filename, $dictionary ) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($eval_output);
@@ -553,50 +561,37 @@ sub Open_Data_XML_Check_Data {
     Initialize_Test_Results($profile, \@tqa_results_list);
 
     #
-    # Did we get any content ?
+    # Create a document parser
     #
-    if ( length($$content) == 0 ) {
-        print "No content passed to Open_Data_XML_Check_Data\n" if $debug;
+    $parser = XML::Parser->new;
+
+    #
+    # Add handlers for some of the XML tags
+    #
+    $parser->setHandlers(Start => \&Data_Start_Handler);
+    $parser->setHandlers(End => \&Data_End_Handler);
+    $parser->setHandlers(XMLDecl => \&Declaration_Handler);
+    $parser->setHandlers(Char => \&Char_Handler);
+
+    #
+    # Parse the content.
+    #
+    $eval_output = eval { $parser->parsefile($filename); 1 } ;
+
+    #
+    # Did the parse fail ?
+    #
+    if ( ! $eval_output ) {
+        $eval_output =~ s/\n at .* line \d*$//g;
+        Record_Result("OD_3", -1, 0, "$eval_output",
+                      String_Value("Fails validation"));
+    }
+    #
+    # Did we find some tags (may or may not be data) ?
+    #
+    elsif ( $tag_count == 0 ) {
         Record_Result("OD_3", -1, 0, "",
                       String_Value("No content in file"));
-    }
-    else {
-        #
-        # Create a document parser
-        #
-        $parser = XML::Parser->new;
-        $tag_count = 0;
-        $save_text_between_tags = 0;
-        $saved_text = "";
-
-        #
-        # Add handlers for some of the XML tags
-        #
-        $parser->setHandlers(Start => \&Data_Start_Handler);
-        $parser->setHandlers(End => \&Data_End_Handler);
-        $parser->setHandlers(XMLDecl => \&Declaration_Handler);
-        $parser->setHandlers(Char => \&Char_Handler);
-
-        #
-        # Parse the content.
-        #
-        $eval_output = eval { $parser->parse($$content); 1 } ;
-
-        #
-        # Did the parse fail ?
-        #
-        if ( ! $eval_output ) {
-            $eval_output =~ s/\n at .* line \d*$//g;
-            Record_Result("OD_3", -1, 0, "$eval_output",
-                          String_Value("Fails validation"));
-        }
-        #
-        # Did we find some tags (may or may not be data) ?
-        #
-        elsif ( $tag_count == 0 ) {
-            Record_Result("OD_3", -1, 0, "",
-                          String_Value("No content in file"));
-        }
     }
 
     #
@@ -650,7 +645,8 @@ sub Start_Description_Tag_Handler {
             # Have we seen this language already ?
             #
             if ( defined($expected_description_languages{$lang}) ) {
-                Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                              $self->current_column, $self->original_string,
                               String_Value("Multiple") .
                               " <description xml:lang=\"$lang\" " .
                               String_Value("found for") .
@@ -668,7 +664,8 @@ sub Start_Description_Tag_Handler {
             # Is this an expected language ?
             #
             if ( ! defined($found_description_languages{$lang}) ) {
-                Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                              $self->current_column, $self->original_string,
                               String_Value("Invalid") .
                               " <description xml:lang=\"$lang\" " .
                               String_Value("found for") .
@@ -678,7 +675,8 @@ sub Start_Description_Tag_Handler {
             # Do we already have this language ?
             #
             elsif ( $found_description_languages{$lang} == 1 ) {
-                Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                              $self->current_column, $self->original_string,
                               String_Value("Multiple") .
                               " <description xml:lang=\"$lang\" " .
                               String_Value("found for") .
@@ -696,9 +694,10 @@ sub Start_Description_Tag_Handler {
         #
         # Missing language attribute
         #
-        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
-              String_Value("Missing xml:lang in <description>") .
-              " #$heading_count \"$current_heading\"");
+        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Missing xml:lang in <description>") .
+                      " #$heading_count \"$current_heading\"");
         $current_description_lang = "";
     }
      
@@ -745,10 +744,30 @@ sub End_Description_Tag_Handler {
             print "Description = \"$saved_text\"\n" if $debug;
         }
         else {
-            Record_Result("TP_PW_OD_XML_1", -1, -1, "",
-                  String_Value("Missing text in <description>") .
-                  " #$heading_count \"$current_heading\"");
+            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                          $self->current_column, $self->original_string,
+                          String_Value("Missing text in <description>") .
+                          " #$heading_count \"$current_heading\"");
         }
+        
+#        #
+#        # Have we seen this description before ?
+#        #
+#        $saved_text = lc($saved_text);
+#        if ( defined($definitions_and_terms{$saved_text}) ) {
+#            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+#                          $self->current_column, $self->original_string,
+#                          String_Value("Duplicate definition") .
+#                          " $current_heading = \"$saved_text\" " .
+#                          String_Value("Previous instance found at") .
+#                          $definitions_and_terms{$saved_text});
+#        }
+#        else {
+#            #
+#            # Save this definition
+#            #
+#            $definitions_and_terms{$saved_text} = $current_heading;
+#        }
     }
      
     #
@@ -822,9 +841,10 @@ sub Start_Header_Tag_Handler {
     # Are we inside a <field>
     #
     if ( ! $inside_field ) {
-        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
-              "<header> #$header_count " .
-              String_Value("found outside of") . " <field>");
+        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      "<header> #$header_count " .
+                      String_Value("found outside of") . " <field>");
     }
      
     #
@@ -861,18 +881,20 @@ sub End_Header_Tag_Handler {
     # Did we find a heading ?
     #
     if ( ! $found_heading ) {
-        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
-              String_Value("Missing") . " <heading> " .
-              String_Value("in") . " <header> #$header_count");
+        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Missing") . " <heading> " .
+                      String_Value("in") . " <header> #$header_count");
     }
 
     #
     # Did we find a description ?
     #
     if ( $description_count == 0 ) {
-        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
-              String_Value("Missing") . " <description> " .
-              String_Value("in") . " <header> #$header_count");
+        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Missing") . " <description> " .
+                      String_Value("in") . " <header> #$header_count");
     }
     
     #
@@ -881,7 +903,8 @@ sub End_Header_Tag_Handler {
     if ( $header_count > 1 ) {
         foreach $lang (keys(%expected_description_languages)) {
             if ( $found_description_languages{$lang} == 0 ) {
-                Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                              $self->current_column, $self->original_string,
                               String_Value("Missing") .
                               " <description xml:lang=\"$lang\" " .
                               String_Value("for") .
@@ -915,9 +938,10 @@ sub Start_Heading_Tag_Handler {
     # Do we already have a heading for this header ?
     #
     if ( $found_heading ) {
-        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
-              String_Value("Multiple") . " <heading> " .
-              String_Value("tags found in") . " <header> #$header_count");
+        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Multiple") . " <heading> " .
+                      String_Value("tags found in") . " <header> #$header_count");
     }
     else {
         $found_heading = 1;
@@ -929,12 +953,13 @@ sub Start_Heading_Tag_Handler {
     $heading_count++;
     
     #
-    # Are we inside a <herader>
+    # Are we inside a <header>
     #
     if ( ! $inside_header ) {
-        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
-              "<heading> #$heading_count " .
-              String_Value("found outside of") . " <header>");
+        Record_Result("TP_PW_OD_XML_1",$self->current_line,
+                      $self->current_column, $self->original_string,
+                      "<heading> #$heading_count " .
+                      String_Value("found outside of") . " <header>");
     }
 
     #
@@ -972,6 +997,7 @@ sub End_Heading_Tag_Handler {
         $saved_text =~ s/\r\n|\r|\n/ /g;
         $saved_text =~ s/^\s*//g;
         $saved_text =~ s/\s*$//g;
+        $saved_text = lc($saved_text);
 
         #
         # Do we have a heading ?
@@ -984,7 +1010,8 @@ sub End_Heading_Tag_Handler {
             # Have we already seen this term/heading ?
             #
             if ( defined($$current_dictionary{$saved_text}) ) {
-                Record_Result("TP_PW_OD_XML_1", -1, -1, "",
+                Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                              $self->current_column, $self->original_string,
                               String_Value("Duplicate term") .
                               " \"$saved_text\" " .
                               String_Value("Previous instance found at") .
@@ -999,9 +1026,10 @@ sub End_Heading_Tag_Handler {
             }
         }
         else {
-            Record_Result("TP_PW_OD_XML_1", -1, -1, "",
-                  String_Value("Missing text in <heading>") .
-                  " #$heading_count");
+            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                          $self->current_column, $self->original_string,
+                          String_Value("Missing text in <heading>") .
+                          " #$heading_count");
         }
     }
 
@@ -1052,9 +1080,10 @@ sub End_PWGSC_Dictionary_Tag_Handler {
     # Did we find any headers (terms) ?
     #
     if ( $heading_count == 0 ) {
-        Record_Result("TP_PW_OD_XML_1", -1, -1, "",
-              String_Value("No") . " <header> " .
-              String_Value("found in") . " <data-dictionary>");
+        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("No") . " <header> " .
+                      String_Value("found in") . " <data-dictionary>");
     }
 
     #
@@ -1212,7 +1241,7 @@ sub Initialize_Dictionary_Globals {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - XML content pointer
+#             filename - XML content file
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -1221,7 +1250,7 @@ sub Initialize_Dictionary_Globals {
 #
 #***********************************************************************
 sub Open_Data_XML_Check_Dictionary {
-    my ($this_url, $profile, $content, $dictionary) = @_;
+    my ($this_url, $profile, $filename, $dictionary) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($eval_output);
@@ -1255,62 +1284,49 @@ sub Open_Data_XML_Check_Dictionary {
     Initialize_Test_Results($profile, \@tqa_results_list);
 
     #
-    # Did we get any content ?
+    # Create a document parser
     #
-    if ( length($$content) == 0 ) {
-        print "No content passed to Open_Data_XML_Check_Dictionary\n" if $debug;
-        Record_Result("OD_3", -1, 0, "",
-                      String_Value("No content in file"));
-    }
-    else {
-        #
-        # Create a document parser
-        #
-        $parser = XML::Parser->new;
-        $tag_count = 0;
-        $save_text_between_tags = 0;
-        $saved_text = "";
+    $parser = XML::Parser->new;
         
-        #
-        # Initialize dictionary global variables
-        #
-        Initialize_Dictionary_Globals($dictionary);
+    #
+    # Initialize dictionary global variables
+    #
+    Initialize_Dictionary_Globals($dictionary);
 
-        #
-        # Add handlers for some of the XML tags
-        #
-        $parser->setHandlers(Start => \&Dictionary_Start_Handler);
-        $parser->setHandlers(End => \&Dictionary_End_Handler);
-        $parser->setHandlers(XMLDecl => \&Declaration_Handler);
-        $parser->setHandlers(Char => \&Char_Handler);
+    #
+    # Add handlers for some of the XML tags
+    #
+    $parser->setHandlers(Start => \&Dictionary_Start_Handler);
+    $parser->setHandlers(End => \&Dictionary_End_Handler);
+    $parser->setHandlers(XMLDecl => \&Declaration_Handler);
+    $parser->setHandlers(Char => \&Char_Handler);
 
-        #
-        # Parse the content.
-        #
-        $eval_output = eval { $parser->parse($$content); 1 } ;
+    #
+    # Parse the content.
+    #
+    $eval_output = eval { $parser->parsefile($filename); 1 } ;
 
-        #
-        # Did the parse fail ?
-        #
-        if ( ! $eval_output ) {
-            $eval_output =~ s/\n at .* line \d*$//g;
-            Record_Result("OD_3", -1, 0, "$eval_output",
-                          String_Value("Fails validation"));
-        }
-        #
-        # Did we find a PWGSC Data Dictionary ?
-        #
-        elsif ( ! $have_pwgsc_data_dictionary ) {
-            Record_Result("TP_PW_OD_XML_1", -1, 0, "",
-                          String_Value("Invalid PWGSC XML data dictionary"));
-        }
-        #
-        # Did we find some tags (may or may not be terms) ?
-        #
-        elsif ( $tag_count == 0 ) {
-            Record_Result("OD_3", -1, 0, "",
-                          String_Value("No terms found in data dictionary"));
-        }
+    #
+    # Did the parse fail ?
+    #
+    if ( ! $eval_output ) {
+        $eval_output =~ s/\n at .* line \d*$//g;
+        Record_Result("OD_3", -1, 0, "$eval_output",
+                      String_Value("Fails validation"));
+    }
+    #
+    # Did we find a PWGSC Data Dictionary ?
+    #
+    elsif ( ! $have_pwgsc_data_dictionary ) {
+        Record_Result("TP_PW_OD_XML_1", -1, 0, "",
+                      String_Value("Invalid PWGSC XML data dictionary"));
+    }
+    #
+    # Did we find some tags (may or may not be terms) ?
+    #
+    elsif ( $tag_count == 0 ) {
+        Record_Result("OD_3", -1, 0, "",
+                      String_Value("No terms found in data dictionary"));
     }
 
     #
@@ -1336,7 +1352,7 @@ sub Open_Data_XML_Check_Dictionary {
 #
 # Parameters: this_url - a URL
 #             profile - testcase profile
-#             content - XML content pointer
+#             filename - XML content filename
 #
 # Description:
 #
@@ -1344,7 +1360,7 @@ sub Open_Data_XML_Check_Dictionary {
 #
 #***********************************************************************
 sub Open_Data_XML_Check_API {
-    my ( $this_url, $profile, $content, $dictionary ) = @_;
+    my ( $this_url, $profile, $filename, $dictionary ) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($eval_output);
@@ -1378,43 +1394,30 @@ sub Open_Data_XML_Check_API {
     Initialize_Test_Results($profile, \@tqa_results_list);
 
     #
-    # Did we get any content ?
+    # Create a document parser
     #
-    if ( length($$content) == 0 ) {
-        print "No content passed to Open_Data_XML_Check_API\n" if $debug;
-        Record_Result("OD_3", -1, 0, "",
-                      String_Value("No content in API"));
-    }
-    else {
-        #
-        # Create a document parser
-        #
-        $parser = XML::Parser->new;
-        $tag_count = 0;
-        $save_text_between_tags = 0;
-        $saved_text = "";
+    $parser = XML::Parser->new;
 
-        #
-        # Add handlers for some of the XML tags
-        #
-        $parser->setHandlers(Start => \&Data_Start_Handler);
-        $parser->setHandlers(End => \&DataI_End_Handler);
-        $parser->setHandlers(XMLDecl => \&Declaration_Handler);
-        $parser->setHandlers(Char => \&Char_Handler);
+    #
+    # Add handlers for some of the XML tags
+    #
+    $parser->setHandlers(Start => \&Data_Start_Handler);
+    $parser->setHandlers(End => \&DataI_End_Handler);
+    $parser->setHandlers(XMLDecl => \&Declaration_Handler);
+    $parser->setHandlers(Char => \&Char_Handler);
 
-        #
-        # Parse the content.
-        #
-        $eval_output = eval { $parser->parse($$content); 1 } ;
+    #
+    # Parse the content.
+    #
+    $eval_output = eval { $parser->parsefile($filename); 1 } ;
 
-        #
-        # Did the parse fail ?
-        #
-        if ( ! $eval_output ) {
-            $eval_output =~ s/\n at .* line \d*$//g;
-            Record_Result("OD_3", -1, 0, "$eval_output",
-                          String_Value("Fails validation"));
-        }
+    #
+    # Did the parse fail ?
+    #
+    if ( ! $eval_output ) {
+        $eval_output =~ s/\n at .* line \d*$//g;
+        Record_Result("OD_3", -1, 0, "$eval_output",
+                      String_Value("Fails validation"));
     }
 
     #
