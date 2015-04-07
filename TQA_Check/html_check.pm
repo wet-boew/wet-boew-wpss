@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 6953 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2014-12-24 11:36:48 -0500 (Wed, 24 Dec 2014) $
+# $Revision: 7040 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
+# $Date: 2015-03-20 11:28:09 -0400 (Fri, 20 Mar 2015) $
 #
 # Description:
 #
@@ -132,7 +132,7 @@ my (%tqa_check_profile_map, $current_tqa_check_profile,
     $current_tag_styles, $tag_is_hidden, @table_th_td_in_thead_count,
     $modified_content, $first_html_tag_lang, $summary_tag_content,
     @table_th_td_in_tfoot_count, @inside_tfoot, $inside_video,
-    %track_kind_map,
+    %track_kind_map, $found_content_after_heading, $in_header_tag,
 );
 
 my ($is_valid_html) = -1;
@@ -783,7 +783,6 @@ $valid_html5_rel_values{"link"} .= "apple-touch-icon apple-touch-icon-precompose
 
 my ($valid_rel_values);
 
-
 #
 # WAI-ARIA landmark role values
 #  http://www.w3.org/TR/wai-aria/roles#landmark_roles
@@ -1164,6 +1163,11 @@ sub Set_HTML_Check_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+    
+    #
+    # Set debug flag for supporting modules
+    #
+    XML_TTML_Text_Debug($debug);
 }
 
 #**********************************************************************
@@ -1408,7 +1412,6 @@ sub Initialize_Test_Results {
     %last_label_attributes = ();
     $last_label_text       = "";
     $text_between_tags     = "";
-    $in_head_tag           = 0;
     @tag_order_stack       = ();
     $current_tag_object    = undef;
     $wcag_2_0_h74_reported = 0;
@@ -1432,6 +1435,7 @@ sub Initialize_Test_Results {
     @list_item_count       = ();
     $current_list_level    = -1;
     $in_head_tag           = 0;
+    $in_header_tag         = 0;
     %legend_text_value     = ();
     $last_heading_text     = "";
     $current_text_handler_tag = "";
@@ -1448,6 +1452,7 @@ sub Initialize_Test_Results {
     $modified_content       = 0;
     undef($first_html_tag_lang);
     undef($summary_tag_content);
+    $found_content_after_heading = 0;
 
     #
     # Initialize content section found flags to false
@@ -1838,7 +1843,8 @@ sub Destroy_Text_Handler {
             # web page content.
             #
             elsif ( $tag eq "script" ) {
-                $current_all_text = "";
+                print "Discard script tag text\n" if $debug;
+                $current_tag_text = "";
             }
 
             #
@@ -2416,6 +2422,12 @@ sub End_Table_Tag_Handler {
         #
         $table_nesting_index--;
     }
+
+    #
+    # Set flag to indicate we have content after a heading.
+    #
+    $found_content_after_heading = 1;
+    print "Found content after heading\n" if $debug;
 }
 
 #***********************************************************************
@@ -4063,12 +4075,17 @@ sub Check_Pseudo_Heading {
     if ( ($pseudo_header ne "") &&
          ($pseudo_header eq $content) ) {
         print "Possible pseudo-header paragraph \"$content\" at $line:$column\n" if $debug;
-        if ( $tag_is_visible ) {
-            Record_Result("WCAG_2.0-F2", $line, $column, $text,
-                          String_Value("Text styled to appear like a heading") .
-                          " \"$pseudo_header\"");
+        if ( $found_content_after_heading ) {
+            if ( $tag_is_visible ) {
+                Record_Result("WCAG_2.0-F2", $line, $column, $text,
+                              String_Value("Text styled to appear like a heading") .
+                              " \"$pseudo_header\"");
+            }
+            $found_heading = 1;
         }
-        $found_heading = 1;
+        else {
+            print "Pseudo header found right after real heading\n" if $debug;
+        }
     }
     else {
         #
@@ -4100,10 +4117,15 @@ sub Check_Pseudo_Heading {
                 if ( $has_emphasis ) {
                     if ( Possible_Pseudo_Heading($content) ) {
                         print "Possible pseudo-header \"$content\" at $line:$column\n" if $debug;
-                        if ( $tag_is_visible ) {
-                            Record_Result("WCAG_2.0-F2", $line, $column, $text,
-                              String_Value("Text styled to appear like a heading") .
-                                  " \"$content\"");
+                        if ( $found_content_after_heading ) {
+                            if ( $tag_is_visible ) {
+                                Record_Result("WCAG_2.0-F2", $line, $column, $text,
+                                  String_Value("Text styled to appear like a heading") .
+                                      " \"$content\"");
+                            }
+                        }
+                        else {
+                            print "Pseudo header found right after real heading\n" if $debug;
                         }
                     }
                     
@@ -4185,6 +4207,14 @@ sub End_P_Tag_Handler {
     # paragraph ? (not just emphasised text inside the paragraph)
     #
     Check_Pseudo_Heading("p", $clean_text, $line, $column, $text);
+    
+    #
+    # Was there any text in the paragraph ?
+    #
+    if ( $clean_text ne "" && (! $in_header_tag) ) {
+        $found_content_after_heading = 1;
+        print "Found content after heading\n" if $debug;
+    }
 }
 
 #***********************************************************************
@@ -4252,6 +4282,14 @@ sub End_Div_Tag_Handler {
     # div ? (not just emphasised text inside the div)
     #
     Check_Pseudo_Heading("div", $clean_text, $line, $column, $text);
+
+    #
+    # Was there any text in the paragraph ?
+    #
+    if ( $clean_text ne "" && (! $in_header_tag) ) {
+        $found_content_after_heading = 1;
+        print "Found content after heading\n" if $debug;
+    }
 }
 
 #***********************************************************************
@@ -5113,6 +5151,7 @@ sub Check_Track_Src {
     my ($resp, $src, $line, $column, $text, %attr) = @_;
 
     my ($header, $mime_type, $content, $data_type, $is_ttml, $ttml_content);
+    my ($ttml_lang);
 
     #
     # Get mime-type of content
@@ -5179,11 +5218,11 @@ sub Check_Track_Src {
     # If this is TTML content, do we have any captions in the content
     #
     if ( $is_ttml ) {
-        $ttml_content = XML_TTML_Extract_Text($content);
+        ($ttml_lang, $ttml_content) = XML_TTML_Text_Extract_Text($content);
 
         #
         # Did we find any content ?
-        #;
+        #
         $ttml_content =~ s/\n|\r| |\t//g;
         print "TTML content = \"$ttml_content\"\n" if $debug;
         if ( $ttml_content eq "" ) {
@@ -5391,6 +5430,12 @@ sub End_Video_Tag_Handler {
         Record_Result("WCAG_2.0-G87", $line, $column, $text,
                       String_Value("No captions found for video"));
     }
+
+    #
+    # Set flag to indicate we have content after a heading.
+    #
+    $found_content_after_heading = 1;
+    print "Found content after heading\n" if $debug;
 }
 
 #***********************************************************************
@@ -5940,9 +5985,11 @@ sub Meta_Tag_Handler {
     my ($content, @values, $value);
 
     #
-    # Are we outside of the <head> section of the document ?
+    # Are we outside of the <head> section of a non HTML5 document ?
     #
-    if ( ! $in_head_tag ) {
+    if ( ($doctype_label eq "HTML")
+         && ($doctype_version != 5.0 )
+         && (! $in_head_tag) ) {
         Tag_Not_Allowed_Here("meta", $line, $column, $text);
     }
 
@@ -6758,6 +6805,11 @@ sub End_H_Tag_Handler {
     # <h> ... </h> tag set
     #
     $inside_h_tag_set = 0;
+    
+    #
+    # Unset flag to indicate we found content after a heading.
+    #
+    $found_content_after_heading = 0;
 }
 
 #***********************************************************************
@@ -8082,6 +8134,58 @@ sub End_Head_Tag_Handler {
     #
     print "End of head\n" if $debug;
     $in_head_tag = 0;
+}
+
+#***********************************************************************
+#
+# Name: Start_Header_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the header tag.  It sets a global variable
+# indicating we are inside the <header>..</header> section.
+#
+#***********************************************************************
+sub Start_Header_Tag_Handler {
+    my ( $line, $column, $text, %attr ) = @_;
+
+    #
+    # Set flag to indicate we are within a <header> .. </header>
+    # tag pair.
+    #
+    print "Start of header\n" if $debug;
+    $in_header_tag = 1;
+}
+
+#***********************************************************************
+#
+# Name: End_Header_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles the end header tag. It sets a global variable
+# indicating we are inside the <header>..</header> section.
+#
+#***********************************************************************
+sub End_Header_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    #
+    # Set flag to indicate we are outside a <header> .. </header>
+    # tag pair.
+    #
+    print "End of header\n" if $debug;
+    $in_header_tag = 0;
 }
 
 #***********************************************************************
@@ -9413,6 +9517,12 @@ sub Check_Style_to_Hide_Content {
     foreach $style (split(/\s+/, $style_names)) {
         if ( defined($css_styles{$style}) ) {
             $style_object = $css_styles{$style};
+            
+            #
+            # Do we have a content property ?
+            #
+#            $value = CSS_Check_Style_Get_Property_Value($style, $style_object,
+#                                                        "content");
 
             #
             # Do we have clip: rect(1px, 1px, 1px, 1px) ?
@@ -9566,9 +9676,9 @@ sub Check_Presentation_Attributes {
         # without the tag name
         #
         foreach $a_style (split(/\s+/, $attr{"class"})) {
-            $style_names .=  " $tagname.$a_style .$a_style"
-                           . " $tagname.$a_style:before .$a_style:before"
-                           . " $tagname.$a_style:after .$a_style:after";
+            $style_names .=  " $tagname.$a_style .$a_style";
+#                           . " $tagname.$a_style:before .$a_style:before"
+#                           . " $tagname.$a_style:after .$a_style:after";
         }
         print "Found classes $style_names\n" if $debug;
     }
@@ -10589,6 +10699,13 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "head" ) {
         Start_Head_Tag_Handler( $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check header tag
+    #
+    elsif ( $tagname eq "header" ) {
+        Start_Header_Tag_Handler( $line, $column, $text, %attr_hash );
     }
 
     #
@@ -11748,6 +11865,13 @@ sub End_Handler {
     }
 
     #
+    # Check header tag
+    #
+    elsif ( $tagname eq "header" ) {
+        End_Header_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
     # Check i tag
     #
     elsif ( $tagname eq "i" ) {
@@ -12319,11 +12443,12 @@ sub Check_Document_Errors {
     }
 
     #
-    # Did we find any links in this document ?
+    # Did we find any links or frames in this document ?
     #
-    if ( keys(%anchor_text_href_map) == 0 ) {
+    if ( (keys(%anchor_text_href_map) == 0)
+         && (! $found_frame_tag) ) {
         #
-        # No links found in this document
+        # No links or frames found in this document
         #
         Record_Result("WCAG_2.0-G125", -1, 0, "",
                       String_Value("No links found"));
@@ -12675,7 +12800,7 @@ sub Import_Packages {
                           "url_check", "tqa_result_object", "textcat",
                           "pdf_check", "content_sections", "language_map",
                           "crawler", "tqa_tag_object", "xml_ttml_validate",
-                          "xml_ttml_check");
+                          "xml_ttml_check", "xml_ttml_text");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
