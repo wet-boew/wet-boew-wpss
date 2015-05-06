@@ -305,8 +305,8 @@ sub Validate_HTML5_Content {
     #
     # Run the Nu Markup Checker on the supplied content
     #
-    print "Run Nu Markup Checker\n --> java -jar lib/vnu.jar $html_file_name 2>\&1\n" if $debug;
-    $validator_output = `java -Xss512k -jar $program_dir/lib/vnu.jar --errors-only --format json $html_file_name 2>\&1`;
+    print "Run Nu Markup Checker\n --> java -jar \"$program_dir/lib/vnu.jar\" $html_file_name 2>\&1\n" if $debug;
+    $validator_output = `java -Xss512k -jar "$program_dir/lib/vnu.jar" --errors-only --format json $html_file_name 2>\&1`;
     print "Validator output = $validator_output\n" if $debug;
 
     #
