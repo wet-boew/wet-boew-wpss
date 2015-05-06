@@ -34,4 +34,4 @@ The WPSS_Tool has been tested on the following platforms
 - Windows 7 (32 bit), Strawberry Perl 5.18 (32 bit), Python 2.7.6
 
 The WPSS Tool installer is available as a release in this repository
-  - https://github.com/wet-boew/wet-boew-wpss/releases/download/5.0.0/WPSS_Tool.exe
+  - https://github.com/wet-boew/wet-boew-wpss/releases/download/5.0.1/WPSS_Tool.exe
