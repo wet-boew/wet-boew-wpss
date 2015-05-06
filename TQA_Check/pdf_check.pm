@@ -1052,7 +1052,7 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Not Windows.
     #
-    $pdf_checker_cmnd = "python $program_dir/pdfchecker/pdfchecker.py 2>\&1";
+    $pdf_checker_cmnd = "python \"$program_dir/pdfchecker/pdfchecker.py\" 2>\&1";
 }
 
 #
