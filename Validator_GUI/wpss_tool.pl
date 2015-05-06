@@ -2321,6 +2321,13 @@ sub Read_Config_File {
                 push(@crawler_link_ignore_patterns, $fields[1]);
             }
         }
+        elsif ( $config_type =~ /Non_Decorative_Image_URL/i ) {
+            #
+            # List of non-decorative image URLs
+            #
+            @fields = split(/\s+/, $_, 2);
+            push(@non_decorative_image_urls, $fields[1]);
+        }
         elsif ( $config_type =~ /Decorative_Image_URL/i ) {
             #
             # List of decorative image URLs
@@ -2367,13 +2374,6 @@ sub Read_Config_File {
             if ( @fields > 1 ) {
                 push(@link_ignore_patterns, $fields[1]);
             }
-        }
-        elsif ( $config_type =~ /Non_Decorative_Image_URL/i ) {
-            #
-            # List of non-decorative image URLs
-            #
-            @fields = split(/\s+/, $_, 2);
-            push(@non_decorative_image_urls, $fields[1]);
         }
         elsif ( $config_type eq "Redirect_Ignore_Pattern" ) {
             #
