@@ -2,9 +2,9 @@
 #
 # Name:   interop_html_check.pm
 #
-# $Revision: 6742 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_html_check.pm $
-# $Date: 2014-07-25 14:56:43 -0400 (Fri, 25 Jul 2014) $
+# $Revision: 7169 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Interop_Check/Tools/interop_html_check.pm $
+# $Date: 2015-06-03 10:03:37 -0400 (Wed, 03 Jun 2015) $
 #
 # Description:
 #
@@ -495,7 +495,7 @@ sub Initialize_Test_Results {
     $doctype_label = "";
     $doctype_version = 0;
     $doctype_class = "";
-    $charset = "";
+    undef($charset);
     $charset_line = -1;
     $charset_column = 0;
     $charset_text = "";
@@ -1364,41 +1364,83 @@ sub Check_Baseline_Technologies {
 #***********************************************************************
 sub Check_Encoding {
     my ($resp) = @_;
+    
+    my ($found_charset) = 0;
+    my ($value);
 
     #
     # Do we have a HTTP::Response object ?
     #
     if ( defined($resp) ) {
         #
-        # Does the HTTP response object indicate the content is UTF-8
+        # Does the HTTP response object contain a 'Content-Type' header ?
         #
-        if ( ($resp->header('Content-Type') =~ /charset=UTF-8/i) ||
-             ($resp->header('X-Meta-Charset') =~ /UTF-8/i) ) {
-            print "UTF-8 content\n" if $debug;
-        }
-        else {
-            #
-            # Did we find any <meta> tag with a charset setting ?
-            #
-            if ( $charset =~ /UTF-8/i ) {
-                print "UTF-8 content\n" if $debug;
+        $value = $resp->header('Content-Type');
+        if ( defined($value) && ($value ne "") ) {
+            if ( $value =~ /charset=/i ) {
+                $found_charset = 1;
+                if ( $value =~ /charset=UTF-8/i ) {
+                    print "Found header Content-Type = UTF-8\n" if $debug;
+                }
+                else {
+                    #
+                    # Not UTF 8 content
+                    #
+                    print "Found header Content-Type = $value\n" if $debug;
+                    Record_Result("SWI_C", -1, 0, "",
+                                  String_Value("Charset is not UTF-8") .
+                                  " HTTP::Header Content-Type = \"$value\"");
+                }
             }
-            elsif ( $charset eq "" ) {
-                #
-                # Not UTF 8 content
-                #
-                Record_Result("SWI_C", -1, 0, "",
-                              String_Value("Charset is not defined"));
+        }
+
+        #
+        # Does the HTTP response object contain a 'X-Meta-Charset' header ?
+        #
+        $value = $resp->header('X-Meta-Charset');
+        if ( defined($value) && ($value ne "") ) {
+            $found_charset = 1;
+            if ( $value =~ /UTF-8/i ) {
+                print "Found header X-Meta-Charset = UTF-8\n" if $debug;
             }
             else {
                 #
                 # Not UTF 8 content
                 #
-                Record_Result("SWI_C", $charset_line, $charset_column,
-                              $charset_text,
-                              String_Value("Charset is not UTF-8"));
+                print "Found header X-Meta-Charset = $value\n" if $debug;
+                Record_Result("SWI_C", -1, 0, "",
+                              String_Value("Charset is not UTF-8") .
+                              " HTTP::Header X-Meta-Charset = \"$value\"");
             }
         }
+    }
+
+    #
+    # Did we find any <meta> tag with a charset setting ?
+    #
+    if ( defined($charset) ) {
+        $found_charset = 1;
+        if ( $charset =~ /UTF-8/i ) {
+            print "Found meta charset = UTF-8\n" if $debug;
+        }
+        else {
+            #
+            # Not UTF 8 content
+            #
+            print "Found header meta charset = $charset\n" if $debug;
+            Record_Result("SWI_C", $charset_line, $charset_column,
+                          $charset_text,
+                          String_Value("Charset is not UTF-8") .
+                              " charset = \"$charset\"");
+        }
+    }
+
+    #
+    # Did we find a charset value ?
+    #
+    if ( ! $found_charset ) {
+        Record_Result("SWI_C", -1, 0, "",
+                      String_Value("Charset is not defined"));
     }
 }
 
