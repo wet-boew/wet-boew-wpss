@@ -2,9 +2,9 @@
 #
 # Name:   feed_validate.pm
 #
-# $Revision: 6911 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Feed_Validate/Tools/feed_validate.pm $
-# $Date: 2014-12-15 16:11:46 -0500 (Mon, 15 Dec 2014) $
+# $Revision: 7120 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Feed_Validate/Tools/feed_validate.pm $
+# $Date: 2015-05-06 08:02:29 -0400 (Wed, 06 May 2015) $
 #
 # Description:
 #
@@ -426,12 +426,12 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
-    $validate_cmnd = "feedvalidator.py";
+    $validate_cmnd = ".\\bin\\feedvalidator.py";
 } else {
     #
     # Not Windows.
     #
-    $validate_cmnd = "$program_dir/feedvalidator.py";
+    $validate_cmnd = "$program_dir/bin/feedvalidator.py";
 }
 
 #

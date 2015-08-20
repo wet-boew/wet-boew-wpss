@@ -2,9 +2,9 @@
 #
 # Name:   html_validate.pm
 #
-# $Revision: 7039 $
+# $Revision: 7130 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/HTML_Validate/Tools/html_validate.pm $
-# $Date: 2015-03-20 11:27:07 -0400 (Fri, 20 Mar 2015) $
+# $Date: 2015-05-07 15:35:11 -0400 (Thu, 07 May 2015) $
 #
 # Description:
 #
@@ -305,7 +305,7 @@ sub Validate_HTML5_Content {
     #
     # Run the Nu Markup Checker on the supplied content
     #
-    print "Run Nu Markup Checker\n --> java -jar \"$program_dir/lib/vnu.jar\" $html_file_name 2>\&1\n" if $debug;
+    print "Run Nu Markup Checker\n --> java -jar lib/vnu.jar $html_file_name 2>\&1\n" if $debug;
     $validator_output = `java -Xss512k -jar "$program_dir/lib/vnu.jar" --errors-only --format json $html_file_name 2>\&1`;
     print "Validator output = $validator_output\n" if $debug;
 
@@ -691,12 +691,12 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
-    $validate_cmnd = "win_validate.pl";
+    $validate_cmnd = ".\\bin\\win_validate.pl";
 } else {
     #
     # Not Windows.
     #
-    $validate_cmnd = "$program_dir/validate";
+    $validate_cmnd = "$program_dir/bin/validate";
 }
 $ENV{VALIDATE_HOME} = $program_dir;
 
