@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 7040 $
+# $Revision: 7215 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2015-03-20 11:28:09 -0400 (Fri, 20 Mar 2015) $
+# $Date: 2015-08-05 06:46:56 -0400 (Wed, 05 Aug 2015) $
 #
 # Description:
 #
@@ -132,7 +132,8 @@ my (%tqa_check_profile_map, $current_tqa_check_profile,
     $current_tag_styles, $tag_is_hidden, @table_th_td_in_thead_count,
     $modified_content, $first_html_tag_lang, $summary_tag_content,
     @table_th_td_in_tfoot_count, @inside_tfoot, $inside_video,
-    %track_kind_map, $found_content_after_heading, $in_header_tag,
+    %video_track_kind_map, $found_content_after_heading, $in_header_tag,
+    %form_id_values, %input_form_id, %audio_track_kind_map, $inside_audio,
 );
 
 my ($is_valid_html) = -1;
@@ -382,7 +383,6 @@ my (%deprecated_html5_tags) = (
     "hgroup",   "",
     "isindex",   "",
     "layer",      "", # XHTML
-    "menu",       "", # XHTML
     "noframes",   "",
     "s",          "", # XHTML
     "shadow",     "", # XHTML
@@ -640,108 +640,8 @@ my (%non_word_boundary_tag) = (
 #
 # Set of tags who's text is not included in it's containers text
 #
-my (%non_subcontainer_tag) = (
-    "li", 1,
-    "td", 1,
-    "th", 1,
-    "script", 1,
-);
-
-#
-# Set of block tags who's text is included in it's parent's text
-#
-my (%html_block_tags_text_subcontainer) = (
-    "article", 1,
-    "blockquote", 1,
-    "caption", 1,
-    "div", 1,
-    "dd", 1,
-    "details", 1,
-    "dl", 1,
-    "dt", 1,
-    "figure", 1,
-    "form", 1,
-    "li", 1,
-    "object", 1,
-    "ol", 1,
-    "p", 1,
-    "pre", 1,
-    "section", 1,
-    "table", 1,
-    "ul", 1,
-);
-
-#
-# HTML phrasing tags.  The content within these tags is added to the block
-# level tags they are contained in to get the entire content of the block.
-#  http://www.w3.org/TR/html5/dom.html#phrasing-content-1
-#
-my (%html_phrasing_tags) = (
-    "a", 1,
-    "abbr", 1,
-    "acronym", 1,
-    "area", 1,
-    "applet", 1,
-    "audio", 1,
-    "b", 1,
-    "bdi", 1,
-    "bdo", 1,
-    "big", 1,
-    "br", 1,
-    "button", 1,
-    "canvas", 1,
-    "center", 1,
-    "cite", 1,
-    "code", 1,
-    "data", 1,
-    "datalist", 1,
-    "del", 1,
-    "dfn", 1,
-    "em", 1,
-    "embed", 1,
-    "h1", 1,
-    "h2", 1,
-    "h3", 1,
-    "h4", 1,
-    "h5", 1,
-    "h6", 1,
-    "i", 1,
-    "iframe", 1,
-    "img", 1,
-    "input", 1,
-    "ins", 1,
-    "kbd", 1,
-    "keygen", 1,
-    "label", 1,
-    "map", 1,
-    "mark", 1,
-    "math", 1,
-    "meter", 1,
-    "noscript", 1,
-    "object", 1,
-    "output", 1,
-    "progress", 1,
-    "q", 1,
-    "ruby", 1,
-    "s", 1,
-    "samp", 1,
-    "select", 1,
-    "shadow", 1,
-    "small", 1,
-    "span", 1,
-    "strike", 1,
-    "strong", 1,
-    "sub", 1,
-    "sup", 1,
-    "svg", 1,
-    "template", 1,
-    "textarea", 1,
-    "time", 1,
-    "tt", 1,
-    "u", 1,
-    "var", 1,
-    "video", 1,
-    "wbr", 1,
+my (%tag_content_not_included_in_parent) = (
+    "summary", 1,
 );
 
 #
@@ -924,10 +824,11 @@ my %string_table_en = (
     "Multiple links with same title text", "Multiple links with same 'title' text ",
     "New heading level",             "New heading level ",
     "No button found in form",       "No button found in form",
-    "No captions found for video",   "No captions found for video",
+    "No captions found for",         "No captions found for",
     "No closed caption content found", "No closed caption content found",
     "No content found in track",     "No content found in track",
     "No dt found in list",           "No <dt> found in list ",
+    "No form found with",            "No form found with",
     "No headers found inside thead", "No headers found inside <thead>",
     "No headings found",             "No headings found in content area",
     "No label for",                  "No <label> for ",
@@ -1095,10 +996,11 @@ my %string_table_fr = (
     "Multiple links with same title text",  "Liens multiples avec la même texte de 'title' ",
     "New heading level",             "Nouveau niveau d'en-tête ",
     "No button found in form",       "Aucun bouton trouvé dans le <form>",
-    "No captions found for video",   "Pas de sous-titres trouvés pour la vidéo",
+    "No captions found for",         "Pas de sous-titres trouvés pour",
     "No closed caption content found", "Aucun de sous-titrage trouvé",
     "No content found in track",     "Contenu manquant dans <track>",
     "No dt found in list",           "Pas de <dt> trouvé dans la liste ",
+    "No form found with",            "Pas de <form> trouvé avec",
     "No headers found inside thead", "Pas de têtes trouvées à l'intérieur de <thead>",
     "No headings found",             "Pas des têtes qui se trouvent dans la zone de contenu",
     "No label for",                  "Aucun <label> pour ",
@@ -1376,7 +1278,9 @@ sub Initialize_Test_Results {
     @table_header_locations = ();
     $inside_h_tag_set      = 0;
     $inside_video          = 0;
-    %track_kind_map        = ();
+    $inside_audio          = 0;
+    %video_track_kind_map  = ();
+    %audio_track_kind_map  = ();
     %anchor_text_href_map  = ();
     %anchor_location       = ();
     %anchor_name           = ();
@@ -1453,6 +1357,8 @@ sub Initialize_Test_Results {
     undef($first_html_tag_lang);
     undef($summary_tag_content);
     $found_content_after_heading = 0;
+    %form_id_values         = ();
+    %input_form_id          = ();
 
     #
     # Initialize content section found flags to false
@@ -1823,20 +1729,11 @@ sub Destroy_Text_Handler {
                 $current_all_text .= $current_text;
             }
             #
-            # Is this a phrasing tag ? If so add it's content to the
-            # parent tag.
-            # 
-            elsif ( defined($html_phrasing_tags{$tag}) ||
-                    defined($html_block_tags_text_subcontainer{$tag}) ) {
-                print "Adding \"$current_text\" text with whitespace to text handler\n" if $debug;
-                $current_all_text .= " $current_text";
-            }
+            # Is this a tag that doesn't propagate it's content to it's parent ?
             #
-            # Are we inside an anchor tag ?
-            #
-            elsif ( $inside_anchor ) {
-                print "Inside anchor, adding \"$current_text\" text to text handler\n" if $debug;
-                $current_all_text .= " $current_text";
+            elsif ( defined($tag_content_not_included_in_parent{$tag}) ) {
+                print "Text not to be included in parent tag\n" if $debug;
+                $current_tag_text = "";
             }
             #
             # We don't need script tag text, it is not part of the
@@ -1845,6 +1742,13 @@ sub Destroy_Text_Handler {
             elsif ( $tag eq "script" ) {
                 print "Discard script tag text\n" if $debug;
                 $current_tag_text = "";
+            }
+            #
+            # Append text to parent tag's text
+            # 
+            else {
+                print "Adding \"$current_text\" text with whitespace to text handler\n" if $debug;
+                $current_all_text .= " $current_text";
             }
 
             #
@@ -3003,9 +2907,8 @@ sub Input_Tag_Handler {
     #
     # Was this input found within a <form> ?
     #
-    if ( ! $in_form_tag ) {
-        Record_Result("WCAG_2.0-F43", $line, $column, $text,
-                      "<input> " . String_Value("found outside of a form"));
+    if ( Is_A_Form_Input("input", $line, $column, $text, %attr) ) {
+        print "Input found inside form\n" if $debug;
     }
 
     #
@@ -3415,6 +3318,121 @@ sub Input_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Is_A_Form_Input
+#
+# Parameters: tag - tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks to see if a tag is part of a form or not.
+# It checks for:
+#   1) a form attribute that references a form on the page
+#   2) if the input is nested within a form
+#   3) an onchange attribute that indicates JavaScript is associated
+#      with the input (so may not be part of a form)
+#
+#***********************************************************************
+sub Is_A_Form_Input {
+    my ($tag, $line, $column, $text, %attr) = @_;
+
+    my ($form_id, @locations, $list_addr, $part_of_form);
+
+    #
+    # Do we have a form attribute to associate this tag
+    # with a form elsewhere on the page ?
+    #
+    print "Is_A_Form_Input tag = $tag\n" if $debug;
+    if ( defined($attr{"form"}) ) {
+        $form_id = $attr{"form"};
+        $form_id =~ s/^\s*//g;
+        $part_of_form = 1;
+
+        #
+        # Check form value, it must not be an empty string.
+        #
+        if ( $form_id eq "" ) {
+            Record_Result("WCAG_2.0-F62", $line, $column, $text,
+                          String_Value("Missing content in") .
+                          "'form='" .
+                          String_Value("for tag") . "<$tag>");
+        }
+        #
+        # Check to see if we have a form with this id.
+        # Note: form may either preceed or follow the input.
+        #
+        if ( defined($form_id_values{$form_id}) ) {
+            #
+            # Tag associated with form
+            #
+            print "Tag associated with <form> at " . $form_id_values{$form_id} .
+                  "\n" if $debug;
+        }
+        else {
+            #
+            # No form yet with this id, save id so it can be checked later
+            #
+            if ( ! defined($input_form_id{$form_id}) ) {
+                $input_form_id{$form_id} = \@locations;
+            }
+
+            #
+            # Save tag name and location
+            #
+            $list_addr = $input_form_id{$form_id};
+            push(@$list_addr, "$tag:$line:$column:$text");
+            print "Add $tag:$line:$column to form id $form_id\n" if $debug;
+        }
+    }
+    #
+    # No form attribute, are we inside a form ?
+    #
+    elsif ( $in_form_tag ) {
+        $part_of_form = 1;
+        print "Input found inside of a form\n" if $debug;
+    }
+    #
+    # Do we have an onchange attribute, thereby using JavaScript to
+    # add behaviour to the tag ?
+    #
+    elsif ( defined($attr{"onchange"}) ) {
+        #
+        # Not part of a form, the JavaScript provides behaviour
+        #
+        $part_of_form = 0;
+        print "Input found outside of a form, but with onchange attribute\n" if $debug;
+    }
+    #
+    # Do we have an onclick attribute, thereby using JavaScript to
+    # add behaviour to the tag ?
+    #
+    elsif ( defined($attr{"onclick"}) ) {
+        #
+        # Not part of a form, the JavaScript provides behaviour
+        #
+        $part_of_form = 0;
+        print "Input found outside of a form, but with onclick attribute\n" if $debug;
+    }
+    else {
+        #
+        # Not inside a form and not associated with a form
+        #
+        print "Input found outside of a form\n" if $debug;
+        $part_of_form = 0;
+    }
+    
+    #
+    # Return flag indicating whether or not this input is part of a form
+    #
+    return($part_of_form);
+}
+
+
+#***********************************************************************
+#
 # Name: Select_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -3432,35 +3450,30 @@ sub Input_Tag_Handler {
 sub Select_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my ($id);
-
     #
-    # Was this select found within a <form> ?
+    # Is this input part of a form ?
     #
-    if ( ! $in_form_tag ) {
-        Record_Result("WCAG_2.0-F43", $line, $column, $text,
-                      "<select> " . String_Value("found outside of a form"));
-    }
-
-    #
-    # Is this a read only or hidden input ?
-    #
-    if ( defined($attr{"readonly"}) ||
-         (defined($attr{"type"}) && ($attr{"type"} eq "hidden") ) ) {
-        print "Hidden or readonly select\n" if $debug;
-        return;
-    }
+    if ( Is_A_Form_Input("select", $line, $column, $text, %attr) ) {
+        #
+        # Is this a read only or hidden input ?
+        #
+        if ( defined($attr{"readonly"}) ||
+             (defined($attr{"type"}) && ($attr{"type"} eq "hidden") ) ) {
+            print "Hidden or readonly select\n" if $debug;
+            return;
+        }
   
-    #
-    # Increment the number of writable inputs.
-    #
-    $number_of_writable_inputs++;
+        #
+        # Increment the number of writable inputs.
+        #
+        $number_of_writable_inputs++;
+    }
 
     #
     # Check for one of a title or a label
     #
     Check_Label_Aria_Id_or_Title($self, "<select>", 1, $line, $column, $text,
-                             %attr);
+                                 %attr);
 
     #
     # Check aria-required attribute
@@ -3610,6 +3623,80 @@ sub Label_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Complete_Label
+#
+# Parameters: text - text from label
+#
+# Description:
+#
+#   This function generated a complete label using the supplied text
+# along with
+#  - table headers
+#  - fieldset legend
+#  - last heading
+#
+#***********************************************************************
+sub Complete_Label {
+    my ($text) = @_;
+
+    my ($complete_label, $attr);
+
+    #
+    # If we are inside a <fieldset> prefix the <label> with
+    # any <legend> text.  JAWS reads both the <legend> and
+    # <label> for the user. This allows for the same <label>
+    # to appear in separate <fieldset>s.
+    #
+    print "Complete_Label text = $text\n" if $debug;
+    if ( $fieldset_tag_index > 0 ) {
+        print "Inside fieldset index $fieldset_tag_index, legend = \"" .
+              $legend_text_value{$fieldset_tag_index} . "\"\n" if $debug;
+        $complete_label = $legend_text_value{$fieldset_tag_index} .
+                            " $text";
+    }
+    else {
+        $complete_label = $text;
+    }
+
+    #
+    # If we are inside a <table> include the table location in the
+    # <label> to make it unique to the table.  The same <label> may
+    # appear in seperate <table>s in the same <form>
+    #
+    if ( $table_nesting_index > -1 ) {
+        print "Add table location to label value\n" if $debug;
+        $complete_label .= " table " .
+                           $table_start_line[$table_nesting_index] .
+                           $table_start_column[$table_nesting_index];
+
+        #
+        # Get saved copy of the <td> tag attributes.
+        # Add any headers attribute from the <td> to the
+        # label to get a more complete label (headers can add
+        # context to differentiate labels).
+        #
+        $attr = $td_attributes[$table_nesting_index];
+        if ( defined($$attr{"headers"}) ) {
+            $complete_label .= " " . $$attr{"headers"};
+        }
+    }
+    
+    #
+    # Add last heading text to the label.  Screen readers can provide
+    # users with the last heading when identifying the label of an
+    # input.
+    #
+    $complete_label = $last_heading_text . " $complete_label";
+
+    #
+    # Return the complete label
+    #
+    print "Complete_Label = $complete_label\n" if $debug;
+    return($complete_label);
+}
+
+#***********************************************************************
+#
 # Name: End_Label_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -3662,50 +3749,10 @@ sub End_Label_Tag_Handler {
     }
     else {
         #
-        # If we are inside a <fieldset> prefix the <label> with
-        # any <legend> text.  JAWS reads both the <legend> and 
-        # <label> for the user. This allows for the same <label>
-        # to appear in separate <fieldset>s.
+        # Get the complete label that may include table headings
+        # and fieldset legends.
         #
-        if ( $fieldset_tag_index > 0 ) {
-            print "Inside fieldset index $fieldset_tag_index, legend = \"" .
-                  $legend_text_value{$fieldset_tag_index} . "\"\n" if $debug;
-            $complete_label = $legend_text_value{$fieldset_tag_index} .
-                                " $clean_text";
-        }
-        else {
-            $complete_label = $clean_text;
-        }
-
-        #
-        # If we are inside a <table> include the table location in the
-        # <label> to make it unique to the table.  The same <label> may
-        # appear in seperate <table>s in the same <form>
-        #
-        if ( $table_nesting_index > -1 ) {
-            print "Add table location to label value\n" if $debug;
-            $complete_label .= " table " .
-                               $table_start_line[$table_nesting_index] .
-                               $table_start_column[$table_nesting_index];
-
-            #
-            # Get saved copy of the <td> tag attributes.
-            # Add any headers attribute from the <td> to the
-            # label to get a more complete label (headers can add
-            # context to differentiate labels).
-            #
-            $attr = $td_attributes[$table_nesting_index];
-            if ( defined($$attr{"headers"}) ) {
-                $complete_label .= " " . $$attr{"headers"};
-            }
-        }
-
-        #
-        # Add last heading text to the label.  Screen readers can provide
-        # users with the last heading when identifying the label of an
-        # input.
-        #
-        $complete_label = $last_heading_text . " $complete_label";
+        $complete_label = Complete_Label($clean_text);
 
         #
         # Have we seen this label before ?
@@ -3749,8 +3796,6 @@ sub End_Label_Tag_Handler {
 sub Textarea_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
-    my ($id_value);
-
     #
     # Is this a read only or hidden input ?
     #
@@ -3760,7 +3805,14 @@ sub Textarea_Tag_Handler {
         print "Hidden or readonly textarea\n" if $debug;
         return;
     }
-  
+
+    #
+    # Was this input found within a <form> ?
+    #
+    if ( Is_A_Form_Input("textarea", $line, $column, $text, %attr) ) {
+        print "Textarea found inside form\n" if $debug;
+    }
+
     #
     # Increment the number of writable inputs.
     #
@@ -5264,7 +5316,7 @@ sub Track_Tag_Handler {
         else {
             $kind = "subtitles";
         }
-        $track_kind_map{$kind} = 1;
+        $video_track_kind_map{$kind} = 1;
 
         #
         # Is this a caption or description track ?
@@ -5378,6 +5430,68 @@ sub End_Track_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Audio_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the audio tag.
+#
+#***********************************************************************
+sub Audio_Tag_Handler {
+    my ($line, $column, $text, %attr) = @_;
+
+    #
+    # Set flag to indicate we are inside a audio tag set.
+    #
+    $inside_audio = 1;
+    %audio_track_kind_map = ();
+}
+
+#***********************************************************************
+#
+# Name: End_Audio_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles the end audio tag.
+#
+#***********************************************************************
+sub End_Audio_Tag_Handler {
+    my ($line, $column, $text) = @_;
+
+    #
+    # No longer in a <audio> .. </audio> pair
+    #
+    $inside_audio = 0;
+
+    #
+    # Did we find any closed captions or decsriptions tracks for
+    # the audio ?
+    #
+    if (     (! defined($audio_track_kind_map{"captions"}))
+          && (! defined($audio_track_kind_map{"descriptions"})) ) {
+        Record_Result("WCAG_2.0-G87", $line, $column, $text,
+                      String_Value("No captions found for") . " <audio>");
+    }
+
+    #
+    # Set flag to indicate we have content after a heading.
+    #
+    $found_content_after_heading = 1;
+    print "Found content after heading\n" if $debug;
+}
+
+#***********************************************************************
+#
 # Name: Video_Tag_Handler
 #
 # Parameters: line - line number
@@ -5397,7 +5511,7 @@ sub Video_Tag_Handler {
     # Set flag to indicate we are inside a video tag set.
     #
     $inside_video = 1;
-    %track_kind_map = ();
+    %video_track_kind_map = ();
 }
 
 #***********************************************************************
@@ -5425,10 +5539,10 @@ sub End_Video_Tag_Handler {
     # Did we find any closed captions or decsriptions tracks for
     # the video ?
     #
-    if (     (! defined($track_kind_map{"captions"}))
-          && (! defined($track_kind_map{"descriptions"})) ) {
+    if (     (! defined($video_track_kind_map{"captions"}))
+          && (! defined($video_track_kind_map{"descriptions"})) ) {
         Record_Result("WCAG_2.0-G87", $line, $column, $text,
-                      String_Value("No captions found for video"));
+                      String_Value("No captions found for") . " <video>");
     }
 
     #
@@ -6222,10 +6336,19 @@ sub Check_Aria_Labelledby_Attribute {
             }
 
             #
-            # If we are inside an anchor tag, this aria-labelledby can act
-            # as a text alternative for an image link.
+            # If we have a text handler and
+            #  - are inside an anchor tag
+            #  - are inside a button tag
+            #  - are inside an input tag
+            #  - are inside an object tag
+            #  - are inside a select tag
+            # this aria-labelledby can act as a text alternative.
             #
-            if ( $inside_anchor && $have_text_handler ) {
+            if ( $have_text_handler &&
+                 ($inside_anchor || ($tag eq "button") ||
+                                    ($tag eq "input") ||
+                                    ($tag eq "object") ||
+                                    ($tag eq "select")) ) {
                 push(@text_handler_all_text, "ALT:" . $attr{"aria-labelledby"});
             }
         }
@@ -6312,10 +6435,17 @@ sub Check_Aria_Describedby_Attribute {
             }
 
             #
-            # If we are inside an anchor tag, this aria-describedby can act
-            # as a text alternative for an image link.
+            # If we have a text handler and
+            #  - are inside an anchor tag
+            #  - are inside a button tag
+            #  - are inside an input tag
+            #  - are inside a select tag
+            # this aria-describedby can act as a text alternative.
             #
-            if ( $inside_anchor && $have_text_handler ) {
+            if ( $have_text_handler &&
+                 ($inside_anchor || ($tag eq "button") ||
+                                    ($tag eq "input") ||
+                                    ($tag eq "select")) ) {
                 push(@text_handler_all_text, "ALT:" . $attr{"aria-describedby"});
             }
         }
@@ -7200,26 +7330,26 @@ sub Button_Tag_Handler {
         # Is the type value "submit" or empty string (default is submit) ?
         #
         if ( ($attr{"type"} eq "submit") || ($attr{"type"} eq "") ) {
-            if ( $in_form_tag ) {
+            #
+            # Is this input part of a form ?
+            #
+            if ( Is_A_Form_Input("button type=\"submit\"", $line, $column,
+                                 $text, %attr) ) {
                 $found_input_button = 1;
                 print "Found button in form\n" if $debug;
-            }
-            elsif ( $tag_is_visible ) {
-                print "Found submit button outside of form\n" if $debug;
-                Record_Result("WCAG_2.0-F43", $line, $column, $text,
-                              "<button type=\"submit\"> " .
-                              String_Value("found outside of a form"));
             }
         }
         #
         # Is this a reset button outside of a form ?
         #
-        elsif ( $attr{"type"} eq "reset" && (! $in_form_tag) ) {
-            print "Found reset button outside of form\n" if $debug;
-            if ( $tag_is_visible ) {
-                Record_Result("WCAG_2.0-F43", $line, $column, $text,
-                              "<button type=\"reset\"> " .
-                              String_Value("found outside of a form"));
+        elsif ( $attr{"type"} eq "reset" ) {
+            #
+            # Is this input part of a form ?
+            #
+            if ( Is_A_Form_Input("button type=\"reset\"", $line, $column,
+                                 $text, %attr) ) {
+                $found_input_button = 1;
+                print "Found button in form\n" if $debug;
             }
         }
     }
@@ -7267,6 +7397,7 @@ sub End_Button_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
     my ($this_text, $last_line, $last_column, $clean_text, $start_tag_attr);
+    my ($complete_label);
 
     #
     # Get start tag attributes
@@ -7293,9 +7424,22 @@ sub End_Button_Tag_Handler {
     Check_Character_Spacing("<button>", $line, $column, $clean_text);
 
     #
-    # Did we find a <aria-label> attribute ?
+    # Did we find a <aria-describedby> attribute ?
     #
     if ( defined($start_tag_attr) &&
+        (defined($$start_tag_attr{"aria-describedby"})) &&
+        ($$start_tag_attr{"aria-describedby"} ne "") ) {
+        #
+        # Technique
+        #   ARIA1: Using the aria-describedby property to provide a
+        #   descriptive label for user interface controls
+        #
+        print "Found aria-describedby attribute ARIA1\n" if $debug;
+    }
+    #
+    # Did we find a <aria-label> attribute ?
+    #
+    elsif ( defined($start_tag_attr) &&
         (defined($$start_tag_attr{"aria-label"})) &&
         ($$start_tag_attr{"aria-label"} ne "") ) {
         #
@@ -7330,6 +7474,29 @@ sub End_Button_Tag_Handler {
         # used for label
         #
         print "Found text in button H91\n" if $debug;
+
+        #
+        # Get the complete label that may include table headings
+        # and fieldset legends.
+        #
+        $complete_label = Complete_Label($clean_text);
+
+        #
+        # Have we seen this label before ?
+        #
+        if ( defined($form_label_value{lc($complete_label)}) ) {
+            Record_Result("WCAG_2.0-G197", $line, $column,
+                          $text, String_Value("Duplicate") .
+                          " <button> \"$clean_text\" " .
+                          String_Value("Previous instance found at") .
+                          $form_label_value{lc($complete_label)});
+        }
+        else {
+            #
+            # Save label location
+            #
+            $form_label_value{lc($complete_label)} = "$line:$column"
+        }
     }
     #
     # Is tag visible ?
@@ -8023,8 +8190,10 @@ sub Start_Title_Tag_Handler {
 #
 #***********************************************************************
 sub Start_Form_Tag_Handler {
-    my ( $line, $column, $text, %attr ) = @_;
+    my ($line, $column, $text, %attr) = @_;
 
+    my ($id);
+    
     #
     # Set flag to indicate we are within a <form> .. </form>
     # tag pair and that we have not seen a button yet.
@@ -8039,6 +8208,25 @@ sub Start_Form_Tag_Handler {
     %form_label_value      = ();
     %form_legend_value     = ();
     %form_title_value      = ();
+    
+    #
+    # Get the form's id value
+    #
+    if ( defined($attr{"id"}) ) {
+        $id = $attr{"id"};
+        $id =~ s/^\s*//g;
+        $form_id_values{$id} = "$line:$column";
+        
+        #
+        # We can remove any saved inputs that reference this form if those
+        # inputs preceeded the form. This saves checking those inputs for
+        # a valid form at the end of the page.
+        #
+        if ( defined($input_form_id{$id}) ) {
+            print "Remove saved inputs that referenced this form\n" if $debug;
+            undef($input_form_id{$id});
+        }
+    }
 }
 
 #***********************************************************************
@@ -9499,7 +9687,7 @@ sub Check_Lang_Attribute {
 #   This function checks for styles that hide content.  It checks for
 # - display:none
 # - visibility:hidden
-# - width or heigth of 0
+# - width or height of 0
 # - clip: rect(1px, 1px, 1px, 1px)
 #
 #***********************************************************************
@@ -9515,9 +9703,20 @@ sub Check_Style_to_Hide_Content {
     #
     print "Check_Style_to_Hide_Content for tag $tagname\n" if $debug;
     foreach $style (split(/\s+/, $style_names)) {
+        #
+        # Ignore styles with :after or :before attributes, that content
+        # may be hidden, but it is decorative content.
+        #
+        if ( ($style =~ /:after/i) || ($style =~ /:before/i) ) {
+            print "Skip :after/:before style $style\n" if $debug;
+            next;
+        }
+        
+        #
+        # If the style is defined, get it's properties.
+        #
         if ( defined($css_styles{$style}) ) {
             $style_object = $css_styles{$style};
-            
             #
             # Do we have a content property ?
             #
@@ -9555,12 +9754,12 @@ sub Check_Style_to_Hide_Content {
             }
 
             #
-            # Do we have heigth: 0px ?
+            # Do we have height: 0px ?
             #
             if ( CSS_Check_Style_Has_Property_Value($style, $style_object,
-                                                    "heigth", "0px") ) {
+                                                    "height", "0px") ) {
                 $found_hide_style = 1;
-                print "Found heigth: 0px in style $style\n" if $debug;
+                print "Found height: 0px in style $style\n" if $debug;
                 last;
             }
 
@@ -9676,9 +9875,9 @@ sub Check_Presentation_Attributes {
         # without the tag name
         #
         foreach $a_style (split(/\s+/, $attr{"class"})) {
-            $style_names .=  " $tagname.$a_style .$a_style";
-#                           . " $tagname.$a_style:before .$a_style:before"
-#                           . " $tagname.$a_style:after .$a_style:after";
+            $style_names .=  " $tagname.$a_style .$a_style"
+                           . " $tagname.$a_style:before .$a_style:before"
+                           . " $tagname.$a_style:after .$a_style:after";
         }
         print "Found classes $style_names\n" if $debug;
     }
@@ -10564,6 +10763,13 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "area" ) {
         Area_Tag_Handler($self, $language, $line, $column, $text, %attr_hash);
+    }
+
+    #
+    # Check audio tag
+    #
+    elsif ( $tagname eq "audio" ) {
+        Audio_Tag_Handler( $line, $column, $text, %attr_hash );
     }
 
     #
@@ -11759,6 +11965,13 @@ sub End_Handler {
     }
 
     #
+    # Check audio tag
+    #
+    elsif ( $tagname eq "audio" ) {
+        End_Audio_Tag_Handler($line, $column, $text);
+    }
+
+    #
     # Check b tag
     #
     elsif ( $tagname eq "b" ) {
@@ -12401,8 +12614,9 @@ sub Check_Missing_Aria_Id {
 #***********************************************************************
 sub Check_Document_Errors {
 
-    my ($label_id, $line, $column, $comment, $found);
+    my ($label_id, $line, $column, $comment, $found, $form_id, $text);
     my ($english_comment, $french_comment, @comment_lines, $name);
+    my ($list_addr, $entry, $tag);
 
     #
     # Do we have an imbalance in the number of <embed> and <noembed>
@@ -12452,6 +12666,23 @@ sub Check_Document_Errors {
         #
         Record_Result("WCAG_2.0-G125", -1, 0, "",
                       String_Value("No links found"));
+    }
+    
+    #
+    # Did we find any inputs that reference forms that do not exist ?
+    #
+    foreach $form_id (keys(%input_form_id)) {
+        $list_addr = $input_form_id{$form_id};
+        
+        #
+        # Process each entry in the list for this form id value
+        #
+        foreach $entry (@$list_addr) {
+            ($tag, $line, $column, $text) = split(/:/, $entry, 4);
+            Record_Result("WCAG_2.0-F62", $line, $column, $text,
+                          String_Value("No form found with") .
+                          " 'id=\"$form_id\"'");
+        }
     }
 
     #
