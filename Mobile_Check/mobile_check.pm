@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 6751 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2014-09-10 13:27:04 -0400 (Wed, 10 Sep 2014) $
+# $Revision: 7185 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
+# $Date: 2015-06-29 03:04:13 -0400 (Mon, 29 Jun 2015) $
 #
 # Description:
 #
@@ -92,11 +92,21 @@ BEGIN {
 my ($debug) = 0;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
-my (%testcase_data, %mobile_check_profile_map);
+my (%testcase_data, %mobile_check_profile_map, $current_mobile_check_profile);
+my ($results_list_addr, $current_url, $max_allowed_css, $max_allowed_js);
+my ($max_hostname_count, $favicon_size, %favicon_urls, $max_allowed_image);
+my (@redirect_ignore_text_patterns, @redirect_ignore_url_patterns);
+
+#
+# Status values
+#
+my ($check_pass)       = 0;
+my ($check_fail)       = 1;
 
 #
 # List of tags which contribute to the "OTHER" catagory of a web page
 # size (i.e. not CSS, Javascript, Images, etc).
+#
 my (%other_type_link_tags) = (
     "frame", 1,
     "iframe", 1,
@@ -107,14 +117,47 @@ my (%other_type_link_tags) = (
 # String table for error strings.
 #
 my %string_table_en = (
-    "Fails validation",              "Fails validation, see validation results for details.",
+    "Broken link",                   "Broken link",
+    "Broken link to favicon",        "Broken link to favicon",
+    "Content is not compressed",     "Content is not compressed.",
+    "Cookies set for supporting file", "Cookies set for supporting file",
+    "CSS link found outside of <head>", "CSS link found outside of <head>",
+    "Duplicate JS link found",       "Duplicate JavaScript link found",
+    "exceeds maximum acceptable value", "exceeds maximum acceptable value",
+    "Favicon image size",            "Favicon image size",
+    "Favicon URL",                   "Favicon URL",
+    "for",                           "for",
+    "Found",                         "Found",
+    "greater than expected maximum of", "greater than expected maximum of",
+    "Hostname count for supporting files", "Hostname count for supporting files",
+    "JS link found in <head>",       "JavaScript link found in <head>",
+    "link count",                    "link count",
+    "No Etag or Last-Modified header field", "No Etag or Last-Modified header field",
+    "No Expires or Cache-Control header field", "No Expires or Cache-Control header field.",
+    "Previous instance found at",    "Previous instance found at (line:column) ",
+    "Redirected link",               "Redirected link",
     );
 
-
-
-
 my %string_table_fr = (
-    "Fails validation",             "Échoue la validation, voir les résultats de validation pour plus de détails.",
+    "Broken link",                   "Lien brisé",
+    "Broken link to favicon",        "Lien brisé au favicon",
+    "Content is not compressed",     "Contenu ne est pas compressé.",
+    "Cookies set for supporting file", "Cookies set for supporting file",
+    "CSS link found outside of <head>", "lien CSS qui se trouve à l'extérieur de la balise <head>",
+    "Duplicate JS link found",       "Dupliquer lien JavaScript trouvé",
+    "exceeds maximum acceptable value", "dépasse la valeur maximale acceptable",
+    "Favicon image size",            "Taille de l'image favicon",
+    "Favicon URL",                   "Favicon URL",
+    "for",                           "pour",
+    "Found",                         "Trouvé",
+    "greater than expected maximum of", "plus que le maximum prévu de",
+    "Hostname count for supporting files", "Nombre de nom d'hôte pour supporter les fichiers",
+    "JS link found in <head>",       "lien JavaScript qui se trouve dans la balise <head>",
+    "link count",                    "nombre de liens",
+    "No Etag or Last-Modified header field", "Aucune Etag ou un champ d'en-tête de Last-Modified",
+    "No Expires or Cache-Control header field", "Aucune Expire ou un champ d'en-tête de Cache-Control.",
+    "Previous instance found at",    "Instance précédente trouvée à (la ligne:colonne) ",
+    "Redirected link",               "Lien Réorienter",
     );
 
 #
@@ -140,6 +183,15 @@ sub Set_Mobile_Check_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+    
+    #
+    # Set debug flag for supporting modules
+    #
+    Set_Mobile_Testcase_Debug($debug);
+    Set_Mobile_Check_CSS_Debug($debug);
+    Set_Mobile_Check_HTML_Debug($debug);
+    Set_Mobile_Check_Image_Debug($debug);
+    Set_Mobile_Check_JS_Debug($debug);
 }
 
 #**********************************************************************
@@ -169,6 +221,15 @@ sub Set_Mobile_Check_Language {
         #
         $string_table = \%string_table_en;
     }
+    
+    #
+    # Set language in supporting modules
+    #
+    Mobile_Testcase_Language($language);
+    Set_Mobile_Check_CSS_Language($language);
+    Set_Mobile_Check_HTML_Language($language);
+    Set_Mobile_Check_Image_Language($language);
+    Set_Mobile_Check_JS_Language($language);
 }
 
 #**********************************************************************
@@ -187,7 +248,11 @@ sub Set_Mobile_Check_Language {
 #**********************************************************************
 sub Mobile_Check_Read_URL_Help_File {
     my ($filename) = @_;
-
+    
+    #
+    # Read URL help file
+    #
+    Mobile_Testcase_Read_URL_Help_File($filename);
 }
 
 #**********************************************************************
@@ -210,6 +275,7 @@ sub Mobile_Check_Testcase_URL {
     #
     # Return URL value
     #
+    $help_url = Mobile_Testcase_URL($key);
     return($help_url);
 }
 
@@ -229,18 +295,80 @@ sub Mobile_Check_Testcase_URL {
 #***********************************************************************
 sub Set_Mobile_Check_Testcase_Data {
     my ($profile, $testcase, $data) = @_;
+
+    my ($variable, $value);
     
     #
-    # Copy the data into the table
+    # Check the testcase id
     #
-    $testcase_data{$testcase} = $data;
+    if ( $testcase eq "DNS_LOOKUPS" ) {
+        #
+        # Set maximum number of hostnames for supporting files
+        #
+        $max_hostname_count = $data;
+    }
+    elsif ( $testcase eq "FAVICON" ) {
+        #
+        # Set maximum favicon image size
+        #
+        $favicon_size = $data;
+    }
+    elsif ( $testcase eq "NUM_HTTP" ) {
+        #
+        # Get the variable and value portions from the data
+        #
+        ($variable, $value) = split(/\s+/, $data);
+        
+        #
+        # Do we have the maximum number of CSS, JS or image files ?
+        #
+        if ( defined($value) && ($variable eq "MAX_CSS") ) {
+            $max_allowed_css = $value;
+        }
+        elsif ( defined($value) && ($variable eq "MAX_JS") ) {
+            $max_allowed_js = $value;
+        }
+        elsif ( defined($value) && ($variable eq "MAX_IMAGE") ) {
+            $max_allowed_image = $value;
+        }
+    }
+    elsif ( $testcase eq "REDIRECTS" ) {
+        #
+        # Get the variable and value portions from the data
+        #
+        ($variable, $value) = split(/\s+/, $data);
+
+        #
+        # Do we have values for URL text or URL href ?
+        #
+        if ( defined($value) && ($variable eq "TEXT") ) {
+            push(@redirect_ignore_text_patterns, $value);
+        }
+        elsif ( defined($value) && ($variable eq "URL") ) {
+            push(@redirect_ignore_url_patterns, $value);
+        }
+    }
+    else {
+        #
+        # Copy the data into the table
+        #
+        $testcase_data{$testcase} = $data;
+    }
+
+    #
+    # Set testcase data in supporting modules
+    #
+    Set_Mobile_Check_CSS_Testcase_Data($profile, $testcase, $data);
+    Set_Mobile_Check_HTML_Testcase_Data($profile, $testcase, $data);
+    Set_Mobile_Check_Image_Testcase_Data($profile, $testcase, $data);
+    Set_Mobile_Check_JS_Testcase_Data($profile, $testcase, $data);
 }
 
 #***********************************************************************
 #
 # Name: Set_Mobile_Check_Test_Profile
 #
-# Parameters: profile - TQA check test profile
+# Parameters: profile - profile name
 #             mobile_checks - hash table of testcase name
 #
 # Description:
@@ -250,7 +378,7 @@ sub Set_Mobile_Check_Testcase_Data {
 #
 #***********************************************************************
 sub Set_Mobile_Check_Test_Profile {
-    my ($profile, $mobile_checks ) = @_;
+    my ($profile, $mobile_checks) = @_;
 
     my (%local_mobile_checks);
 
@@ -261,6 +389,350 @@ sub Set_Mobile_Check_Test_Profile {
     print "Set_Mobile_Check_Test_Profile, profile = $profile\n" if $debug;
     %local_mobile_checks = %$mobile_checks;
     $mobile_check_profile_map{$profile} = \%local_mobile_checks;
+    
+    #
+    # Set testcase profile in supporting modules
+    #
+    Set_Mobile_Check_CSS_Test_Profile($profile, $mobile_checks);
+    Set_Mobile_Check_HTML_Test_Profile($profile, $mobile_checks);
+    Set_Mobile_Check_Image_Test_Profile($profile, $mobile_checks);
+    Set_Mobile_Check_JS_Test_Profile($profile, $mobile_checks);
+}
+
+#***********************************************************************
+#
+# Name: Initialize_Test_Results
+#
+# Parameters: profile - Mobile check test profile
+#             local_results_list_addr - address of results list.
+#
+# Description:
+#
+#   This function initializes the test case results table.
+#
+#***********************************************************************
+sub Initialize_Test_Results {
+    my ($profile, $local_results_list_addr) = @_;
+
+    #
+    # Set current hash tables
+    #
+    $current_mobile_check_profile = $mobile_check_profile_map{$profile};
+    $results_list_addr = $local_results_list_addr;
+
+}
+
+#**********************************************************************
+#
+# Name: String_Value
+#
+# Parameters: key - string table key
+#
+# Description:
+#
+#   This function returns the value in the string table for the
+# specified key.  If there is no entry in the table an error string
+# is returned.
+#
+#**********************************************************************
+sub String_Value {
+    my ($key) = @_;
+
+    #
+    # Do we have a string table entry for this key ?
+    #
+    if ( defined($$string_table{$key}) ) {
+        #
+        # return value
+        #
+        return ($$string_table{$key});
+    }
+    else {
+        #
+        # No string table entry, either we are missing a string or
+        # we have a typo in the key name.
+        #
+        return ("*** No string for $key ***");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Print_Error
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#             error_string - error string
+#
+# Description:
+#
+#   This function prints error messages if debugging is enabled..
+#
+#***********************************************************************
+sub Print_Error {
+    my ( $line, $column, $text, $error_string ) = @_;
+
+    #
+    # Print error message if we are in debug mode
+    #
+    if ( $debug ) {
+        print "$error_string\n";
+    }
+}
+
+#***********************************************************************
+#
+# Name: Record_Result
+#
+# Parameters: testcase - testcase identifier
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             error_string - error string
+#
+# Description:
+#
+#   This function records the testcase result.
+#
+#***********************************************************************
+sub Record_Result {
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+
+    my ($result_object);
+
+    #
+    # Is this testcase included in the profile
+    #
+    if ( defined($testcase) && defined($$current_mobile_check_profile{$testcase}) ) {
+        #
+        # Create result object and save details
+        #
+        $result_object = tqa_result_object->new($testcase, $check_fail,
+                                                Mobile_Testcase_Description($testcase),
+                                                $line, $column, $text,
+                                                $error_string, $current_url);
+        push (@$results_list_addr, $result_object);
+
+        #
+        # Print error string to stdout
+        #
+        Print_Error($line, $column, $text, "$testcase : $error_string");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Compressed_Content
+#
+# Parameters: this_url - a URL
+#             mime_type - mime type of content
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function checks to see if the content of the HTTP::Response
+# is compressed or not.  Certain content types (text based ones) should
+# be compressed.
+#
+#***********************************************************************
+sub Check_Compressed_Content {
+    my ($this_url, $mime_type, $resp) = @_;
+
+    my (@tqa_results_list, $result_object);
+
+    #
+    # Check for mobile optimization
+    #
+    print "Check_Compressed_Content mime-type = $mime_type\n" if $debug;
+
+    #
+    # Check mime-type to see if this content should be compressed
+    #
+    if ( ($mime_type =~ /text\//) ||
+         ($mime_type =~ /application\/x\-javascript/) ||
+         ($mime_type =~ /application\/atom\+xml/) ||
+         ($mime_type =~ /application\/rss\+xml/) ||
+         ($mime_type =~ /application\/ttml\+xml/) ||
+         ($mime_type =~ /application\/xhtml\+xml/) ||
+         ($mime_type =~ /application\/xml/) ) {
+
+        #
+        # Does the HTTP::Response have a content encoding with the
+        # value gzip ?
+        #
+        print "Check for Content-Encoding header\n" if $debug;
+        if ( defined($resp) &&
+             defined($resp->header('Content-Encoding') &&
+             ($resp->header('Content-Encoding') =~ /gzip/i)) ) {
+            print "Content is compressed with gzip\n" if $debug;
+        }
+        else {
+            #
+            # Content is not compressed
+            #
+            Record_Result("GZIP", -1, -1, "",
+                          String_Value("Content is not compressed"));
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Expires_Cache_Control_Header
+#
+# Parameters: this_url - a URL
+#             tcid - testcase identifier
+#             message - message to add to error
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function checks to see if the HTTP::Response contains
+# an expires header or some other cache control attribute.
+#
+#***********************************************************************
+sub Check_Expires_Cache_Control_Header {
+    my ($this_url, $tcid, $message, $resp) = @_;
+    
+    my ($header, $field);
+    
+    #
+    # Get at the header object
+    #
+    print "Check_Expires_Cache_Control_Header\n" if $debug;
+    $header = $resp->headers;
+    
+    #
+    # Check for an Expires header
+    #
+    print "Check for Expires header\n" if $debug;
+    $field = $header->header("Expires");
+    if ( defined($field) ) {
+        print "Have Expires header \"$field\"\n" if $debug;
+    }
+
+    #
+    # Check for a ExpiresDefault header
+    #
+    if ( ! defined($field) ) {
+        print "Check for ExpiresDefault header\n" if $debug;
+        $field = $header->header("ExpiresDefault");
+        if ( defined($field) ) {
+            print "Have Expires ExpiresDefault \"$field\"\n" if $debug;
+        }
+    }
+    
+    #
+    # Check for a Cache-Control header
+    #
+    if ( ! defined($field) ) {
+        print "Check for Cache-Control header\n" if $debug;
+        $field = $header->header("Cache-Control");
+        if ( defined($field) ) {
+            print "Have Expires Cache-Control \"$field\"\n" if $debug;
+        }
+    }
+
+    #
+    # Did we find any cache control or expires header ?
+    #
+    if ( ! defined($field) ) {
+        print "No Expires or Cache-Control header found\n" if $debug;
+        Record_Result($tcid, -1, -1, "",
+                      String_Value("No Expires or Cache-Control header field") .
+                      $message);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Etag_Last_Modified_Header
+#
+# Parameters: this_url - a URL
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function checks to see if the HTTP::Response contains
+# an Etag or Last-Modified header attribute.
+#
+#***********************************************************************
+sub Check_Etag_Last_Modified_Header {
+    my ($this_url, $resp) = @_;
+
+    my ($header, $field);
+
+    #
+    # Get at the header object
+    #
+    print "Check_Etag_Last_Modified_Header\n" if $debug;
+    $header = $resp->headers;
+
+    #
+    # Check for an Etag header
+    #
+    print "Check for Etag header\n" if $debug;
+    $field = $header->header("Etag");
+    if ( defined($field) ) {
+        print "Have Etag header \"$field\"\n" if $debug;
+    }
+
+    #
+    # Check for a Last-Modified header
+    #
+    if ( ! defined($field) ) {
+        print "Check for Last-Modified header\n" if $debug;
+        $field = $header->header("Last-Modified");
+        if ( defined($field) ) {
+            print "Have Expires Last-Modified \"$field\"\n" if $debug;
+        }
+    }
+
+    #
+    # Did we find any etag or last-modified header ?
+    #
+    if ( ! defined($field) ) {
+        print "No Etag or Last-Modified header found\n" if $debug;
+        Record_Result("ETAGS", -1, -1, "",
+                      String_Value("No Etag or Last-Modified header field"));
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Cookies
+#
+# Parameters: this_url - a URL
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function checks to see if the HTTP::Response contains
+# any cookie settings.
+#
+#***********************************************************************
+sub Check_Cookies {
+    my ($this_url, $resp) = @_;
+
+    my ($header, $field);
+
+    #
+    # Get at the header object
+    #
+    print "Check_Cookies\n" if $debug;
+    $header = $resp->headers;
+
+    #
+    # Check for an Set-Cookie header
+    #
+    print "Check for Set-Cookie header\n" if $debug;
+    $field = $header->header("Set-Cookie");
+    if ( defined($field) ) {
+        print "Have Set-Cookie header \"$field\"\n" if $debug;
+        Record_Result("COOKIE_FREE", -1, -1, "",
+                      String_Value("Cookies set for supporting file"));
+    }
 }
 
 #***********************************************************************
@@ -276,15 +748,140 @@ sub Set_Mobile_Check_Test_Profile {
 #
 # Description:
 #
-#   This function runs a number of technical QA checks the content.
+#   This function runs a number of mobile QA checks the content.
 #
 #***********************************************************************
 sub Mobile_Check {
     my ($this_url, $language, $profile, $mime_type, $resp, $content) = @_;
 
-    my (@tqa_results_list, $result_object);
+    my (@tqa_results_list, $result_object, @other_tqa_results_list);
 
+    #
+    # Check for mobile optimization
+    #
+    print "Mobile_Check URL $this_url, mime-type = $mime_type, lanugage = $language, profile = $profile\n" if $debug;
 
+    #
+    # Initialize the test case pass/fail table.
+    #
+    Initialize_Test_Results($profile, \@tqa_results_list);
+    $current_url = $this_url;
+
+    #
+    # Are any of the testcases defined in this testcase profile ?
+    #
+    if ( keys(%$current_mobile_check_profile) == 0 ) {
+        #
+        # No tests handled by this module
+        #
+        print "No tests handled by this module\n" if $debug;
+        return(@tqa_results_list);
+    }
+    
+    #
+    # Perform content type specific checks.
+    #
+    if ( $mime_type =~ /text\/html/ ) {
+        @other_tqa_results_list = Mobile_Check_HTML($this_url, $language,
+                                                    $profile, $mime_type,
+                                                    $resp, $content);
+    }
+    elsif ( $mime_type =~ /text\/css/ ) {
+        #
+        # Check for expires or cache control in the header
+        #
+        Check_Expires_Cache_Control_Header($this_url, "EXPIRES", "", $resp);
+        
+        #
+        # Check for Etag or Last-Modified field in the header
+        #
+        Check_Etag_Last_Modified_Header($this_url, $resp);
+        
+        #
+        # Check for cookies in the header
+        #
+        Check_Cookies($this_url, $resp);
+
+        #
+        # CSS specific mobile checks.
+        #
+        @other_tqa_results_list = Mobile_Check_CSS($this_url, $language,
+                                                   $profile, $mime_type,
+                                                   $resp, $content);
+    }
+    elsif ( ($mime_type =~ /application\/x\-javascript/) ||
+            ($mime_type =~ /text\/javascript/) ||
+            ($this_url =~ /\.js$/i) ) {
+        #
+        # Check for expires or cache control in the header
+        #
+        Check_Expires_Cache_Control_Header($this_url, "EXPIRES", "", $resp);
+
+        #
+        # Check for Etag or Last-Modified field in the header
+        #
+        Check_Etag_Last_Modified_Header($this_url, $resp);
+
+        #
+        # Check for cookies in the header
+        #
+        Check_Cookies($this_url, $resp);
+
+        #
+        # JavaScript specific mobile checks
+        #
+        @other_tqa_results_list = Mobile_Check_JS($this_url, $language,
+                                                  $profile, $mime_type,
+                                                  $resp, $content);
+    }
+    elsif ( $mime_type =~ /image\//i ) {
+        #
+        # Check for expires or cache control in the header
+        #
+        Check_Expires_Cache_Control_Header($this_url, "EXPIRES", "", $resp);
+
+        #
+        # Check for Etag or Last-Modified field in the header
+        #
+        Check_Etag_Last_Modified_Header($this_url, $resp);
+
+        #
+        # Check for cookies in the header
+        #
+        Check_Cookies($this_url, $resp);
+
+        #
+        # Image specific mobile checks
+        #
+        @other_tqa_results_list = Mobile_Check_Image($this_url, $language,
+                                                     $profile, $mime_type,
+                                                     $resp, $content);
+    }
+    elsif ( $mime_type =~ /video\//i ) {
+        #
+        # Check for expires or cache control in the header
+        #
+        Check_Expires_Cache_Control_Header($this_url, "EXPIRES", "", $resp);
+
+        #
+        # Check for Etag or Last-Modified field in the header
+        #
+        Check_Etag_Last_Modified_Header($this_url, $resp);
+    }
+
+    #
+    # Merge results from the content type specific checks
+    # into the list of all results.
+    #
+    foreach $result_object (@other_tqa_results_list) {
+       push(@tqa_results_list, $result_object);
+    }
+
+    #
+    # Check for compressed content where appropriate
+    #
+    Check_Compressed_Content($this_url, $mime_type, $resp);
+    
     #
     # Return list of results
     #
@@ -293,28 +890,650 @@ sub Mobile_Check {
 
 #***********************************************************************
 #
-# Name: Mobile_Check_Links
+# Name: Check_Favicon_Link
+#
+# Parameters: url - URL of page
+#             link_sets - table of lists of link objects (1 list per
+#               document section)
+#
+# Description:
+#
+#    This function checks for a favicon link in the <head>.
+#
+#***********************************************************************
+sub Check_Favicon_Link {
+    my ($url, $link_sets) = @_;
+
+    my ($section, $list_addr, $link, $resp, %attr, $favicon_url);
+    my ($protocol, $domain, $file_path, $query, $new_url, $size);
+
+    #
+    # Check links in head section for a favicon/shortcut icon
+    #
+    print "Check_Favicon_Link\n" if $debug;
+    if ( defined($$link_sets{"HEAD"}) ) {
+        $list_addr= $$link_sets{"HEAD"};
+        print "Check links in section HEAD\n" if $debug;
+        foreach $link (@$list_addr) {
+            #
+            # Exclude <noscipt> links and links from
+            # conditional includes.
+            #
+            print "Check link " . $link->abs_url . "\n" if $debug;
+            if ( $link->noscript || $link->modified_content ) {
+                print "Skip noscipt or modified content link\n" if $debug;
+            }
+            #
+            # Look for <link> type only.
+            #
+            elsif ( $link->link_type eq "link" ){
+                #
+                # Get the <link> tag attributes
+                #
+                %attr = $link->attr();
+
+                #
+                # Is there a rel attribute with the value shortcut icon ?
+                #
+                print "Found link, rel = \"" . $attr{"rel"} . "\"\n" if $debug;
+                if ( defined($attr{"rel"}) &&
+                     (($attr{"rel"} =~ /^shortcut icon$/i) ||
+                      ($attr{"rel"} =~ /^icon$/i))  ) {
+                    print "Found favicon\n" if $debug;
+                    $favicon_url = $link->abs_url;
+                    last;
+                }
+            }
+        }
+    }
+    
+    #
+    # Did we find a favicon URL ?
+    #
+    if ( ! defined($favicon_url) ) {
+        #
+        # No favicon specified, use domain/favicon.ico as the default
+        #
+        ($protocol, $domain, $file_path, $query, $new_url) = URL_Check_Parse_URL($url);
+        $favicon_url = $protocol . $domain . "/favicon.ico";
+    }
+        
+    #
+    # Get the favicon URL if we have not already seen it
+    #
+    print "Check favicon $favicon_url\n" if $debug;
+    if ( ! defined($favicon_urls{$favicon_url}) ) {
+        ($new_url, $resp) = Crawler_Get_HTTP_Response($favicon_url, $url);
+        $favicon_urls{$favicon_url} = $favicon_url;
+        
+        #
+        # Is this a broken link ?
+        #
+        print "Check favicon $favicon_url\n" if $debug;
+        if ( defined($resp) && ($resp->code == 404) ) {
+            Record_Result("FAVICON", -1, -1, "",
+                          String_Value("Broken link to favicon") .
+                          " \"$favicon_url\"");
+        }
+        elsif ( defined($resp) ) {
+            #
+            # Is the favicon cacheable ?
+            #
+            Check_Expires_Cache_Control_Header($favicon_url, "FAVICON",
+                                               " " . String_Value("Favicon URL") .
+                                               " $favicon_url",
+                                               $resp);
+        
+            #
+            # Check size of favicon
+            #
+            $size = length($resp->content);
+            if ( defined($favicon_size) && ($size > $favicon_size) ) {
+                    Record_Result("FAVICON", -1, -1, "",
+                                  String_Value("Favicon image size") .
+                                  " $size " .
+                                  String_Value("for") . " $favicon_url " .
+                                  String_Value("exceeds maximum acceptable value") .
+                                  " $favicon_size");
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Broken_Redirect_Links
+#
+# Parameters: link_sets - table of lists of link objects (1 list per
+#               document section)
+#
+# Description:
+#
+#    This function checks for broken or redirected links.
+#
+#***********************************************************************
+sub Check_Broken_Redirect_Links {
+    my ($link_sets) = @_;
+
+    my ($section, $list_addr, $link, $resp, $pattern, $match_pattern);
+
+    #
+    # Check links in all sections of the page
+    #
+    print "Check_Broken_Redirect_Links\n" if $debug;
+    while ( ($section, $list_addr) = each %$link_sets ) {
+        print "Check links in section $section\n" if $debug;
+        foreach $link (@$list_addr) {
+            #
+            # Exclude <noscipt> links and links from
+            # conditional includes.
+            #
+            print "Check link " . $link->abs_url . "\n" if $debug;
+            if ( $link->noscript || $link->modified_content ) {
+                print "Skip noscipt or modified content link\n" if $debug;
+            }
+            else {
+                #
+                # Get the status of the link
+                #
+                ($link, $resp) = Link_Checker_Get_Link_Status($current_url, $link);
+
+                #
+                # Is this a broken link ?
+                #
+                if ( defined($resp) && ($resp->code == 404) ) {
+                    Record_Result("NO_404", -1, -1, $link->source_line,
+                                  String_Value("Broken link") .
+                                  " \"" . $link->abs_url . "\"");
+                }
+                #
+                # Is this a redirected link ?
+                #
+                elsif ( $link->is_redirected ) {
+                    #
+                    # Is this a redirect we ignore (e.g. language switching)
+                    #
+                    $match_pattern = 0;
+                    foreach $pattern (@redirect_ignore_text_patterns) {
+                        if ( $link->anchor =~ /$pattern/i ) {
+                            $match_pattern = 1;
+                            print "Link text matches pattern $pattern\n" if $debug;
+                            last;
+                        }
+                    }
+                    if ( ! $match_pattern ) {
+                        foreach $pattern (@redirect_ignore_url_patterns) {
+                            if ( $link->abs_url =~ /$pattern/i ) {
+                                $match_pattern = 1;
+                                print "Link URL matches pattern $pattern\n" if $debug;
+                                last;
+                            }
+                        }
+                    }
+                    
+                    #
+                    # Do we record this redirect ?
+                    #
+                    if ( ! $match_pattern ) {
+                        Record_Result("REDIRECTS", -1, -1, $link->source_line,
+                                      String_Value("Redirected link") .
+                                      " \"" . $link->abs_url . "\" -> \"" .
+                                      $link->redirect_url . "\"");
+                    }
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_CSS_Links
+#
+# Parameters: link_sets - table of lists of link objects (1 list per
+#               document section)
+#
+# Description:
+#
+#    This function checks CSS links on the page.  It checks the number of
+# CSS links.
+#
+#***********************************************************************
+sub Check_CSS_Links {
+    my ($link_sets) = @_;
+
+    my ($section, $list_addr, $link, $css_count, %attr, %css_urls);
+
+    #
+    # Check links in all sections of the page
+    #
+    print "Check_CSS_Links\n" if $debug;
+    $css_count = 0;
+    while ( ($section, $list_addr) = each %$link_sets ) {
+        print "Check links in section $section\n" if $debug;
+        foreach $link (@$list_addr) {
+            #
+            # Exclude <noscipt> links and links from
+            # conditional includes.
+            #
+            print "Check link " . $link->abs_url . "\n" if $debug;
+            if ( $link->noscript || $link->modified_content ) {
+                print "Skip noscript or modified content link\n" if $debug;
+            }
+            #
+            # Is this link from a <link> tag ?
+            #
+            elsif ( $link->link_type eq "link" ){
+                #
+                # Get the <link> tag attributes
+                #
+                %attr = $link->attr();
+
+                #
+                # Is there a rel attribute with the value stylesheet ?
+                #
+                if ( defined($attr{"rel"}) &&
+                     ($attr{"rel"} =~ /^stylesheet$/i) ) {
+                    print "Found stylesheet\n" if $debug;
+                    if ( ! defined($css_urls{$link->abs_url}) ) {
+                        $css_count++;
+                        $css_urls{$link->abs_url} = 1;
+                    }
+                }
+                
+                #
+                # Are we outside the HEAD section ? We should not find CSS
+                # files outside the <head>.
+                #
+                if ( $section ne "HEAD" ) {
+                    Record_Result("CSS_TOP", $link->line_no, $link->column_no,
+                                  $link->source_line,
+                                  String_Value("CSS link found outside of <head>"));
+                }
+            }
+        }
+    }
+    
+    #
+    # Did we find too many CSS links ?
+    #
+    if ( defined($max_allowed_css) && ($css_count > $max_allowed_css) ) {
+        Record_Result("NUM_HTTP", -1, -1, "",
+                      "CSS " . String_Value("link count") .
+                      " $css_count " . String_Value("greater than expected maximum of") .
+                      " $max_allowed_css");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_JS_Links
+#
+# Parameters: link_sets - table of lists of link objects (1 list per
+#               document section)
+#
+# Description:
+#
+#    This function checks JS links on the page.  It checks the number of
+# JS links.
+#
+#***********************************************************************
+sub Check_JS_Links {
+    my ($link_sets) = @_;
+
+    my ($section, $list_addr, $link, $js_count, %attr, %urls, $src);
+
+    #
+    # Check links in all sections of the page
+    #
+    print "Check_JS_Links\n" if $debug;
+    $js_count = 0;
+    while ( ($section, $list_addr) = each %$link_sets ) {
+        print "Check links in section $section\n" if $debug;
+        foreach $link (@$list_addr) {
+            #
+            # Exclude <noscipt> links and links from
+            # conditional includes.
+            #
+            print "Check link " . $link->abs_url . "\n" if $debug;
+            if ( $link->noscript || $link->modified_content ) {
+                print "Skip noscript or modified content link\n" if $debug;
+            }
+            #
+            # Is this link from a <script> tag ?
+            #
+            elsif ( $link->link_type eq "script" ){
+                #
+                # Get the <script> tag attributes
+                #
+                %attr = $link->attr();
+
+                #
+                # Is there a src attribute ?
+                #
+                if ( defined($attr{"src"}) ) {
+                    print "Found script\n" if $debug;
+                    $js_count++;
+                    $src = $link->abs_url;
+                    
+                    #
+                    # Have we seen this URL before ?
+                    #
+                    if ( defined($urls{$src}) ) {
+                        Record_Result("JS_DUPES", $link->line_no, $link->column_no,
+                                      $link->source_line,
+                                      String_Value("Duplicate JS link found") .
+                                      " $src " .
+                                      String_Value("Previous instance found at") .
+                                      " " . $urls{$src});
+                    }
+                    else {
+                        #
+                        # Save location of this URL
+                        #
+                        $urls{$src} = $link->line_no . ":" . $link->column_no;
+                    }
+                }
+
+                #
+                # Are we inside the HEAD section ? We should not find JS
+                # files in the <head>.
+                #
+                if ( $section eq "HEAD" ) {
+                    Record_Result("JS_BOTTOM", $link->line_no, $link->column_no,
+                                  $link->source_line,
+                                  String_Value("JS link found in <head>"));
+                }
+            }
+        }
+    }
+
+    #
+    # Did we find too many JS links ?
+    #
+    if ( defined($max_allowed_js) && ($js_count > $max_allowed_js) ) {
+        Record_Result("NUM_HTTP", -1, -1, "",
+                      "JS " . String_Value("link count") .
+                      " $js_count " . String_Value("greater than expected maximum of") .
+                      " $max_allowed_js");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Image_Links
+#
+# Parameters: link_sets - table of lists of link objects (1 list per
+#               document section)
+#
+# Description:
+#
+#    This function checks image links on the page.  It checks the number of
+# image links.
+#
+#***********************************************************************
+sub Check_Image_Links {
+    my ($link_sets) = @_;
+
+    my ($section, $list_addr, $link, $image_count, %attr, %img_urls);
+
+    #
+    # Check links in all sections of the page
+    #
+    print "Check_Image_Links\n" if $debug;
+    $image_count = 0;
+    while ( ($section, $list_addr) = each %$link_sets ) {
+        print "Check links in section $section\n" if $debug;
+        foreach $link (@$list_addr) {
+            #
+            # Exclude <noscipt> links and links from
+            # conditional includes.
+            #
+            print "Check link " . $link->abs_url . "\n" if $debug;
+            if ( $link->noscript || $link->modified_content ) {
+                print "Skip noscript or modified content link\n" if $debug;
+            }
+            #
+            # Is this link from a <img> tag ?
+            #
+            elsif ( $link->link_type eq "img" ){
+                print "Found image\n" if $debug;
+                if ( ! defined($img_urls{$link->abs_url}) ) {
+                    $image_count++;
+                    $img_urls{$link->abs_url} = 1;
+                }
+            }
+            #
+            # Is this link from a <video> tag ?
+            #
+            elsif ( $link->link_type eq "video" ){
+                #
+                # Get the <video> tag attributes
+                #
+                %attr = $link->attr();
+
+                #
+                # Is there a poster attribute ?
+                #
+                if ( defined($attr{"poster"}) ) {
+                    print "Found video poster\n" if $debug;
+                    if ( ! defined($img_urls{$link->abs_url}) ) {
+                        $image_count++;
+                        $img_urls{$link->abs_url} = 1;
+                    }
+                }
+            }
+        }
+    }
+
+    #
+    # Did we find too many image links ?
+    #
+    if ( defined($max_allowed_image) && ($image_count > $max_allowed_image) ) {
+        Record_Result("NUM_HTTP", -1, -1, "",
+                      "Image " . String_Value("link count") .
+                      " $image_count " . String_Value("greater than expected maximum of") .
+                      " $max_allowed_image");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Hostnames
 #
 # Parameters: url - URL
+#             link_sets - table of lists of link objects (1 list per
+#               document section)
+#
+# Description:
+#
+#    This function checks the hostname for all supporting files
+# (e.g. CSS, JavaScript, images, etc) to see how many different
+# hostnames are used.
+#
+#***********************************************************************
+sub Check_Hostnames {
+    my ($url, $link_sets) = @_;
+    
+    my ($link, $section, $list_addr, %attr, $link_to_check);
+    my ($protocol, $domain, $file_path, $query, $new_url);
+    my (%hostname_map, $hostname_count);
+    
+    #
+    # Get the hostname for the source URL
+    #
+    ($protocol, $domain, $file_path, $query, $new_url) = URL_Check_Parse_URL($url);
+    
+    #
+    # Strip any port number from the domain portion
+    #
+    if ( defined($domain) ) {
+        $domain =~ s/:.*//g;
+        $hostname_map{$domain} = $domain;
+    }
+    
+    #
+    # Check links in all sections of the page
+    #
+    print "Check_Hostnames\n" if $debug;
+    while ( ($section, $list_addr) = each %$link_sets ) {
+        print "Check links in section $section\n" if $debug;
+        foreach $link (@$list_addr) {
+            #
+            # Get the link attributes
+            #
+            %attr = $link->attr();
+
+            #
+            # Exclude <noscipt> links and links from
+            # conditional includes.
+            #
+            print "Check link " . $link->abs_url . "\n" if $debug;
+            $link_to_check = "";
+            if ( $link->noscript || $link->modified_content ) {
+                print "Skip noscript or modified content link\n" if $debug;
+            }
+            #
+            # Is this an img link ?
+            #
+            elsif ( $link->link_type eq "img" ) {
+                print "Found image\n" if $debug;
+                $link_to_check = $link->abs_url;
+            }
+            #
+            # Is this a CSS link ?
+            #
+            elsif ( ($link->link_type eq "link") &&
+                    defined($attr{"rel"}) &&
+                    ($attr{"rel"} =~ /^stylesheet$/i) ){
+                print "Found stylesheet\n" if $debug;
+                $link_to_check = $link->abs_url;
+            }
+            #
+            # Is this an object link ?
+            #
+            elsif ( $link->link_type eq "object" ) {
+                print "Found object\n" if $debug;
+                $link_to_check = $link->abs_url;
+            }
+            #
+            # Is this link from a <script> tag ?
+            #
+            elsif ( $link->link_type eq "script" ) {
+                print "Found script\n" if $debug;
+                $link_to_check = $link->abs_url;
+            }
+            
+            #
+            # Did we find a link to check ?
+            #
+            if ( $link_to_check ne "" ) {
+                #
+                # Get the hostname component of the URL
+                #
+                ($protocol, $domain, $file_path, $query, $new_url) =
+                        URL_Check_Parse_URL($link_to_check);
+
+                #
+                # Strip any port number from the domain portion
+                #
+                if ( defined($domain) ) {
+                    $domain =~ s/:.*//g;
+                    $hostname_map{$domain} = $domain;
+                }
+            }
+        }
+    }
+    
+    #
+    # Get count of unique hostnames
+    #
+    $hostname_count = keys %hostname_map;
+    print "Have $hostname_count unique hostnames\n" if $debug;
+    if ( defined($max_hostname_count) &&
+         ($hostname_count > $max_hostname_count) ) {
+        Record_Result("DNS_LOOKUPS", -1, -1, "",
+                      String_Value("Hostname count for supporting files") .
+                      ", $hostname_count, " .
+                      String_Value("greater than expected maximum of") .
+                      " $max_hostname_count");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Mobile_Check_Links
+#
+# Parameters: tqa_results_list - address of hash table results
+#             url - URL
 #             profile - testcase profile
-#             content - web page content pointer
+#             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
 #
 # Description:
 #
 #    This function performs a number of checks on links found within a
-# document.  Checks are performed on the common menu bar, left
-# navigation and footer.
+# document.
 #
 #***********************************************************************
 sub Mobile_Check_Links {
-    my ($url, $profile, $content, $link_sets) = @_;
+    my ($tqa_results_list, $url, $profile, $language, $link_sets) = @_;
 
+    my ($result_object, $section, $list_addr, $link);
+    
     #
     # Perform Mobile link checks.
     #
     print "Mobile_Check_Links: profile = $profile\n" if $debug;
+
+    #
+    # Initialize the test case pass/fail table.
+    #
+    $current_mobile_check_profile = $mobile_check_profile_map{$profile};
+    $results_list_addr = $tqa_results_list;
+    $current_url = $url;
+
+    #
+    # Are any of the testcases defined in this testcase profile ?
+    #
+    if ( keys(%$current_mobile_check_profile) == 0 ) {
+        #
+        # No tests handled by this module
+        #
+        print "No tests handled by this module\n" if $debug;
+        return();
+    }
+    
+    #
+    # Check for favicon link
+    #
+    Check_Favicon_Link($url, $link_sets);
+    
+    #
+    # Check for broken or redirected links
+    #
+    Check_Broken_Redirect_Links($link_sets);
+    
+    #
+    # Check the number of CSS files in the page
+    #
+    Check_CSS_Links($link_sets);
+    
+    #
+    # Check the number of JS files in the page
+    #
+    Check_JS_Links($link_sets);
+    
+    #
+    # Check the number of image files in the page
+    #
+    Check_Image_Links($link_sets);
+
+    #
+    # Check the hostnames for components (CSS, JavaScript, Images, etc)
+    #
+    Check_Hostnames($url, $link_sets);
 }
 
 #***********************************************************************
@@ -454,7 +1673,7 @@ sub Mobile_Check_Save_Web_Page_Size {
             print "Error: Failed to create temporary file in Mobile_Check_Save_Web_Page_Size\n";
             return;
         }
-        print "CSC file name = $file_name\n" if $debug;
+        print "CSV file name = $file_name\n" if $debug;
         binmode $file_handle;
 
         #
@@ -489,7 +1708,11 @@ sub Mobile_Check_Save_Web_Page_Size {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("tqa_result_object");
+    my (@package_list) = ("tqa_result_object", "mobile_testcases",
+                          "link_checker", "mobile_check_css",
+                          "mobile_check_html", "mobile_check_js",
+                          "mobile_check_image", "url_check",
+                          "crawler");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
