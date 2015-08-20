@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 6957 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
-# $Date: 2015-01-05 15:14:04 -0500 (Mon, 05 Jan 2015) $
+# $Revision: 7131 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
+# $Date: 2015-05-07 15:37:01 -0400 (Thu, 07 May 2015) $
 #
 # Description:
 #
@@ -109,7 +109,7 @@ BEGIN {
 #***********************************************************************
 
 my ($user_agent, %visited_url_status, %visited_url_hits);
-my (%domain_networkscope_map, %domain_alias_map, $firewall_block_pattern);
+my (%domain_networkscope_map, %domain_alias_map, @firewall_block_patterns);
 my ($firewall_user, $firewall_password, @redirect_ignore_patterns);
 my (@link_ignore_patterns, %site_vanity_domains);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
@@ -347,7 +347,7 @@ sub Link_Checker_Config {
             $max_redirects = $value;
         }
         elsif ( $key =~ /firewall_block_pattern/i ) {
-            $firewall_block_pattern = $value;
+            @firewall_block_patterns = split(/\n/, $value);
         }
         elsif ( $key =~ /firewall_user/i ) {
             $firewall_user = $value;
@@ -968,7 +968,7 @@ sub Link_Status {
     my ($referer_url, $this_link, $link) = @_;
 
     my ($is_broken_link, $is_redirected_link, $req, $resp, $header);
-    my ($domain, $file_path, $url, $is_firewall_blocked);
+    my ($domain, $file_path, $url, $is_firewall_blocked, $pattern);
     my ($protocol, $query, $new_url, $redirect_dir, $lang);
     my ($redirect_protocol, $redirect_domain, $redirect_file_path, $redirect_query);
     my ($redirect_count) = 0;
@@ -1093,9 +1093,12 @@ sub Link_Status {
             if ( $resp->is_redirect ) {
                 #
                 # Get new target for redirect
+                #
                 $redirect_count++;
                 $header = $resp->headers;
                 $url = $header->header("Location");
+                $link->is_redirected(1);
+                $link->redirect_url($url);
 
                 #
                 # Does URL have a leading http ? 
@@ -1166,12 +1169,27 @@ sub Link_Status {
                 # Check new URL to see if we are redirected to the
                 # firewall blockage page.
                 #
-                elsif ( defined($firewall_block_pattern) &&
-                        ($resp->code == 302) &&
-                        ($url =~ /$firewall_block_pattern/) ) {
-                    print "Redirected to firewall block page $url\n" if $debug;
-                    $is_firewall_blocked = 1;
-                    $done = 1;
+                elsif ( (@firewall_block_patterns > 0) &&
+                        ($resp->code == 302) ) {
+                    #
+                    # Check each firewall pattern
+                    #
+                    print "Check firewall pettern match\n" if $debug;
+                    foreach $pattern (@firewall_block_patterns) {
+                        print "Pattern = \"$pattern\"\n" if $debug;
+                        if ( $url =~ /$pattern/ ) {
+                            print "Matches firewall block pattern $pattern\n" if $debug;
+                            $is_firewall_blocked = 1;
+                    
+                            #
+                            # Clear redirect property, this is an internal redirect
+                            #
+                            $link->is_redirected(0);
+                            $link->redirect_url("");
+                            $done = 1;
+                            last;
+                        }
+                    }
                 }
 
                 #
@@ -1368,15 +1386,15 @@ sub Get_Content_Language {
         #
         if ( defined($resp) && ($resp->is_success) ) {
             #
-            # Check for UTF-8 content
-            #
-            $content = Crawler_Decode_Content($resp);
-
-            #
             # Is content text/html ?
             #
             print "Content type = " . $resp->content_type . "\n" if $debug;
             if ( $resp->content_type =~ /text\/html/ ) {
+                #
+                # Check for UTF-8 content
+                #
+                $content = Crawler_Decode_Content($resp);
+
                 #
                 # Determine language of HTML page
                 #
@@ -1387,6 +1405,11 @@ sub Get_Content_Language {
             # Is content text/plain ?
             #
             elsif ( $resp->content_type =~ /text\/plain/ ) {
+                #
+                # Check for UTF-8 content
+                #
+                $content = Crawler_Decode_Content($resp);
+
                 #
                 # Determine language of text page
                 #
@@ -1400,6 +1423,7 @@ sub Get_Content_Language {
                 #
                 # Extract text from PDF document
                 #
+                $content = $resp->content;
                 $content = PDF_Files_PDF_Content_To_Text(\$content);
 
                 #
@@ -1944,7 +1968,6 @@ sub Link_Checker_Get_Link_Status {
                 else {
                     $link->content_length(length($resp->content));
                 }
-
                 print "Target URL length " . $link->content_length . "\n" if $debug;
 
                 #
@@ -2389,6 +2412,17 @@ sub Link_Checker {
                               $link->column_no, $link->source_line,
                               "href= " . $link->href);
             }
+        }
+        #
+        # Is this a redirected link ?
+        #
+        elsif ( $link_check_status == $link_check_redirect ) {
+                Record_Result($link_status_message_map{$link_check_status},
+                              $link->line_no, $link->column_no,
+                              $link->source_line,
+                              String_Value("Redirect") .
+                              " \"" . $link->abs_url . "\" -> \"" .
+                              $link->redirect_url . "\"");
         }
         else {
             #
