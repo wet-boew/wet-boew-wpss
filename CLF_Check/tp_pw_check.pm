@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 7053 $
+# $Revision: 7214 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2015-04-02 11:12:53 -0400 (Thu, 02 Apr 2015) $
+# $Date: 2015-08-05 06:44:13 -0400 (Wed, 05 Aug 2015) $
 #
 # Description:
 #
@@ -137,9 +137,10 @@ my %string_table_en = (
     "DOCTYPE is not",                 "DOCTYPE is not",
     "or more recent",                 "or more recent",
     "Link violations found",          "Link violations found, see link check results for details.",
-    "New heading level",             "New heading level ",
-    "is not equal to last level",    " is not equal to last level ",
-    "Displayed e-mail address does not match mailto",  "Displayed e-mail address does not match 'mailto'",
+    "New heading level",              "New heading level ",
+    "is not equal to last level",     " is not equal to last level ",
+    "Displayed e-mail address",       "Displayed e-mail address",
+    "does not match mailto",          "does not match 'mailto'",
     "Multiple <h1> tags found in section", "Multiple <h1> tags found in section",
     "Mismatch in template file domain, found", "Mismatch in template file domain, found",
     "Mismatch in template file directory, found", "Mismatch in template file directory, found",
@@ -173,8 +174,9 @@ my %string_table_fr = (
     "or more recent",                 "ou plus récent",
     "Link violations found",          "Violations Lien trouvé, voir les résultats vérifier le lien pour plus de détails.",
     "New heading level",              "Nouveau niveau d'en-tête ",
-    "is not equal to last level",    " n'est pas égal à au dernier niveau ",
-    "Displayed e-mail address does not match mailto", "L'adresse courriel affichée ne correspond pas au 'mailto'",
+    "is not equal to last level",     " n'est pas égal à au dernier niveau ",
+    "Displayed e-mail address",       "L'adresse courriel affichée",
+    "does not match mailto",          "ne correspond pas au 'mailto'",
     "Multiple <h1> tags found in section", "Plusieurs balises <h1> trouvé dans la section",
     "Mismatch in template file domain, found", "Erreur de correspondance des domaine des fichier de gabarit, a trouvé",
     "Mismatch in template file directory, found", "Erreur de correspondance des répertoire des fichier de gabarit, a trouvé",
@@ -1513,8 +1515,8 @@ sub Check_End_Anchor_Mailto {
     #
     $mailto_address =~ s/^mailto://;
     $mailto_address =~ s/\?.*//;
-    $mailto_address =~ s/\&amp;.*//i;
-    $mailto_address =~ s/\&.*//;
+    $mailto_address =~ s/\&amp;*/\&/gi;
+    #$mailto_address =~ s/\&.*//;
     $mailto_address =~ s/^\s*//g;
     print "Check_End_Anchor_Mailto: address = $mailto_address\n" if $debug;
 
@@ -1564,7 +1566,10 @@ sub Check_End_Anchor_Mailto {
         #
         if ( !$found_match ) {
             Record_Result("TP_PW_MAILTO", $line, $column, $text,
-                          String_Value("Displayed e-mail address does not match mailto"));
+                          String_Value("Displayed e-mail address") .
+                          "  " . join("", @anchor_text_list) . " " .
+                          String_Value("does not match mailto") .
+                          " $mailto_address");
         }
     }
 }
@@ -2104,7 +2109,7 @@ sub Verify_Template_Checksums {
                         # file should not be checksumed, e.g. an HTML file)
                         #
                         if ( $checksum ne "0" ) {
-                            $calculated_checksum = Checksum($resp->content);
+                            $calculated_checksum = Checksum(Crawler_Decode_Content($resp));
                         }
                         else {
                             $calculated_checksum = "0";
