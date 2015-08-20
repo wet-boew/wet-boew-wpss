@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 7052 $
+# $Revision: 7097 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2015-04-02 11:12:04 -0400 (Thu, 02 Apr 2015) $
+# $Date: 2015-04-17 12:04:23 -0400 (Fri, 17 Apr 2015) $
 #
 # Description:
 #
@@ -2077,6 +2077,12 @@ sub Destroy_Text_Handler {
                 #
                 print "Not adding <a> text to <label> text handler\n" if $debug;
             }
+            elsif ( $tag eq "script" ) {
+                #
+                # Don't add script tag text parent.
+                #
+                print "Not adding <script> text to text handler\n" if $debug;
+            }
             else {
                 #
                 # Add text from this tag to the previous tag's text handler
@@ -3009,6 +3015,54 @@ sub End_Li_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Script_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the script tag.
+#
+#***********************************************************************
+sub Script_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Start a text handler for the <script> text
+    #
+    Start_Text_Handler($self, "script");
+}
+
+#***********************************************************************
+#
+# Name: End_Script_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the end script tag.
+#
+#***********************************************************************
+sub End_Script_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Destroy a text handler for the <script> text
+    #
+    Destroy_Text_Handler($self, "script");
+}
+
+#***********************************************************************
+#
 # Name: Anchor_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -3366,25 +3420,31 @@ sub Start_Handler {
     # Check input tag
     #
     elsif ( $tagname eq "input" ) {
-        Input_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+        Input_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
     #
     # Check li tag
     #
     elsif ( $tagname eq "li" ) {
-        Li_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+        Li_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
     #
     # Check link tag
     #
     elsif ( $tagname eq "link" ) {
-        Link_Tag_Handler($line, $column, $text, %attr_hash );
+        Link_Tag_Handler($line, $column, $text, %attr_hash);
     }
     #
     # Check for meta tag
     #
     elsif ( $tagname eq "meta" ) {
-        Meta_Tag_Handler( $line, $column, $text, %attr_hash );
+        Meta_Tag_Handler($line, $column, $text, %attr_hash);
+    }
+    #
+    # Check for script tag
+    #
+    elsif ( $tagname eq "script" ) {
+        Script_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
 
 }
@@ -3512,6 +3572,12 @@ sub End_Handler {
     #
     elsif ( $tagname eq "li" ) {
         End_Li_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+    #
+    # Check script tag
+    #
+    elsif ( $tagname eq "script" ) {
+        End_Script_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
 
     #
