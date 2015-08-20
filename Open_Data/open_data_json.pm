@@ -2,14 +2,14 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 7025 $
+# $Revision: 7174 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_json.pm $
-# $Date: 2015-03-06 10:17:34 -0500 (Fri, 06 Mar 2015) $
+# $Date: 2015-06-05 10:51:57 -0400 (Fri, 05 Jun 2015) $
 #
 # Description:
 #
-#   This file contains routines that parse JSON APIs and check for
-# a number of open data check points.
+#   This file contains routines that parse JSON APIs and data files to
+# check for a number of open data check points.
 #
 # Public functions:
 #     Set_Open_Data_JSON_Language
@@ -17,6 +17,7 @@
 #     Set_Open_Data_JSON_Testcase_Data
 #     Set_Open_Data_JSON_Test_Profile
 #     Open_Data_JSON_Check_API
+#     Open_Data_JSON_Check_Data
 #
 # Terms and Conditions of Use
 #
@@ -70,6 +71,7 @@ BEGIN {
                   Set_Open_Data_JSON_Testcase_Data
                   Set_Open_Data_JSON_Test_Profile
                   Open_Data_JSON_Check_API
+                  Open_Data_JSON_Check_Data
                   );
     $VERSION = "1.0";
 }
@@ -98,12 +100,14 @@ my ($check_fail)       = 1;
 #
 my %string_table_en = (
     "Fails validation",            "Fails validation",
-    "No content in API", "No content in API",
+    "No content in API",           "No content in API",
+    "No content in file",          "No content in file",
     );
 
 my %string_table_fr = (
     "Fails validation",            "Échoue la validation",
-    "No content in API", "Aucun contenu dans API",
+    "No content in API",           "Aucun contenu dans API",
+    "No content in file",          "Aucun contenu dans fichier",
     );
 
 #
@@ -396,7 +400,7 @@ sub Open_Data_JSON_Check_API {
     #
     # Did we get any content ?
     #
-    if ( length($$content) == 0 ) {
+    if ( length($content) == 0 ) {
         print "No content passed to Open_Data_JSON_Check_API\n" if $debug;
         Record_Result("OD_API_3", -1, 0, "",
                       String_Value("No content in API"));
@@ -405,15 +409,11 @@ sub Open_Data_JSON_Check_API {
         #
         # Parse the content.
         #
-        $eval_output = eval { $ref = decode_json($content); 1 } ;
-
-        #
-        # Did the parse fail ?
-        #
-        if ( ! $eval_output ) {
-            $eval_output =~ s/ at \S* line \d*$//g;
-            Record_Result("OD_API_3", -1, 0, "$eval_output",
-                          String_Value("Fails validation"));
+        if ( ! eval { $ref = decode_json($content); 1 } ) {
+            $eval_output = $@;
+            $eval_output =~ s/ at \S* line \d*\.$//g;
+            Record_Result("OD_3", -1, 0, "",
+                          String_Value("Fails validation") . " $eval_output");
         }
     }
 
@@ -422,6 +422,108 @@ sub Open_Data_JSON_Check_API {
     #
     if ( $debug ) {
         print "Open_Data_JSON_Check_API results\n";
+        foreach $result_object (@tqa_results_list) {
+            print "Testcase: " . $result_object->testcase;
+            print "  message  = " . $result_object->message . "\n";
+        }
+    }
+
+    #
+    # Return list of results
+    #
+    return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_JSON_Check_Data
+#
+# Parameters: this_url - a URL
+#             profile - testcase profile
+#             filename - JSON content file
+#             dictionary - address of a hash table for data dictionary
+#
+# Description:
+#
+#   This function runs a number of open data checks on JSON data file content.
+#
+#***********************************************************************
+sub Open_Data_JSON_Check_Data {
+    my ($this_url, $profile, $filename, $dictionary) = @_;
+    
+    my (@tqa_results_list, $result_object, $testcase, $eval_output, $ref);
+    my ($content, $line, $json_file);
+
+    #
+    # Do we have a valid profile ?
+    #
+    print "Open_Data_JSON_Check_Data Checking URL $this_url, profile = $profile\n" if $debug;
+    if ( ! defined($open_data_profile_map{$profile}) ) {
+        print "Open_Data_JSON_Check_Data Unknown testcase profile passed $profile\n";
+        return(@tqa_results_list);
+    }
+
+    #
+    # Save URL in global variable
+    #
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
+        $current_url = $this_url;
+    }
+    else {
+        #
+        # Doesn't look like a URL.  Could be just a block of JSON
+        # from the standalone validator which does not have a URL.
+        #
+        $current_url = "";
+    }
+
+    #
+    # Initialize the test case pass/fail table.
+    #
+    Initialize_Test_Results($profile, \@tqa_results_list);
+
+    #
+    # Open the JSON file for reading.
+    #
+    print "Open JSON file $filename\n" if $debug;
+    open(FH, "$filename") ||
+        die "Open_Data_JSON_Check_Data Failed to open $filename for reading\n";
+    binmode FH;
+
+    #
+    # Read the content
+    #
+    $content = "";
+    while ( $line = <FH> ) {
+        $content .= $line;
+    }
+    close(FH);
+
+    #
+    # Did we get any content ?
+    #
+    if ( length($content) == 0 ) {
+        print "No content passed to Open_Data_JSON_Check_Data\n" if $debug;
+        Record_Result("OD_3", -1, 0, "", String_Value("No content in file"));
+    }
+    else {
+        #
+        # Parse the content.
+        #
+        print " Content length = " . length($content) . "\n" if $debug;
+        if ( ! eval { $ref = decode_json($content); 1 } ) {
+            $eval_output = $@;
+            $eval_output =~ s/ at \S* line \d*\.$//g;
+            Record_Result("OD_3", -1, 0, "",
+                          String_Value("Fails validation") . " $eval_output");
+        }
+    }
+
+    #
+    # Print testcase information
+    #
+    if ( $debug ) {
+        print "Open_Data_JSON_Check_Data results\n";
         foreach $result_object (@tqa_results_list) {
             print "Testcase: " . $result_object->testcase;
             print "  message  = " . $result_object->message . "\n";
