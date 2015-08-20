@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 7062 $
+# $Revision: 7146 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2015-04-02 11:38:25 -0400 (Thu, 02 Apr 2015) $
+# $Date: 2015-05-21 10:58:55 -0400 (Thu, 21 May 2015) $
 #
 # Description:
 #
@@ -501,7 +501,15 @@ sub Print_TQA_Result_to_CSV {
     @fields = ($tab_label, $result_object->url, $result_object->testcase,
                $result_object->description, $result_object->line_no,
                $result_object->column_no, $result_object->page_no,
-               $result_object->source_line, $result_object->message);
+               $result_object->source_line);
+    #
+    # Add message field. Limit text to 10K characters
+    #
+    push(@fields, substr($result_object->message, 0, 10240));
+
+    #
+    # Write fields to the CSV file.
+    #
     if ( defined($csv_object) ) {
         $status = $csv_object->print($csv_results_fh, \@fields);
         if ( ! $status ) {
