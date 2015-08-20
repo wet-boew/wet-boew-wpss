@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 7025 $
+# $Revision: 7106 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2015-03-06 10:17:34 -0500 (Fri, 06 Mar 2015) $
+# $Date: 2015-04-24 16:49:19 -0400 (Fri, 24 Apr 2015) $
 #
 # Description:
 #
@@ -554,8 +554,8 @@ sub Open_Data_CSV_Check_Data {
     print "Open CSV file $filename\n" if $debug;
     open($csv_file, "$filename") ||
         die "Open_Data_CSV_Check_Data: Failed to open $filename for reading\n";
-    binmode $csv_file, ":utf8";
-    
+    binmode $csv_file;
+
     #
     # Check for UTF-8 BOM (Byte Order Mark) at the top of the
     # file
