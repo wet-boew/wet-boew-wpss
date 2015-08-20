@@ -2,9 +2,9 @@
 #
 # Name:   css_validate.pm
 #
-# $Revision: 6706 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/CSS_Validate/Tools/css_validate.pm $
-# $Date: 2014-07-22 12:17:06 -0400 (Tue, 22 Jul 2014) $
+# $Revision: 7129 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/CSS_Validate/Tools/css_validate.pm $
+# $Date: 2015-05-07 15:34:24 -0400 (Thu, 07 May 2015) $
 #
 # Description:
 #
@@ -453,7 +453,7 @@ sub End_Style_Tag_Handler {
     # a block of CSS as the URL may relative and we don't have a base
     # URL to work with.
     #
-    $all_text =~ s/\@import\s+.*?(;|$)//g;
+    #$all_text =~ s/\@import\s+.*?(;|$)//g;
     print "End_Style_Tag_Handler: Add $all_text to extracted CSS text\n" if $debug;
 
     #
@@ -639,13 +639,13 @@ if ( $program_dir eq "." ) {
 #   -warning -1 = suppress warnings
 #   -vextwarning true = treat vendor extensions as warnings
 #
-$validate_cmnd = "java -classpath $program_dir/lib/css-validator.jar;" .
-                 "$program_dir/lib/jigsaw.jar;" .
+$validate_cmnd = "java -classpath \"$program_dir/lib/css-validator.jar\";" .
+                 "$program_dir/lib/jigsaw.ja;" .
                  "$program_dir/lib/velocity.jar;" .
                  "$program_dir/lib/tagsoup.jar;" .
                  "$program_dir/lib/commons-lang.jar;" .
                  "$program_dir/lib/commons-collections.jar;" .
-                 "$program_dir/lib/xercesImpl.jar " .
+                 "$program_dir/lib/xercesImpl.jar\" " .
                  "org.w3c.css.css.CssValidator " .
                  "-profile css3 -warning -1 -vextwarning true";
 
