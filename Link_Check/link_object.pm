@@ -2,9 +2,9 @@
 #
 # Name: link_object.pm
 #
-# $Revision: 6629 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/link_object.pm $
-# $Date: 2014-04-25 13:17:09 -0400 (Fri, 25 Apr 2014) $
+# $Revision: 7126 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/link_object.pm $
+# $Date: 2015-05-06 09:14:31 -0400 (Wed, 06 May 2015) $
 #
 # Description:
 #
@@ -29,6 +29,7 @@
 #    has_img - get/set the has_img attribute
 #    in_list - get/set the in_list attribute
 #    is_archived - get/set the is_archived attribute
+#    is_redirected - get/set the is_redirected attribute
 #    lang - get/set lang value
 #    line_no - get/set line number value
 #    link_status - get/set link status value
@@ -170,6 +171,7 @@ sub new {
     $self->{"href"} = $href;
     $self->{"in_list"} = 0;
     $self->{"is_archived"} = 0;
+    $self->{"is_redirected"} = 0;
     $self->{"link_type"} = $link_type;
     $self->{"lang"} = $lang;
     $self->{"line_no"} = $line_no;
@@ -177,7 +179,8 @@ sub new {
     $self->{"message"} = "";
     $self->{"modified_content"} = 0;
     $self->{"noscript"} = 0;
-
+    $self->{"redirect_url"} = 0;
+    
     #
     # Extract components of the URL, we save some pieces seperately
     # for easy access later.
@@ -612,6 +615,35 @@ sub is_archived {
 
 #********************************************************
 #
+# Name: is_redirected
+#
+# Parameters: self - class reference
+#             is_redirected_value - is_redirected value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the is_redirected
+# attribute of the link object.
+# If a value is supplied, it is saved in the object.
+# If no value is supplied, the current value is returned.
+#
+#********************************************************
+sub is_redirected {
+    my ($self, $is_redirected_value) = @_;
+
+    #
+    # Was a is_redirected value supplied ?
+    #
+    if ( defined($is_redirected_value) ) {
+        $self->{"is_redirected"} = $is_redirected_value;
+    }
+    else {
+        return($self->{"is_redirected"});
+    }
+}
+
+#********************************************************
+#
 # Name: lang
 #
 # Parameters: self - class reference
@@ -898,6 +930,35 @@ sub query {
     }
     else {
         return($self->{"query"});
+    }
+}
+
+#********************************************************
+#
+# Name: redirect_url
+#
+# Parameters: self - class reference
+#             redirect_url_value - redirect_url value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the redirect_url
+# attribute of the link object.
+# If a value is supplied, it is saved in the object.
+# If no value is supplied, the current value is returned.
+#
+#********************************************************
+sub redirect_url {
+    my ($self, $redirect_url_value) = @_;
+
+    #
+    # Was a redirect_url value supplied ?
+    #
+    if ( defined($redirect_url_value) ) {
+        $self->{"redirect_url"} = $redirect_url_value;
+    }
+    else {
+        return($self->{"redirect_url"});
     }
 }
 
