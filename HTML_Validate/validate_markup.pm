@@ -2,9 +2,9 @@
 #
 # Name:   validate_markup.pm
 #
-# $Revision: 7020 $
+# $Revision: 7158 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/HTML_Validate/Tools/validate_markup.pm $
-# $Date: 2015-03-05 11:32:31 -0500 (Thu, 05 Mar 2015) $
+# $Date: 2015-05-27 10:02:24 -0400 (Wed, 27 May 2015) $
 #
 # Description:
 #
@@ -63,6 +63,7 @@ BEGIN {
     @EXPORT  = qw(Validate_Markup
                   Validate_Markup_Debug
                   Validate_Markup_Language
+                  Set_Validate_Markup_Test_Profile
                   );
     $VERSION = "1.0";
 }
@@ -74,6 +75,7 @@ BEGIN {
 #***********************************************************************
 
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
+my (%markup_validate_profile_map);
 
 my ($debug) = 0;
 
@@ -149,9 +151,37 @@ sub Validate_Markup_Language {
 
 #***********************************************************************
 #
+# Name: Set_Validate_Markup_Test_Profile
+#
+# Parameters: profile - testcase profile
+#             checks - hash table of testcase name
+#
+# Description:
+#
+#   This function copies the passed table to unit global variables.
+# The hash table is indexed by testcase name.
+#
+#***********************************************************************
+sub Set_Validate_Markup_Test_Profile {
+    my ($profile, $checks ) = @_;
+
+    my (%local_checks);
+
+    #
+    # Make a local copy of the hash table as we will be storing the address
+    # of the hash.
+    #
+    print "Set_Validate_Markup_Test_Profile, profile = $profile\n" if $debug;
+    %local_checks = %$checks;
+    $markup_validate_profile_map{$profile} = \%local_checks;
+}
+
+#***********************************************************************
+#
 # Name: Validate_Markup
 #
 # Parameters: this_url - a URL
+#             profile - testcase profile
 #             mime_type - mime type of content
 #             charset - character set of content
 #             content - content pointer
@@ -163,11 +193,22 @@ sub Validate_Markup_Language {
 #
 #***********************************************************************
 sub Validate_Markup {
-    my ($this_url, $mime_type, $charset, $content) = @_;
+    my ($this_url, $profile, $mime_type, $charset, $content) = @_;
 
     my ($status) = $VALID_MARKUP;
     my (@results_list, $result_object, $other_content, @other_results_list);
+    my ($testcase_profile);
 
+    #
+    # Do we have a valid testcase profile ?
+    #
+    print "Validate_Markup: profile = $profile\n" if $debug;
+    if ( ! defined($markup_validate_profile_map{$profile}) ) {
+        print "Unknown testcase profile passed $profile\n" if $debug;
+        return;
+    }
+    $testcase_profile = $markup_validate_profile_map{$profile};
+    
     #
     # Do we have any content ?
     #
@@ -180,30 +221,33 @@ sub Validate_Markup {
             #
             # Validate the HTML content.
             #
-            print "Validate HTML content\n" if $debug;
-            @results_list = HTML_Validate_Content($this_url, $charset,
-                                                  $content);
+            if ( defined($$testcase_profile{"HTML_VALIDATION"}) ) {
+                print "Validate HTML content\n" if $debug;
+                @results_list = HTML_Validate_Content($this_url, $charset,
+                                                      $content);
+             }
 
             #
             # HTML documents may have inline CSS code, extract any CSS
             # code for validation.
             #
-            $other_content = CSS_Validate_Extract_CSS_From_HTML($this_url,
-                                                                $content);
-            if (  length($other_content) > 0 ) {
-                #
-                #
-                # Validate CSS content
-                #
-                print "Validate inline CSS content\n" if $debug;
-                @other_results_list = CSS_Validate_Content($this_url,
-                                                           \$other_content);
+            if ( defined($$testcase_profile{"CSS_VALIDATION"}) ) {
+                $other_content = CSS_Validate_Extract_CSS_From_HTML($this_url,
+                                                                    $content);
+                if (  length($other_content) > 0 ) {
+                    #
+                    # Validate CSS content
+                    #
+                    print "Validate inline CSS content\n" if $debug;
+                    @other_results_list = CSS_Validate_Content($this_url,
+                                                               \$other_content);
 
-                #
-                # Merge CSS validation results into HTML validation results
-                #
-                foreach $result_object (@other_results_list) {
-                    push (@results_list, $result_object);
+                    #
+                    # Merge CSS validation results into HTML validation results
+                    #
+                    foreach $result_object (@other_results_list) {
+                        push (@results_list, $result_object);
+                    }
                 }
             }
         }
@@ -211,24 +255,30 @@ sub Validate_Markup {
             #
             # Validate the CSS content.
             #
-            print "Validate CSS content\n" if $debug;
-            @results_list = CSS_Validate_Content($this_url, $content);
+            if ( defined($$testcase_profile{"CSS_VALIDATION"}) ) {
+                print "Validate CSS content\n" if $debug;
+                @results_list = CSS_Validate_Content($this_url, $content);
+            }
         }
         elsif ( $this_url =~ /\/robots\.txt$/ ) {
             #
             # Validate the robots.txt content.
             #
-            print "Validate robots.txt content\n" if $debug;
-            @results_list = Robots_Check($this_url, $content);
+            if ( defined($$testcase_profile{"ROBOTS_VALIDATION"}) ) {
+                print "Validate robots.txt content\n" if $debug;
+                @results_list = Robots_Check($this_url, $content);
+            }
         }
         elsif ( ($mime_type =~ /application\/x-javascript/) ||
                 ($mime_type =~ /text\/javascript/) ) {
             #
             # Validate the JavaScript content.
             #
-            print "Validate JavaScript content\n" if $debug;
-            @results_list = JavaScript_Validate_Content($this_url, "error", 
-                                                        $content);
+            if ( defined($$testcase_profile{"JAVASCRIPT_VALIDATION"}) ) {
+                print "Validate JavaScript content\n" if $debug;
+                @results_list = JavaScript_Validate_Content($this_url, "error",
+                                                            $content);
+            }
         }
         #
         # Is this XML content
@@ -242,8 +292,10 @@ sub Validate_Markup {
             #
             # Validate the XML content.
             #
-            print "Validate XML content\n" if $debug;
-            @results_list = XML_Validate_Content($this_url, $content);
+            if ( defined($$testcase_profile{"XML_VALIDATION"}) ) {
+                print "Validate XML content\n" if $debug;
+                @results_list = XML_Validate_Content($this_url, $content);
+            }
         }
     }
     else {
