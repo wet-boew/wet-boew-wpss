@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 7019 $
+# $Revision: 7184 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2015-03-05 11:31:32 -0500 (Thu, 05 Mar 2015) $
+# $Date: 2015-06-29 03:02:50 -0400 (Mon, 29 Jun 2015) $
 #
 # Description:
 #
@@ -14,6 +14,7 @@
 # Public functions:
 #     Crawler_Decode_Content
 #     Crawler_Uncompress_Content_File
+#     Crawler_Read_Content_File
 #     Crawler_Abort_Crawl
 #     Crawler_Abort_Crawl_Status
 #     Crawler_Config
@@ -95,6 +96,7 @@ BEGIN {
     @ISA     = qw(Exporter);
     @EXPORT  = qw(Crawler_Decode_Content
                   Crawler_Uncompress_Content_File
+                  Crawler_Read_Content_File
                   Crawler_Abort_Crawl
                   Crawler_Abort_Crawl_Status
                   Crawler_Config
@@ -770,7 +772,7 @@ sub Crawler_Uncompress_Content_File {
     my ($filename, $new_filename, $header);
 
     #
-    # Check for GZIP content encodeing in the header
+    # Check for GZIP content encoding in the header
     #
     print "Crawler_Uncompress_Content_File\n" if $debug;
     if ( defined($resp) &&
@@ -807,6 +809,59 @@ sub Crawler_Uncompress_Content_File {
     # Return
     #
     return();
+}
+
+#***********************************************************************
+#
+# Name: Crawler_Read_Content_File
+#
+# Parameters: resp - HTTP::Response object
+#
+# Description:
+#
+#   This function reads the content file and returns the content as
+# a string.
+#
+#***********************************************************************
+sub Crawler_Read_Content_File {
+    my ($resp) = @_;
+
+    my ($filename, $content, $header, $line);
+
+    #
+    # Read content from content file
+    #
+    print "Crawler_Read_Content_File\n" if $debug;
+    if ( defined($resp) ) {
+        #
+        # Get content file name
+        #
+        $filename = $resp->header("WPSS-Content-File");
+
+        #
+        # Open the file for reading
+        #
+        open(FH, $filename) ||
+            die "Error: Failed to open file $filename in Crawler_Read_Content_File\n";
+
+        #
+        # Read in the content
+        #
+        $content = "";
+        while ( $line = <FH> ) {
+            $content .= $line;
+        }
+
+        #
+        # Close the file
+        #
+        close(FH);
+    }
+
+    #
+    # Return the content
+    #
+    return($content);
 }
 
 #***********************************************************************
