@@ -2,9 +2,9 @@
 #
 # Name: pdf_extract_links.pm	
 #
-# $Revision: 6716 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/PDF_Check/Tools/pdf_extract_links.pm $
-# $Date: 2014-07-22 12:33:12 -0400 (Tue, 22 Jul 2014) $
+# $Revision: 7124 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/PDF_Check/Tools/pdf_extract_links.pm $
+# $Date: 2015-05-06 09:12:15 -0400 (Wed, 06 May 2015) $
 #
 # Description:
 #
@@ -325,12 +325,12 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
-    $pdftohtml_cmnd = "pdftohtml";
+    $pdftohtml_cmnd = ".\\bin\\pdftohtml";
 } else {
     #
     # Not Windows.
     #
-    $pdftohtml_cmnd = "$program_dir/pdftohtml";
+    $pdftohtml_cmnd = "$program_dir/bin/pdftohtml";
 }
 
 #

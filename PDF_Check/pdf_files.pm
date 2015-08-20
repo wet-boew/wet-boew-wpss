@@ -2,9 +2,9 @@
 #
 # Name: pdf_files.pm
 #
-# $Revision: 6716 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/PDF_Check/Tools/pdf_files.pm $
-# $Date: 2014-07-22 12:33:12 -0400 (Tue, 22 Jul 2014) $
+# $Revision: 7125 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/PDF_Check/Tools/pdf_files.pm $
+# $Date: 2015-05-06 09:12:53 -0400 (Wed, 06 May 2015) $
 #
 # Description
 #
@@ -433,7 +433,7 @@ sub PDF_Files_PDF_File_To_Text {
     #
     # Run pdftotext to get text
     #
-    print "PDF_Files_PDF_File_To_Text: pdftotext $filename -\n" if $debug;
+    print "PDF_Files_PDF_File_To_Text: $pdftotext_cmnd $filename -\n" if $debug;
     $text = `$pdftotext_cmnd \"$filename\" - 2>\&1`;
     if ( ! defined($text) ) {
         $text = "";
@@ -914,14 +914,14 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
-    $pdfinfo_cmnd = "pdfinfo";
-    $pdftotext_cmnd = "pdftotext";
+    $pdfinfo_cmnd = ".\\bin\\pdfinfo";
+    $pdftotext_cmnd = ".\\bin\\pdftotext";
 } else {
     #
     # Not Windows.
     #
-    $pdfinfo_cmnd = "$program_dir/pdfinfo";
-    $pdftotext_cmnd = "$program_dir/pdftotext";
+    $pdfinfo_cmnd = "$program_dir/bin/pdfinfo";
+    $pdftotext_cmnd = "$program_dir/bin/pdftotext";
 }
 
 #
