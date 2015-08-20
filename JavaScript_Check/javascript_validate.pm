@@ -2,9 +2,9 @@
 #
 # Name:   javascript_validate.pm
 #
-# $Revision: 6711 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/JavaScript_Check/Tools/javascript_validate.pm $
-# $Date: 2014-07-22 12:19:33 -0400 (Tue, 22 Jul 2014) $
+# $Revision: 7123 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/JavaScript_Check/Tools/javascript_validate.pm $
+# $Date: 2015-05-06 09:11:30 -0400 (Wed, 06 May 2015) $
 #
 # Description:
 #
@@ -550,12 +550,12 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
-    $validate_cmnd = "jsl.exe";
+    $validate_cmnd = ".\\bin\\jsl.exe";
 } else {
     #
     # Not Windows.
     #
-    $validate_cmnd = "$program_dir/jsl";
+    $validate_cmnd = "$program_dir/bin/jsl";
 }
 
 #
