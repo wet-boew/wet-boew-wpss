@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 7060 $
+# $Revision: 7173 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_check.pm $
-# $Date: 2015-04-02 11:26:23 -0400 (Thu, 02 Apr 2015) $
+# $Date: 2015-06-05 10:51:04 -0400 (Fri, 05 Jun 2015) $
 #
 # Description:
 #
@@ -788,6 +788,26 @@ sub Check_Data_File_URL {
                               $first_url_count{$eng_url});
             }
         }
+    }
+    #
+    # Is this a JSON file ?
+    #
+    elsif ( ($mime_type =~ /application\/json/i) ||
+            ($format =~ /^json$/i) ||
+            ($url =~ /\.json$/i) ) {
+        #
+        # Check for UTF-8 encoding
+        #
+        Check_Encoding($resp, $filename, "OD_2");
+
+        #
+        # Check JSON data file
+        #
+        print "JSON data file\n" if $debug;
+        @other_results = Open_Data_JSON_Check_Data($url,
+                                                   $current_open_data_profile_name,
+                                                   $filename,
+                                                   $dictionary);
     }
     #
     # Is this XML ?
