@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 6874 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2014-12-03 16:06:09 -0500 (Wed, 03 Dec 2014) $
+# $Revision: 7216 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
+# $Date: 2015-08-05 06:47:36 -0400 (Wed, 05 Aug 2015) $
 #
 # Description:
 #
@@ -129,11 +129,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-F54", "2.1.1 F54: Failure of Success Criterion 2.1.1 due to using only pointing-device-specific event handlers (including gesture) for a function",
 "WCAG_2.0-F55", "2.1.1, 2.4.7, 3.2.1 F55: Failure of Success Criteria 2.1.1, 2.4.7, and 3.2.1 due to using script to remove focus when focus is received",
 "WCAG_2.0-F58", "2.2.1 F58: Failure of Success Criterion 2.2.1 due to using server-side techniques to automatically redirect pages after a time-out",
-#
-# F62: Failure of Success Criterion 1.3.1 and 4.1.1 due to insufficient
-#      information in DOM to determine specific relationships in XML
-#      Failures of this technique are reported under technique F77
-#
+"WCAG_2.0-F62", "1.3.1, 4.1.1 F62: Failure of Success Criterion 1.3.1 and 4.1.1 due to insufficient information in DOM to determine specific relationships in XML",
 "WCAG_2.0-F65", "1.1.1 F65: Failure of Success Criterion 1.1.1 due to omitting the alt attribute on img elements, area elements, and input elements of type \"image\"",
 "WCAG_2.0-F66", "3.2.3 F66: Failure of Success Criterion 3.2.3 due to presenting navigation links in a different relative order on different pages",
 "WCAG_2.0-F68", "1.3.1, 4.1.2 F68: Failure of Success Criterion 1.3.1 and 4.1.2 due to the association of label and user interface controls not being programmatically determinable",
@@ -253,19 +249,19 @@ my (%testcase_description_fr) = (
 # WCAG 2.0
 #  Text taken from http://www.braillenet.org/accessibilite/comprendre-wcag20/CAT20110222/Overview.html
 #
-"WCAG_2.0-ARIA1", "2.4.2, 2.4.4, 3.3.2 ARIA1: Using the aria-describedby property to provide a descriptive label for user interface controls",
-"WCAG_2.0-ARIA2", "3.3.2, 3.3.3 ARIA2: Identifying a required field with the aria-required property",
-"WCAG_2.0-ARIA6", "1.1.1 ARIA6: Using aria-label to provide labels for objects",
-"WCAG_2.0-ARIA7", "2.4.4 ARIA7: Using aria-labelledby for link purpose",
-"WCAG_2.0-ARIA8", "2.4.4 ARIA8: Using aria-label for link purpose",
-"WCAG_2.0-ARIA9", "1.1.1, 3.3.2 ARIA9: Using aria-labelledby to concatenate a label from several text nodes",
-"WCAG_2.0-ARIA10", "1.1.1 ARIA10: Using aria-labelledby to provide a text alternative for non-text content",
-"WCAG_2.0-ARIA12", "1.3.1 ARIA12: Using role=heading to identify headings",
-"WCAG_2.0-ARIA13", "1.3.1 ARIA13: Using aria-labelledby to name regions and landmarks",
-"WCAG_2.0-ARIA15", "1.1.1 ARIA15: Using aria-describedby to provide descriptions of images",
-"WCAG_2.0-ARIA16", "1.3.1, 4.1.2 ARIA16: Using aria-labelledby to provide a name for user interface controls",
-"WCAG_2.0-ARIA17", "1.3.1, 3.3.2 ARIA17: Using grouping roles to identify related form controls",
-"WCAG_2.0-ARIA18", "3.3.1, 3.3.3 ARIA18: Using aria-alertdialog to Identify Errors",
+"WCAG_2.0-ARIA1", "2.4.2, 2.4.4, 3.3.2 ARIA1: Utilisation de la propriété aria-describedby pour nommer les contrôles de l'interface utilisateur au moyen d'une étiquette descriptive",
+"WCAG_2.0-ARIA2", "3.3.2, 3.3.3 ARIA2: Identifie un champ obligatoire avec la propriété aria-required",
+"WCAG_2.0-ARIA6", "1.1.1 ARIA6: Utilisation de aria-label pour fournir les étiquettes des objets",
+"WCAG_2.0-ARIA7", "2.4.4 ARIA7: Utilisation de aria-labelledby pour la fonction de lien",
+"WCAG_2.0-ARIA8", "2.4.4 ARIA8: Utilisation de aria-label pour la fonction de lien",
+"WCAG_2.0-ARIA9", "1.1.1, 3.3.2 ARIA9: Utilisation de aria-labelledby pour concaténer une étiquette à partir de plusieurs nœuds textuels",
+"WCAG_2.0-ARIA10", "1.1.1 ARIA10: Utilisation de aria-labelledby pour fournir le texte de remplacement d'un contenu non textuel",
+"WCAG_2.0-ARIA12", "1.3.1 ARIA12: Utilisation de role=heading pour identifier les en-têtes",
+"WCAG_2.0-ARIA13", "1.3.1 ARIA13: Utilisation de aria-labelledby pour nommer les régions et les repères",
+"WCAG_2.0-ARIA15", "1.1.1 ARIA15: Utilisation de aria-describedby pour fournir une description des images",
+"WCAG_2.0-ARIA16", "1.3.1, 4.1.2 ARIA16: Utilisation de aria-labelledby pour nommer les contrôles de l'interface utilisateur",
+"WCAG_2.0-ARIA17", "1.3.1, 3.3.2 ARIA17: Utilisation de rôles de regroupement pour identifier les contrôles de formulaire connexes",
+"WCAG_2.0-ARIA18", "3.3.1, 3.3.3 ARIA18: Utilisation de aria-alertdialog pour identifier des erreurs",
 # C12: Using percent for font sizes 
 #      Failures of this technique are reported under technique G142
 # C13: Using named font sizes
@@ -293,11 +289,7 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-F54", "2.1.1 F54: Échec du critère de succès 2.1.1 consistant à utiliser seulement des événements au pointeur (y compris par geste) pour une fonction",
 "WCAG_2.0-F55", "2.1.1, 2.4.7, 3.2.1 F55: Échec du critère de succès 2.1.1, 2.4.7 et 3.2.1 consistant à utiliser un script pour enlever le focus lorsque le focus est reçu",
 "WCAG_2.0-F58", "2.2.1 F58: Échec du critère de succès 2.2.2 consistant à utiliser une technique côté serveur pour automatiquement rediriger la page après un arrêt",
-#
-# F62: Failure of Success Criterion 1.3.1 and 4.1.1 due to insufficient
-#      information in DOM to determine specific relationships in XML
-#      Failures of this technique are reported under technique F77
-#
+"WCAG_2.0-F62", "1.3.1, 4.1.1 F62: Échec du critère de succès 1.3.1 et 4.1.1 lié à l'insuffisance d'information dans le DOM pour déterminer des relations spécifiques en XML",
 "WCAG_2.0-F65", "1.1.1 F65: Échec du critère de succès 1.1.1 consistant à omettre l'attribut 'alt' sur les éléments <img>, <area> et <input> de type 'image'",
 "WCAG_2.0-F66", "3.2.3 F66: Échec du critère de succès 3.2.3 consistant à présenter les liens de navigation dans un ordre relatif différent sur différentes pages",
 "WCAG_2.0-F68", "1.3.1, 4.1.2 F68: Échec du critère de succès 1.3.1 et 4.1.2 lié au fait que l'association entre l'étiquette et le composant d'interface utilisateur n'est pas déterminable par programmation",
@@ -455,6 +447,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-F54", "2.1.1",
 "WCAG_2.0-F55", "2.1.1, 2.4.7, 3.2.1",
 "WCAG_2.0-F58", "2.2.1",
+"WCAG_2.0-F62", "1.3.1, 4.1.1",
 "WCAG_2.0-F65", "1.1.1",
 "WCAG_2.0-F66", "3.2.3",
 "WCAG_2.0-F68", "1.3.1, 4.1.2",
