@@ -2,9 +2,9 @@
 #
 # Name:   metadata.pm
 #
-# $Revision: 6819 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Metadata_Check/Tools/metadata.pm $
-# $Date: 2014-10-31 10:32:43 -0400 (Fri, 31 Oct 2014) $
+# $Revision: 7143 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Metadata_Check/Tools/metadata.pm $
+# $Date: 2015-05-20 15:41:14 -0400 (Wed, 20 May 2015) $
 #
 # Description:
 #
@@ -979,10 +979,10 @@ sub DC_Subject_Content_Check {
     my ($message) = "";
 
     #
-    # Do er have a scheme attribute for the dc.subject metadata tag ?
+    # Do we have a scheme attribute for the dc.subject metadata tag ?
     #
     if ( ! defined($scheme) ) {
-        print "No schema for dc.subject\n" if $debug;
+        print "No schema for $scheme\n" if $debug;
         return($status, $message);
     }
 
@@ -1886,12 +1886,17 @@ sub Meta_Tag_Handler {
                     #
                     ($status, $message) = DC_Language_Content_Check($language, $lang, $name, $content);
                 }
-                elsif ( ($status == $metadata_success) && 
-                        (($name eq "dc.subject") || ($name eq "determs.subject")) ) {
+                elsif ( ($status == $metadata_success) && ($name eq "dc.subject") ) {
                     #
                     # dc.subject metadata tag.
                     #
                     ($status, $message) = DC_Subject_Content_Check($lang, $attr{"scheme"}, $content);
+                }
+                elsif ( ($status == $metadata_success) && ($name eq "dcterms.subject") ) {
+                    #
+                    # dcterms.subject metadata tag.
+                    #
+                    ($status, $message) = DC_Subject_Content_Check($lang, $attr{"title"}, $content);
                 }
                 elsif ( ($status == $metadata_success) &&
                         ($name eq "dcterms.issued") ) {
