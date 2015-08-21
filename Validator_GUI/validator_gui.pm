@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 7064 $
+# $Revision: 7188 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2015-04-02 11:50:22 -0400 (Thu, 02 Apr 2015) $
+# $Date: 2015-06-30 05:02:40 -0400 (Tue, 30 Jun 2015) $
 #
 # Description:
 #
@@ -758,7 +758,15 @@ sub Print_TQA_Result_to_CSV {
     @fields = ($tab_label, $result_object->url, $result_object->testcase,
                $result_object->description, $result_object->line_no,
                $result_object->column_no, $result_object->page_no,
-               $result_object->source_line, $result_object->message);
+               $result_object->source_line);
+    #
+    # Add message field. Limit text to 10K characters
+    #
+    push(@fields, substr($result_object->message, 0, 10240));
+
+    #
+    # Write fields to the CSV file.
+    #
     if ( defined($csv_object) ) {
         $status = $csv_object->print($csv_results_fh, \@fields);
         if ( ! $status ) {
@@ -2428,6 +2436,13 @@ sub Create_401_Authorization_Window {
     # Get the size of the URL so we know how big to make the window.
     #
     $msg_len = length($url);
+    
+    #
+    # If the realm string is longer than the URL, take that length
+    #
+    if ( length($realm) > $msg_len ) {
+        $msg_len = length($realm);
+    }
 
     #
     # Create Authorization window.
@@ -4408,7 +4423,7 @@ sub Create_Main_Window {
 	    -text => String_Value("Main Window Title"),
           -menu => $main_window_menu,
           -width => 800,
-          -height => 700,
+          -height => 800,
           -dialogui => 1,
           -resizable => 0,
           -maximizebox => 0,
@@ -4424,7 +4439,7 @@ sub Create_Main_Window {
         -name   => "ConfigTabs",
         -panel  => "Tab",
         -width  => 775,
-        -height => 650,
+        -height => 750,
         -onClick => \&Main_Window_Tabstrip_Click
     );
     $current_pos += 600;
