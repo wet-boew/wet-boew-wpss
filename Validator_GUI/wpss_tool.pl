@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 7063 $
+# $Revision: 7213 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2015-04-02 11:49:09 -0400 (Thu, 02 Apr 2015) $
+# $Date: 2015-08-05 06:43:22 -0400 (Wed, 05 Aug 2015) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ]
@@ -93,7 +93,7 @@ my (@links, @ui_args, %image_alt_text_table, @web_feed_list);
 my (%all_link_sets, %domain_prod_dev_map, @all_urls, $logged_in);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
 my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
-my ($shared_save_content_directory);
+my ($shared_save_content_directory, $firewall_check_url);
 my ($ui_pm_dir) = "GUI";
 
 #
@@ -141,7 +141,7 @@ my ($user_agent_name) = "wpss_test.pl";
 
 my (%report_options, %results_file_suffixes);
 my ($crawled_urls_tab, $validation_tab, $metadata_tab, $doc_list_tab,
-    $acc_tab, $link_tab, $dept_tab, $doc_features_tab,
+    $acc_tab, $link_tab, $dept_tab, $doc_features_tab, $mobile_tab,
     $clf_tab, $interop_tab, $open_data_tab, $crawllimit);
 
 #
@@ -155,6 +155,13 @@ my ($Unknown_Language) = "";
 my ($tool_success)       = 0;
 my ($tool_error)         = 1;
 my ($tool_warning)       = 2;
+
+#
+# Markup validate check variables
+#
+my (@markup_validate_profiles, %markup_validate_profile_map);
+my (%markup_validate_profiles_languages, $markup_validate_profile_label);
+my ($markup_validate_profile);
 
 #
 # Link check variables
@@ -257,6 +264,11 @@ my (%doc_features_profiles_languages);
 # Mobile check variables
 #
 my ($mobile_check_profile, $web_page_size_file_handle);
+my (%mobile_check_profile_map, $mobile_check_profile);
+my (@mobile_check_profiles, $mobile_profile_label);
+my (%mobile_error_url_count, %mobile_error_instance_count);
+my ($mobile_testcase_url_help_file_name);
+my (%mobile_check_profiles_languages);
 
 #
 # Web Page Details variables
@@ -265,7 +277,7 @@ my (@web_page_details_fields) = ("url", "title", "lang", "h1", "breadcrumb",
                                  "archived", "mime-type",
                                  "dcterms.issued", "dcterms.modified",
                                  "dcterms.subject", "dcterms.creator", 
-                                 "content size");
+                                 "content size", "flesch-kincaid");
 my (%web_page_details_values, $web_page_details_fh);
 
 #
@@ -345,6 +357,153 @@ sub Set_Language {
             }
         }
     }
+}
+
+#***********************************************************************
+#
+# Name: New_Markup_Validate_Check_Profile_Hash_Tables
+#
+# Parameters: profile_name - name of profile
+#
+# Description:
+#
+#   This function create a hash tables for Markup_Validate Check test cases
+# and saves the address in the global test case profile
+# table.
+#
+#***********************************************************************
+sub New_Markup_Validate_Check_Profile_Hash_Tables {
+    my ($profile_name) = @_;
+
+    my (%testcases);
+
+    #
+    # Save address of hash tables
+    #
+    push(@markup_validate_profiles, $profile_name);
+    $markup_validate_profile_map{$profile_name} = \%testcases;
+    $markup_validate_profiles_languages{$profile_name} = $profile_name;
+
+    #
+    # Return addresses
+    #
+    return(\%testcases);
+}
+
+#***********************************************************************
+#
+# Name: Read_Markup_Validate_Check_Config_File
+#
+# Parameters: path - the path to configuration file
+#
+# Description:
+#
+#   This function reads a Markup_Validate Check configuration file.
+#
+#***********************************************************************
+sub Read_Markup_Validate_Check_Config_File {
+    my ($config_file) = $_[0];
+
+    my (@fields, $config_type, $testcase_id, $value, $testcases);
+    my ($markup_validate_profile_name, $profile_type, $other_profile_name);
+    my (@profile_names, $exemption_type, $exemption_value);
+    my (@alternate_lang_profiles);
+
+    #
+    # Open configuration file at specified path
+    #
+    print "Opening configuration file $config_file\n" if $debug;
+    open( CONFIG_FILE, "$config_file" )
+      || die
+      "Failed to open configuration file, errno is $!\n  --> $config_file\n";
+
+    #
+    # Read file looking for values for config parameters.
+    #
+    while (<CONFIG_FILE>) {
+
+        #
+        # Ignore comment and blank lines.
+        #
+        chop;
+        if ( /^#/ ) {
+            next;
+        }
+        elsif ( /^$/ ) {
+            next;
+        }
+
+        #
+        # Split the line into fields.
+        #
+        @fields = split;
+        $config_type = $fields[0];
+
+        #
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
+        #
+        if ( $config_type eq "Markup_Validate_Check_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+            undef(@profile_names);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "Markup_Validate_Check_Profile_" . $lang ) {
+            #
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
+            #
+            @fields = split(/\s+/, $_, 2);
+            $markup_validate_profile_name = $fields[1];
+            push(@profile_names, $markup_validate_profile_name);
+            ($testcases) =
+                New_Markup_Validate_Check_Profile_Hash_Tables($markup_validate_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $markup_validate_profile_map{$other_profile_name} = $testcases;
+                $markup_validate_profiles_languages{$other_profile_name} = $markup_validate_profile_name;
+            }
+        }
+        #
+        # Alternate language label for this profile
+        #
+        elsif ( $config_type =~ "Markup_Validate_Check_Profile_" ) {
+            #
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
+            #
+            @fields = split(/\s+/, $_, 2);
+            $other_profile_name = $fields[1];
+            push(@profile_names, $other_profile_name);
+            if ( defined($testcases) ) {
+                $markup_validate_profile_map{$other_profile_name} = $testcases;
+                $markup_validate_profiles_languages{$other_profile_name} = $markup_validate_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
+        }
+        elsif ( $config_type =~ /tcid/i ) {
+            #
+            # Required Markup_Validate testcase, get testcase id and store
+            # in hash table.
+            #
+            $testcase_id = $fields[1];
+            if ( defined($testcase_id) ) {
+                $$testcases{$testcase_id} = 1;
+            }
+        }
+    }
+    close(CONFIG_FILE);
 }
 
 #***********************************************************************
@@ -1774,6 +1933,171 @@ sub Read_Interop_Check_Config_File {
 
 #***********************************************************************
 #
+# Name: New_Mobile_Check_Profile_Hash_Tables
+#
+# Parameters: profile_name - name of profile
+#
+# Description:
+#
+#   This function create a hash tables for Mobileerability Check test cases
+# and saves the address in the global test case profile table.
+#
+#***********************************************************************
+sub New_Mobile_Check_Profile_Hash_Tables {
+    my ($profile_name) = @_;
+
+    my (%testcases);
+
+    #
+    # Save address of hash tables
+    #
+    push(@mobile_check_profiles, $profile_name);
+    $mobile_check_profile_map{$profile_name} = \%testcases;
+    $mobile_check_profiles_languages{$profile_name} = $profile_name;
+
+    #
+    # Return addresses
+    #
+    return(\%testcases);
+}
+
+
+#***********************************************************************
+#
+# Name: Read_Mobile_Check_Config_File
+#
+# Parameters: path - the path to configuration file
+#
+# Description:
+#
+#   This function reads a Mobileerability Check configuration file.
+#
+#***********************************************************************
+sub Read_Mobile_Check_Config_File {
+    my ($config_file) = $_[0];
+
+    my (@fields, $config_type, $testcase_id, $value, $testcases);
+    my ($mobile_check_profile_name, $other_profile_name);
+    my (@alternate_lang_profiles);
+
+    #
+    # Open configuration file at specified path
+    #
+    print "Opening configuration file $config_file\n" if $debug;
+    open( CONFIG_FILE, "$config_file" )
+      || die
+      "Failed to open configuration file, errno is $!\n  --> $config_file\n";
+
+    #
+    # Read file looking for values for config parameters.
+    #
+    while (<CONFIG_FILE>) {
+
+        #
+        # Ignore comment and blank lines.
+        #
+        chop;
+        if ( /^#/ ) {
+            next;
+        }
+        elsif ( /^$/ ) {
+            next;
+        }
+
+        #
+        # Split the line into fields.
+        #
+        @fields = split;
+        $config_type = $fields[0];
+
+        #
+        # Start of a new testcase profile. Empty out the alternate
+        # language list and testcase hash table address
+        #
+        if ( $config_type eq "Mobile_Check_Profile_eng" ) {
+            undef(@alternate_lang_profiles);
+            undef($testcases);
+        }
+
+        #
+        # Start of a new testcase profile. Get hash tables to
+        # store attributes
+        #
+        if ( $config_type eq "Mobile_Check_Profile_" . $lang ) {
+            #
+            # Start of a new testcase profile. Get hash tables to
+            # store attributes
+            #
+            @fields = split(/\s+/, $_, 2);
+            $mobile_check_profile_name = $fields[1];
+            ($testcases) =
+                New_Mobile_Check_Profile_Hash_Tables($mobile_check_profile_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $mobile_check_profile_map{$other_profile_name} = $testcases;
+                $mobile_check_profiles_languages{$other_profile_name} = $mobile_check_profile_name;
+            }
+        }
+        #
+        # Alternate language label for this profile
+        #
+        elsif ( $config_type =~ "Mobile_Check_Profile_" ) {
+            #
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
+            #
+            @fields = split(/\s+/, $_, 2);
+            $other_profile_name = $fields[1];
+            if ( defined($testcases) ) {
+                $mobile_check_profile_map{$other_profile_name} = $testcases;
+                $mobile_check_profiles_languages{$other_profile_name} = $mobile_check_profile_name;
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
+        }
+        elsif ( $config_type =~ /tcid/i ) {
+            #
+            # Required Mobileerability testcase, get testcase id and store
+            # in hash table.
+            #
+            $testcase_id = $fields[1];
+            if ( defined($testcase_id) ) {
+                $$testcases{$testcase_id} = 1;
+            }
+        }
+        elsif ( $config_type =~ /testcase_data/i ) {
+            #
+            # Split line again to get everything after the testcase
+            # id as a single field
+            #
+            ($config_type, $testcase_id, $value) = split(/\s+/, $_, 3);
+
+            #
+            # Testcase specific data
+            #
+            if ( defined($mobile_check_profile_name) && defined($value) ) {
+                $value =~ s/\s+$//g;
+                Set_Mobile_Check_Testcase_Data($mobile_check_profile_name,
+                                               $testcase_id, $value);
+            }
+        }
+        elsif ( $config_type =~ /Testcase_URL_Help_File/i ) {
+            #
+            # Name of testcase & help URL file
+            #
+            $mobile_testcase_url_help_file_name = $fields[1];
+        }
+    }
+    close(CONFIG_FILE);
+}
+
+#***********************************************************************
+#
 # Name: New_Dept_Check_Profile_Hash_Tables
 #
 # Parameters: profile_name - name of profile
@@ -2323,7 +2647,9 @@ sub Read_Config_File {
         }
         elsif ( $config_type =~ /Non_Decorative_Image_URL/i ) {
             #
-            # List of non-decorative image URLs
+            # List of non-decorative image URLs.
+            # Check non decorative tag first since the decorative
+            # tag is a substring of this tag.
             #
             @fields = split(/\s+/, $_, 2);
             push(@non_decorative_image_urls, $fields[1]);
@@ -2364,7 +2690,20 @@ sub Read_Config_File {
             # Save firewall block pattern
             #
             if ( @fields > 1 ) {
-                $link_config_vars{$config_type} = $fields[1];
+                if ( ! defined($link_config_vars{$config_type}) ) {
+                    $link_config_vars{$config_type} = $fields[1];
+                }
+                else {
+                    $link_config_vars{$config_type} .= "\n" . $fields[1];
+                }
+            }
+        }
+        elsif ( $config_type eq "Firewall_Check_URL" ) {
+            #
+            # Save URL value
+            #
+            if ( @fields > 1 ) {
+                $firewall_check_url = $fields[1];
             }
         }
         elsif ( $config_type eq "Link_Ignore_Pattern" ) {
@@ -2517,6 +2856,7 @@ sub Set_Package_Debug_Flags {
     HTML_Language_Debug($debug);
     Set_Open_Data_Check_Debug($debug);
     Set_Mobile_Check_Debug($debug);
+    Set_Readability_Debug($debug);
 }
 
 #***********************************************************************
@@ -2597,8 +2937,8 @@ sub Check_Debug_File {
 sub Initialize {
 
     my ($package, $host);
-    my (@package_list) = ("extract_links", "crawler",
-                          "textcat", "metadata", "tqa_check", "pdf_files",
+    my (@package_list) = ("extract_links", "crawler", "textcat",
+                          "metadata", "tqa_check", "pdf_files",
                           "link_checker", "html_features", "html_validate",
                           "css_validate", "robots_check", "content_check",
                           "javascript_validate", "wpss_strings", "css_check",
@@ -2607,7 +2947,8 @@ sub Initialize {
                           "metadata_result_object", "validate_markup",
                           "interop_check", "pdf_check", "dept_check",
                           "html_language", "open_data_check",
-                          "web_analytics_check", "mobile_check");
+                          "web_analytics_check", "mobile_check",
+                          "readability");
     my ($key, $value, $metadata_profile);
     my ($tag_required, $content_required, $content_type, $scheme_values);
     my ($invalid_content, $pdf_profile, $tmp);
@@ -2669,7 +3010,9 @@ sub Initialize {
     Read_CLF_Check_Config_File("$program_dir/conf/so_clf_check.config");
     Read_WA_Check_Config_File("$program_dir/conf/web_analytics_config.txt");
     Read_Interop_Check_Config_File("$program_dir/conf/so_interop_check.config");
+    Read_Mobile_Check_Config_File("$program_dir/conf/mobile_check_config.txt");
     Read_Open_Data_Check_Config_File("$program_dir/conf/open_data_config.txt");
+    Read_Markup_Validate_Check_Config_File("$program_dir/conf/markup_validate_config.txt");
 
     #
     # Set testcase/url help information
@@ -2688,6 +3031,9 @@ sub Initialize {
     }
     if ( defined($interop_testcase_url_help_file_name) ) {
         Interop_Check_Read_URL_Help_File($interop_testcase_url_help_file_name);
+    }
+    if ( defined($mobile_testcase_url_help_file_name) ) {
+        Mobile_Check_Read_URL_Help_File($mobile_testcase_url_help_file_name);
     }
     if ( defined($open_data_testcase_url_help_file_name) ) {
         Open_Data_Check_Read_URL_Help_File($open_data_testcase_url_help_file_name);
@@ -2713,6 +3059,7 @@ sub Initialize {
     PDF_Files_Language($lang);
     Validate_Markup_Language($lang);
     Set_Interop_Check_Language($lang);
+    Set_Mobile_Check_Language($lang);
     Set_Open_Data_Check_Language($lang);
 
     #
@@ -2765,6 +3112,20 @@ sub Initialize {
     #
     while ( ($key,$value) = each %interop_check_profile_map) {
         Set_Interop_Check_Test_Profile($key, $value);
+    }
+
+    #
+    # Set Markup Validation testcase profiles
+    #
+    while ( ($key,$value) = each %markup_validate_profile_map) {
+        Set_Validate_Markup_Test_Profile($key, $value);
+    }
+
+    #
+    # Set Mobile Check testcase profiles
+    #
+    while ( ($key,$value) = each %mobile_check_profile_map) {
+        Set_Mobile_Check_Test_Profile($key, $value);
     }
 
     #
@@ -3155,7 +3516,7 @@ sub Print_Resource_Usage {
 sub HTTP_Response_Callback {
     my ($url, $referrer, $mime_type, $resp) = @_;
 
-    my ($charset, $content, $url_line, $language, $key, $list_ref);
+    my ($content, $url_line, $language, $key, $list_ref);
     my ($supporting_file) = 0;
 
     #
@@ -3257,27 +3618,6 @@ sub HTTP_Response_Callback {
         #
         if ( $mime_type =~ /text\// ) {
             #
-            # Get the character set encoding, if any, that is specified in the
-            # response header.
-            #
-            $charset = $resp->header('Content-Type');
-            if ( $charset =~ /charset=/i ) {
-                $charset =~ s/^.*charset=//g;
-                $charset =~ s/,.*//g;
-                $charset =~ s/ .*//g;
-                $charset =~ s/\s+//g;
-                $charset =~ s/\n//g;
-
-                #
-                # Create validator command line option to specify character set
-                #
-                $charset = "--charset=$charset";
-            }
-            else {
-                $charset = "";
-            }
-
-            #
             # Is the content is HTML?
             #
             if ( $mime_type =~ /text\/html/ ) {
@@ -3316,7 +3656,7 @@ sub HTTP_Response_Callback {
         # Validate the content
         #
         if ( TQA_Check_Need_Validation($tqa_check_profile) ) {
-            Perform_Markup_Validation($url, $mime_type, $charset, \$content);
+            Perform_Markup_Validation($url, $mime_type, $resp, \$content);
         }
 
         #
@@ -3343,38 +3683,59 @@ sub HTTP_Response_Callback {
             #
             # Perform Link check
             #
+#            Print_Resource_Usage($url, "Perform_Link_Check",
+#                             $document_count{$crawled_urls_tab});
             Perform_Link_Check($url, $mime_type, $resp, \$content, $language);
 
             #
             # Perform Metadata Check
             #
+#            Print_Resource_Usage($url, "Perform_Metadata_Check",
+#                             $document_count{$crawled_urls_tab});
             Perform_Metadata_Check($url, \$content, $language);
 
             #
             # Perform TQA check
             #
+#            Print_Resource_Usage($url, "Perform_TQA_Check",
+#                             $document_count{$crawled_urls_tab});
             Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
 
             #
             # Perform CLF check
             #
+#            Print_Resource_Usage($url, "Perform_CLF_Check",
+#                             $document_count{$crawled_urls_tab});
             Perform_CLF_Check($url, \$content, $language, $mime_type, $resp);
 
             #
             # Perform Interoperability check
             #
+#            Print_Resource_Usage($url, "Perform_Interop_Check",
+#                             $document_count{$crawled_urls_tab});
             Perform_Interop_Check($url, \$content, $language, $mime_type,
                                   $resp);
 
             #
             # Perform Mobile check
             #
-            Perform_Mobile_Check($url, $mime_type, $resp);
+#            Print_Resource_Usage($url, "Perform_Mobile_Check",
+#                             $document_count{$crawled_urls_tab});
+            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
 
             #
             # Perform feature check
             #
+#            Print_Resource_Usage($url, "Perform_Feature_Check",
+#                             $document_count{$crawled_urls_tab});
             Perform_Feature_Check($url, $mime_type, \$content);
+            
+            #
+            # Perform readability analysis
+            #
+#            Print_Resource_Usage($url, "Perform_Readability_Analysis",
+#                             $document_count{$crawled_urls_tab});
+            Perform_Readability_Analysis($url, \$content, $language, $mime_type, $resp);
         }
 
         #
@@ -3427,6 +3788,11 @@ sub HTTP_Response_Callback {
             # Perform TQA check of CSS content
             #
             Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+
+            #
+            # Perform Mobile check
+            #
+            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
         }
 
         #
@@ -3439,6 +3805,11 @@ sub HTTP_Response_Callback {
             # Perform TQA check of JavaScript content
             #
             Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+
+            #
+            # Perform Mobile check
+            #
+            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
         }
 
         #
@@ -3499,6 +3870,11 @@ sub HTTP_Response_Callback {
                                   $resp);
 
             #
+            # Perform Mobile check
+            #
+            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
+
+            #
             # Save "non-HTML primary format" feature
             #
             $key = "non-html primary format/format principal non-html";
@@ -3514,8 +3890,9 @@ sub HTTP_Response_Callback {
         #
         elsif ( $mime_type =~ /^image/i ) {
             #
-            # No special processing
+            # Perform Mobile check
             #
+            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
         }
 
         #
@@ -3848,7 +4225,7 @@ sub Direct_HTML_Input_Callback {
     #
     # Perform markup validation check
     #
-    Perform_Markup_Validation("Direct Input", "text/html", "", \$content);
+    Perform_Markup_Validation("Direct Input", "text/html", undef, \$content);
 
     #
     # Get links from document, save list in the global @links variable.
@@ -4465,11 +4842,10 @@ sub Save_URL_Image_Alt_Report {
     #
     print "Save_URL_Image_Alt_Report, image report = $image_filename\n" if $debug;
     open (REPORT, "> $image_filename");
-    print REPORT '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
- "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+    print REPORT '<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<meta charset="utf-8" />
 <title>' . String_Value("Image/lang/alt/title Report") . '</title>
 </head>
 
@@ -4545,11 +4921,10 @@ sub Save_Headings_Report {
     #
     print "Save_Headings_Report, headings report = $save_filename\n" if $debug;
     open (REPORT, "> $save_filename");
-    print REPORT '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
- "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+    print REPORT '<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<meta charset="utf-8" />
 <title>' . String_Value("Headings Report Title") . '</title>
 </head>
 
@@ -4679,7 +5054,7 @@ sub Print_Results_Header {
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
                   $doc_list_tab, $doc_features_tab, $interop_tab,
-                  $open_data_tab) {
+                  $mobile_tab, $open_data_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Clear_Results($tab);
             Validator_GUI_Update_Results($tab,
@@ -4725,6 +5100,10 @@ sub Print_Results_Header {
                                      String_Value("Interop report header") .
                                      $site_entries);
 
+        Validator_GUI_Update_Results($mobile_tab,
+                                     String_Value("Mobile report header") .
+                                     $site_entries);
+
         Validator_GUI_Update_Results($dept_tab,
                                      String_Value("Department report header") .
                                      $site_entries);
@@ -4745,6 +5124,16 @@ sub Print_Results_Header {
     #
     # Include profile name in header
     #
+    if ( defined($validation_tab) ) {
+        Validator_GUI_Update_Results($validation_tab,
+                                     String_Value("Markup Validation Profile")
+                                     . " " . $markup_validate_profile);
+    }
+    if ( defined($link_tab) ) {
+        Validator_GUI_Update_Results($link_tab,
+                                     String_Value("Link Check Profile")
+                                     . " " . $link_check_profile);
+    }
     if ( defined($metadata_tab) ) {
         Validator_GUI_Update_Results($metadata_tab,
                                      String_Value("Metadata Profile")
@@ -4767,6 +5156,11 @@ sub Print_Results_Header {
         Validator_GUI_Update_Results($interop_tab,
                                      String_Value("Interop Testcase Profile")
                                      . " " . $interop_check_profile);
+    }
+    if ( defined($mobile_tab) ) {
+        Validator_GUI_Update_Results($mobile_tab,
+                                     String_Value("Mobile Testcase Profile")
+                                     . " " . $mobile_check_profile);
     }
     if ( defined($dept_tab) ) {
         Validator_GUI_Update_Results($dept_tab,
@@ -4794,7 +5188,8 @@ sub Print_Results_Header {
                     $mon, $mday);
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                  $doc_list_tab, $doc_features_tab, $interop_tab, $open_data_tab) {
+                  $doc_list_tab, $doc_features_tab, $interop_tab,
+                  $mobile_tab, $open_data_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
             Validator_GUI_Start_Analysis($tab, $date,
@@ -4969,6 +5364,32 @@ sub Print_Results_Summary_Table {
     }
 
     #
+    # Print summary results table for Mobile Check
+    #
+    if ( defined($mobile_tab) ) {
+        foreach $tcid (sort(keys %mobile_error_url_count)) {
+            Validator_GUI_Update_Results($mobile_tab, $tcid);
+            $line = sprintf("  URLs %5d " . String_Value("instances") .
+                            " %5d ", $mobile_error_url_count{$tcid},
+                            $mobile_error_instance_count{$tcid});
+
+            #
+            # Add help link, if there is one
+            #
+            if ( defined( Mobile_Check_Testcase_URL($tcid) ) ) {
+                $line .= " " . String_Value("help") .
+                         " " . Mobile_Check_Testcase_URL($tcid);
+            }
+
+            #
+            # Print summary line
+            #
+            Validator_GUI_Update_Results($mobile_tab, $line);
+            Validator_GUI_Update_Results($mobile_tab, "");
+        }
+    }
+
+    #
     # Print summary results table for department Check
     #
     if ( defined($dept_tab) ) {
@@ -5074,7 +5495,8 @@ sub Print_Results_Footer {
     #
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $dept_tab, $doc_features_tab,
-                  $clf_tab, $interop_tab, $open_data_tab, $doc_list_tab) {
+                  $clf_tab, $interop_tab, $mobile_tab, $open_data_tab,
+                  $doc_list_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
 
@@ -5545,7 +5967,7 @@ sub Remove_Temporary_Files {
 sub Initialize_Tool_Globals {
     my (%options) = @_;
 
-    my ($html_profile_table, $html_feature_id);
+    my ($html_profile_table, $html_feature_id, $resp_url, $resp);
 
     #
     # Clean up any temporary file from a possible previous analysis run
@@ -5568,6 +5990,11 @@ sub Initialize_Tool_Globals {
     # Get link check profile name
     #
     $link_check_profile = $options{$link_check_profile_label};
+
+    #
+    # Get markup validation profile name
+    #
+    $markup_validate_profile = $options{$markup_validate_profile_label};
 
     #
     # Get metadata profile name
@@ -5601,6 +6028,11 @@ sub Initialize_Tool_Globals {
     $interop_check_profile = $options{$interop_profile_label};
 
     #
+    # Get Mobile Check profile name
+    #
+    $mobile_check_profile = $options{$mobile_profile_label};
+
+    #
     # Get department Check profile name
     #
     $dept_check_profile = $options{$dept_check_profile_label};
@@ -5624,6 +6056,15 @@ sub Initialize_Tool_Globals {
         # Respect robots.txt directives
         #
         Crawler_Robots_Handling(1);
+    }
+
+    #
+    # Make sure we are authenticated with the firewall before we start.
+    #
+    if ( defined($firewall_check_url) ){
+        Set_Crawler_HTTP_401_Callback(\&HTTP_401_Callback);
+        print "Check firewall URL $firewall_check_url\n" if $debug;
+        ($resp_url, $resp) = Crawler_Get_HTTP_Response($firewall_check_url, "");
     }
 
     #
@@ -5657,6 +6098,8 @@ sub Initialize_Tool_Globals {
     %link_error_instance_count = ();
     %tqa_error_url_count = ();
     %tqa_error_instance_count = ();
+    %mobile_error_url_count = ();
+    %mobile_error_instance_count = ();
     %dept_error_url_count = ();
     %dept_error_instance_count = ();
     %metadata_error_url_count = ();
@@ -6056,7 +6499,7 @@ sub Increment_Counts_and_Print_URL {
 #
 # Parameters: url - document URL
 #             mime_type - content mime type
-#             charset - charset option
+#             resp - HTTP::Response object
 #             content - content pointer
 #
 # Description:
@@ -6065,9 +6508,9 @@ sub Increment_Counts_and_Print_URL {
 #
 #***********************************************************************
 sub Perform_Markup_Validation {
-    my ($url, $mime_type, $charset, $content) = @_;
+    my ($url, $mime_type, $resp, $content) = @_;
 
-    my ($pattern, @results_list, $result_object, $status);
+    my ($pattern, @results_list, $result_object, $status, $charset);
 
     #
     # Do we want to skip validation of this document ?
@@ -6091,10 +6534,36 @@ sub Perform_Markup_Validation {
     }
     else {
         #
+        # Get the character set encoding, if any, that is specified in the
+        # response header.
+        #
+        $charset = "";
+        if ( defined($resp) ) {
+            $charset = $resp->header('Content-Type');
+            
+            #
+            # Is a charset defined in the header ?
+            #
+            if ( $charset =~ /charset=/i ) {
+                $charset =~ s/^.*charset=//g;
+                $charset =~ s/,.*//g;
+                $charset =~ s/ .*//g;
+                $charset =~ s/\s+//g;
+                $charset =~ s/\n//g;
+            
+                #
+                # Create validator command line option to specify character set
+                #
+                $charset = "--charset=$charset";
+            }
+        }
+
+        #
         # Validate the HTML content.
         #
         print "Perform_Markup_Validation on URL\n  --> $url\n" if $debug;
-        @results_list = Validate_Markup($url, $mime_type, $charset, $content);
+        @results_list = Validate_Markup($url, $markup_validate_profile,
+                                        $mime_type, $charset, $content);
 
         #
         # Get validation status
@@ -6771,6 +7240,38 @@ sub Perform_CLF_Check {
 
 #***********************************************************************
 #
+# Name: Perform_Readability_Analysis
+#
+# Parameters: url - document URL
+#             content - content pointer
+#             language - URL language
+#             mime_type - content mime-type
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function performs a readability analysis of the content.
+#
+#***********************************************************************
+sub Perform_Readability_Analysis {
+    my ($url, $content, $language, $mime_type, $resp) = @_;
+
+    my (%scores);
+
+    #
+    # Compute readability score
+    #
+    print "Perform_Readability_Analysis on URL\n  --> $url\n" if $debug;
+    %scores = Readability_Grade_HTML($url, $content);
+    
+    #
+    # Save Flesch-Kincaid score value
+    #
+    $web_page_details_values{"flesch-kincaid"} = $scores{"Flesch-Kincaid"};
+}
+
+#***********************************************************************
+#
 # Name: Perform_Interop_Check
 #
 # Parameters: url - document URL
@@ -7186,8 +7687,10 @@ sub Perform_Feature_Check {
 # Name: Perform_Mobile_Check
 #
 # Parameters: url - url of document to check
+#             language - language of page
 #             mime_type - mime-type of document
 #             resp - HTTP::Response object
+#             content - content pointer
 #
 # Description:
 #
@@ -7195,7 +7698,7 @@ sub Perform_Feature_Check {
 #
 #***********************************************************************
 sub Perform_Mobile_Check {
-    my ( $url, $mime_type, $resp ) = @_;
+    my ( $url, $language, $mime_type, $resp, $content) = @_;
 
     my ($url_status, @mobile_results_list);
     my ($result_object, $status, %local_mobile_error_url_count);
@@ -7209,7 +7712,7 @@ sub Perform_Mobile_Check {
         # We don't report any faults
         #
         print "Archived document, skip mobile check\n" if $debug;
-#        Increment_Counts_and_Print_URL($mobile_tab, $url, 0);
+        Increment_Counts_and_Print_URL($mobile_tab, $url, 0);
     }
     else {
         #
@@ -7226,70 +7729,85 @@ sub Perform_Mobile_Check {
                                               $shared_web_page_size_filename,
                                               $url, $size_string);
 
-#        #
-#        # Determine overall URL status
-#        #
-#        $url_status = $tool_success;
-#        foreach $result_object (@mobile_results_list) {
-#            if ( $result_object->status != 0 ) {
-#                #
-#                # Error, we can stop looking for more errors
-#                #
-#                $url_status = $tool_error;
-#                last;
-#            }
-#        }
-#
-#        #
-#        # Increment document & error counters
-#        #
-#        Increment_Counts_and_Print_URL($mobile_tab, $url,
-#                                       ($url_status == $tool_error));
-#
-#        #
-#        # Print results if it is a failure.
-#        #
-#        if ( $url_status == $tool_error ) {
-#            #
-#            # Print failures
-#            #
-#            foreach $result_object (@mobile_results_list) {
-#                $status = $result_object->status;
-#                if ( defined($status) && ($status != 0) ) {
-#                    #
-#                    # Increment error instance count
-#                    #
-#                    if ( ! defined($mobile_error_instance_count{$result_object->description}) ) {
-#                        $mobile_error_instance_count{$result_object->description} = 1;
-#                    }
-#                    else {
-#                        $mobile_error_instance_count{$result_object->description}++;
-#                    }
-#
-#                    #
-#                    # Set URL error count
-#                    #
-#                    $local_mobile_error_url_count{$result_object->description} = 1;
-#
-#                    #
-#                    # Print error
-#                    #
-#                    Validator_GUI_Print_TQA_Result($mobile_tab, $result_object);
-#                }
-#            }
-#
-#            #
-#            # Add blank line in report
-#            #
-#            Validator_GUI_Update_Results($mobile_tab, "");
-#        }
-#
-#        #
-#        # Set global URL error count
-#        #
-#        foreach (keys %local_mobile_error_url_count) {
-#            $mobile_error_url_count{$_}++;
-#        }
+        #
+        # Perform mobile optimization checks
+        #
+        @mobile_results_list = Mobile_Check($url, $language, $mobile_check_profile,
+                                            $mime_type, $resp, $content);
+
+        #
+        # If the document is an HTML document, check links
+        #
+        if ( $mime_type =~ /text\/html/ ) {
+            Mobile_Check_Links(\@mobile_results_list, $url,
+                               $mobile_check_profile, $language,
+                               \%all_link_sets);
+        }
+
+        #
+        # Determine overall URL status
+        #
+        $url_status = $tool_success;
+        foreach $result_object (@mobile_results_list) {
+            if ( $result_object->status != 0 ) {
+                #
+                # Error, we can stop looking for more errors
+                #
+                $url_status = $tool_error;
+                last;
+            }
+        }
+
+        #
+        # Increment document & error counters
+        #
+        Increment_Counts_and_Print_URL($mobile_tab, $url,
+                                       ($url_status == $tool_error));
+
+        #
+        # Print results if it is a failure.
+        #
+        if ( $url_status == $tool_error ) {
+            #
+            # Print failures
+            #
+            foreach $result_object (@mobile_results_list) {
+                $status = $result_object->status;
+                if ( defined($status) && ($status != 0) ) {
+                    #
+                    # Increment error instance count
+                    #
+                    if ( ! defined($mobile_error_instance_count{$result_object->description}) ) {
+                        $mobile_error_instance_count{$result_object->description} = 1;
+                    }
+                    else {
+                        $mobile_error_instance_count{$result_object->description}++;
+                    }
+
+                    #
+                    # Set URL error count
+                    #
+                    $local_mobile_error_url_count{$result_object->description} = 1;
+
+                    #
+                    # Print error
+                    #
+                    Validator_GUI_Print_TQA_Result($mobile_tab, $result_object);
+                }
+            }
+
+            #
+            # Add blank line in report
+            #
+            Validator_GUI_Update_Results($mobile_tab, "");
+        }
+
+        #
+        # Set global URL error count
+        #
+        foreach (keys %local_mobile_error_url_count) {
+            $mobile_error_url_count{$_}++;
+        }
     }
 }
 
@@ -7755,8 +8273,9 @@ sub Perform_Open_Data_Check {
 sub Open_Data_Callback {
     my ($dataset_urls, %report_options) = @_;
 
-    my (@url_list, $i, $key, $value, $resp_url, $resp, $header);
+    my (@url_list, $i, $key, $value, $resp_url, $resp, $header, $content);
     my ($data_file_type, $item, $format, $url, $tab, @results, $filename);
+    my ($language, $mime_type);
 
     #
     # Initialize tool global variables
@@ -7767,6 +8286,12 @@ sub Open_Data_Callback {
     %open_data_error_instance_count = ();
     %open_data_error_url_count = ();
     %open_data_dictionary = ();
+    %document_count = ();
+    %error_count = ();
+    %fault_count = ();
+    %is_valid_markup = ();
+    %tqa_error_url_count = ();
+    %tqa_error_instance_count = ();
     Crawler_Abort_Crawl(0);
 
     #
@@ -7778,6 +8303,16 @@ sub Open_Data_Callback {
     # Get open data profile name
     #
     $open_data_check_profile = $report_options{$open_data_profile_label};
+
+    #
+    # Get markup validation profile name
+    #
+    $markup_validate_profile = $report_options{$markup_validate_profile_label};
+
+    #
+    # Get TQA Check profile name
+    #
+    $tqa_check_profile = $report_options{$tqa_profile_label};
 
     #
     # Report header
@@ -7893,7 +8428,6 @@ sub Open_Data_Callback {
                 print "Process open data url $url\n" if $debug;
                 ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
                 Crawler_Uncompress_Content_File($resp);
-                push(@all_urls, "$data_file_type $url");
 
                 #
                 # Print URL
@@ -7901,11 +8435,53 @@ sub Open_Data_Callback {
                 $document_count{$crawled_urls_tab}++;
                 Validator_GUI_Start_URL($crawled_urls_tab, $url, "", 0,
                                         $document_count{$crawled_urls_tab});
+                                        
+                #
+                # Get mime-type for content
+                #
+                if ( defined($resp) && $resp->is_success ) {
+                    $header = $resp->headers;
+                    $mime_type = $header->content_type;
+                }
+                else {
+                    $mime_type = "";
+                }
 
                 #
-                # Perform Open Data checks.
+                # Check mime-type to see if it is an HTML page or an
+                # Open Data document
                 #
-                Perform_Open_Data_Check($url, $format, $data_file_type, $resp);
+                if ( $mime_type =~ /text\/html/ ) {
+                    #
+                    # Get the content from the content file
+                    #
+                    $content = Crawler_Read_Content_File($resp);
+                    
+                    #
+                    # Get document language
+                    #
+                    $language = HTML_Document_Language($url, \$content);
+
+                    #
+                    # Perform mark-up validation
+                    #
+                    Perform_Markup_Validation($url, $mime_type, $resp, \$content);
+
+                    #
+                    # Perform TQA check
+                    #
+                    push(@all_urls, "HTML $url");
+                    Perform_TQA_Check($url, \$content, $language, $mime_type,
+                                      $resp);
+                }
+                else {
+                    #
+                    # Perform Open Data checks.
+                    #
+                    push(@all_urls, "$data_file_type $url");
+                    Perform_Open_Data_Check($url, $format, $data_file_type,
+                                            $resp);
+                }
             }
         }
     }
@@ -7978,6 +8554,8 @@ sub Setup_HTML_Tool_GUI {
     $clf_profile_label = String_Value("CLF Testcase Profile");
     $wa_profile_label = String_Value("Web Analytics Testcase Profile");
     $interop_profile_label = String_Value("Interop Testcase Profile");
+    $mobile_profile_label = String_Value("Mobile Testcase Profile");
+    $markup_validate_profile_label = String_Value("Markup Validation Profile");
     $dept_check_profile_label = String_Value("Department Check Testcase Profile");
     $doc_profile_label = String_Value("Document Features Profile");
     $robots_label = String_Value("robots.txt handling");
@@ -7996,7 +8574,9 @@ sub Setup_HTML_Tool_GUI {
                        $dept_check_profile_label, \@dept_check_profiles,
                        $doc_profile_label, \@doc_features_profiles,
                        $robots_label, \@robots_options,
-                       $status_401_label, \@status_401_options);
+                       $status_401_label, \@status_401_options,
+                       $mobile_profile_label, \@mobile_check_profiles,
+                       $markup_validate_profile_label, \@markup_validate_profiles,);
     %report_options_labels = ("clf_profile", $clf_profile_label,
                               "dept_profile", $dept_check_profile_label,
                               "group_profile", $testcase_profile_group_label,
@@ -8008,7 +8588,9 @@ sub Setup_HTML_Tool_GUI {
                               "robots_handling", $robots_label,
                               "tqa_profile", $tqa_profile_label,
                               "wa_profile", $wa_profile_label,
-                              "401_handling", $status_401_label);
+                              "401_handling", $status_401_label,
+                              "mobile_profile", $mobile_profile_label,
+                              "markup_validate_profile", $markup_validate_profile_label);
 
     #
     # Get hash table of testcase profile option and all the
@@ -8043,7 +8625,9 @@ sub Setup_HTML_Tool_GUI {
                     "robots_handling", \%robots_languages,
                     "tqa_profile", \%tqa_check_profiles_languages,
                     "wa_profile", \%wa_check_profiles_languages,
-                    "401_handling", \%status_401_languages);
+                    "401_handling", \%status_401_languages,
+                    "mobile_profile", \%mobile_check_profiles_languages,
+                    "markup_validate_profile", \%markup_validate_profiles_languages);
 
     #
     # Setup the validator GUI configuration options
@@ -8083,6 +8667,8 @@ sub Setup_HTML_Tool_GUI {
     $results_file_suffixes{$doc_features_tab} = "feat";
     $doc_list_tab = String_Value("Document List");
     $results_file_suffixes{$doc_list_tab} = "urls";
+    $mobile_tab  = String_Value("Mobile");
+    $results_file_suffixes{$mobile_tab} = "mob";
 
     #
     # Set results file suffixes
@@ -8108,6 +8694,7 @@ sub Setup_HTML_Tool_GUI {
     Validator_GUI_Add_Results_Tab($clf_tab);
     Validator_GUI_Add_Results_Tab($interop_tab);
     Validator_GUI_Add_Results_Tab($dept_tab);
+    Validator_GUI_Add_Results_Tab($mobile_tab);
     Validator_GUI_Add_Results_Tab($doc_features_tab);
     Validator_GUI_Add_Results_Tab($doc_list_tab);
 
@@ -8173,10 +8760,18 @@ sub Setup_Open_Data_Tool_GUI {
     # Get report option labels
     #
     $open_data_profile_label = String_Value("Open Data Testcase Profile");
-    %report_options = ($open_data_profile_label,
-                       \@open_data_check_profiles);
-    %report_options_values_languages = ("open_data_profile",
-                                        $open_data_profile_label);
+    $tqa_profile_label = String_Value("ACC Testcase Profile");
+    $markup_validate_profile_label = String_Value("Markup Validation Profile");
+
+    #
+    # Set testcase profile options
+    #
+    %report_options = ($open_data_profile_label, \@open_data_check_profiles,
+                       $tqa_profile_label,       \@tqa_check_profiles,
+                       $markup_validate_profile_label, \@markup_validate_profiles);
+    %report_options_values_languages = ("open_data_profile", $open_data_profile_label,
+                                        "tqa_profile", $tqa_profile_label,
+                                        "markup_validate_profile", $markup_validate_profile_label);
 
     #
     # Set user agent max size if it has not been specified.
@@ -8201,6 +8796,10 @@ sub Setup_Open_Data_Tool_GUI {
     $results_file_suffixes{$crawled_urls_tab} = "crawl";
     $open_data_tab = String_Value("Open Data");
     $results_file_suffixes{$open_data_tab} = "od";
+    $validation_tab = String_Value("Validation");
+    $results_file_suffixes{$validation_tab} = "val";
+    $acc_tab = String_Value("ACC");
+    $results_file_suffixes{$acc_tab} = "acc";
     $doc_list_tab = String_Value("Document List");
     $results_file_suffixes{$doc_list_tab} = "urls";
 
@@ -8221,6 +8820,8 @@ sub Setup_Open_Data_Tool_GUI {
     #
     Validator_GUI_Add_Results_Tab($crawled_urls_tab);
     Validator_GUI_Add_Results_Tab($open_data_tab);
+    Validator_GUI_Add_Results_Tab($validation_tab);
+    Validator_GUI_Add_Results_Tab($acc_tab);
     Validator_GUI_Add_Results_Tab($doc_list_tab);
 }
 
