@@ -2,9 +2,9 @@
 #
 # Name: wpss_strings.pm
 #
-# $Revision: 7038 $
+# $Revision: 7164 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/wpss_strings.pm $
-# $Date: 2015-03-20 11:26:24 -0400 (Fri, 20 Mar 2015) $
+# $Date: 2015-05-27 10:12:43 -0400 (Wed, 27 May 2015) $
 #
 # Description:
 #
@@ -96,6 +96,10 @@ Site:
 
 Site:
 ",
+    "Mobile report header", "The following is a list of web documents from your site that contain Mobile Check violations.
+
+Site:
+",
     "Department report header", "The following is a list of web documents from your site that contain Department Check violations.
 
 Site:
@@ -124,18 +128,21 @@ Site:
     "Open Data",    "Open Data",
     "Document List",		"Document List",
     "Link Check Profile",		"Link Check Profile",
+    "Markup Validation Profile",		"Markup Validation Profile",
     "Metadata Profile",		"Metadata Profile",
     "PDF Property Profile",	"PDF Property Profile",
     "ACC Testcase Profile",	"Accessibility Testcase Profile",
     "CLF Testcase Profile",	"Layout and Design Testcase Profile",
     "Web Analytics Testcase Profile",	"Web Analytics Testcase Profile",
     "Interop Testcase Profile",	"Interoperability Testcase Profile",
+    "Mobile Testcase Profile",	"Mobile Testcase Profile",
     "Open Data Testcase Profile", "Open Data Testcase Profile",
     "Department Check Testcase Profile",	"Department Check Testcase Profile",
     "ACC",  			"ACC",
     "CLF",        "CLF",
     "INT",        "Interop",
     "Link", 			"Link",
+    "Mobile",  		"Mobile",
     "Department", 			"Department",
     "Document Features",		"Document Features",
     "Document Features Profile",	"Document Features Profile",
@@ -217,6 +224,10 @@ Site:
 
 Site:
 ",
+    "Mobile report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de mobile.
+
+Site:
+",
     "Department report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de department.
 
 Site:
@@ -245,12 +256,14 @@ Site :
     "Open Data",    "Données Ouvertes",
     "Document List",		"Liste des documents",
     "Link Check Profile",		"Profil de vérifier des liens",
+    "Markup Validation Profile",		"Profil de validation de balisage",
     "Metadata Profile",		"Profil de métadonnées",
     "PDF Property Profile",	"Profil de propriété de PDF",
     "ACC Testcase Profile",	"Profil des cas de test de accessibilité",
     "CLF Testcase Profile",	"Profil des cas de test de mise et la conception",
     "Web Analytics Testcase Profile",	"Profil des cas de test de Web analytique",
     "Interop Testcase Profile",	"Profil des cas de test de Interoperability",
+    "Mobile Testcase Profile",	"Profil des cas de test de Mobile",
     "Open Data Testcase Profile",  "Profil des cas de test de Données Ouvertes",
     "Department Check Testcase Profile",	"Profil des cas de test de département ",
     "Yes",			"Oui",
@@ -260,6 +273,7 @@ Site :
     "CLF",        "NSI",
     "INT",        "Interop",
     "Link", 			"Lien",
+    "Mobile",  		"Mobile",
     "Content",  		"Contenu",
     "Department", 			"Département",
     "Document Features",		"Fonctions des documents",
