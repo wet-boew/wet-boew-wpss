@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 6941 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2014-12-23 11:06:22 -0500 (Tue, 23 Dec 2014) $
+# $Revision: 7348 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
+# $Date: 2015-11-17 04:34:59 -0500 (Tue, 17 Nov 2015) $
 #
 # Description:
 #
@@ -605,6 +605,48 @@ sub Save_Link_In_Subsection_List {
 
 #***********************************************************************
 #
+# Name: Get_Absolute_URL
+#
+# Parameters: href - relative href value
+#             onclick - onclick tag attribute
+#
+# Description:
+#
+#   This function converts the relative URL value into an absolute URL.
+# If there is an onclick attribute value, and the value is not JavaScript
+# code, then the onclick value is used as the absolute URL.
+# If there is no onclick value, the href value and
+# the base value from the HTTP::Response object are combined to generate
+# the absolute URL value.
+#
+#***********************************************************************
+sub Get_Absolute_URL {
+    my ($href, $onclick) = @_;
+    
+    my ($abs_url);
+
+    #
+    # Do we have an onclick value ?
+    #
+    if ( defined($onclick) &&
+        ($onclick ne "") &&
+        (! ($onclick =~ /^\s*javascript:/i) ) ) {
+        print "Absolute value is onclick attribute \"$onclick\"\n" if $debug;
+        $abs_url = $onclick;
+    }
+    else {
+        print "Absolute value generated from href and base\n" if $debug;
+        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
+    }
+    
+    #
+    # Return absolute URL value
+    #
+    return($abs_url);
+}
+
+#***********************************************************************
+#
 # Name: Anchor_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -649,7 +691,7 @@ sub Anchor_Tag_Handler {
             #
             # Convert href into an absolute URL
             #
-            $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
+            $abs_url = Get_Absolute_URL($href, $attr{"onclick"});
 
             #
             # Do we have a lang attribute
@@ -734,7 +776,7 @@ sub Frame_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = Get_Absolute_URL($src, $attr{"onclick"});
 
         #
         # Check for title
@@ -808,7 +850,7 @@ sub Embed_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = Get_Absolute_URL($src, $attr{"onclick"});
 
         #
         # Check for title
@@ -882,7 +924,7 @@ sub Area_Tag_Handler {
     #
     if ( defined( $attr{"href"} ) ) {
         $href = $attr{"href"};
-        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
+        $abs_url = Get_Absolute_URL($href, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -939,7 +981,7 @@ sub Audio_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = Get_Absolute_URL($src, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1003,7 +1045,7 @@ sub Object_Tag_Handler {
     #
     if ( defined( $attr{"data"} ) ) {
         $href = $attr{"data"};
-        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
+        $abs_url = Get_Absolute_URL($href, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1118,7 +1160,7 @@ sub Link_Tag_Handler {
     #
     if ( defined( $attr{"href"} ) ) {
         $href = $attr{"href"};
-        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
+        $abs_url = Get_Absolute_URL($href, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1183,7 +1225,7 @@ sub Longdesc_Attribute_Handler {
     #
     if ( defined( $attr{"longdesc"} ) ) {
         $href = $attr{"href"};
-        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
+        $abs_url = Get_Absolute_URL($href, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1234,7 +1276,7 @@ sub Cite_Attribute_Handler {
     #
     if ( defined( $attr{"cite"} ) ) {
         $href = $attr{"href"};
-        $abs_url = URL_Check_Make_URL_Absolute($href, $current_resp_base);
+        $abs_url = Get_Absolute_URL($href, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1284,7 +1326,7 @@ sub Image_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = Get_Absolute_URL($src, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1388,7 +1430,7 @@ sub Input_Tag_Handler {
         #
         if ( defined( $attr{"src"} ) ) {
             $src = $attr{"src"};
-            $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+            $abs_url = Get_Absolute_URL($src, $attr{"onclick"});
 
             #
             # Do we have a lang attribute
@@ -1503,7 +1545,7 @@ sub Script_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = Get_Absolute_URL($src, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1567,7 +1609,7 @@ sub Source_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = Get_Absolute_URL($src, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1685,7 +1727,7 @@ sub Track_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = Get_Absolute_URL($src, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1750,7 +1792,7 @@ sub Video_Tag_Handler {
     #
     if ( defined( $attr{"src"} ) ) {
         $src = $attr{"src"};
-        $abs_url = URL_Check_Make_URL_Absolute($src, $current_resp_base);
+        $abs_url = Get_Absolute_URL($src, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
@@ -1793,7 +1835,7 @@ sub Video_Tag_Handler {
     #
     if ( defined( $attr{"poster"} ) ) {
         $poster = $attr{"poster"};
-        $abs_url = URL_Check_Make_URL_Absolute($poster, $current_resp_base);
+        $abs_url = Get_Absolute_URL($poster, $attr{"onclick"});
 
         #
         # Do we have a lang attribute
