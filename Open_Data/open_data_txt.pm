@@ -2,9 +2,9 @@
 #
 # Name:   open_data_txt.pm
 #
-# $Revision: 7025 $
+# $Revision: 7350 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_txt.pm $
-# $Date: 2015-03-06 10:17:34 -0500 (Fri, 06 Mar 2015) $
+# $Date: 2015-11-17 04:38:00 -0500 (Tue, 17 Nov 2015) $
 #
 # Description:
 #
@@ -54,6 +54,7 @@ use strict;
 use URI::URL;
 use File::Basename;
 use Encode;
+use HTML::Entities;
 
 #***********************************************************************
 #
@@ -380,6 +381,7 @@ sub Parse_Text_Dictionary {
     my ($line_no, $blank_line_count, $current_text);
     my (%terms_and_definitions, %term_location, $have_dictionary);
     my (%definitions_and_terms, $term_count);
+    my ($is_utf8_content) = 0;
 
     #
     # Initialize flags and counters
@@ -430,11 +432,19 @@ sub Parse_Text_Dictionary {
         #
         if ( $line_no == 0 ) {
             $line =~ s/^\xEF\xBB\xBF//;
+            $is_utf8_content = 1;
         }
         $line_no++;
 
         #
-        # Remove leading and trailing white space
+        # Decode UTF-8 content
+        #
+        if ( $is_utf8_content ) {
+            $line = decode("utf8", $line, Encode::FB_DEFAULT);
+        }
+        
+        #
+        #  Remove leading and trailing white space
         #
         $line =~ s/^\s*//g;
         $line =~ s/\s*$//g;
@@ -459,7 +469,12 @@ sub Parse_Text_Dictionary {
                 #
                 $in_term = 0;
                 $found_term = 1;
-                $term = lc($current_text);
+                #
+                # Don't convert to lower case, terms are case sensitive
+                # $term = lc($current_text);
+                #
+                #$term = encode_entities($current_text);
+                $term = $current_text;
                 print "Found term \"$term\" on line $line_no\n" if $debug;
 
                 #
@@ -522,7 +537,7 @@ sub Parse_Text_Dictionary {
 #                #
 #                # Have we seen this definition before ?
 #                #
-#                $current_text = lc($current_text);
+#                #$current_text = lc($current_text);
 #                if ( defined($definitions_and_terms{$current_text}) ) {
 #                    Record_Result("OD_TXT_1", $line_no, 0, "$current_text",
 #                                  String_Value("Duplicate definition") .
@@ -605,7 +620,7 @@ sub Parse_Text_Dictionary {
             # Not the start of a definition, must be the start of a term
             #
             else {
-                print "Start term at $line_no\n" if $debug;
+                print "Start term at $line_no, line = \"$line\"\n" if $debug;
                 $in_term = 1;
                 $current_text = $line;
 
