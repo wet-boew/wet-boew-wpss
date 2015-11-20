@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 7097 $
+# $Revision: 7339 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2015-04-17 12:04:23 -0400 (Fri, 17 Apr 2015) $
+# $Date: 2015-11-05 06:48:13 -0500 (Thu, 05 Nov 2015) $
 #
 # Description:
 #
@@ -6729,7 +6729,7 @@ sub Check_Skip_Links {
 sub Get_WET_Version {
     my ($url) = @_;
 
-    my ($version, $resp_url, $resp, $line, $lead, $tail, $content);
+    my ($version, $resp_url, $resp, $line, $lead, $tail, $content, $date);
 
     #
     # Do we already have the version number ?
@@ -6753,9 +6753,24 @@ sub Get_WET_Version {
             $content = Crawler_Decode_Content($resp);
             foreach $line (split(/\n/, $content)) {
                 #
+                # Look for Version: v... Build line
+                #
+                ($lead, $version) = $line =~ /^([\s\*]*)Version:\s+v(\S+)\s+Build.*$/io;
+
+                if ( defined($version) ) {
+                    print "Found Version: ... Build $version\n" if $debug;
+                }
+
+                #
                 # Look for Version: ... Build line
                 #
-                ($lead, $version) = $line =~ /^([\s\*]*)Version:\s+(\S+)\s+Build.*$/io;
+                if ( ! defined($version) ) {
+                    ($lead, $version) = $line =~ /^([\s\*]*)Version:\s+(\S+)\s+Build.*$/io;
+
+                    if ( defined($version) ) {
+                        print "Found Version: ... Build $version\n" if $debug;
+                    }
+                }
 
                 #
                 # If we didn't find a version, look for Version: ...
@@ -6763,14 +6778,34 @@ sub Get_WET_Version {
                 #
                 if ( ! defined($version) ) {
                     ($lead, $version) = $line =~ /^([\s\*]*)Version:\s+(\S+)\s*$/io;
+
+                    if ( defined($version) ) {
+                        print "Found Version: $version\n" if $debug;
+                    }
                 }
 
                 #
-                # If we didn't find a version, look for v?.?
-                # (i.e. v<digit>.<digit>)
+                # If we didn't find a version, look for * vn.n.n - yyyy-mm-dd
+                # (i.e. WET 4 string)
                 #
                 if ( ! defined($version) ) {
-                    ($lead, $version) = $line =~ /^([\s\*]*)v([\d\.]*).*$/io;
+                    ($lead, $version, $date) = $line =~ /^([\s\*]*)v(\d+\.\d+\.\d+)\s+\-\s+(\d+\-\d+\-\d+)\s*$/io;
+
+                    if ( defined($version) ) {
+                        print "Found vversion date: $version\n" if $debug;
+                    }
+                }
+
+                #
+                # If we didn't find a version, look for * n.n.n - yyyy-mm-dd
+                # (i.e. WET 4 string)
+                #
+                if ( ! defined($version) ) {
+                    ($lead, $version, $date) = $line =~ /^([\s\*]*)(\d+\.\d+\.\d+)\s+\-\s+(\d+\-\d+\-\d+)\s*$/io;
+
+                    if ( defined($version) ) {
+                        print "Found version date: $version\n" if $debug;
+                    }
                 }
 
                 #
