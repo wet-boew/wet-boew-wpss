@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 7215 $
+# $Revision: 7333 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2015-08-05 06:46:56 -0400 (Wed, 05 Aug 2015) $
+# $Date: 2015-11-05 06:41:47 -0500 (Thu, 05 Nov 2015) $
 #
 # Description:
 #
@@ -5233,7 +5233,7 @@ sub Check_Track_Src {
     }
     
     #
-    # Is the content XML ?
+    # Is the mime type XML ?
     #
     if ( ($mime_type =~ /application\/atom\+xml/) ||
          ($mime_type =~ /application\/ttml\+xml/) ||
@@ -5257,7 +5257,7 @@ sub Check_Track_Src {
         if ( $is_ttml && ($data_type =~ /application\/ttml\+xml/i) ) {
             print "data-type is TTML\n" if $debug;
         }
-        else {
+        elsif ( $is_ttml ) {
             print "data-type does not match content type\n" if $debug;
             Record_Result("WCAG_2.0-F8", $line, $column, $text,
                           String_Value("Content type does not match") .
