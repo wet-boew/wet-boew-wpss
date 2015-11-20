@@ -2,9 +2,9 @@
 #
 # Name:   validate_markup.pm
 #
-# $Revision: 7158 $
+# $Revision: 7357 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/HTML_Validate/Tools/validate_markup.pm $
-# $Date: 2015-05-27 10:02:24 -0400 (Wed, 27 May 2015) $
+# $Date: 2015-11-19 08:18:34 -0500 (Thu, 19 Nov 2015) $
 #
 # Description:
 #
@@ -114,6 +114,7 @@ sub Validate_Markup_Debug {
     JavaScript_Validate_Debug($debug);
     Robots_Check_Debug($debug);
     Feed_Validate_Debug($debug);
+    XML_Validate_Debug($debug);
 }
 
 #********************************************************
