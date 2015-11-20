@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 7106 $
+# $Revision: 7351 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2015-04-24 16:49:19 -0400 (Fri, 24 Apr 2015) $
+# $Date: 2015-11-17 04:38:46 -0500 (Tue, 17 Nov 2015) $
 #
 # Description:
 #
@@ -57,6 +57,7 @@ use File::Basename;
 use Text::CSV;
 use IO::Handle;
 use File::Temp qw/ tempfile tempdir /;
+use HTML::Entities;
 
 #***********************************************************************
 #
@@ -383,12 +384,14 @@ sub Check_First_Data_Row {
     $count = 0;
     foreach $field (@fields) {
         #
-        # Convert field value to lower case and check to see if it
-        # matches a dictionary entry.
+        # Don't convert to lower case, terms are case sensitive
+        # $field = lc($field);
         #
-        $field = lc($field);
+        # Check to see if it matches a dictionary entry.
+        #
         $field =~ s/^\s*//g;
         $field =~ s/\s*$//g;
+        #$field = encode_entities($field);
         if ( defined($$dictionary{$field}) ) {
             print "Found term/field match for \"$field\"\n" if $debug;
             $count++;
