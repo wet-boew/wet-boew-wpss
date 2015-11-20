@@ -2,9 +2,9 @@
 #
 # Name:   xml_validate.pm
 #
-# $Revision: 6919 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/XML_Validate/Tools/xml_validate.pm $
-# $Date: 2014-12-16 13:31:15 -0500 (Tue, 16 Dec 2014) $
+# $Revision: 7355 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/XML_Validate/Tools/xml_validate.pm $
+# $Date: 2015-11-19 08:17:34 -0500 (Thu, 19 Nov 2015) $
 #
 # Description:
 #
@@ -100,6 +100,12 @@ sub XML_Validate_Debug {
     # Copy debug flag to global
     #
     $debug = $this_debug;
+    
+    #
+    # Set debug flag in supporting modules
+    #
+    Feed_Validate_Debug($debug);
+    XML_TTML_Validate_Debug($debug);
 }
 
 #********************************************************
