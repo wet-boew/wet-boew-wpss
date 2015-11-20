@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 7214 $
+# $Revision: 7347 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2015-08-05 06:44:13 -0400 (Wed, 05 Aug 2015) $
+# $Date: 2015-11-17 04:33:41 -0500 (Tue, 17 Nov 2015) $
 #
 # Description:
 #
@@ -101,7 +101,7 @@ my ($current_url, %template_integrity, %template_version, %site_inc_version);
 my ($current_heading_level, $have_text_handler, %section_h1_count);
 my (%found_template_markers, $current_clf_check_profile_name);
 my ($valid_search_actions, $expected_search_inputs);
-my ($in_search_form, $in_noscript);
+my ($in_search_form, $in_noscript, @heading_level_stack);
 
 my ($max_error_message_string) = 2048;
 
@@ -133,73 +133,73 @@ my (%critical_template_file_suffix) = (
 # String table for error strings.
 #
 my %string_table_en = (
-    "Missing content section markers for", "Missing content section markers for ",
-    "DOCTYPE is not",                 "DOCTYPE is not",
-    "or more recent",                 "or more recent",
-    "Link violations found",          "Link violations found, see link check results for details.",
-    "New heading level",              "New heading level ",
-    "is not equal to last level",     " is not equal to last level ",
-    "Displayed e-mail address",       "Displayed e-mail address",
-    "does not match mailto",          "does not match 'mailto'",
-    "Multiple <h1> tags found in section", "Multiple <h1> tags found in section",
-    "Mismatch in template file domain, found", "Mismatch in template file domain, found",
-    "Mismatch in template file directory, found", "Mismatch in template file directory, found",
-    "Mismatch in site include file domain, found", "Mismatch in site include file domain, found",
-    "Mismatch in site include file directory, found", "Mismatch in site include file directory, found",
-    "expecting",                      "expecting ",
-    "Template file not found",        "Template file not found",
-    "Checksum failed for template file", "Checksum failed for template file",
-    "No template supporting files used from", "No template supporting files used from",
-    "Invalid template version",       "Invalid template version",
-    "Invalid site includes version",  "Invalid site includes version",
-    "Site includes file not found",   "Site includes file not found",
-    "expecting one of",               "expecting one of ",
     "Apache SSI error message found", "Apache SSI error message found",
+    "Application template used outside login, have target=_blank when not expected in navigation section",
+        "Application template used outside login, have target=_blank when not expected in navigation section ",
+    "Checksum failed for template file", "Checksum failed for template file",
+    "Displayed e-mail address",       "Displayed e-mail address",
+    "DOCTYPE is not",                 "DOCTYPE is not",
+    "does not match mailto",          "does not match 'mailto'",
+    "expecting",                      "expecting ",
+    "expecting one of",               "expecting one of ",
+    "GC footer",                      "Government of Canada footer",
+    "GC navigation bar",              "Government of Canada navigation bar",
     "IIS SSI error message found",    "IIS SSI error message found",
-    "Missing web page template marker", "Missing web page template marker",
     "Invalid search action",          "Invalid search '<form action='",
     "Invalid search input value",     "Invalid search input value",
-    "Application template used outside login, have target=_blank when not expected in navigation section",            "Application template used outside login, have target=_blank when not expected in navigation section ",
-    "GC navigation bar",              "Government of Canada navigation bar",
+    "Invalid site includes version",  "Invalid site includes version",
+    "Invalid template version",       "Invalid template version",
+    "is not equal to last level",     " is not equal to last level ",
+    "Link violations found",          "Link violations found, see link check results for details.",
+    "Mismatch in site include file directory, found", "Mismatch in site include file directory, found",
+    "Mismatch in site include file domain, found", "Mismatch in site include file domain, found",
+    "Mismatch in template file directory, found", "Mismatch in template file directory, found",
+    "Mismatch in template file domain, found", "Mismatch in template file domain, found",
+    "Missing content section markers for", "Missing content section markers for ",
+    "Missing web page template marker", "Missing web page template marker",
+    "Multiple <h1> tags found in section", "Multiple <h1> tags found in section",
+    "New heading level",              "New heading level ",
+    "No template supporting files used from", "No template supporting files used from",
+    "or more recent",                 "or more recent",
     "Site footer",                    "Site/application footer",
-    "GC footer",                      "Government of Canada footer",
+    "Site includes file not found",   "Site includes file not found",
+    "Template file not found",        "Template file not found",
     );
 
 #
 # String table for error strings (French).
 #
 my %string_table_fr = (
-    "Missing content section markers for", "Manquantes marqueurs section de contenu pour les ",
-    "DOCTYPE is not",                 "DOCTYPE ne pas",
-    "or more recent",                 "ou plus récent",
-    "Link violations found",          "Violations Lien trouvé, voir les résultats vérifier le lien pour plus de détails.",
-    "New heading level",              "Nouveau niveau d'en-tête ",
-    "is not equal to last level",     " n'est pas égal à au dernier niveau ",
-    "Displayed e-mail address",       "L'adresse courriel affichée",
-    "does not match mailto",          "ne correspond pas au 'mailto'",
-    "Multiple <h1> tags found in section", "Plusieurs balises <h1> trouvé dans la section",
-    "Mismatch in template file domain, found", "Erreur de correspondance des domaine des fichier de gabarit, a trouvé",
-    "Mismatch in template file directory, found", "Erreur de correspondance des répertoire des fichier de gabarit, a trouvé",
-    "Mismatch in site include file domain, found", "Erreur de correspondance des domaine des fichier des includes du site, a trouvé",
-    "Mismatch in site include file directory, found", "Erreur de correspondance des includes du site des fichier de gabarit, a trouvé",
-    "expecting",                      "expectant ",
-    "Template file not found",        "Ficher de gabarit pas trouvé",
-    "Checksum failed for template file", "Checksum échoué pour le fichier de gabarit",
-    "No template supporting files used from", "Pas de fichiers de gabarit de soutien utilisés par",
-    "Invalid template version",       "Version du gabarit non valide",
-    "Invalid site includes version",  "Version des includes du site non valide",
-    "Site includes file not found",   "Ficher des includes du site pas trouvé",
-    "expecting one of",               "expectant une de ",
     "Apache SSI error message found", "Message d'erreur Apache SSI trouvé",
+        "Gabarit d'application utilisé en dehors connexion, avoir target = _blank lorsqu'il n'est pas prévu dans la section de navigation",
+    "Application template used outside login, have target=_blank when not expected in navigation section",
+    "Checksum failed for template file", "Checksum échoué pour le fichier de gabarit",
+    "Displayed e-mail address",       "L'adresse courriel affichée",
+    "DOCTYPE is not",                 "DOCTYPE ne pas",
+    "does not match mailto",          "ne correspond pas au 'mailto'",
+    "expecting",                      "expectant ",
+    "expecting one of",               "expectant une de ",
+    "GC footer",                      "Pied de page du gouvernement du Canada",
+    "GC navigation bar",              "Barre de navigation du gouvernement du Canada",
     "IIS SSI error message found",    "Message d'erreur IIS SSI trouvé",
-    "Missing web page template marker", "Marqueur de gabarit pas trouvé",
     "Invalid search action",          "'<form action=' non valide dans la recherche",
     "Invalid search input value",     "Valeur non valide saisie de recherche",
-    "Application template used outside login, have target=_blank when not expected in navigation section",
-            "Gabarit d'application utilisé en dehors connexion, avoir target = _blank lorsqu'il n'est pas prévu dans la section de navigation",
-    "GC navigation bar",              "Barre de navigation du gouvernement du Canada",
+    "Invalid site includes version",  "Version des includes du site non valide",
+    "Invalid template version",       "Version du gabarit non valide",
+    "is not equal to last level",     " n'est pas égal à au dernier niveau ",
+    "Mismatch in template file directory, found", "Erreur de correspondance des répertoire des fichier de gabarit, a trouvé",
+    "Mismatch in template file domain, found", "Erreur de correspondance des domaine des fichier de gabarit, a trouvé",
+    "Mismatch in site include file directory, found", "Erreur de correspondance des includes du site des fichier de gabarit, a trouvé",
+    "Mismatch in site include file domain, found", "Erreur de correspondance des domaine des fichier des includes du site, a trouvé",
+    "Missing content section markers for", "Manquantes marqueurs section de contenu pour les ",
+    "Missing web page template marker", "Marqueur de gabarit pas trouvé",
+    "Multiple <h1> tags found in section", "Plusieurs balises <h1> trouvé dans la section",
+    "New heading level",              "Nouveau niveau d'en-tête ",
+    "No template supporting files used from", "Pas de fichiers de gabarit de soutien utilisés par",
+    "or more recent",                 "ou plus récent",
     "Site footer",                    "Pied de page du site ou de l'application",
-    "GC footer",                      "Pied de page du gouvernement du Canada",
+    "Site includes file not found",   "Ficher des includes du site pas trouvé",
+    "Template file not found",        "Ficher de gabarit pas trouvé",
     );
 
 #
@@ -767,6 +767,7 @@ sub Initialize_Test_Results {
     $current_clf_check_profile_name = $profile;
     $found_frame_tag = 0;
     $current_heading_level = 0;
+    undef(@heading_level_stack);
     $have_text_handler = 0;
     %section_h1_count = ();
     $in_search_form = 0;
@@ -940,9 +941,21 @@ sub Check_Baseline_Technologies {
         #
         if ( $found_frame_tag ) {
             #
+            # Is the doctype HTML 5 ?
+            #
+            if ( $doctype_label =~ /html/i ) {
+                if ( $doctype_version < 5.0 ) {
+                    Record_Result($tcid, $doctype_line,
+                                  $doctype_column, "$doctype_text",
+                                  String_Value("DOCTYPE is not") .
+                                  " 'XHTML 1.0 Frameset' " .
+                                  String_Value("or more recent"));
+                }
+            }
+            #
             # Is the DOCTYPE a Frameset doctype ?
             #
-            if ( ! ($doctype_label =~ /frameset/i) ) {
+            elsif ( ! ($doctype_label =~ /frameset/i) ) {
                 Record_Result($tcid, $doctype_line,
                               $doctype_column, "$doctype_text",
                               String_Value("DOCTYPE is not") .
@@ -1391,6 +1404,65 @@ sub Noscript_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Start_Section_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the start section tag. It saves the current heading
+# level for the parent tag block and resets it to 0 for the section.
+#
+#***********************************************************************
+sub Start_Section_Tag_Handler {
+    my ($line, $column, $text, %attr) = @_;
+
+    #
+    # Save current heading level in the heading level stack.
+    # Reset current heading level to 0 or unknown.
+    #
+    push(@heading_level_stack, $current_heading_level);
+    $current_heading_level = 0;
+}
+
+#***********************************************************************
+#
+# Name: End_Section_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles the end section tag. It restores the
+# current heading level for the parent tag block.
+#
+#***********************************************************************
+sub End_Section_Tag_Handler {
+    my ($line, $column, $text) = @_;
+
+    #
+    # Restore current heading level from the heading level stack.
+    #
+    if ( @heading_level_stack > 0 ) {
+        $current_heading_level = pop(@heading_level_stack);
+    }
+    else {
+        #
+        # Don't have a current heading level, perhaps there is a mismatch
+        # in open and close section tags.  Set current heading level
+        # to 0 or unknown.
+        #
+        $current_heading_level = 0;
+    }
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -1409,8 +1481,8 @@ sub Noscript_Tag_Handler {
 #
 #***********************************************************************
 sub Start_Handler {
-    my ( $self, $tagname, $line, $column, $text, $skipped_text,
-         $attrseq, %attr_hash ) = @_;
+    my ($self, $tagname, $line, $column, $text, $skipped_text,
+        $attrseq, %attr_hash) = @_;
 
     my ($id);
 
@@ -1442,51 +1514,59 @@ sub Start_Handler {
     #
     $tagname =~ s/\///g;
     if ( $tagname eq "a" ) {
-        Anchor_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+        Anchor_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
 
     #
     # Check form tag
     #
     elsif ( $tagname eq "form" ) {
-        Form_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+        Form_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
 
     #
     # Check frame tag
     #
     elsif ( $tagname eq "frame" ) {
-        Frame_Tag_Handler( "<frame>", $line, $column, $text, %attr_hash );
+        Frame_Tag_Handler("<frame>", $line, $column, $text, %attr_hash);
     }
 
     #
     # Check h tag
     #
     elsif ( $tagname =~ /^h[0-9]?$/ ) {
-        Start_H_Tag_Handler( $self, $tagname, $line, $column, $text,
-                            %attr_hash );
+        Start_H_Tag_Handler($self, $tagname, $line, $column, $text,
+                            %attr_hash);
     }
 
     #
     # Check input tag
     #
     elsif ( $tagname eq "input" ) {
-        Input_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+        Input_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
 
     #
     # Check iframe tag
     #
     elsif ( $tagname eq "iframe" ) {
-        Frame_Tag_Handler( "<iframe>", $line, $column, $text, %attr_hash );
+        Frame_Tag_Handler("<iframe>", $line, $column, $text, %attr_hash);
     }
 
     #
     # Check noscript tag
     #
     elsif ( $tagname eq "noscript" ) {
-        Noscript_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+        Noscript_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
+
+    #
+    # Check section tag
+    #
+    elsif ( $tagname eq "section" ) {
+        Start_Section_Tag_Handler($self, $line, $column, $text, %attr_hash);
+    }
+
 }
 
 #***********************************************************************
@@ -1715,14 +1795,21 @@ sub End_Handler {
     # Check form tag
     #
     elsif ( $tagname eq "form" ) {
-        End_Form_Tag_Handler( $self, $line, $column, $text);
+        End_Form_Tag_Handler($self, $line, $column, $text);
     }
 
     #
     # Check noscript tag
     #
     elsif ( $tagname eq "noscript" ) {
-        End_Noscript_Tag_Handler( $self, $line, $column, $text);
+        End_Noscript_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    # Check section  tag
+    #
+    elsif ( $tagname eq "noscript" ) {
+        End_Section_Tag_Handler($line, $column, $text);
     }
 
     #
