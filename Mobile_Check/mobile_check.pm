@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 7185 $
+# $Revision: 7334 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2015-06-29 03:04:13 -0400 (Mon, 29 Jun 2015) $
+# $Date: 2015-11-05 06:43:17 -0500 (Thu, 05 Nov 2015) $
 #
 # Description:
 #
@@ -96,6 +96,7 @@ my (%testcase_data, %mobile_check_profile_map, $current_mobile_check_profile);
 my ($results_list_addr, $current_url, $max_allowed_css, $max_allowed_js);
 my ($max_hostname_count, $favicon_size, %favicon_urls, $max_allowed_image);
 my (@redirect_ignore_text_patterns, @redirect_ignore_url_patterns);
+my (%style_count, %supporting_file_size);
 
 #
 # Status values
@@ -132,8 +133,10 @@ my %string_table_en = (
     "Hostname count for supporting files", "Hostname count for supporting files",
     "JS link found in <head>",       "JavaScript link found in <head>",
     "link count",                    "link count",
+    "No content in supporting file", "No content in supporting file",
     "No Etag or Last-Modified header field", "No Etag or Last-Modified header field",
     "No Expires or Cache-Control header field", "No Expires or Cache-Control header field.",
+    "No styles in stylesheet file",  "No styles in stylesheet file",
     "Previous instance found at",    "Previous instance found at (line:column) ",
     "Redirected link",               "Redirected link",
     );
@@ -154,8 +157,10 @@ my %string_table_fr = (
     "Hostname count for supporting files", "Nombre de nom d'hôte pour supporter les fichiers",
     "JS link found in <head>",       "lien JavaScript qui se trouve dans la balise <head>",
     "link count",                    "nombre de liens",
+    "No content in supporting file", "Aucun contenu dans le fichier de support",
     "No Etag or Last-Modified header field", "Aucune Etag ou un champ d'en-tête de Last-Modified",
     "No Expires or Cache-Control header field", "Aucune Expire ou un champ d'en-tête de Cache-Control.",
+    "No styles in stylesheet file",  "Pas de styles dans un fichier de style",
     "Previous instance found at",    "Instance précédente trouvée à (la ligne:colonne) ",
     "Redirected link",               "Lien Réorienter",
     );
@@ -916,12 +921,12 @@ sub Check_Favicon_Link {
         print "Check links in section HEAD\n" if $debug;
         foreach $link (@$list_addr) {
             #
-            # Exclude <noscipt> links and links from
+            # Exclude <noscript> links and links from
             # conditional includes.
             #
             print "Check link " . $link->abs_url . "\n" if $debug;
             if ( $link->noscript || $link->modified_content ) {
-                print "Skip noscipt or modified content link\n" if $debug;
+                print "Skip noscript or modified content link\n" if $debug;
             }
             #
             # Look for <link> type only.
@@ -1016,6 +1021,7 @@ sub Check_Broken_Redirect_Links {
     my ($link_sets) = @_;
 
     my ($section, $list_addr, $link, $resp, $pattern, $match_pattern);
+    my (%styles, $content, $mime_type, $header, $resp_url);
 
     #
     # Check links in all sections of the page
@@ -1025,12 +1031,12 @@ sub Check_Broken_Redirect_Links {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
             #
-            # Exclude <noscipt> links and links from
+            # Exclude <noscript> links and links from
             # conditional includes.
             #
             print "Check link " . $link->abs_url . "\n" if $debug;
             if ( $link->noscript || $link->modified_content ) {
-                print "Skip noscipt or modified content link\n" if $debug;
+                print "Skip noscript or modified content link\n" if $debug;
             }
             else {
                 #
@@ -1081,6 +1087,76 @@ sub Check_Broken_Redirect_Links {
                                       $link->redirect_url . "\"");
                     }
                 }
+                
+                #
+                # If this is a supporting file (CSS, JS, image, ...) ?
+                #
+                if ( ($link->link_type eq "image") ||
+                     ($link->link_type eq "link")  ||
+                     ($link->link_type eq "script") ) {
+                     
+                    #
+                    # Do we have a size for this file ?
+                    #
+                    if ( ! defined($supporting_file_size{$link->abs_url}) ) {
+                        ($resp_url, $resp) = Crawler_Get_HTTP_Response($link->abs_url, "");
+                        
+                        #
+                        # Get content size (eliminate leading whitespace
+                        # in case the file only contains whitespace)
+                        #
+                        if ( defined($resp) && ($resp->is_success) ) {
+                            $content = Crawler_Decode_Content($resp);
+                            $content =~ s/^\s*//g;
+                        }
+                        else {
+                            $content = "";
+                        }
+                        $supporting_file_size{$link->abs_url} = length($content);
+                        print "Supporting file " . $link->abs_url .
+                                  " length = " . length($content) . "\n" if $debug;
+                    }
+
+                    #
+                    # Is there any content in the supporting file
+                    #
+                    if ( $supporting_file_size{$link->abs_url} == 0 ) {
+                        Record_Result("NUM_HTTP", -1, -1, $link->source_line,
+                                      String_Value("No content in supporting file") .
+                                      " \"" . $link->abs_url . "\"");
+                    }
+                    
+                    #
+                    # Check stylesheets to see they contain styles
+                    #
+                    if ( ($link->link_type eq "link") &&
+                         ($supporting_file_size{$link->abs_url} > 0) ) {
+                         
+                        #
+                        # Do we already have a style count ?
+                        #
+                        if ( ! defined($style_count{$link->abs_url}) ) {
+                            $header = $resp->headers;
+                            $mime_type = $header->content_type;
+                            %styles = CSS_Check_Get_Styles_From_Content($link->abs_url,
+                                                                        $content,
+                                                                        $mime_type);
+                                                                         
+                            $style_count{$link->abs_url} = scalar(keys %styles);
+                            print "Have " . $style_count{$link->abs_url} .
+                                  " styles in CSS file " . $link->abs_url . "\n" if $debug;
+                        }
+                         
+                        #
+                        # Is the style count 0 ?
+                        #
+                        if ( $style_count{$link->abs_url} == 0 ) {
+                            Record_Result("NUM_HTTP", -1, -1, $link->source_line,
+                                          String_Value("No styles in stylesheet file") .
+                                          " \"" . $link->abs_url . "\"");
+                        }
+                    }
+                }
             }
         }
     }
@@ -1113,7 +1189,7 @@ sub Check_CSS_Links {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
             #
-            # Exclude <noscipt> links and links from
+            # Exclude <noscript> links and links from
             # conditional includes.
             #
             print "Check link " . $link->abs_url . "\n" if $debug;
@@ -1192,7 +1268,7 @@ sub Check_JS_Links {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
             #
-            # Exclude <noscipt> links and links from
+            # Exclude <noscript> links and links from
             # conditional includes.
             #
             print "Check link " . $link->abs_url . "\n" if $debug;
@@ -1286,7 +1362,7 @@ sub Check_Image_Links {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
             #
-            # Exclude <noscipt> links and links from
+            # Exclude <noscript> links and links from
             # conditional includes.
             #
             print "Check link " . $link->abs_url . "\n" if $debug;
@@ -1385,7 +1461,7 @@ sub Check_Hostnames {
             %attr = $link->attr();
 
             #
-            # Exclude <noscipt> links and links from
+            # Exclude <noscript> links and links from
             # conditional includes.
             #
             print "Check link " . $link->abs_url . "\n" if $debug;
@@ -1712,7 +1788,7 @@ sub Import_Packages {
                           "link_checker", "mobile_check_css",
                           "mobile_check_html", "mobile_check_js",
                           "mobile_check_image", "url_check",
-                          "crawler");
+                          "crawler", "css_check");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
