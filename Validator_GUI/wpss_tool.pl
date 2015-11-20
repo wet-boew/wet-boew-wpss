@@ -3286,8 +3286,6 @@ sub HTTP_401_Callback {
     my ($url, $realm) = @_;
 
     my ($user, $password);
-
-print "HTTP_401_Callback url = $url\n";
     
     #
     # Is the URL the firewall check URL ?
