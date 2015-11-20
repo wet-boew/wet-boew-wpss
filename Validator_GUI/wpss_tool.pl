@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 7213 $
+# $Revision: 7332 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2015-08-05 06:43:22 -0400 (Wed, 05 Aug 2015) $
+# $Date: 2015-11-05 05:05:23 -0500 (Thu, 05 Nov 2015) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ]
@@ -118,6 +118,11 @@ if ( $have_threads ) {
 # Content saving variables
 #
 my ($content_file) = 0;
+
+#
+# Save image file details in inventory
+#
+my ($save_image_file_details_in_inventory) = 0;
 
 #
 # URL patterns to be ignored by specific tools
@@ -3282,6 +3287,22 @@ sub HTTP_401_Callback {
 
     my ($user, $password);
 
+print "HTTP_401_Callback url = $url\n";
+    
+    #
+    # Is the URL the firewall check URL ?
+    #
+    if ( $url eq $firewall_check_url ) {
+        #
+        # Reset URL to an empty string when we are in CLI mode
+        # to force the CLI layer to prompt for credentials.
+        # Normally in CLI mode credentials are not prompted for.
+        #
+        if ( $cli_mode ) {
+            $url = "";
+        }
+    }
+    
     #
     # Open 401 login form
     #
@@ -3893,6 +3914,15 @@ sub HTTP_Response_Callback {
             # Perform Mobile check
             #
             Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
+
+            #
+            # Are we saving image file details ?
+            #
+            if ( $save_image_file_details_in_inventory ) {
+                $web_page_details_values{"url"} = $url;
+                $web_page_details_values{"lang"} = "";
+                $web_page_details_values{"content size"} = length($content);
+            }
         }
 
         #
@@ -4734,7 +4764,7 @@ sub URL_List_Callback {
     #
     # Close the web page details list
     #
-    close ($web_page_details_fh);
+    close($web_page_details_fh);
 
     #
     # Close the web page size file
@@ -4799,7 +4829,7 @@ sub Runtime_Error_Callback {
     #
     # Close the web page details list
     #
-    close ($web_page_details_fh);
+    close($web_page_details_fh);
 
     #
     # Close the web page size file
@@ -5014,7 +5044,7 @@ sub Results_Save_Callback {
     unlink($shared_web_page_size_filename);
 
     #
-    # Save and saved web page content
+    # Save any saved web page content
     #
     Finish_Content_Saving($filename);
 
@@ -5662,7 +5692,7 @@ sub Check_Page_URL {
     # Get mime type
     #
     $header = $resp->headers;
-    $mime_type = $header->content_type ;
+    $mime_type = $header->content_type;
 
     #
     # Are we doing navigation link checks ?
@@ -6409,7 +6439,7 @@ sub Perform_Site_Crawl {
     #
     # Close the web page details file
     #
-    close ($web_page_details_fh);
+    close($web_page_details_fh);
 
     #
     # Close the web page size file
