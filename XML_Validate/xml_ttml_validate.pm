@@ -217,7 +217,7 @@ sub XML_TTML_Validate_Content {
         #
         # Run the validator on the URL
         #
-        print "Run validator\n --> ava -jar ttv.jar --quiet --hide-warnings --hide-resource-location $this_url 2>\&1\n" if $debug;
+        print "Run validator\n --> java -jar ttv.jar --quiet --hide-warnings --hide-resource-location $this_url 2>\&1\n" if $debug;
         $validator_output = `java -jar \"$program_dir/lib/ttv.jar\" --quiet --hide-warnings --hide-resource-location $this_url 2>\&1`;
 
         #
