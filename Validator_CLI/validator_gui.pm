@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 7146 $
+# $Revision: 7331 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2015-05-21 10:58:55 -0400 (Thu, 21 May 2015) $
+# $Date: 2015-11-05 05:03:31 -0500 (Thu, 05 Nov 2015) $
 #
 # Description:
 #
@@ -87,6 +87,7 @@ use warnings;
 use File::Temp();
 use File::Basename;
 use Text::CSV;
+use Term::ReadKey;
 
 #***********************************************************************
 #
@@ -185,47 +186,49 @@ my ($default_crawl_depth) = 0;
 # String table for UI strings.
 #
 my %string_table_en = (
-    "WPSS Validation Tool Results", "WPSS Validation Tool Results",
-    "Version",                  "Version ",
-    "2 spaces",                 "  ",
-    "4 spaces",                 "    ",
-    "Line",                     "Line: ",
-    "Column",                   "Column: ",
-    "Page",                     "Page: ",
-    "Source line",              "Source line: ",
-    "Testcase",                 "Testcase: ",
-    "Overall compliance score", "Overall compliance score: ",
     "Average faults per page",  "Average faults per page: ",
+    "Column",                   "Column: ",
     "Compliance score",         "Compliance score: ",
+    "Firewall authorization required",	  "Firewall authorization required",
+    "Line",                     "Line: ",
+    "Malformed URL",            "Malformed URL",
     "number of faults",         "number of faults: ",
     "Number of faults",         "Number of faults: ",
-    "Total fault count",        "Total fault count: ",
-    "XML Output",               "XML Output",
-    "Text Output",              "Text Output",
+    "Overall compliance score", "Overall compliance score: ",
+    "Page",                     "Page: ",
     "referrer",                 "referrer",
-    "Malformed URL",            "Malformed URL",
+    "Source line",              "Source line: ",
+    "Testcase",                 "Testcase: ",
+    "Text Output",              "Text Output",
+    "Total fault count",        "Total fault count: ",
+    "Version",                  "Version ",
+    "WPSS Validation Tool Results", "WPSS Validation Tool Results",
+    "XML Output",               "XML Output",
+    "2 spaces",                 "  ",
+    "4 spaces",                 "    ",
 );
 
 my %string_table_fr = (
-    "WPSS Validation Tool Results", "Résultats du validateur SPNW",
-    "Version",                  "Version ",
-    "2 spaces",                 "  ",
-    "4 spaces",                 "    ",
-    "Line",                     "la ligne : ",
-    "Column",                   "Colonne : ",
-    "Page",                     "Page : ",
-    "Source line",              "Ligne de la source",
-    "Testcase",                 "Cas de test : ",
-    "Overall compliance score", "Score de conformité totale: ",
     "Average faults per page",  "Nombre moyen des pannes par page: ",
+    "Column",                   "Colonne : ",
     "Compliance score",         "Score de conformité: ",
+    "Firewall authorization required",	  "Autorisation de pare-feu obligatoire",
+    "Line",                     "la ligne : ",
+    "Malformed URL",            "URL incorrecte",
     "number of faults",         "nombre des pannes: ",
     "Number of faults",         "Nombre des pannes: ",
-    "Total fault count",        "Nombre total des pannes: ",
-    "XML Output",               "format de sortie XML",
-    "Text Output",              "format de sortie du texte",
+    "Overall compliance score", "Score de conformité totale: ",
+    "Page",                     "Page : ",
     "referrer",                 "recommandataire",
-    "Malformed URL",            "URL incorrecte",
+    "Source line",              "Ligne de la source",
+    "Testcase",                 "Cas de test : ",
+    "Text Output",              "format de sortie du texte",
+    "Total fault count",        "Nombre total des pannes: ",
+    "Version",                  "Version ",
+    "WPSS Validation Tool Results", "Résultats du validateur SPNW",
+    "XML Output",               "format de sortie XML",
+    "2 spaces",                 "  ",
+    "4 spaces",                 "    ",
 );
 
 my ($string_table);
@@ -1144,16 +1147,6 @@ sub Validator_GUI_End_Analysis {
         print "Validator_GUI_End_Analysis tab = $tab_label\n" if $debug;
         Update_Results_Tab($tab_label, "$message $date\n\n");
     }
-
-    #
-    # Do we have a Save Results call back function ? Call only once.
-    #
-    if ( defined($tab_label) && ($tab_label eq $first_results_tab) ) {
-        if ( defined($results_save_callback) && defined($results_file_name) ) {
-            print "Call Results_Save_As callback function\n" if $debug;
-            &$results_save_callback($results_file_name);
-        }
-    }
 }
 
 #***********************************************************************
@@ -1284,6 +1277,14 @@ sub Run_Site_Crawl {
         if ( defined($csv_results_fh) ) {
             close($csv_results_fh);
         }
+
+        #
+        # Do we have a Save Results call back function ?
+        #
+        if ( defined($results_save_callback) && defined($results_file_name) ) {
+            print "Call Results_Save_As callback function\n" if $debug;
+            &$results_save_callback($results_file_name);
+        }
     }
     else {
         print "Error: Missing crawler callback function in Run_Site_Crawl\n";
@@ -1342,6 +1343,72 @@ sub Run_Open_Data_Callback {
 
 #***********************************************************************
 #
+# Name: Read_Password
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function reads a password from STDIN.  It does not echo
+# the typed characters.
+#
+#***********************************************************************
+sub Read_Password {
+    my $key = 0;
+    my $password = "";
+
+    #
+    # Disable the control keys
+    #
+    ReadMode(4);
+    
+    #
+    # Read until we get the Enter key (decimal value of 13)
+    #
+    while( ord($key = ReadKey(0)) != 13 ) {
+        #
+        # Was a backspace or del key pressed ?
+        #
+        if(ord($key) == 127 || ord($key) == 8) {
+            #
+            # Remove the last char from the password
+            #
+            chop($password);
+
+            #
+            # Move the cursor back by one, print a blank character,
+            # move the cursor back by one
+            #
+            print "\b \b";
+        }
+        #
+        # Ignore any control characters
+        #
+        elsif(ord($key) < 32) {
+        }
+        #
+        # A character for the password
+        #
+        else {
+            $password = $password.$key;
+            print "*";
+        }
+    }
+    print "\n";
+
+    #
+    # Reset the terminal once we are done
+    #
+    ReadMode(0);
+    
+    #
+    # Return password value
+    #
+    return($password);
+}
+
+#***********************************************************************
+#
 # Name: Validator_GUI_401_Login
 #
 # Parameters: url - url that resulted in 401 error
@@ -1365,6 +1432,22 @@ sub Validator_GUI_401_Login {
         print "Use 401 credentials from profile configuration\n" if $debug;
         $user = $url_401_user{$url};
         $password = $url_401_password{$url};
+    }
+    #
+    # If the URL is an empty string, it means that we are attempting to
+    # authenticate to a firewall (e.g. PWGSC firewall to access the internet).
+    #
+    elsif ( $url eq "" ) {
+        print String_Value("Firewall authorization required") . "\n";
+        #print " Realm = $realm\n";
+        print " User name: ";
+        $user = <STDIN>;
+        print " Password: ";
+        $password = Read_Password();
+        $user =~ s/^\s+//g;
+        $user =~ s/\s+$//g;
+        $password =~ s/^\s+//g;
+        $user =~ s/\s+$//g;
     }
     else {
         $user = "";
@@ -1854,6 +1937,7 @@ sub Read_Crawl_File {
     while ( $line = <CRAWL_FILE> ) {
         chomp($line);
         $line =~ s/^\s*//g;
+        $line =~s/\r//g;
 
         #
         # Ignore empty lines and comment lines
@@ -1876,7 +1960,7 @@ sub Read_Crawl_File {
         # a key and value pair.
         #
         ($key, $value) = split(/\s+/, $line, 2);
-        
+
         #
         # If we don't have a value, set it to an empty string
         #
@@ -1889,9 +1973,7 @@ sub Read_Crawl_File {
         #
         if ( defined($site_configuration_fields{$key})) {
             print "crawl detail $key, value = $value\n" if $debug;
-            if ( defined($value) ) {
-                $crawl_details{$key} = $value;
-            }
+            $crawl_details{$key} = $value;
         }
         #
         # Check for single English URL (both directory and entry page
@@ -2086,6 +2168,7 @@ sub Read_URL_File {
     while ( $line = <URL_FILE> ) {
         chomp($line);
         $line =~ s/^\s*//g;
+        $line =~s/\r//g;
 
         #
         # Ignore empty lines and comment lines
@@ -2468,6 +2551,8 @@ sub Read_Open_Data_File {
     #
     while ( $line = <OPEN_DATA_FILE> ) {
         chomp($line);
+        $line =~ s/^\s*//g;
+        $line =~s/\r//g;
 
         #
         # Ignore blank and comment lines
@@ -2606,6 +2691,26 @@ sub Validator_GUI_Start {
     # Check argument list
     #
     print "Validator_GUI_Start args = " . join(", ", @args) . "\n" if $debug;
+    if ( @args == 0 ) {
+        #
+        # No arguments, prompt user for arguments
+        #
+        print "Program action\n";
+        print "  c - crawl a site\n";
+        print "  u - process a URL list\n";
+        #print "  o - process an Open Data file\n";
+        chomp($arg = <STDIN>);
+        $arg =~s/\r//g;
+        push(@args, "-$arg");
+        print "Profile file path\n";
+        chomp($arg = <STDIN>);
+        $arg =~s/\r//g;
+        push(@args, $arg);
+    }
+
+    #
+    # Process arguments
+    #
     while ( $arg = shift(@args) ) {
         #
         # Look for -c leading for crawling a site
