@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 7025 $
+# $Revision: 7352 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2015-03-06 10:17:34 -0500 (Fri, 06 Mar 2015) $
+# $Date: 2015-11-17 04:39:18 -0500 (Tue, 17 Nov 2015) $
 #
 # Description:
 #
@@ -997,7 +997,7 @@ sub End_Heading_Tag_Handler {
         $saved_text =~ s/\r\n|\r|\n/ /g;
         $saved_text =~ s/^\s*//g;
         $saved_text =~ s/\s*$//g;
-        $saved_text = lc($saved_text);
+        #$saved_text = lc($saved_text);
 
         #
         # Do we have a heading ?
