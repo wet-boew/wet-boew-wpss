@@ -2,9 +2,9 @@
 #
 # Name:   xml_validate.pm
 #
-# $Revision: 7355 $
+# $Revision: 7412 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/XML_Validate/Tools/xml_validate.pm $
-# $Date: 2015-11-19 08:17:34 -0500 (Thu, 19 Nov 2015) $
+# $Date: 2015-12-22 04:15:16 -0500 (Tue, 22 Dec 2015) $
 #
 # Description:
 #
@@ -78,9 +78,6 @@ BEGIN {
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
 
 my ($debug) = 0;
-
-my ($VALID_XML) = 1;
-my ($INVALID_XML) = 0;
 
 #********************************************************
 #
@@ -247,8 +244,9 @@ sub General_XML_Validate {
 #
 # Description:
 #
-#   This function runs the Web feed validator on the supplied content
-# and returns the validation status result.
+#   This function determines the type of XML content (e.g. web feed)
+# then runs the appropriate XML validator on the supplied content.  It
+# returns the validation status result.
 #
 #***********************************************************************
 sub XML_Validate_Content {
