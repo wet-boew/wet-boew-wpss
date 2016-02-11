@@ -2,9 +2,9 @@
 #
 # Name:   interop_check.pm
 #
-# $Revision: 6742 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_check.pm $
-# $Date: 2014-07-25 14:56:43 -0400 (Fri, 25 Jul 2014) $
+# $Revision: 7487 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Interop_Check/Tools/interop_check.pm $
+# $Date: 2016-02-08 08:38:28 -0500 (Mon, 08 Feb 2016) $
 #
 # Description:
 #
@@ -260,7 +260,7 @@ sub Set_Interop_Check_Test_Profile {
 sub Interop_Check {
     my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
 
-    my (@tqa_results_list);
+    my (@tqa_results_list, $tcid, $result_object);
 
     #
     # Did we get any content ?
@@ -291,6 +291,16 @@ sub Interop_Check {
     }
     else {
         print "No content passed to Interop_Check\n" if $debug;
+    }
+
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Interop_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Interop_Check_Testcase_URL($tcid));
+        }
     }
 
     #
@@ -339,7 +349,26 @@ sub Interop_Check_Feed_Details {
 sub Interop_Check_Feeds {
     my ($profile, @feed_list) = @_;
 
-    return(Interop_XML_Check_Feeds($profile, @feed_list));
+    my (@tqa_results_list, $tcid, $result_object);
+    
+    #
+    # Get XML feed check results
+    #
+    @tqa_results_list = Interop_XML_Check_Feeds($profile, @feed_list);
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Interop_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Interop_Check_Testcase_URL($tcid));
+        }
+    }
+
+    #
+    # Return results
+    #
+    return(@tqa_results_list);
 }
 
 #***********************************************************************
@@ -365,6 +394,8 @@ sub Interop_Check_Links {
     my ($results_list, $url, $title, $mime_type, $profile, $language,
         $link_sets) = @_;
 
+    my ($tcid, $result_object);
+    
     #
     # Perform HTML link checks.
     #
@@ -372,6 +403,16 @@ sub Interop_Check_Links {
     if ( $mime_type =~ /text\/html/ ) {
         Interop_HTML_Check_Links($results_list, $url, $title, $profile,
                                  $language, $link_sets);
+    }
+
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@$results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Interop_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Interop_Check_Testcase_URL($tcid));
+        }
     }
 }
 
