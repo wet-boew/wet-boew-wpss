@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 7216 $
+# $Revision: 7405 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2015-08-05 06:47:36 -0400 (Wed, 05 Aug 2015) $
+# $Date: 2015-12-18 05:34:30 -0500 (Fri, 18 Dec 2015) $
 #
 # Description:
 #
@@ -130,7 +130,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-F55", "2.1.1, 2.4.7, 3.2.1 F55: Failure of Success Criteria 2.1.1, 2.4.7, and 3.2.1 due to using script to remove focus when focus is received",
 "WCAG_2.0-F58", "2.2.1 F58: Failure of Success Criterion 2.2.1 due to using server-side techniques to automatically redirect pages after a time-out",
 "WCAG_2.0-F62", "1.3.1, 4.1.1 F62: Failure of Success Criterion 1.3.1 and 4.1.1 due to insufficient information in DOM to determine specific relationships in XML",
-"WCAG_2.0-F65", "1.1.1 F65: Failure of Success Criterion 1.1.1 due to omitting the alt attribute on img elements, area elements, and input elements of type \"image\"",
+"WCAG_2.0-F65", "1.1.1 F65: Failure of Success Criterion 1.1.1 due to omitting the alt attribute or text alternative on img elements, area elements, and input elements of type \"image\"",
 "WCAG_2.0-F66", "3.2.3 F66: Failure of Success Criterion 3.2.3 due to presenting navigation links in a different relative order on different pages",
 "WCAG_2.0-F68", "1.3.1, 4.1.2 F68: Failure of Success Criterion 1.3.1 and 4.1.2 due to the association of label and user interface controls not being programmatically determinable",
 "WCAG_2.0-F70", "4.1.1 F70: Failure of Success Criterion 4.1.1 due to incorrect use of start and end tags or attribute markup",
@@ -290,7 +290,7 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-F55", "2.1.1, 2.4.7, 3.2.1 F55: Échec du critère de succès 2.1.1, 2.4.7 et 3.2.1 consistant à utiliser un script pour enlever le focus lorsque le focus est reçu",
 "WCAG_2.0-F58", "2.2.1 F58: Échec du critère de succès 2.2.2 consistant à utiliser une technique côté serveur pour automatiquement rediriger la page après un arrêt",
 "WCAG_2.0-F62", "1.3.1, 4.1.1 F62: Échec du critère de succès 1.3.1 et 4.1.1 lié à l'insuffisance d'information dans le DOM pour déterminer des relations spécifiques en XML",
-"WCAG_2.0-F65", "1.1.1 F65: Échec du critère de succès 1.1.1 consistant à omettre l'attribut 'alt' sur les éléments <img>, <area> et <input> de type 'image'",
+"WCAG_2.0-F65", "1.1.1 F65: Échec du critère de succès 1.1.1 consistant à omettre l'attribut 'alt' ou texte de remplacement sur des éléments de 'img', des éléments de 'area', et des éléments de 'input' de type 'image'",
 "WCAG_2.0-F66", "3.2.3 F66: Échec du critère de succès 3.2.3 consistant à présenter les liens de navigation dans un ordre relatif différent sur différentes pages",
 "WCAG_2.0-F68", "1.3.1, 4.1.2 F68: Échec du critère de succès 1.3.1 et 4.1.2 lié au fait que l'association entre l'étiquette et le composant d'interface utilisateur n'est pas déterminable par programmation",
 "WCAG_2.0-F70", "4.1.1 F70: Échec du critère de succès 4.1.1 lié à l'ouverture et à la fermeture incorrecte des balises et des attributs",
