@@ -2,9 +2,9 @@
 #
 # Name:   html_validate.pm
 #
-# $Revision: 7130 $
+# $Revision: 7452 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/HTML_Validate/Tools/html_validate.pm $
-# $Date: 2015-05-07 15:35:11 -0400 (Thu, 07 May 2015) $
+# $Date: 2016-01-20 08:14:56 -0500 (Wed, 20 Jan 2016) $
 #
 # Description:
 #
@@ -78,7 +78,7 @@ BEGIN {
 #***********************************************************************
 
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
-my ($doctype_label, $doctype_version, $doctype_class);
+my ($doctype_label, $doctype_version, $doctype_class, $html5_validate_jar);
 
 my ($debug) = 0;
 my ($VALID_HTML) = 1;
@@ -305,8 +305,8 @@ sub Validate_HTML5_Content {
     #
     # Run the Nu Markup Checker on the supplied content
     #
-    print "Run Nu Markup Checker\n --> java -jar lib/vnu.jar $html_file_name 2>\&1\n" if $debug;
-    $validator_output = `java -Xss512k -jar "$program_dir/lib/vnu.jar" --errors-only --format json $html_file_name 2>\&1`;
+    print "Run Nu Markup Checker\n --> java -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\" 2>\&1\n" if $debug;
+    $validator_output = `java -Xss512k -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\" 2>\&1`;
     print "Validator output = $validator_output\n" if $debug;
 
     #
@@ -566,7 +566,7 @@ sub Get_Doctype {
 # Name: HTML_Validate_Content
 #
 # Parameters: this_url - a URL
-#             charset - character set of content
+#             resp - HTTP::Response object
 #             content - HTML content pointer
 #
 # Description:
@@ -576,14 +576,37 @@ sub Get_Doctype {
 #
 #***********************************************************************
 sub HTML_Validate_Content {
-    my ($this_url, $charset, $content) = @_;
+    my ($this_url, $resp, $content) = @_;
 
-    my (@results_list, $result_object);
+    my (@results_list, $result_object, $charset);
 
     #
     # Do we have any content ?
     #
     if ( length($$content) > 0 ) {
+        #
+        # Get the character set encoding, if any, that is specified in the
+        # response header.
+        #
+        $charset = "";
+        if ( defined($resp) ) {
+            $charset = $resp->header('Content-Type');
+
+            #
+            # Is a charset defined in the header ?
+            #
+            if ( $charset =~ /charset=/i ) {
+                $charset =~ s/^.*charset=//g;
+                $charset =~ s/,.*//g;
+                $charset =~ s/ .*//g;
+                $charset =~ s/".*//g;
+                $charset =~ s/\s+//g;
+                $charset =~ s/\n//g;
+            }
+            else {
+                $charset = "";
+            }
+        }
 
         #
         # Determine the HTML/XHTML language of the content.
@@ -692,13 +715,15 @@ if ( $^O =~ /MSWin32/ ) {
     # Windows.
     #
     $validate_cmnd = ".\\bin\\win_validate.pl";
+    $html5_validate_jar = ".\\lib\\vnu.jar";
 } else {
     #
     # Not Windows.
     #
     $validate_cmnd = "$program_dir/bin/validate";
+    $html5_validate_jar = "$program_dir/lib/vnu.jar";
 }
-$ENV{VALIDATE_HOME} = $program_dir;
+$ENV{VALIDATE_HOME} = "$program_dir/bin";
 
 #
 # Add to path for shared libraries (Solaris only)
