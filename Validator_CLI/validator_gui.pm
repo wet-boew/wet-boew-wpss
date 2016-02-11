@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 7331 $
+# $Revision: 7492 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2015-11-05 05:03:31 -0500 (Thu, 05 Nov 2015) $
+# $Date: 2016-02-08 08:40:30 -0500 (Mon, 08 Feb 2016) $
 #
 # Description:
 #
@@ -151,7 +151,8 @@ my ($testcase_profile_groups_config_option);
 
 my ($csv_results_fh, $csv_results_file_name, $csv_object);
 my (@csv_results_fields) = ("type", "url", "testcase", "description", "line_no",
-                            "column_no", "page_no","source_line","message");
+                            "column_no", "page_no","source_line","message",
+                            "help_url");
 if ( $have_threads ) {
     share(\$csv_results_file_name);
 }
@@ -176,6 +177,7 @@ my (%site_configuration_fields) = (
     "logoutinterstitialcount", "",
     "httpproxy", "",
     "report_fails_only", "",
+    "report_passes_only", "",
    );
 
 my ($language) = "eng";
@@ -505,10 +507,16 @@ sub Print_TQA_Result_to_CSV {
                $result_object->description, $result_object->line_no,
                $result_object->column_no, $result_object->page_no,
                $result_object->source_line);
+
     #
     # Add message field. Limit text to 10K characters
     #
     push(@fields, substr($result_object->message, 0, 10240));
+
+    #
+    # Add help URL field
+    #
+    push(@fields, $result_object->help_url);
 
     #
     # Write fields to the CSV file.
@@ -1363,13 +1371,20 @@ sub Read_Password {
     ReadMode(4);
     
     #
-    # Read until we get the Enter key (decimal value of 13)
+    # Read until we get the Enter key (decimal value of 10 or 13)
     #
-    while( ord($key = ReadKey(0)) != 13 ) {
+    while( 1 ) {
+        #
+        # Do we have enter, either 13 for Windows or 10 for Linux.
+        #
+        $key = ReadKey(0);
+        if ( (ord($key) == 13) || (ord($key) == 10) ) {
+            last;
+        }
         #
         # Was a backspace or del key pressed ?
         #
-        if(ord($key) == 127 || ord($key) == 8) {
+        elsif (ord($key) == 127 || ord($key) == 8) {
             #
             # Remove the last char from the password
             #
@@ -1384,13 +1399,14 @@ sub Read_Password {
         #
         # Ignore any control characters
         #
-        elsif(ord($key) < 32) {
+        elsif( ord($key) < 32 ) {
         }
         #
-        # A character for the password
+        # A character for the password.  Print an
+        # asterisk to the screen.
         #
         else {
-            $password = $password.$key;
+            $password = $password . $key;
             print "*";
         }
     }
@@ -1913,6 +1929,7 @@ sub Read_Crawl_File {
     # Report failures only
     #
     $crawl_details{"report_fails_only"} = 1;
+    $crawl_details{"report_passes_only"} = 0;
     $crawl_details{"process_pdf"} = 1;
 
     #
@@ -2151,6 +2168,7 @@ sub Read_URL_File {
     # Report failures only
     #
     $report_options{"report_fails_only"} = 1;
+    $report_options{"report_passes_only"} = 0;
     $report_options{"process_pdf"} = 1;
 
     #
@@ -2321,6 +2339,7 @@ sub Read_HTML_File {
     # Report failures only
     #
     $report_options{"report_fails_only"} = 1;
+    $report_options{"report_passes_only"} = 0;
     $report_options{"process_pdf"} = 1;
 
     #
@@ -2534,6 +2553,7 @@ sub Read_Open_Data_File {
     # Report failures only
     #
     $report_options{"report_fails_only"} = 1;
+    $report_options{"report_passes_only"} = 0;
     $report_options{"process_pdf"} = 1;
 
     #
