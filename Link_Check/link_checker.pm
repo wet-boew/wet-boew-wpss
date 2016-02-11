@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 7131 $
+# $Revision: 7442 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
-# $Date: 2015-05-07 15:37:01 -0400 (Thu, 07 May 2015) $
+# $Date: 2016-01-19 04:15:59 -0500 (Tue, 19 Jan 2016) $
 #
 # Description:
 #
@@ -143,21 +143,22 @@ my ($link_check_blocked)          = 5;
 my ($link_check_broken_anchor)    = 6;
 my ($link_check_ipv4_link)        = 7;
 my ($link_check_soft_404)         = 8;
+my ($link_check_access_denied)    = 9;
 
 #
 # String table for error strings.
 #
 my %string_table_en = (
-    "Valid",               "Valid",
-    "Broken",              "Broken",
-    "Cross language",      "Cross language",
     "Bad networkscope",    "Bad networkscope",
-    "Redirect",            "Redirect",
-    "Firewall blocked",    "Firewall blocked",
+    "Broken",              "Broken",
     "Broken anchor",       "Broken anchor",
+    "Cross language",      "Cross language",
+    "Firewall blocked",    "Firewall blocked",
+    "Redirect",            "Redirect",
     "source URL language", " source URL language ",
     "target URL language", " target URL language ",
-    "404 not found page with 200 (Ok) code", "404 not found page with 200 (Ok) code", 
+    "Valid",               "Valid",
+    "404 not found page with 200 (Ok) code", "404 not found page with 200 (Ok) code",
     );
 
 
@@ -165,16 +166,16 @@ my %string_table_en = (
 # String table for error strings (French).
 #
 my %string_table_fr = (
-    "Valid",               "Valide",
-    "Broken",              "Brisé",
-    "Cross language",      "Interlangues",
     "Bad networkscope",    "Portée de réseau erronée",
-    "Redirect",            "Réorienter",
-    "Firewall blocked",    "Pare-feu bloqués",
+    "Broken",              "Brisé",
     "Broken anchor",       "Point d'ancrage brisé",
+    "Cross language",      "Interlangues",
+    "Firewall blocked",    "Pare-feu bloqués",
+    "Redirect",            "Réorienter",
     "source URL language", " la langue source URL ",
     "target URL language", " la langue URL cible ",
-    "404 not found page with 200 (Ok) code", "404 page non trouvée avec le code 200 (Ok)", 
+    "Valid",               "Valide",
+    "404 not found page with 200 (Ok) code", "404 page non trouvée avec le code 200 (Ok)",
 );
 
 #
@@ -195,30 +196,33 @@ my (%link_status_message_map) = (
     $link_check_broken_anchor, "BROKEN_ANCHOR",
     $link_check_ipv4_link, "IPV4_LINK",
     $link_check_soft_404, "SOFT_404",
+    $link_check_access_denied, "ACCESS_DENIED",
 );
 
 #
 # String tables for testcase ID to testcase descriptions
 #
 my (%testcase_description_en) = (
-    "BROKEN",             "Broken link",
-    "CROSS_LANGUAGE",     "Cross language link",
+    "ACCESS_DENIED",      "Access denied link",
     "BAD_NETWORKSCOPE",   "Bad networkscope link",
-    "REDIRECT",           "Redirect link",
-    "FIREWALL_BLOCKED",   "Firewall blocked link",
+    "BROKEN",             "Broken link",
     "BROKEN_ANCHOR",      "Broken anchor",
+    "CROSS_LANGUAGE",     "Cross language link",
+    "FIREWALL_BLOCKED",   "Firewall blocked link",
     "IPV4_LINK",          "IPV4 Link",
+    "REDIRECT",           "Redirect link",
     "SOFT_404",           "Soft 404 broken link",
 );
 
 my (%testcase_description_fr) = (
-    "BROKEN",             "Lien brisé",
-    "CROSS_LANGUAGE",     "Lien interlangues",
+    "ACCESS_DENIED",      "Accès refusé lien",
     "BAD_NETWORKSCOPE",   "Lien portée de réseau erronée",
-    "REDIRECT",           "Lien réorienter",
-    "FIREWALL_BLOCKED",   "Lien pare-feu bloqués",
+    "BROKEN",             "Lien brisé",
     "BROKEN_ANCHOR",      "Point d'ancrage brisé",
+    "CROSS_LANGUAGE",     "Lien interlangues",
+    "FIREWALL_BLOCKED",   "Lien pare-feu bloqués",
     "IPV4_LINK",          "Lien IPV4",
+    "REDIRECT",           "Lien réorienter",
     "SOFT_404",           "Soft 404 lien brisé",
 );
 
@@ -971,6 +975,7 @@ sub Link_Status {
     my ($domain, $file_path, $url, $is_firewall_blocked, $pattern);
     my ($protocol, $query, $new_url, $redirect_dir, $lang);
     my ($redirect_protocol, $redirect_domain, $redirect_file_path, $redirect_query);
+    my ($sec, $min, $hour, $date);
     my ($redirect_count) = 0;
     my ($done) = 0;
 
@@ -1015,12 +1020,18 @@ sub Link_Status {
     $redirect_domain = $domain;
 
     #
+    # Get current time/date
+    #
+    ($sec, $min, $hour) = (localtime)[0,1,2];
+    $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+
+    #
     # Attempt to GET the link, keep redirects under the limit
     #
     $is_redirected_link = 0;
     $is_firewall_blocked = 0;
     $url = $this_link;
-    print "GET url = $url, Referrer = $referer_url\n" if $debug;
+    print "GET start $date url = $url, Referrer = $referer_url\n" if $debug;
     while ( ! $done ) {
         #
         # Get URL
@@ -1031,6 +1042,7 @@ sub Link_Status {
         $req->header(Accept => "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
         $req->header("Pragma" => "no-cache");
         $req->header("Cache-Control" => "no-cache");
+        $req->header("Connection" => "Keep-Alive");
 
         #
         # Add accepted content encodings
@@ -1265,7 +1277,8 @@ sub Link_Status {
             $done = 1;
         }
     }
-    print "GET url response = $url, Referrer = $referer_url\n" if $debug;
+    $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+    print "GET end $date url response = $url, Referrer = $referer_url\n" if $debug;
 
     #
     # Return status values
@@ -1812,7 +1825,8 @@ sub Anchor_In_HTML {
     my ($resp, $url, $anchor) = @_;
 
     my ($anchor_found) = 1;
-    my ($content, $header, $anchor_list);
+    my ($content) = "";
+    my ($header, $anchor_list);
 
     #
     # Is this HTML content ?
@@ -1821,15 +1835,14 @@ sub Anchor_In_HTML {
     $header = $resp->headers;
     if ( $header->content_type =~ /text\/html/ ) {
         #
-        # Check for UTF-8 content
+        # Get the list of anchors for this URL
         #
-        $content = Crawler_Decode_Content($resp);
-
+        $anchor_list = Extract_Anchors($url, $resp, \$content, 0);
+        
         #
         # Check to see if this anchor is in the list of anchors in the
         # document.
         #
-        $anchor_list = Extract_Anchors($url, \$content);
         $anchor =~ s/^.*#//g;
         if ( ($anchor ne "" ) &&
              (index($anchor_list, " $anchor ") == -1) ) {
@@ -1871,7 +1884,7 @@ sub Anchor_In_HTML {
 #
 #***********************************************************************
 sub Link_Checker_Get_Link_Status {
-    my ( $referrer_url, $link ) = @_;
+    my ($referrer_url, $link) = @_;
 
     my ($this_link, $is_broken_link, $is_redirected_link, $request_url );
     my ($is_firewall_blocked, $resp, $header, $cache_link, $resp_url);
@@ -1925,7 +1938,7 @@ sub Link_Checker_Get_Link_Status {
         #
         # Check to see if there is a named anchor on the URL.  We can
         # remove it as the HTTP status is the same whether the anchor
-        # is included or not.  This saves trying to GET <url>#andchor1
+        # is included or not.  This saves trying to GET <url>#anchor1
         # and <url>#anchor2 (1 get versus 2).
         #
         $request_url = $this_link;
@@ -2045,11 +2058,20 @@ sub Link_Checker_Get_Link_Status {
         #
         if ( $resp->code == 401 ) {
             #
-            # Since we did not get the URL, we don't report errors since
-            # we don't KNOW if it is broken or not.
+            # Are we checking for access denied links ?
             #
-            $visited_url_status{$this_link} = $link_check_success;
+            if ( defined($$current_link_check_profile{"ACCESS_DENIED"}) ) {
+                $visited_url_status{$this_link} = $link_check_access_denied;
+            }
+            else {
+                #
+                # Since we did not get the URL, we don't report errors since
+                # we don't KNOW if it is broken or not.
+                #
+                $visited_url_status{$this_link} = $link_check_success;
+            }
         }
+
         #
         # If we don't already have a status or if status is
         # success, perform other checks (e.g. anchors)
