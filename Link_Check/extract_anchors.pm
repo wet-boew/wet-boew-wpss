@@ -2,9 +2,9 @@
 #
 # Name: extract_anchors.pm	
 #
-# $Revision: 6712 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Link_Check/Tools/extract_anchors.pm $
-# $Date: 2014-07-22 12:20:01 -0400 (Tue, 22 Jul 2014) $
+# $Revision: 7400 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/extract_anchors.pm $
+# $Date: 2015-12-18 05:17:40 -0500 (Fri, 18 Dec 2015) $
 #
 # Description:
 #
@@ -230,30 +230,28 @@ sub Anchor_Tag_Handler {
 #
 #***********************************************************************
 sub Start_Handler {
-    my ( $self, $tagname, $line, $column, $text, @attr ) = @_;
+    my ($self, $tagname, $line, $column, $text, %attr) = @_;
 
-    my (%attr_hash) = @attr;
     my ($id);
 
     #
     # Check anchor tag
     #
     if ( $tagname eq "a" ) {
-        Anchor_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+        Anchor_Tag_Handler( $self, $line, $column, $text, %attr );
     }
 
     #
     # Check for an id attribute
     #
-    if ( defined($attr_hash{"id"}) ) {
-        $id = $attr_hash{"id"};
+    if ( defined($attr{"id"}) ) {
+        $id = $attr{"id"};
         $id =~ s/^\s*//g;
         $id =~ s/\s*$//g;
         print "Start_Handler, tag = $tagname, id= \"$id\" at $line:$column\n" if $debug;
 
         #
         # Do we have a value ?
-        # as the validator will catch it.
         #
         if ( $id ne "" ) {
             #
@@ -269,7 +267,9 @@ sub Start_Handler {
 # Name: Extract_Anchors
 #
 # Parameters: this_url - URL of document to extract links from
+#             resp - HTTP::Response object
 #             content - content pointer
+#             force_refresh - flag to force a refresh of the anchor list
 #
 # Description:
 #
@@ -278,7 +278,7 @@ sub Start_Handler {
 #
 #***********************************************************************
 sub Extract_Anchors {
-    my ( $this_url, $content ) = @_;
+    my ($this_url, $resp, $content, $force_refresh) = @_;
 
     my ($parser, $protocol, $domain, $dir, $query, $new_url);
 
@@ -286,6 +286,7 @@ sub Extract_Anchors {
     # Extract components of the URL, we want to strip off any named anchors
     # from the URL.
     #
+    print "Extract_Anchors: Checking URL $this_url\n" if $debug;
     if ( $this_url =~ /^http/ ) {
         ($protocol, $domain, $dir, $query, $new_url) = 
             URL_Check_Parse_URL($this_url);
@@ -294,11 +295,11 @@ sub Extract_Anchors {
         # Do we have a leading # in the query field ?
         #
         if ( $query =~ /#/ ) {
-            print "Extract_Anchors: Strip anchor from URL $this_url\n" if $debug;
+            print "Strip anchor from URL $this_url\n" if $debug;
             $this_url =~ s/#.*//g;
         }
     }
-    
+
     #
     # Have we aready seen this URL ?
     #
@@ -308,15 +309,31 @@ sub Extract_Anchors {
         #
         $named_anchor_list = $url_anchor_anchors{$this_url};
         $url_anchor_hits{$this_url}++;
-        print "Extract_Anchors: Return cached anchor list for URL $this_url\n" if $debug;
-        print "Anchors = $named_anchor_list\n" if $debug;
-        return($named_anchor_list);
+        
+        #
+        # Is a refresh of the anchor list being forced ? (e.g. for
+        # generated markup versus original markup)
+        #
+        if ( $force_refresh ) {
+            print "Force refresh of anchor list\n" if $debug;
+        }
+        else {
+            print "Return cached anchor list for URL $this_url\n" if $debug;
+            print "Anchors = $named_anchor_list\n" if $debug;
+            return($named_anchor_list);
+        }
     }
-    
+
+    #
+    # Do we have to get the content from the HTTP::Response object
+    #
+    if ( ($$content eq "") && defined($resp) ) {
+        $$content = Crawler_Decode_Content($resp);
+    }
+
     #
     # Initialize parser variables.
     #
-    print "Extract_Anchors: Checking URL $this_url\n" if $debug;
     Initialize_Parser_Variables;
 
     #
@@ -385,7 +402,7 @@ sub Extract_Anchors {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("url_check");
+    my (@package_list) = ("url_check", "crawler");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
