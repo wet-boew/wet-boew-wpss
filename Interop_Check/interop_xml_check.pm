@@ -3,7 +3,7 @@
 # Name:   interop_xml_check.pm
 #
 # $Revision: 6743 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Interop_Check/Tools/interop_xml_check.pm $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Interop_Check/Tools/interop_xml_check.pm $
 # $Date: 2014-07-25 14:57:36 -0400 (Fri, 25 Jul 2014) $
 #
 # Description:
