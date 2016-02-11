@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 7348 $
+# $Revision: 7444 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2015-11-17 04:34:59 -0500 (Tue, 17 Nov 2015) $
+# $Date: 2016-01-19 04:27:10 -0500 (Tue, 19 Jan 2016) $
 #
 # Description:
 #
@@ -87,7 +87,7 @@ my ($last_heading_text, $current_list_level, @inside_list_item);
 my ($have_text_handler, @text_handler_tag_list, @text_handler_text_list);
 my ($current_text_handler_tag, $inside_anchor, $last_image_link);
 my ($inside_figure, $have_figcaption, $figcaption_text, $inside_noscript);
-my ($image_in_figure_with_no_alt, @object_reference_list);
+my ($image_in_figure_with_no_alt, @object_reference_list, @list_location);
 my ($last_url) = "";
 my (%html_tags_with_no_end_tag) = (
         "area", "area",
@@ -664,6 +664,7 @@ sub Anchor_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
     my ($href, $lang, $abs_url, $subsection, $subsection_link_list);
+    my ($list_heading);
 
     #
     # Do we have a href value ?
@@ -734,9 +735,10 @@ sub Anchor_Tag_Handler {
             #
             if ( ($current_list_level > -1 ) && 
                  ($inside_list_item[$current_list_level]) ) {
-                print "Anchor inside a list item, list heading = $last_heading_text\n" if $debug;
+                $list_heading = $last_heading_text . $list_location[$current_list_level];
+                print "Anchor inside a list item, list heading = $list_heading\n" if $debug;
                 $current_anchor_reference->in_list(1);
-                $current_anchor_reference->list_heading($last_heading_text);
+                $current_anchor_reference->list_heading($list_heading);
             }
         }
         else {
@@ -2115,6 +2117,7 @@ sub Ol_Ul_Tag_Handler {
     #
     $current_list_level++;
     $inside_list_item[$current_list_level] = 0;
+    $list_location[$current_list_level] = "$line:$column";
     print "Start new list $tag, level $current_list_level\n" if $debug;
 }
 
@@ -2141,6 +2144,7 @@ sub End_Ol_Ul_Tag_Handler {
     #
     if ( $current_list_level > -1 ) {
         $inside_list_item[$current_list_level] = 0;
+        $list_location[$current_list_level] = "";
         print "End list $tag, level $current_list_level\n" if $debug;
         $current_list_level--;
     }
@@ -2193,7 +2197,7 @@ sub Li_Tag_Handler {
 #***********************************************************************
 sub End_Li_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
-
+    
     #
     # Set flag to indicate we are no longer inside a list item
     #
@@ -2790,7 +2794,7 @@ sub Extract_Links {
 
     my (@links, $link, $anchor_list, $extracted_content, @other_links);
     my ($modified_content, $subsection_name, $link_addr, $orig_link);
-    my (%saved_subsection_links, $mod_link, $i);
+    my (%saved_subsection_links, $mod_link, $i, $resp);
 
     #
     # Did we already extract links for this URL ?
@@ -2819,7 +2823,7 @@ sub Extract_Links {
             # them here, but by extracting them now we get them into the
             # anchor cache.
             #
-            $anchor_list = Extract_Anchors($url, $content);
+            $anchor_list = Extract_Anchors($url, $resp, $content, 0);
 
             #
             # Remove conditional comments from the content that control
