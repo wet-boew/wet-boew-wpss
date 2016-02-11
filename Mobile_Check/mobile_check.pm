@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 7334 $
+# $Revision: 7488 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2015-11-05 06:43:17 -0500 (Thu, 05 Nov 2015) $
+# $Date: 2016-02-08 08:38:44 -0500 (Mon, 08 Feb 2016) $
 #
 # Description:
 #
@@ -759,7 +759,7 @@ sub Check_Cookies {
 sub Mobile_Check {
     my ($this_url, $language, $profile, $mime_type, $resp, $content) = @_;
 
-    my (@tqa_results_list, $result_object, @other_tqa_results_list);
+    my (@tqa_results_list, $result_object, @other_tqa_results_list, $tcid);
 
     #
     # Check for mobile optimization
@@ -887,6 +887,16 @@ sub Mobile_Check {
     #
     Check_Compressed_Content($this_url, $mime_type, $resp);
     
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Mobile_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Mobile_Check_Testcase_URL($tcid));
+        }
+    }
+
     #
     # Return list of results
     #
@@ -1556,7 +1566,7 @@ sub Check_Hostnames {
 sub Mobile_Check_Links {
     my ($tqa_results_list, $url, $profile, $language, $link_sets) = @_;
 
-    my ($result_object, $section, $list_addr, $link);
+    my ($result_object, $section, $list_addr, $link, $tcid);
     
     #
     # Perform Mobile link checks.
@@ -1610,6 +1620,16 @@ sub Mobile_Check_Links {
     # Check the hostnames for components (CSS, JavaScript, Images, etc)
     #
     Check_Hostnames($url, $link_sets);
+
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@$tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Mobile_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Mobile_Check_Testcase_URL($tcid));
+        }
+    }
 }
 
 #***********************************************************************

@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 7173 $
+# $Revision: 7489 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_check.pm $
-# $Date: 2015-06-05 10:51:04 -0400 (Fri, 05 Jun 2015) $
+# $Date: 2016-02-08 08:38:59 -0500 (Mon, 08 Feb 2016) $
 #
 # Description:
 #
@@ -1183,7 +1183,7 @@ sub Open_Data_Check {
     my ($url, $format, $profile, $data_file_type, $resp, $filename,
         $dictionary) = @_;
 
-    my (@tqa_results_list, $result_object, @other_results);
+    my (@tqa_results_list, $result_object, @other_results, $tcid);
 
     #
     # Do we have a valid profile ?
@@ -1268,12 +1268,20 @@ sub Open_Data_Check {
     Check_Format_and_Mime_Type_File_Suffix($url, $format, $resp);
 
     #
-    # Print testcase information
+    # Add testcase help URL to results
     #
-    if ( $debug ) {
-        print "Open_Data_Check results\n";
-        foreach $result_object (@tqa_results_list) {
-            print "Testcase: " . $result_object->testcase;
+    print "Open_Data_Check results\n" if $debug;
+    foreach $result_object (@tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Open_Data_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Open_Data_Check_Testcase_URL($tcid));
+        }
+
+        #
+        # Print testcase information
+        #
+        if ( $debug ) {
+            print "Testcase: $tcid\n";
             print "  URL   = " . $result_object->url . "\n";
             print "  message  = " . $result_object->message . "\n";
             print "  source line  = " . $result_object->source_line . "\n";
@@ -1307,8 +1315,8 @@ sub Open_Data_Check {
 sub Open_Data_Check_Zip_Content {
     my ($url, $profile, $data_file_type, $resp) = @_;
 
-    my (@tqa_results_list, $zip, $zip_file_name, $zip_status);
-    my (@members, $member_name, %file_types, $base, $suffix);
+    my (@tqa_results_list, $zip, $zip_file_name, $zip_status, $result_object);
+    my (@members, $member_name, %file_types, $base, $suffix, $tcid);
 
     #
     # Do we have a valid profile ?
@@ -1380,6 +1388,27 @@ sub Open_Data_Check_Zip_Content {
             Record_Result("TP_PW_OD_ZIP_1", -1, -1, "",
                           String_Value("Multiple file types in ZIP") . 
                           " \"" . join(", ", keys(%file_types)) . "\"");
+        }
+    }
+
+    #
+    # Add testcase help URL to results
+    #
+    print "Open_Data_Check_Zip_Content results\n" if $debug;
+    foreach $result_object (@tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Open_Data_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Open_Data_Check_Testcase_URL($tcid));
+        }
+
+        #
+        # Print testcase information
+        #
+        if ( $debug ) {
+            print "Testcase: $tcid\n";
+            print "  URL   = " . $result_object->url . "\n";
+            print "  message  = " . $result_object->message . "\n";
+            print "  source line  = " . $result_object->source_line . "\n";
         }
     }
 

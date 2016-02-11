@@ -2,9 +2,9 @@
 #
 # Name:   dept_check.pm
 #
-# $Revision: 6707 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Dept_Check/Tools/dept_check.pm $
-# $Date: 2014-07-22 12:17:21 -0400 (Tue, 22 Jul 2014) $
+# $Revision: 7486 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Dept_Check/Tools/dept_check.pm $
+# $Date: 2016-02-08 08:38:14 -0500 (Mon, 08 Feb 2016) $
 #
 # Description:
 #
@@ -269,7 +269,7 @@ sub Set_Dept_Check_Test_Profile {
 sub Dept_Check {
     my ($this_url, $language, $profile, $mime_type, $resp, $content) = @_;
 
-    my (@tqa_results_list, $result_object, @other_tqa_results_list);
+    my (@tqa_results_list, $result_object, @other_tqa_results_list, $tcid);
 
     #
     # Did we get any content ?
@@ -303,16 +303,37 @@ sub Dept_Check {
     }
 
     #
-    # Perform checks on the URL
+    # Content specific additional checks
     #
-    @other_tqa_results_list = URL_Check($this_url, $profile);
+    if ( ($mime_type =~ /application\/x\-javascript/) ||
+         ($mime_type =~ /text\/javascript/) ||
+         ($this_url =~ /\.js$/i) ) {
+    }
+    elsif ( $mime_type =~ /text\/css/ ) {
+    }
+    else {
+        #
+        # Perform checks on the URL
+        #
+        @other_tqa_results_list = URL_Check($this_url, $profile);
+
+        #
+        # Add results from URL check into those from the previous check
+        # to get results for the entire document.
+        #
+        foreach $result_object (@other_tqa_results_list) {
+            push(@tqa_results_list, $result_object);
+        }
+    }
 
     #
-    # Add results from URL check into those from the previous check
-    # to get results for the entire document.
+    # Add help URL to result
     #
-    foreach $result_object (@other_tqa_results_list) {
-        push(@tqa_results_list, $result_object);
+    foreach $result_object (@tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Dept_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Dept_Check_Testcase_URL($tcid));
+        }
     }
 
     #
@@ -344,6 +365,8 @@ sub Dept_Check {
 sub Dept_Check_Links {
     my ($tqa_results_list, $url, $profile, $language, $link_sets,
         $logged_in) = @_;
+        
+    my ($tcid, $result_object);
 
     #
     # Perform PWGSC link checks.
@@ -351,6 +374,16 @@ sub Dept_Check_Links {
     print "Dept_Check_Links: profile = $profile, language = $language\n" if $debug;
     TP_PW_Check_Links($tqa_results_list, $url, $profile, $language,
                       $link_sets, $logged_in);
+                      
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@$tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Dept_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Dept_Check_Testcase_URL($tcid));
+        }
+    }
 }
 
 #***********************************************************************

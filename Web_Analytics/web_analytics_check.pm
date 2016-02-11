@@ -2,9 +2,9 @@
 #
 # Name:   web_analytics_check.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 7484 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Web_Analytics/Tools/web_analytics_check.pm $
+# $Date: 2016-02-08 08:37:13 -0500 (Mon, 08 Feb 2016) $
 #
 # Description:
 #
@@ -841,9 +841,10 @@ sub Check_JavaScript_Web_Analytics {
 #
 #***********************************************************************
 sub Web_Analytics_Check {
-    my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
+    my ($this_url, $language, $profile, $mime_type, $resp, $content) = @_;
 
     my (@tqa_results_list, $tcid, $do_tests, $javascript_content);
+    my ($result_object);
 
     #
     # Initialize the test case pass/fail table.
@@ -919,6 +920,16 @@ sub Web_Analytics_Check {
     else {
         print "No content passed to Web_Analytics_Check\n" if $debug;
         return(@tqa_results_list);
+    }
+
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Web_Analytics_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Web_Analytics_Check_Testcase_URL($tcid));
+        }
     }
 
     #
