@@ -2,9 +2,9 @@
 #
 # Name: tqa_result_object.pm
 #
-# $Revision: 6053 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_result_object.pm $
-# $Date: 2012-10-22 14:08:39 -0400 (Mon, 22 Oct 2012) $
+# $Revision: 7491 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/tqa_result_object.pm $
+# $Date: 2016-02-08 08:39:51 -0500 (Mon, 08 Feb 2016) $
 #
 # Description:
 #
@@ -17,16 +17,17 @@
 #
 # Class Methods
 #    new - create new object instance
-#    testcase - testcase id
-#    status - testcase status (pass/fail)
-#    description - testcase description
-#    line_no - source line number
 #    column_no - source column number
+#    description - testcase description
+#    help_url - testcase help URL
+#    line_no - source line number
+#    message - test case message
 #    page_no - source page number
 #    source_line - source line
-#    message - test case message
-#    url - URL of document
+#    status - testcase status (pass/fail)
+#    testcase - testcase id
 #    testcase_groups - testcase_groups list for testcase
+#    url - URL of document
 #
 # Terms and Conditions of Use
 # 
@@ -140,15 +141,16 @@ sub new {
     #
     # Save arguments as result object data items
     #
-    $self->{"testcase"} = $testcase;
-    $self->{"status"} = $status;
     $self->{"description"} = $description;
-    $self->{"line_no"} = $line_no;
     $self->{"column_no"} = $column_no;
+    $self->{"help_url"} = "";
+    $self->{"line_no"} = $line_no;
     $self->{"message"} = $message;
-    $self->{"url"} = $url;
-    $self->{"testcase_groups"} = "";
     $self->{"page_no"} = -1;
+    $self->{"status"} = $status;
+    $self->{"testcase"} = $testcase;
+    $self->{"testcase_groups"} = "";
+    $self->{"url"} = $url;
 
     #
     # Check length of source line
@@ -212,30 +214,30 @@ sub new {
     
 #********************************************************
 #
-# Name: testcase
+# Name: column_no
 #
 # Parameters: self - class reference
-#             testcase - testcase id (optional)
+#             column_no - column number (optional)
 #
 # Description:
 #
-#   This function either sets or returns the testcase
+#   This function either sets or returns the column_no
 # attribute of the result object. If a value is supplied,
 # it is saved in the object. If no value is supplied,
 # the current value is returned.
 #
 #********************************************************
-sub testcase {
-    my ($self, $testcase) = @_;
-    
+sub column_no {
+    my ($self, $column_no) = @_;
+
     #
-    # Was a testcase value supplied ?
+    # Was a column_no value supplied ?
     #
-    if ( defined($testcase) ) {
-        $self->{"testcase"} = $testcase;
+    if ( defined($column_no) ) {
+        $self->{"column_no"} = $column_no;
     }
     else {
-        return($self->{"testcase"});
+        return($self->{"column_no"});
     }
 }
 
@@ -267,6 +269,36 @@ sub description {
         return($self->{"description"});
     }
 }
+
+#********************************************************
+#
+# Name: help_url
+#
+# Parameters: self - class reference
+#             help_url - URL of help page (optional)
+#
+# Description:
+#
+#   This function either sets or returns the help_url
+# attribute of the result object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub help_url {
+    my ($self, $help_url) = @_;
+
+    #
+    # Was a help_url value supplied ?
+    #
+    if ( defined($help_url) ) {
+        $self->{"help_url"} = $help_url;
+    }
+    else {
+        return($self->{"help_url"});
+    }
+}
+
 #********************************************************
 #
 # Name: line_no
@@ -327,30 +359,30 @@ sub page_no {
 
 #********************************************************
 #
-# Name: column_no
+# Name: message
 #
 # Parameters: self - class reference
-#             column_no - column number (optional)
+#             message - message (optional)
 #
 # Description:
 #
-#   This function either sets or returns the column_no
+#   This function either sets or returns the message
 # attribute of the result object. If a value is supplied,
 # it is saved in the object. If no value is supplied,
 # the current value is returned.
 #
 #********************************************************
-sub column_no {
-    my ($self, $column_no) = @_;
+sub message {
+    my ($self, $message) = @_;
 
     #
-    # Was a column_no value supplied ?
+    # Was a message value supplied ?
     #
-    if ( defined($column_no) ) {
-        $self->{"column_no"} = $column_no;
+    if ( defined($message) ) {
+        $self->{"message"} = $message;
     }
     else {
-        return($self->{"column_no"});
+        return($self->{"message"});
     }
 }
 
@@ -385,35 +417,6 @@ sub source_line {
 
 #********************************************************
 #
-# Name: message
-#
-# Parameters: self - class reference
-#             message - message (optional)
-#
-# Description:
-#
-#   This function either sets or returns the message
-# attribute of the result object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub message {
-    my ($self, $message) = @_;
-
-    #
-    # Was a message value supplied ?
-    #
-    if ( defined($message) ) {
-        $self->{"message"} = $message;
-    }
-    else {
-        return($self->{"message"});
-    }
-}
-
-#********************************************************
-#
 # Name: status
 #
 # Parameters: self - class reference
@@ -443,30 +446,30 @@ sub status {
 
 #********************************************************
 #
-# Name: url
+# Name: testcase
 #
 # Parameters: self - class reference
-#             url - url value (optional)
+#             testcase - testcase id (optional)
 #
 # Description:
 #
-#   This function either sets or returns the url
+#   This function either sets or returns the testcase
 # attribute of the result object. If a value is supplied,
 # it is saved in the object. If no value is supplied,
 # the current value is returned.
 #
 #********************************************************
-sub url {
-    my ($self, $url) = @_;
+sub testcase {
+    my ($self, $testcase) = @_;
 
     #
-    # Was a url value supplied ?
+    # Was a testcase value supplied ?
     #
-    if ( defined($url) ) {
-        $self->{"url"} = $url;
+    if ( defined($testcase) ) {
+        $self->{"testcase"} = $testcase;
     }
     else {
-        return($self->{"url"});
+        return($self->{"testcase"});
     }
 }
 
@@ -500,6 +503,35 @@ sub testcase_groups {
     }
     else {
         return($self->{"testcase_groups"});
+    }
+}
+
+#********************************************************
+#
+# Name: url
+#
+# Parameters: self - class reference
+#             url - url value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the url
+# attribute of the result object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub url {
+    my ($self, $url) = @_;
+
+    #
+    # Was a url value supplied ?
+    #
+    if ( defined($url) ) {
+        $self->{"url"} = $url;
+    }
+    else {
+        return($self->{"url"});
     }
 }
 
