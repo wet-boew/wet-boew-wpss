@@ -2,9 +2,9 @@
 #
 # Name:   content_check.pm
 #
-# $Revision: 6737 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Content_Check/Tools/content_check.pm $
-# $Date: 2014-07-25 14:52:54 -0400 (Fri, 25 Jul 2014) $
+# $Revision: 7479 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Content_Check/Tools/content_check.pm $
+# $Date: 2016-02-05 06:31:49 -0500 (Fri, 05 Feb 2016) $
 #
 # Description:
 #
@@ -860,6 +860,15 @@ sub Check_Parent_Heading_Values {
     my ($heading_value, $parent_heading_value, $parent_heading_location) = @_;
 
     my ($i, $lc_heading_value);
+    
+    #
+    # Do we have heading text, skip duplicate heading check for
+    # empty headings.
+    #
+    if ( $heading_value eq "" ) {
+        print "Check_Parent_Heading_Values skip empty heading\n" if $debug;
+        return;
+    }
 
     #
     # Convert heading to lowercase to case before looking for duplicates
@@ -913,6 +922,15 @@ sub Check_Peer_Heading_Values {
 
     my ($i, $lc_heading_value, $heading_count, $peer_value, $peer_location);
     my ($current_location);
+
+    #
+    # Do we have heading text, skip duplicate heading check for
+    # empty headings.
+    #
+    if ( $heading_value eq "" ) {
+        print "Check_Peer_Heading_Values skip empty heading\n" if $debug;
+        return;
+    }
 
     #
     # Convert heading to lowercase to case before looking for duplicates
@@ -1770,15 +1788,21 @@ sub Content_Check_Unique_Titles {
         #
         while ( ($title, $url_list) = each %duplicate_titles ) {
             #
-            # Take first URL from the list as the one to report the
-            # error against.
+            # Ignore empty titles, this would have been reported
+            # under accessibility (WCAG 2.0) checking.
             #
-            @list = split(/\n/, $url_list);
-            $current_url = $list[0];
-            Record_Result("DUPLICATE_TITLES",
-                          String_Value("Duplicate title") .
-                          " \"$title\" " .
-                          String_Value("in") . " URLs $url_list");
+            if ( $title ne "" ) {
+                #
+                # Take first URL from the list as the one to report the
+                # error against.
+                #
+                @list = split(/\n/, $url_list);
+                $current_url = $list[0];
+                Record_Result("DUPLICATE_TITLES",
+                              String_Value("Duplicate title") .
+                              " \"$title\" " .
+                              String_Value("in") . " URLs $url_list");
+            }
         }
     }
 
@@ -1838,12 +1862,20 @@ sub Check_Title_DC_Title_Match {
     print "dc.title  = \"$conv_dc_title\"\n" if $debug;
     if ( lc($conv_html_title) ne lc($conv_dc_title) ) {
         #
-        # Title mismatch.
+        # Check to see if the dc.title is a substing of the title.
+        # Sometimes the title includes a departmental name
+        #  e.g. title = Public Services and Procurement Canada - Canada.ca
+        #    dc.title = Public Services and Procurement Canada
         #
-        Record_Result("TITLE_DC_TITLE_MATCH",
-                      String_Value("Title/dc.title mismatch") .
-                      " title \"$title_text\" " .
-                      " dc.title \"$dc_title_text\" ");
+        if ( index($conv_html_title, $conv_dc_title) != 0 ) {
+            #
+            # Title mismatch.
+            #
+            Record_Result("TITLE_DC_TITLE_MATCH",
+                          String_Value("Title/dc.title mismatch") .
+                          " title \"$title_text\" " .
+                          " dc.title \"$dc_title_text\" ");
+        }
     }
 }
 
