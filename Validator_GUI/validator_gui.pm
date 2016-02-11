@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 7188 $
+# $Revision: 7493 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2015-06-30 05:02:40 -0400 (Tue, 30 Jun 2015) $
+# $Date: 2016-02-08 08:41:41 -0500 (Mon, 08 Feb 2016) $
 #
 # Description:
 #
@@ -177,7 +177,7 @@ my ($site_config_tabid, $html_input_tabid, $url_list_tabid, $open_data_tabid);
 my ($report_fails_only, $main_window_tab_count, $results_window_tab_count);
 my (%results_window_tab_labels, $config_tabid, %option_combobox_map);
 my (%results_file_suffixes, $main_window_menu, $url_list_callback);
-my ($site_login_logout_config_tabid, $version);
+my ($site_login_logout_config_tabid, $version, %login_credentials);
 my ($results_save_callback, %report_options_labels, $ie, $browser_close_window);
 my ($browser_close_window_open, %report_options_field_names);
 my (%report_options_config_options, %url_401_user, %url_401_password);
@@ -188,7 +188,8 @@ my ($testcase_profile_groups_config_option);
 
 my ($csv_results_fh, $csv_results_file_name, $csv_object);
 my (@csv_results_fields) = ("type", "url", "testcase", "description", "line_no",
-                            "column_no", "page_no","source_line","message");
+                            "column_no", "page_no","source_line","message",
+                            "help_url");
 if ( $have_threads ) {
     share(\$csv_results_file_name);
 }
@@ -311,7 +312,7 @@ my %string_table_en = (
     "Line", 			"Line: ",
     "Column", 			"Column: ",
     "Page", 			"Page: ",
-    "Source line", 		"Source line: ",
+    "Source line", 		"Source line:\n",
     "Testcase",			"Testcase: ",
     "Overall compliance score", "Overall compliance score: ",
     "Average faults per page",  "Average faults per page: ",
@@ -408,7 +409,7 @@ my %string_table_fr = (
     "Line", 			"la ligne : ",
     "Column", 			"Colonne : ",
     "Page", 			"Page : ",
-    "Source line", 			"Ligne de la source",
+    "Source line", 			"Ligne de la source :\n",
     "Testcase",   "Cas de test : ",
     "Overall compliance score", "Score de conformité totale: ",
     "Average faults per page",  "Nombre moyen de pannes par page: ",
@@ -759,10 +760,16 @@ sub Print_TQA_Result_to_CSV {
                $result_object->description, $result_object->line_no,
                $result_object->column_no, $result_object->page_no,
                $result_object->source_line);
+
     #
     # Add message field. Limit text to 10K characters
     #
     push(@fields, substr($result_object->message, 0, 10240));
+
+    #
+    # Add help URL field
+    #
+    push(@fields, $result_object->help_url);
 
     #
     # Write fields to the CSV file.
@@ -1431,6 +1438,7 @@ sub Get_Report_Options {
         print "Config Option $option_label = " .
               $report_options{$option_label} . "\n" if $debug;
     }
+    $report_options{"report_passes_only"} = 0;
 
     #
     # Return configuration values
@@ -1480,7 +1488,7 @@ sub GUI_Do_HTML_Click {
         #
         # Get any report options
         #
-        %report_options = Get_Report_Options;
+        %report_options = Get_Report_Options();
 
         #
         # Copy menu options into report options hash table
@@ -1669,7 +1677,7 @@ sub GUI_Do_URL_List_Click {
         #
         # Get any report options
         #
-        %report_options = Get_Report_Options;
+        %report_options = Get_Report_Options();
 
         #
         # Copy menu options into report options hash table
@@ -1887,7 +1895,7 @@ sub Validator_GUI_DoSite_Click {
     #
     # Get any report options
     #
-    %report_options = Get_Report_Options;
+    %report_options = Get_Report_Options();
     
     #
     # Copy report options into the crawl details hash table
@@ -2777,7 +2785,24 @@ sub Validator_GUI_Login {
     foreach $field_name (keys %login_fields) {
         $login_form_values{$field_name} = "";
     }
+    
+    #
+    # Do we already have login credentials from a profile
+    # file ?
+    #
+    if ( keys(%login_credentials) > 0 ) {
+        foreach $field_name (keys %login_fields) {
+            if ( defined($login_credentials{$field_name}) ) {
+                $login_form_values{$field_name} = $login_credentials{$field_name};
+            }
+        }
 
+        #
+        # Return login form values
+        #
+        return(%login_form_values);
+    }
+    
     #
     # Create a dialog window for the login form fields
     #
@@ -4011,6 +4036,9 @@ sub Load_Site_Config {
                     #
                     Win32::GUI::DoEvents();
                 }
+                #
+                # Do we have report option values ?
+                #
                 elsif ( defined($report_options_field_names{$field_name}) ) {
                     #
                     # Load value into main dialog configuration tab
@@ -4034,10 +4062,10 @@ sub Load_Site_Config {
                     #
                     Win32::GUI::DoEvents();
                 }
+                #
+                # Have HTTP 401 credentials ?
+                #
                 elsif ( $field_name eq "HTTP_401" ) {
-                    #
-                    # Have HTTP 401 credentials
-                    #
                     ($field_name, $url, $type, $value) = split(/\s+/, $line);
 
                     #
@@ -4049,6 +4077,13 @@ sub Load_Site_Config {
                     elsif ( defined($value) && ($type eq "password") ) {
                         $url_401_password{$url} = $value;
                     }
+                }
+                #
+                # Have login credentials ?
+                #
+                elsif ( $field_name eq "login" ) {
+                    ($field_name, $type, $value) = split(/\s+/, $line, 3);
+                    $login_credentials{$type} = $value;
                 }
             }
             close(FILE);
