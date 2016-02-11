@@ -2,9 +2,9 @@
 #
 # Name: link_object.pm
 #
-# $Revision: 7126 $
+# $Revision: 7434 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/link_object.pm $
-# $Date: 2015-05-06 09:14:31 -0400 (Wed, 06 May 2015) $
+# $Date: 2016-01-18 03:31:28 -0500 (Mon, 18 Jan 2016) $
 #
 # Description:
 #
@@ -39,6 +39,7 @@
 #    mime_type - get/set mime-type value
 #    modified_content - get/set the modified content value
 #    noscript - get/set the noscript value
+#    on_page_id_reference - return the on_page_id_reference value
 #    query - get/set the query portion of the URL
 #    referer_url - get/set the referer URL
 #    source_line - get/set source value
@@ -195,6 +196,19 @@ sub new {
         $self->{"domain_path"} = "";
         $self->{"query"} = "";
     }
+    
+    #
+    # Is the href value just an anchor on the same page ?
+    #
+    if ( defined($href) && ($href =~ /^#.*/) ) {
+        $self->{"on_page_id_reference"} = 1;
+    }
+    elsif ( defined($href) && ($href =~ /^\?.*/) ) {
+        $self->{"on_page_id_reference"} = 1;
+    }
+    else {
+        $self->{"on_page_id_reference"} = 0;
+    }
 
     #
     # Check length of source line
@@ -252,7 +266,7 @@ sub new {
         print " domain_path = " . $self->domain_path . "\n";
         print " query = " . $self->query . "\n";
     }
-    
+
     #
     # Return reference to object.
     #
@@ -901,6 +915,26 @@ sub noscript {
     else {
         return($self->{"noscript"});
     }
+}
+
+#********************************************************
+#
+# Name: on_page_id_reference
+#
+# Parameters: self - class reference
+#
+# Description:
+#
+#   This function returns the on_page_id_reference value.
+#
+#********************************************************
+sub on_page_id_reference {
+    my ($self) = @_;
+
+    #
+    # Return field value
+    #
+    return($self->{"on_page_id_reference"});
 }
 
 #********************************************************
