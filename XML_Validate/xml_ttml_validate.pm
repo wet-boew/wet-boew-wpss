@@ -2,9 +2,9 @@
 #
 # Name:   xml_ttml_validate.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 7379 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/XML_Validate/Tools/xml_ttml_validate.pm $
+# $Date: 2015-11-30 05:58:52 -0500 (Mon, 30 Nov 2015) $
 #
 # Description:
 #
