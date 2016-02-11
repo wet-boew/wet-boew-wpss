@@ -2,9 +2,9 @@
 #
 # Name:   clf_check.pm
 #
-# $Revision: 6738 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf_check.pm $
-# $Date: 2014-07-25 14:53:18 -0400 (Fri, 25 Jul 2014) $
+# $Revision: 7485 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/clf_check.pm $
+# $Date: 2016-02-08 08:37:46 -0500 (Mon, 08 Feb 2016) $
 #
 # Description:
 #
@@ -325,7 +325,7 @@ sub Set_CLF_Check_Test_Profile {
 sub CLF_Check {
     my ( $this_url, $language, $profile, $mime_type, $resp, $content ) = @_;
 
-    my (@tqa_results_list, $result_object, @other_tqa_results_list);
+    my (@tqa_results_list, $result_object, @other_tqa_results_list, $tcid);
 
     #
     # Did we get any content ?
@@ -370,6 +370,16 @@ sub CLF_Check {
     }
 
     #
+    # Add help URL to result
+    #
+    foreach $result_object (@tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(CLF_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(CLF_Check_Testcase_URL($tcid));
+        }
+    }
+    
+    #
     # Return list of results
     #
     return(@tqa_results_list);
@@ -400,7 +410,7 @@ sub CLF_Check_Links {
     my ($tqa_results_list, $url, $profile, $language, $link_sets,
         $site_links, $logged_in) = @_;
 
-    my ($result_object, @local_tqa_results_list, $list_addr);
+    my ($result_object, $tcid);
 
     #
     # Perform CLF 2.0 link checks.
@@ -413,6 +423,16 @@ sub CLF_Check_Links {
     #
     SWU_Check_Links($tqa_results_list, $url, $profile, $language, $link_sets,
                     $site_links, $logged_in);
+
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@$tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(CLF_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(CLF_Check_Testcase_URL($tcid));
+        }
+    }
 }
 
 #***********************************************************************
