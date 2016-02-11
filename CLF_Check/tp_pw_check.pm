@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 7347 $
+# $Revision: 7495 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2015-11-17 04:33:41 -0500 (Tue, 17 Nov 2015) $
+# $Date: 2016-02-09 04:46:19 -0500 (Tue, 09 Feb 2016) $
 #
 # Description:
 #
@@ -102,6 +102,7 @@ my ($current_heading_level, $have_text_handler, %section_h1_count);
 my (%found_template_markers, $current_clf_check_profile_name);
 my ($valid_search_actions, $expected_search_inputs);
 my ($in_search_form, $in_noscript, @heading_level_stack);
+my ($current_anchor_mailto);
 
 my ($max_error_message_string) = 2048;
 
@@ -1174,10 +1175,6 @@ sub Anchor_Tag_Handler {
     # Do we have an href attribute
     #
     if ( defined( $attr{"href"} ) ) {
-        #
-        # Save the href value in a global variable.  We may need it when
-        # processing the end of the anchor tag.
-        #
         $href = $attr{"href"};
         $href =~ s/^\s*//g;
         $href =~ s/\s*$//g;
@@ -1189,10 +1186,13 @@ sub Anchor_Tag_Handler {
         if ( $href =~ /^mailto:/i ) {
 
             #
-            # Save email address portion
+            # Save email address portion value in a global variable.
             #
             $href =~ tr/A-Z/a-z/;
-            push( @{ $self->handler("text") }, $href );
+            $current_anchor_mailto = $href;
+        }
+        else {
+            $current_anchor_mailto = "";
         }
     }
 }
@@ -1647,9 +1647,9 @@ sub Check_End_Anchor_Mailto {
         if ( !$found_match ) {
             Record_Result("TP_PW_MAILTO", $line, $column, $text,
                           String_Value("Displayed e-mail address") .
-                          "  " . join("", @anchor_text_list) . " " .
+                          " \"" . join("", @anchor_text_list) . "\" " .
                           String_Value("does not match mailto") .
-                          " $mailto_address");
+                          " \"$mailto_address\"");
         }
     }
 }
@@ -1672,7 +1672,7 @@ sub Check_End_Anchor_Mailto {
 sub End_Anchor_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, @anchor_text_list);
+    my (@anchor_text_list);
 
     #
     # Get all the text & image paths found within the anchor tag
@@ -1684,21 +1684,14 @@ sub End_Anchor_Tag_Handler {
     @anchor_text_list = @{ $self->handler("text") };
 
     #
-    # Loop through the text items
+    # Do we have a mail to address ?
     #
-    foreach $this_text (@anchor_text_list) {
-
+    if ( $current_anchor_mailto ne "" ) {
         #
-        # Do we have a mailto ?
+        # Does mailto: value match display value ?
         #
-        if ( $this_text =~ /^mailto:/ ) {
-
-            #
-            # Does mailto: value match display value ?
-            #
-            Check_End_Anchor_Mailto($line, $column, $text, $this_text,
-                                    @anchor_text_list);
-        }
+        Check_End_Anchor_Mailto($line, $column, $text, $current_anchor_mailto,
+                                @anchor_text_list);
     }
 
     #
