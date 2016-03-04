@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 7495 $
+# $Revision: 7525 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2016-02-09 04:46:19 -0500 (Tue, 09 Feb 2016) $
+# $Date: 2016-02-26 04:21:17 -0500 (Fri, 26 Feb 2016) $
 #
 # Description:
 #
@@ -2101,6 +2101,7 @@ sub Verify_Template_Checksums {
     my ($manifest_url, $url, $resp, $line, $checksum, $file_path);
     my ($calculated_checksum, $object, $template_directory);
     my ($object, $trusted_template_domains, @fields, $last_field);
+    my ($critical_template_file, $content);
 
     #
     # Get testcase data object
@@ -2165,16 +2166,38 @@ sub Verify_Template_Checksums {
             # The content of the manifest is expected to be 
             # <checksum> <file path>
             #
-            foreach $line (split(/\n/, $resp->content)) {
+            foreach $line (split(/\n/, Crawler_Decode_Content($resp))) {
                 #
                 # Get checksum value and file path
                 #
                 ($checksum, $file_path) = split(/\s+/, $line, 2);
+                
+                #
+                # Is this a critical file? Some template files are
+                # not critical (e.g. demo pages), so if they are not
+                # found, it is not an error.
+                #
+                @fields = split(/\./, $file_path);
+                $last_field = @fields;
+                if ( ($last_field > 0) &&
+                     ( ! defined($critical_template_file_suffix{lc($fields[$last_field - 1])})) ) {
+                    #
+                    # Ignore error on non-critical file
+                    #
+                    print "Non-critical template file not found, $url\n" if $debug;
+                    $critical_template_file = 0;
+                }
+                else {
+                    $critical_template_file = 1;
+                }
 
                 #
-                # See if we can get the file path from the server
+                # See if we can get the file path from the server.
+                # Get all critical files and those with an expected checksum
+                # value (i.e. non zero checksum).
                 #
-                if ( defined($file_path) ) {
+                if ( defined($file_path) &&
+                     ($critical_template_file || ($checksum ne "0")) ) {
                     $url = $domain . "/$template_directory_parent$file_path";
                     print "Get template file $url\n" if $debug;
                     ($url, $resp) = Crawler_Get_HTTP_Response($url,"");
@@ -2189,7 +2212,8 @@ sub Verify_Template_Checksums {
                         # file should not be checksumed, e.g. an HTML file)
                         #
                         if ( $checksum ne "0" ) {
-                            $calculated_checksum = Checksum(Crawler_Decode_Content($resp));
+                            $content = Crawler_Decode_Content($resp);
+                            $calculated_checksum = Checksum($content);
                         }
                         else {
                             $calculated_checksum = "0";
@@ -2200,35 +2224,25 @@ sub Verify_Template_Checksums {
                         #
                         if ( $calculated_checksum ne $checksum ) {
                             print "Checksum values differ, $checksum != $calculated_checksum\n" if $debug;
-                            Record_Result("TP_PW_TEMPLATE", -1, -1, "",
-                           String_Value("Checksum failed for template file") .
-                                                          " \"$url\" ");
+                            
+                            #
+                            # Don't record checksum fails.  Some web server
+                            # configurations appear to deliver different content
+                            # than what is expected, which results in a
+                            # checksum mismatch.
+                            #
+                            #Record_Result("TP_PW_TEMPLATE", -1, -1, "",
+                            #              String_Value("Checksum failed for template file") .
+                            #                           " \"$url\" ");
                         }
                     }
                     else {
                         #
                         # Failed to get template file.
-                        # Is the file suffix one of the critical types ?
-                        # Some web servers may not be configured to serve up
-                        # files with an unusual suffix (e.g. .old).
                         #
-                        @fields = split(/\./, $file_path);
-                        $last_field = @fields;
-                        if ( ($last_field > 0) && 
-                             ( ! defined($critical_template_file_suffix{lc($fields[$last_field - 1])})) ) {
-                            #
-                            # Ignore error on non-critical file
-                            #
-                            print "Non-critical template file not found, $url\n" if $debug;
-                        }
-                        else {
-                            #
-                            # Missing template file
-                            #
-                            Record_Result("TP_PW_TEMPLATE", -1, -1, "",
-                                          String_Value("Template file not found") .
-                                                          " \"$url\" ");
-                        }
+                        Record_Result("TP_PW_TEMPLATE", -1, -1, "",
+                                      String_Value("Template file not found") .
+                                                      " \"$url\" ");
                     }
                 }
             }
@@ -2347,6 +2361,7 @@ sub Verify_Template_Version {
             $local_version =~ s/\n$//g;
             if ( length($local_version) > 100 ) {
                  $local_version = substr($local_version, 0, 100);
+                 eval { $local_version =~ s/[^[:ascii:]]+//g; };
             }
 
             #
