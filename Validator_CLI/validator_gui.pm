@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 7492 $
+# $Revision: 7537 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_CLI/Tools/validator_gui.pm $
-# $Date: 2016-02-08 08:40:30 -0500 (Mon, 08 Feb 2016) $
+# $Date: 2016-03-02 06:47:50 -0500 (Wed, 02 Mar 2016) $
 #
 # Description:
 #
@@ -144,7 +144,7 @@ my ($url_list_callback, $version, %default_report_options);
 my (%report_options_labels, $results_file_name, $open_data_callback);
 my (%results_file_suffixes, $first_results_tab, $runtime_error_callback);
 my (%login_credentials, $results_save_callback);
-my (%url_401_user, %url_401_password);
+my (%url_401_user, %url_401_password, $enable_generated_markup);
 my ($testcase_profile_groups_label, $testcase_profile_groups_names);
 my ($testcase_profile_groups_values, %report_options_values);
 my ($testcase_profile_groups_config_option);
@@ -2070,6 +2070,13 @@ sub Read_Crawl_File {
                 $url_401_password{$url} = $value;
             }
         }
+        #
+        # Have generated source flag ?
+        #
+        elsif ( $key eq "enable_generated_markup" ) {
+            ($key, $value) = split(/\s+/, $line, 2);
+            $enable_generated_markup = $value;
+        }
     }
 
     #
@@ -2281,6 +2288,13 @@ sub Read_URL_File {
             elsif ( defined($value) && ($type eq "password") ) {
                 $url_401_password{$url} = $value;
             }
+        }
+        #
+        # Have generated source flag ?
+        #
+        elsif ( $key eq "enable_generated_markup" ) {
+            ($key, $value) = split(/\s+/, $line, 2);
+            $enable_generated_markup = $value;
         }
         else {
             #
@@ -2540,7 +2554,7 @@ sub Read_Open_Data_File {
 
     my (%report_options, $line, $field_name, $value, %dataset_urls);
     my ($data_list, $dictionary_list, $resource_list, $tab, $suffix);
-    my ($key, $api_list, $description_url);
+    my ($key, $api_list, $description_url, $label);
 
     #
     # Copy in default report options
@@ -2599,18 +2613,12 @@ sub Read_Open_Data_File {
         #
         # Check configuration field name
         #
-        if ( defined($default_report_options{$field_name}) ) {
-            $report_options{$field_name} = $value;
-            print "Set configuration selector $field_name to $value\n" if $debug;
-
-            #
-            # Is this a group profile option ?
-            #
-            if ( $key eq $testcase_profile_groups_config_option ) {
-                #
-                # Update all the other testcase profile options
-                #
-                Select_Testcase_Profile_Group($value, \%report_options);
+        if ( defined($report_options_labels{$field_name}) ) {
+            print "Report options type $field_name, value = $value\n" if $debug;
+            if ( defined($value) ) {
+                $label = $report_options_labels{$field_name};
+                $report_options{$label} = $value;
+                print "Report options type $label, value = $value\n" if $debug;
             }
         }
         #
