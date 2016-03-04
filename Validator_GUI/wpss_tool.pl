@@ -4,12 +4,13 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 7494 $
+# $Revision: 7541 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2016-02-08 08:43:44 -0500 (Mon, 08 Feb 2016) $
+# $Date: 2016-03-03 05:24:49 -0500 (Thu, 03 Mar 2016) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
-#                        [ -xml ] [ -open_data ] [ -monitor ]
+#                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
+#                        [ -disable_generated_markup ]
 #
 # Where: -debug enables program debugging.
 #        -fra use French interface
@@ -19,6 +20,8 @@
 #        -xml generate XML output
 #        -open_data run tool for open data files rather than web files
 #        -monitor enable program resource usage monitoring
+#        -no_login don't prompt for firewall login
+#        -disable_generated_markup don't get generated source markup
 #
 # Description:
 #
@@ -94,6 +97,7 @@ my (%all_link_sets, %domain_prod_dev_map, @all_urls, $logged_in);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
 my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
 my ($shared_save_content_directory, $firewall_check_url);
+my ($enable_generated_markup, $cmnd_line_disable_generated_markup);
 my ($report_passes_only) = 0;
 my ($ui_pm_dir) = "GUI";
 my ($no_login_mode) = 0;
@@ -3633,8 +3637,13 @@ sub HTTP_Response_Callback {
         #
         # Get generated code
         #
-        $generated_content = Crawler_Get_Generated_Content($resp, $url,
-                                                           $image_file_path);
+        if ( $enable_generated_markup ) {
+            $generated_content = Crawler_Get_Generated_Content($resp, $url,
+                                                               $image_file_path);
+        }
+        else {
+            $generated_content = $content;
+        }
     }
     else {
         $generated_content = $content;
@@ -3729,8 +3738,8 @@ sub HTTP_Response_Callback {
             #
             Print_Resource_Usage($url, "Perform_Link_Check",
                                  $document_count{$crawled_urls_tab});
-            Perform_Link_Check($url, $mime_type, $resp, \$generated_content,
-                               $language);
+            Perform_Link_Check($url, $mime_type, $resp, \$content,
+                               $language, \$generated_content);
 
             #
             # Perform Metadata Check
@@ -3838,7 +3847,8 @@ sub HTTP_Response_Callback {
             #
             # Perform link check
             #
-            Perform_Link_Check($url, $mime_type, $resp, \$content, $language);
+            Perform_Link_Check($url, $mime_type, $resp, \$content, $language,
+                               \$content);
 
             #
             # Perform PDF Properties Check check
@@ -3870,7 +3880,8 @@ sub HTTP_Response_Callback {
             #
             # Perform Link check
             #
-            Perform_Link_Check($url, $mime_type, $resp, \$content, "");
+            Perform_Link_Check($url, $mime_type, $resp, \$content, "",
+                               \$content);
 
             #
             # Perform TQA check of CSS content
@@ -3944,7 +3955,8 @@ sub HTTP_Response_Callback {
             #
             # Perform link check
             #
-            Perform_Link_Check($url, $mime_type, $resp, \$content, $language);
+            Perform_Link_Check($url, $mime_type, $resp, \$content, $language,
+                               \$content);
 
             #
             # Perform TQA check of XML content
@@ -5739,7 +5751,7 @@ sub Check_Page_URL {
     my ($url, $do_navigation_link_check) = @_;
 
     my ($resp_url, $resp, $language, $mime_type, $content, @links);
-    my ($header, @tqa_results_list, $output, $base);
+    my ($header, @tqa_results_list, $output, $base, $generated_content);
     my ($sec, $min, $hour, $mday, $mon, $year, $date, $error);
 
     #
@@ -5792,18 +5804,27 @@ sub Check_Page_URL {
     #
     if ( $do_navigation_link_check && ($mime_type =~ /text\/html/) ) {
         #
+        # Get content from HTTP::Response object.
+        #
+        $content = Crawler_Decode_Content($resp);
+
+        #
         # Get generated markup (after JavaScript is loaded and run)
         #
         print "Get generated content for web page\n" if $debug;
-        $content = Crawler_Get_Generated_Content($resp, $url);
-        
+        if ( $enable_generated_markup ) {
+            $generated_content = Crawler_Get_Generated_Content($resp, $url);
+        }
+
         #
         # The above request would have primed the PhantomJS cache, but the
         # page may not have fully loaded due to timeouts.  Request the mark up
         # again to be sure we have the full generated markup.
         #
         print "Request generated content a 2nd time\n" if $debug;
-        $content = Crawler_Get_Generated_Content($resp, $url);
+        if ( $enable_generated_markup ) {
+            $generated_content = Crawler_Get_Generated_Content($resp, $url);
+        }
 
         #
         # Get document language.
@@ -5829,7 +5850,7 @@ sub Check_Page_URL {
         #
         print "Extract links from document\n  --> $url\n" if $debug;
         @links = Extract_Links($url, $base, $language, $mime_type,
-                               \$content);
+                               \$content, \$generated_content);
 
         #
         # Check navigation links from all navigation subsections
@@ -6125,6 +6146,19 @@ sub Initialize_Tool_Globals {
     $report_passes_only = $options{"report_passes_only"};
     $shared_save_content = $options{"save_content"};
     $process_pdf = $options{"process_pdf"};
+    
+    #
+    # Are we enabling or disabling generated source markup ?
+    #
+    if ( ! defined($cmnd_line_disable_generated_markup) ) {
+        $enable_generated_markup = $options{"enable_generated_markup"};
+    }
+    else {
+        #
+        # Command line option disables use of generated source
+        #
+        $enable_generated_markup = 0;
+    }
 
     #
     # Setup content saving option
@@ -7879,7 +7913,7 @@ sub Perform_Mobile_Check {
         if ( $mime_type =~ /text\/html/ ) {
             Mobile_Check_Links(\@mobile_results_list, $url,
                                $mobile_check_profile, $language,
-                               \%all_link_sets);
+                               \%all_link_sets, $content);
         }
 
         #
@@ -7958,6 +7992,7 @@ sub Perform_Mobile_Check {
 #             resp - HTTP::Response object
 #             content - content pointer
 #             language - content language
+#             generated_content - generated content pointer
 #
 # Description:
 #
@@ -7965,7 +8000,7 @@ sub Perform_Mobile_Check {
 #
 #***********************************************************************
 sub Perform_Link_Check {
-    my ($url, $mime_type, $resp, $content, $language) = @_;
+    my ($url, $mime_type, $resp, $content, $language, $generated_content) = @_;
 
     my ($url_status, @link_results_list, $anchor_list);
     my ($i, $status, $link, $breadcrumb, $list_addr);
@@ -7997,7 +8032,7 @@ sub Perform_Link_Check {
     # have already seen this URL.
     #
     if ( $mime_type =~ /text\/html/ ) {
-        $anchor_list = Extract_Anchors($url, $resp, $content, 1);
+        $anchor_list = Extract_Anchors($url, $resp, $generated_content, 1);
     }
 
     #
@@ -8006,7 +8041,8 @@ sub Perform_Link_Check {
     # check.
     #
     print "Extract links from document\n  --> $url\n" if $debug;
-    @links = Extract_Links($url, $base, $language, $mime_type, $content);
+    @links = Extract_Links($url, $base, $language, $mime_type, $content,
+                           $generated_content);
 
     #
     # Get links from all document subsections
@@ -9016,9 +9052,19 @@ sub Setup_Open_Data_Tool_GUI {
     %report_options = ($open_data_profile_label, \@open_data_check_profiles,
                        $tqa_profile_label,       \@tqa_check_profiles,
                        $markup_validate_profile_label, \@markup_validate_profiles);
-    %report_options_values_languages = ("open_data_profile", $open_data_profile_label,
-                                        "tqa_profile", $tqa_profile_label,
-                                        "markup_validate_profile", $markup_validate_profile_label);
+
+    #
+    # Set labels for testcase profile options.
+    #
+    %report_options_labels = ("open_data_profile", $open_data_profile_label,
+                              "tqa_profile", $tqa_profile_label,
+                              "markup_validate_profile", $markup_validate_profile_label);
+
+    %report_options_values_languages = (
+                    "open_data_profile", \%open_data_check_profiles_languages,
+                    "tqa_profile", \%tqa_check_profiles_languages,
+                    "wa_profile", \%wa_check_profiles_languages,
+                    "markup_validate_profile", \%markup_validate_profiles_languages);
 
     #
     # Set user agent max size if it has not been specified.
@@ -9100,6 +9146,9 @@ while ( @ARGV > 0 ) {
     elsif ( $ARGV[0] eq "-debug" ) {
         $debug = 1;
         $command_line_debug = 1;
+    }
+    elsif ( $ARGV[0] eq "-disable_generated_markup" ) {
+        $cmnd_line_disable_generated_markup = 1;
     }
     elsif ( $ARGV[0] eq "-eng" ) {
         $lang = "eng";
