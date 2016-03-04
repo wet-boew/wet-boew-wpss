@@ -104,7 +104,6 @@ my %string_table_en = (
     "iframes in web page",           "<iframes> in web page",
     "Image height scaling",          "Image height scaling",
     "Image width scaling",           "Image width scaling",
-    "JS link not near end of <body>",   "JavaScript link not near end of <body>",
     "Missing content in src attribute", "Missing content in 'src' attribute",
     );
 
@@ -119,7 +118,6 @@ my %string_table_fr = (
     "iframes in web page",           "<iframes> dans la page web",
     "Image height scaling",          "Mise à l'échelle de l'image hauteur",
     "Image width scaling",           "Image width scaling",
-    "JS link not near end of <body>",   "lien javascript pas vers la fin de la balise <body>",
     "Missing content in src attribute", "Contenu manquant dans l'attribut 'src'",
     );
 
@@ -651,6 +649,7 @@ sub Image_Tag_Handler {
     #
     if ( defined($attr{"src"}) ) {
         $src = $attr{"src"};
+        print "Image_Tag_Handler, src = $src\n" if $debug;
         
         #
         # Is the src empty ?
@@ -665,6 +664,7 @@ sub Image_Tag_Handler {
             #
             if ( defined($attr{"height"}) ) {
                 $height = $attr{"height"};
+                print "height attribute = $height\n" if $debug;
             }
             
             #
@@ -672,6 +672,7 @@ sub Image_Tag_Handler {
             #
             if ( defined($attr{"width"}) ) {
                 $width = $attr{"width"};
+                print "height width = $width\n" if $debug;
             }
 
             #
@@ -734,75 +735,6 @@ sub End_Noscript_Tag_Handler {
 
 #***********************************************************************
 #
-# Name: Script_Tag_Handler
-#
-# Parameters: self - reference to this parser
-#             line - line number
-#             column - column number
-#             text - text from tag
-#             attr - hash table of attributes
-#
-# Description:
-#
-#   This function handles the script tag.
-#
-#***********************************************************************
-sub Script_Tag_Handler {
-    my ( $self, $line, $column, $text, %attr ) = @_;
-    
-    #
-    # Check for a src attribute
-    #
-    if ( defined($attr{"src"}) && ($attr{"src"} ne "") ) {
-        #
-        # If this is not in the <body>, we don't bother checking it.
-        # A check for <script> tags in the <head> section is performed
-        # my function Mobile_Check_Links in module mobile_check.pm.
-        #
-        if ( $inside_body ) {
-            #
-            # Is the line number for this script tag near the end of the
-            # HTML document ?  For web pages that are longer than 100 lines,
-            # check to see we are in the last 10%.
-            #
-            print "Inside body, line = $line, content line count = $content_line_count\n" if $debug;
-            print "line min = " . int($content_line_count * 0.90) . "\n" if $debug;
-            if ( $content_line_count > 100 ) {
-                if ( $line < (int($content_line_count * 0.90)) ) {
-                    Record_Result("JS_BOTTOM", $line, $column, $text,
-                                  String_Value("JS link not near end of <body>"));
-                }
-            }
-        }
-        else {
-            print "<script> outside of <body>\n" if $debug;
-        }
-    }
-    else {
-        print "No src attribute or value is null\n" if $debug;
-    }
-}
-
-#***********************************************************************
-#
-# Name: End_Script_Tag_Handler
-#
-# Parameters: self - reference to this parser
-#             line - line number
-#             column - column number
-#             text - text from tag
-#
-# Description:
-#
-#   This function is a handler for end script tag.
-#
-#***********************************************************************
-sub End_Script_Tag_Handler {
-    my ( $self, $line, $column, $text ) = @_;
-}
-
-#***********************************************************************
-#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -850,13 +782,6 @@ sub Start_Handler {
     elsif ( $tagname eq "noscript" ) {
         Noscript_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
-
-    #
-    # Check script tag
-    #
-    elsif ( $tagname eq "script" ) {
-        Script_Tag_Handler($self, $line, $column, $text, %attr_hash);
-    }
 }
 
 #***********************************************************************
@@ -892,13 +817,6 @@ sub End_Handler {
     #
     elsif ( $tagname eq "noscript" ) {
         End_Noscript_Tag_Handler($self, $line, $column, $text);
-    }
-
-    #
-    # Check script tag
-    #
-    elsif ( $tagname eq "script" ) {
-        End_Script_Tag_Handler($self, $line, $column, $text);
     }
 }
 
