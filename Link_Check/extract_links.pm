@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 7444 $
+# $Revision: 7528 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2016-01-19 04:27:10 -0500 (Tue, 19 Jan 2016) $
+# $Date: 2016-02-26 04:24:43 -0500 (Fri, 26 Feb 2016) $
 #
 # Description:
 #
@@ -88,6 +88,7 @@ my ($have_text_handler, @text_handler_tag_list, @text_handler_text_list);
 my ($current_text_handler_tag, $inside_anchor, $last_image_link);
 my ($inside_figure, $have_figcaption, $figcaption_text, $inside_noscript);
 my ($image_in_figure_with_no_alt, @object_reference_list, @list_location);
+my ($last_generated_content);
 my ($last_url) = "";
 my (%html_tags_with_no_end_tag) = (
         "area", "area",
@@ -596,7 +597,7 @@ sub Save_Link_In_Subsection_List {
     }
 
     #
-    # Add link object o the list for the current subsection
+    # Add link object to the list for the current subsection
     #
     $subsection_link_list = $subsection_links{$subsection};
     push(@$subsection_link_list, $link);
@@ -2775,61 +2776,149 @@ sub HTML_Extract_Links {
 
 #***********************************************************************
 #
-# Name: Extract_Links
+# Name: Extract_Links_From_HTML
 #
 # Parameters: url - URL of document to extract links from
 #             base - the base value from the response object (resp->base)
 #             lang - language of URL
 #             mime_type - mime-type of content
 #             content - content pointer
+#             generated_content - generated content pointer
 #
 # Description:
 #
-#   This function extracts links from the supplied content and
-# returns the details as an array of link objects.
+#   This function extracts links from HTML content.  It extracts links
+# from
+#   - the original HTML markup,
+#   - the markup with conditional control removed,
+#   - the generated markup,
+#   - any inline CSS markup.
+# The link details are returned in an array of link objects.
 #
 #***********************************************************************
-sub Extract_Links {
-    my ($url, $base, $lang, $mime_type, $content) = @_;
+sub Extract_Links_From_HTML {
+    my ($url, $base, $lang, $mime_type, $content, $generated_content) = @_;
 
     my (@links, $link, $anchor_list, $extracted_content, @other_links);
     my ($modified_content, $subsection_name, $link_addr, $orig_link);
     my (%saved_subsection_links, $mod_link, $i, $resp);
 
     #
-    # Did we already extract links for this URL ?
-    #
-    print "Extract_Links: Checking URL $url, mime-type = $mime_type\n" if $debug;
-    if ( $url eq $last_url ) {
-        print "Return previously extracted links\n" if $debug;
-        return(@last_link_list);
-    }
-
-    #
     # Did we get any content ?
     #
+    print "Extract_Links_From_HTML\n" if $debug;
     %subsection_links = ();
     if ( length($$content) > 0 ) {
     
         #
-        # Is this HTML content ?
+        # Get links for original markup
         #
-        if ( $mime_type =~ /text\/html/ ) {
-            @links = HTML_Extract_Links($url, $base, $lang, $content);
-            %saved_subsection_links = %subsection_links;
+        @links = HTML_Extract_Links($url, $base, $lang, $content);
+        %saved_subsection_links = %subsection_links;
+
+        #
+        # Extract any named anchors from this content.  We don't use
+        # them here, but by extracting them now we get them into the
+        # anchor cache.
+        #
+        $anchor_list = Extract_Anchors($url, $resp, $content, 0);
+
+        #
+        # Remove conditional comments from the content that control
+        # IE file inclusion (conditionals found in WET template files).
+        #
+        $modified_content = $$content;
+        $modified_content =~ s/<!--\[if[^>]*>//g;
+        $modified_content =~ s/<!--if[^>]*>//g;
+        $modified_content =~ s/<!--<!\[endif\]-->//g;
+        $modified_content =~ s/<!--<!endif-->//g;
+        $modified_content =~ s/<!\[endif\]-->//g;
+        $modified_content =~ s/<!endif-->//g;
+        $modified_content =~ s/<!-->//g;
+
+        #
+        # Extract links again with the above conditional code removed.
+        # We don't do this the first time through in case removing
+        # the conditional code fails and corrupts the HTML input.
+        #
+        %subsection_links = ();
+        @other_links = HTML_Extract_Links($url, $base, $lang,
+                                          \$modified_content);
+
+        #
+        # If we get more links with the conditional code removed, use
+        # those links.  If we have fewer links it is possible that the
+        # modified content was corrupt.
+        #
+        if ( @other_links > @links ) {
+            print "Use links from modified content\n" if $debug;
 
             #
-            # Extract any named anchors from this content.  We don't use
-            # them here, but by extracting them now we get them into the
-            # anchor cache.
+            # Set the modified_content flag for the extra links found
+            # in the modified content.
             #
-            $anchor_list = Extract_Anchors($url, $resp, $content, 0);
+            $i = 0;
+            foreach $mod_link (@other_links) {
+                print "Check modified content link href = " .
+                      $mod_link->abs_url . "\n" if $debug;
 
+                #
+                # Do we have any links left in the original link list ?
+                #
+                if ( $i < @links ) {
+                    $orig_link = $links[$i];
+
+                    #
+                    # Do the href values match ?
+                    #
+                    if ( $mod_link->abs_url eq $orig_link->abs_url ) {
+                        #
+                        # Matching URLs, increment the counter for the original list of links
+                        #
+                        print "Found matching URL in original link list at position $i\n" if $debug;
+                        $i++;
+                    }
+                    else {
+                        #
+                        # Modified content link found
+                        #
+                        print "Modified content link found before original link list link # $i\n" if $debug;
+                        $mod_link->modified_content(1);
+                    }
+                }
+                else {
+                    #
+                    # Link from modified content
+                    #
+                    print "No more original list of links, set modified content flag\n" if $debug;
+                    $mod_link->modified_content(1);
+                }
+            }
+
+            #
+            # Save modified content list of links
+            #
+            @links = @other_links;
+        }
+        else {
+            #
+            # Restore the set of subsection links that were saved
+            # after the first call to HTML_Extract_Links
+            #
+            %subsection_links = %saved_subsection_links;
+        }
+        
+        #
+        # Do we have generated markup ?
+        #
+        if ( defined($generated_content) &&
+             (length($$generated_content) > 0) ) {
+            print "Extract links from generated content\n" if $debug;
             #
             # Remove conditional comments from the content that control
             # IE file inclusion (conditionals found in WET template files).
             #
-            $modified_content = $$content;
+            $modified_content = $$generated_content;
             $modified_content =~ s/<!--\[if[^>]*>//g;
             $modified_content =~ s/<!--if[^>]*>//g;
             $modified_content =~ s/<!--<!\[endif\]-->//g;
@@ -2839,29 +2928,37 @@ sub Extract_Links {
             $modified_content =~ s/<!-->//g;
 
             #
-            # Extract links again with the above conditional code removed.
-            # We don't do this the first time through in case removing
-            # the conditional code fails and corrupts the HTML input.
+            # Extract links from the generated content.  Save the
+            # exiasting subsection link set and reinitialize it
+            # before extracting link information from the generated
+            # content.
             #
+            %saved_subsection_links = %subsection_links;
             %subsection_links = ();
             @other_links = HTML_Extract_Links($url, $base, $lang,
                                               \$modified_content);
 
             #
-            # If we get more links with the conditional code removed, use
+            # Extract any named anchors from this content.  We don't use
+            # them here, but by extracting them now we get them into the
+            # anchor cache.
+            #
+            $anchor_list = Extract_Anchors($url, $resp, $generated_content, 1);
+
+            #
+            # If we get more links from the generated content, use
             # those links.  If we have fewer links it is possible that the
-            # modified content was corrupt.
+            # generated content was corrupt.
             #
             if ( @other_links > @links ) {
-                print "Use links from modified content\n" if $debug;
-
+                print "Use links from generated content\n" if $debug;
                 #
-                # Set the modified_content flag for the extra links found
-                # in the modified content.
+                # Set the generated_content flag for the extra links found
+                # in the generated content.
                 #
                 $i = 0;
                 foreach $mod_link (@other_links) {
-                    print "Check modified content link href = " .
+                    print "Check generated content link href = " .
                           $mod_link->abs_url . "\n" if $debug;
 
                     #
@@ -2875,30 +2972,33 @@ sub Extract_Links {
                         #
                         if ( $mod_link->abs_url eq $orig_link->abs_url ) {
                             #
-                            # Matching URLs, increment the counter for the original list of links
+                            # Matching URLs, increment the counter for the
+                            # original list of links.  Copy the modified_content
+                            # attribute from the origianl link.
                             #
                             print "Found matching URL in original link list at position $i\n" if $debug;
                             $i++;
+                            $mod_link->modified_content($orig_link->modified_content);
                         }
                         else {
                             #
-                            # Modified content link found
+                            # Generated content link found
                             #
-                            print "Modified content link found before original link list link # $i\n" if $debug;
-                            $mod_link->modified_content(1);
+                            print "Generated content link found before original link list link # $i\n" if $debug;
+                            $mod_link->generated_content(1);
                         }
                     }
                     else {
                         #
-                        # Link from modified content
+                        # Link from Generated content
                         #
-                        print "No more original list of links, set modified content flag\n" if $debug;
-                        $mod_link->modified_content(1);
+                        print "No more original list of links, set generated content flag\n" if $debug;
+                        $mod_link->generated_content(1);
                     }
                 }
 
                 #
-                # Save modified content list of links
+                # Save generated content list of links
                 #
                 @links = @other_links;
             }
@@ -2909,27 +3009,82 @@ sub Extract_Links {
                 #
                 %subsection_links = %saved_subsection_links;
             }
+        }
+
+        #
+        # Extract any inline CSS from the HTML and extracts links
+        # from it.
+        #
+        print "Check for inline CSS\n" if $debug;
+        $extracted_content = CSS_Validate_Extract_CSS_From_HTML($url, $content);
+        if ( length($extracted_content) > 0 ) {
+            print "CSS_Extract_Links from inline CSS\n" if $debug;
+            @other_links = CSS_Extract_Links($url, $base, $lang,
+                                             \$extracted_content);
 
             #
-            # Extract any inline CSS from the HTML and extracts links
-            # from it.
+            # Add results from CSS link extraction to those
+            # extracted from the HTML content to get all links.
             #
-            print "Check for inline CSS\n" if $debug;
-            $extracted_content = CSS_Validate_Extract_CSS_From_HTML($url,
-                                                                    $content);
-            if ( length($extracted_content) > 0 ) {
-                print "CSS_Extract_Links from inline CSS\n" if $debug;
-                @other_links = CSS_Extract_Links($url, $base, $lang, 
-                                                 \$extracted_content);
-
-                #
-                # Add results from CSS link extraction to those 
-                # extracted from the HTML content to get all links.
-                #
-                foreach $link (@other_links) {
-                    push(@links, $link);
-                }
+            foreach $link (@other_links) {
+                push(@links, $link);
             }
+        }
+    }
+        
+    #
+    # Return array of link objects
+    #
+    return(@links);
+}
+
+#***********************************************************************
+#
+# Name: Extract_Links
+#
+# Parameters: url - URL of document to extract links from
+#             base - the base value from the response object (resp->base)
+#             lang - language of URL
+#             mime_type - mime-type of content
+#             content - content pointer
+#             generated_content - generated content pointer
+#
+# Description:
+#
+#   This function extracts links from the supplied content and
+# returns the details as an array of link objects.
+#
+#***********************************************************************
+sub Extract_Links {
+    my ($url, $base, $lang, $mime_type, $content, $generated_content) = @_;
+
+    my (@links, $link, $subsection_name, $link_addr);
+
+    #
+    # Did we just extract links for this URL ? Did both extractions
+    # use the same generated content ?
+    #
+    print "Extract_Links: Checking URL $url, mime-type = $mime_type\n" if $debug;
+    if ( ($url eq $last_url) && ($generated_content eq $last_generated_content) ) {
+        print "Return previously extracted links\n" if $debug;
+        return(@last_link_list);
+    }
+
+    #
+    # Did we get any content ?
+    #
+    %subsection_links = ();
+    if ( length($$content) > 0 ) {
+
+        #
+        # Is this HTML content ?
+        #
+        if ( $mime_type =~ /text\/html/ ) {
+            #
+            # Get link information from HTML markup
+            #
+            @links = Extract_Links_From_HTML($url, $base, $lang, $mime_type,
+                                             $content, $generated_content);
         }
         #
         # Is this CSS content ?
@@ -2942,7 +3097,7 @@ sub Extract_Links {
         #
         elsif ( $mime_type =~ /application\/pdf/ ) {
             #
-            # Skip PDF link extraction.  The program used to extract links
+            # Skip PDF link extraction. The program used to extract links
             # from PDF files can fail if the PDF contains only scanned
             # pages (i.e. not text).  The failure may stop the program
             # when running on Windows when the OS presents a popup
@@ -2961,7 +3116,7 @@ sub Extract_Links {
                 ($url =~ /\.xml$/i) ) {
             @links = XML_Extract_Links($url, $base, $lang, $content);
         }
-    
+
         #
         # Check to see if we found no document subsections
         #
@@ -2980,18 +3135,6 @@ sub Extract_Links {
         print "Links extracted from $url\n" if $debug;
         foreach $link (@links) {
             $link->referer_url($url);
-
-            #
-            # Dump list of links
-            #
-            if ( $debug) {
-                print "Link at Line/column: " . $link->line_no . ":" . $link->column_no .
-                      " type = " . $link->link_type .
-                      " lang = " . $link->lang . "\n";
-                print " href     = " . $link->href .
-                      " anchor = " . $link->anchor . "\n";
-                print " abs_url  = " . $link->abs_url . "\n";
-            }
         }
 
         #
@@ -3007,10 +3150,16 @@ sub Extract_Links {
                     # Print list of links returned
                     #
                     foreach (@$link_addr) {
-                        print "Anchor = \"" . $_->anchor . 
+                        print "Link at Line/column: " . $_->line_no . ":" . $_->column_no .
+                              " type = " . $_->link_type .
+                              " lang = " . $_->lang . "\n";
+                        print "  Anchor = \"" . $_->anchor .
                               "\" alt = \"" . $_->alt .
                               "\" href = " .
                               $_->abs_url . "\n";
+                        print "  modified_content = " . $_->modified_content .
+                              "  generated_content = " . $_->generated_content .
+                              "\n";
                     }
                 }
             }
@@ -3024,6 +3173,7 @@ sub Extract_Links {
     # Remember this link list in case we want it again.
     #
     $last_url = $url;
+    $last_generated_content = $generated_content;
     @last_link_list = @links;
 
     #
