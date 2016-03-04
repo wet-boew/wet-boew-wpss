@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 7480 $
+# $Revision: 7526 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2016-02-05 06:43:00 -0500 (Fri, 05 Feb 2016) $
+# $Date: 2016-02-26 04:22:18 -0500 (Fri, 26 Feb 2016) $
 #
 # Description:
 #
@@ -1957,6 +1957,7 @@ sub Crawler_Get_HTTP_Response {
             }
         }
     }
+    ($sec, $min, $hour) = (localtime)[0,1,2];
     $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
     print "Crawler_Get_HTTP_Response end   $date GET\n" if $debug;
 
@@ -3689,7 +3690,7 @@ sub Crawl_Site {
                 }
                 else {
                     #
-                    # Determine the abse URL for any relative URLs.  Usually 
+                    # Determine the base URL for any relative URLs.  Usually
                     # this is the base field from the HTTP Response object
                     # (Location field in HTTP packet).  If the response code
                     # is 200 (OK), we don't use the the base field in case 
