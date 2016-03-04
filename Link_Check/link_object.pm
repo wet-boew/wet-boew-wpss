@@ -2,9 +2,9 @@
 #
 # Name: link_object.pm
 #
-# $Revision: 7434 $
+# $Revision: 7527 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/link_object.pm $
-# $Date: 2016-01-18 03:31:28 -0500 (Mon, 18 Jan 2016) $
+# $Date: 2016-02-26 04:23:32 -0500 (Fri, 26 Feb 2016) $
 #
 # Description:
 #
@@ -25,6 +25,7 @@
 #    column_no - get/set column number value
 #    content_length - get/set link content length value
 #    domain_path - get/set the protocol/domain/path portion of the URL
+#    generated_content - get/set the generated content value
 #    has_alt - get/set the has_alt attribute
 #    has_img - get/set the has_img attribute
 #    in_list - get/set the in_list attribute
@@ -167,6 +168,7 @@ sub new {
     $self->{"attr"} = \%attr;
     $self->{"column_no"} = $column_no;
     $self->{"content_length"} = 0;
+    $self->{"generated_content"} = 0;
     $self->{"has_alt"} = 0;
     $self->{"has_img"} = 0;
     $self->{"href"} = $href;
@@ -479,6 +481,35 @@ sub domain_path {
     }
     else {
         return($self->{"domain_path"});
+    }
+}
+
+#********************************************************
+#
+# Name: generated_content
+#
+# Parameters: self - class reference
+#             value - generated_content value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the generated_content
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub generated_content {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"generated_content"} = $value;
+    }
+    else {
+        return($self->{"generated_content"});
     }
 }
 
