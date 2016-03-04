@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 7493 $
+# $Revision: 7539 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2016-02-08 08:41:41 -0500 (Mon, 08 Feb 2016) $
+# $Date: 2016-03-02 06:55:02 -0500 (Wed, 02 Mar 2016) $
 #
 # Description:
 #
@@ -181,7 +181,7 @@ my ($site_login_logout_config_tabid, $version, %login_credentials);
 my ($results_save_callback, %report_options_labels, $ie, $browser_close_window);
 my ($browser_close_window_open, %report_options_field_names);
 my (%report_options_config_options, %url_401_user, %url_401_password);
-my ($process_pdf, $runtime_error_callback);
+my ($process_pdf, $runtime_error_callback, $enable_generated_markup);
 my ($testcase_profile_groups_label, $testcase_profile_groups_names);
 my ($testcase_profile_groups_values, %report_options_values);
 my ($testcase_profile_groups_config_option);
@@ -239,197 +239,201 @@ my ($site_label_width);
 # String table for UI strings.
 #
 my %string_table_en = (
-    "File", 			"File",
-    "Load Site Config",		"Load Site Config",
-    "Save Site Config",		"Save Site Config",
-    "Exit",			"Exit",
-    "Options",			"Options",
-    "Show Browser",		"Show Browser",
-    "Hide Browser",		"Hide Browser",
-    "Report Fails Only",	"Report Fails Only",
-    "Report Fails and Passes", 	"Report Fails and Passes",
-    "Main Window Title",	"PWGSC WPSS Validator",
-    "Site Details",		"Site Details",
-    "English directory",	"English directory",
-    "Example",			"Example",
-    "English entry page",	"English entry page",
-    "French directory",		"French directory",
-    "if blank use English",	"(if left blank the English value is used)",
-    "French entry page",	"French entry page",
-    "Login/Logout",     "Login/Logout",
-    "Login/Logout fields",	"Login/Logout fields, leave blank if site does not require a login.",
-    "English login page",	"English login page",
-    "English logout page",	"English logout page",
-    "French login page",	"French login page",
-    "French logout page",	"French logout page",
-    "Login form name",		"Login form name",
-    "first form",		"(if left blank the first form on the login page is used)",
-    "Check Site",		"Check Site",
-    "Direct HTML Input",	"Direct HTML Input",
-    "Check",			"Check",
-    "Save As",			"Save As",
-    "Failed to save content",	"Failed to save content in ",
-    "Continue",			"Continue",
-    "Press Continue",		"Press Continue to resume or Save Content to save the HTML content",
-    "Save Content",		"Save Content",
-    "Save Content Off",		"Save Content Off",
-    "Save Content On",		"Save Content On",
-    "Browser Window",		"Browser Window",
-    "Browser",			"Browser",
-    "Close",			"Close",
-    "Stop Crawl",		"Stop Crawl",
-    "Results Window Title",	"Results Window",
-    "Configuration",		"Configuration",
-    "Login",			"Login",
-    "Ok",			"Ok",
-    "Authorization Required",	"Authorization Required",
-    "Authorization required for",	"Authorization required for",
-    "User Name",		"User Name",
-    "Password",			"Password",
-    "Crawl Limit",		"Crawl Limit",
-    "The maximum number of URLs",	"The maximum number of URLs to crawl from the site (0 = unlimited)",
-    "Crawl Depth",		"Crawl Depth",
-    "The maximum crawl depth",	"The maximum crawl depth (0 = unlimited)",
-    "URL List",			"URL List",
-    "Check URL List",		"Check URL List",
-    "No URLs supplied",		"No URLs supplied",
-    "Load from File",		"Load from File",
-    "Save Config",		"Save Config",
-    "Load Config",		"Load Config",
-    "Load Open Data Config", "Load Open Data Config",
-    "Save Open Data Config", "Save Open Data Config",
-    "Login page count", "Login page count",
-    "Logout page count", "Logout page count",
-    "Login interstitial page count", "Number of interstitial pages after login page",
-    "Logout interstitial page count", "Number of interstitial pages after logout page",
-    "Proxy",			"Proxy",
-    "Proxy address to use", 	"Proxy address to use (leave blank if proxy is not needed)",
-    "Help",			"Help",
-    "Version",			"Version ",
-    "Reset",                    "Reset",
-    "2 spaces",			"  ",
-    "4 spaces",			"    ",
-    "Line", 			"Line: ",
-    "Column", 			"Column: ",
-    "Page", 			"Page: ",
-    "Source line", 		"Source line:\n",
-    "Testcase",			"Testcase: ",
-    "Overall compliance score", "Overall compliance score: ",
+    "2 spaces",            "  ",
+    "4 spaces",            "    ",
+    "API URLs",            "API URLs",
+    "Authorization required for",    "Authorization required for",
+    "Authorization Required",    "Authorization Required",
     "Average faults per page",  "Average faults per page: ",
-    "Compliance score",         "Compliance score: ",
-    "number of faults",         "number of faults: ",
-    "Number of faults",         "Number of faults: ",
-    "Total fault count",        "Total fault count: ",
-    "XML Output",               "XML Output",
-    "Text Output",              "Text Output",
-    "referrer",                 "referrer",
-    "Close Browser",            "Close Browser",
+    "Browser Window",      "Browser Window",
+    "Browser",             "Browser",
+    "Check Site",          "Check Site",
+    "Check URL List",      "Check URL List",
+    "Check",               "Check",
+    "Close Browser",       "Close Browser",
+    "Close",               "Close",
+    "Column",              "Column: ",
+    "Compliance score",    "Compliance score: ",
+    "Configuration",       "Configuration",
+    "Continue",            "Continue",
+    "Crawl Depth",         "Crawl Depth",
+    "Crawl Limit",         "Crawl Limit",
+    "Data Files",          "Data Files",
+    "Description URL",     "Description URL",
+    "Dictionary Files",    "Dictionary Files",
+    "Direct HTML Input",   "Direct HTML Input",
+    "Disable generated markup", "Disable generated markup",
+    "Enable generated markup",     "Enable generated markup",
+    "English directory",   "English directory",
+    "English entry page",  "English entry page",
+    "English login page",  "English login page",
+    "English logout page", "English logout page",
+    "Example",             "Example",
+    "Exit",                "Exit",
+    "Failed to save content",    "Failed to save content in ",
+    "File",                "File",
+    "first form",          "(if left blank the first form on the login page is used)",
+    "French directory",    "French directory",
+    "French entry page",   "French entry page",
+    "French login page",   "French login page",
+    "French logout page",  "French logout page",
+    "Help",                "Help",
+    "Hide Browser",        "Hide Browser",
+    "if blank use English", "(if left blank the English value is used)",
+    "Ignore PDF pages",    "Ignore PDF pages",
+    "Line",                "Line: ",
+    "Load Config",         "Load Config",
+    "Load from File",      "Load from File",
+    "Load Open Data Config", "Load Open Data Config",
+    "Load Site Config",    "Load Site Config",
+    "Login form name",     "Login form name",
+    "Login interstitial page count", "Number of interstitial pages after login page",
+    "Login page count",    "Login page count",
+    "Login",               "Login",
+    "Login/Logout fields", "Login/Logout fields, leave blank if site does not require a login.",
+    "Login/Logout",        "Login/Logout",
+    "Logout interstitial page count", "Number of interstitial pages after logout page",
+    "Logout page count",   "Logout page count",
+    "Main Window Title",   "PWGSC WPSS Validator",
+    "No URLs supplied",    "No URLs supplied",
+    "Number of faults",    "Number of faults: ",
+    "number of faults",    "number of faults: ",
+    "Ok",                  "Ok",
+    "Open Data",           "Open Data",
+    "Options",             "Options",
+    "Overall compliance score", "Overall compliance score: ",
+    "Page",                "Page: ",
+    "Password",            "Password",
+    "Press Continue",      "Press Continue to resume or Save Content to save the HTML content",
     "Press Ok to close browser", "Press Ok to close browser",
-    "Ignore PDF pages",          "Ignore PDF pages",
-    "Process PDF pages",        "Process PDF pages",
-    "Open Data",                "Open Data",
-    "Description URL",          "Description URL",
-    "Dictionary Files",         "Dictionary Files",
-    "Data Files",               "Data Files",
-    "Resource Files",           "Resource Files",
-    "API URLs",                 "API URLs",
+    "Process PDF pages",   "Process PDF pages",
+    "Proxy address to use", "Proxy address to use (leave blank if proxy is not needed)",
+    "Proxy",               "Proxy",
+    "referrer",            "referrer",
+    "Report Fails and Passes",     "Report Fails and Passes",
+    "Report Fails Only",   "Report Fails Only",
+    "Reset",               "Reset",
+    "Resource Files",      "Resource Files",
+    "Results Window Title", "Results Window",
+    "Save As",             "Save As",
+    "Save Config",         "Save Config",
+    "Save Content Off",    "Save Content Off",
+    "Save Content On",     "Save Content On",
+    "Save Content",        "Save Content",
+    "Save Open Data Config", "Save Open Data Config",
+    "Save Site Config",    "Save Site Config",
+    "Show Browser",        "Show Browser",
+    "Site Details",        "Site Details",
+    "Source line",         "Source line:\n",
+    "Stop Crawl",          "Stop Crawl",
+    "Testcase",            "Testcase: ",
+    "Text Output",         "Text Output",
+    "The maximum crawl depth",    "The maximum crawl depth (0 = unlimited)",
+    "The maximum number of URLs",    "The maximum number of URLs to crawl from the site (0 = unlimited)",
+    "Total fault count",   "Total fault count: ",
+    "URL List",            "URL List",
+    "User Name",           "User Name",
+    "Version",             "Version ",
+    "XML Output",          "XML Output",
 );
 
 my %string_table_fr = (
-    "File", 			"Fichier",
-    "Load Site Config",		"Charger la configuration du site",
-    "Save Site Config",		"Enregistrer la configuration du site",
-    "Exit",			"Sortie",
-    "Options",			"Options",
-    "Show Browser",		"Afficher le navigateur",
-    "Hide Browser",		"Masquer le navigateur",
-    "Report Fails Only",	"Rapporter les échecs seulement",
-    "Report Fails and Passes", 	"Rapporter les échecs et les succès",
-    "Main Window Title",	"TPSGC Validateur SPNW",
-    "Site Details",		"Détails du site",
-    "English directory",	"Répertoire anglais",
-    "Example",			"Exemple",
-    "English entry page",	"Page d'entrée anglaise",
-    "French directory",		"Répertoire français",
-    "if blank use English",	"(si laissé en blanc, l'anglais est utilisé)",
-    "French entry page",	"Page d'entrée française",
-    "Login/Logout",	"Ouverture de session/Fermeture de session",
-    "Login/Logout fields",	"Champs Ouverture de session/Fermeture de session, laissé en blanc si le site n'a pas besoin d'overture de session.",
-    "English login page",	"Page anglaise d'ouverture de session",
-    "English logout page",	"Page anglaise fermeture de session",
-    "French login page",	"Page française d'ouverture de session",
-    "French logout page",	"Page française fermeture de session",
-    "Login form name",		"Page d'ouverture de session - Nom du formulaire",
-    "first form",		"(si laissé en blanc, le premier formulaire sur la page d'ouverture de session est utilisé)",
-    "Check Site",		"Vérifier le site",
-    "Direct HTML Input",	"Entrée de données direct HTML",
-    "Check",			"Vérifier",
-    "Save As",			"Enregistrer sous",
-    "Failed to save content",	"Impossible d'enregistrer le contenu",
-    "Continue",			"Continuer",
-    "Press Continue",		"Appuyez sur Continuer pour reprendre ou sur Enregistrer le contenu pour enregistrer le contenu HTML",
-    "Save Content",		"Sauvegarder le contenu",
-    "Save Content Off",		"Enregistrer le contenu - désactiver",
-    "Save Content On",		"Enregistrer le contenu - activer",
-    "Browser Window",		"Fenêtre du navigateur",
-    "Browser",			"Navigateur",
-    "Close",			"Fermer",
-    "Stop Crawl",		"Arrêter l'exploration",
-    "Results Window Title",	"Fenêtre de résultats",
-    "Configuration",		"Configuration",
-    "Login",			"Ouverture de session",
-    "Ok",			"O.K.",
-    "Authorization Required",	"Autorisation requise",
-    "Authorization required for",	"Autorisation requise pour ",
-    "User Name",		"Nom d'utilisateur",
-    "Password",			"Mot de passe",
-    "Crawl Limit",		"Limite de l'exploration",
-    "The maximum number of URLs",	"Le nombre maximal d'adresses URL (0 = illimité)",
-    "Crawl Depth",		"Profondeur D'Exploration",
-    "The maximum crawl depth",	"La profondeur d'exploration maximale (0 = illimité)",
-    "URL List",			"Liste d'adresses URL",
-    "No URLs supplied",		"Aucune de URL fournie",
-    "Check URL List",		"Vérifier la liste d'adresses URL",
-    "Load from File",		"Charger à partir du fichier",
-    "Save Config",		"Sauver Configuration",
-    "Load Config",		"Charger Configuration",
-    "Load Open Data Config", "Charger Configuration de Données Ouvertes",
-    "Save Open Data Config", "Sauver Configuration de Données Ouvertes",
-    "Login page count", "nombre de pages d'ouverture de session",
-    "Logout page count", "nombre de pages de fermeture de session",
-    "Login interstitial page count", "nombre de pages interstitielles d'ouverture de session",
-    "Logout interstitial page count", "nombre de pages interstitielles de fermeture de session",
-    "Proxy",			"Proxy",
-    "Proxy address to use", 	"Adresse proxy à utiliser",
-    "Help",			"Aide",
-    "Version",			"Version ",
-    "Reset",                    "Effacer",
-    "2 spaces",				"  ",
-    "4 spaces",				"    ",
-    "Line", 			"la ligne : ",
-    "Column", 			"Colonne : ",
-    "Page", 			"Page : ",
-    "Source line", 			"Ligne de la source :\n",
-    "Testcase",   "Cas de test : ",
-    "Overall compliance score", "Score de conformité totale: ",
+    "2 spaces",                 "  ",
+    "4 spaces",                 "    ",
+    "API URLs",                 "API URLs",
+    "Authorization required for", "Autorisation requise pour ",
+    "Authorization Required",   "Autorisation requise",
     "Average faults per page",  "Nombre moyen de pannes par page: ",
-    "Compliance score",         "Score de conformité: ",
-    "number of faults",         "nombre de pannes: ",
-    "Number of faults",         "Nombre de pannes: ",
-    "Total fault count",        "Nombre total de pannes: ",
-    "XML Output",               "format de sortie XML",
-    "Text Output",              "format de sortie du texte",
-    "referrer",                 "recommandataire",
+    "Browser Window",           "Fenêtre du navigateur",
+    "Browser",                  "Navigateur",
+    "Check Site",               "Vérifier le site",
+    "Check URL List",           "Vérifier la liste d'adresses URL",
+    "Check",                    "Vérifier",
     "Close Browser",            "Fermer Navigateur",
-    "Press Ok to close browser", "Appuyez sur OK pour fermer navigateur",
-    "Ignore PDF pages",          "Ignorer les pages PDF",
-    "Process PDF pages",         "Traiter les pages PDF",
-    "Open Data",       "Données Ouvertes",
+    "Close",                    "Fermer",
+    "Column",                   "Colonne : ",
+    "Compliance score",         "Score de conformité: ",
+    "Configuration",            "Configuration",
+    "Continue",                 "Continuer",
+    "Crawl Depth",              "Profondeur D'Exploration",
+    "Crawl Limit",              "Limite de l'exploration",
+    "Data Files",               "Les fichers de données",
     "Description URL",          "Description URL",
     "Dictionary Files",         "Fichiers de dictionnaire",
-    "Data Files",               "Les fichers de données",
+    "Direct HTML Input",        "Entrée de données direct HTML",
+    "Disable generated markup", "Désactiver généré de balisage",
+    "Enable generated markup",  "Permettre aux produits de balisage",
+    "English directory",        "Répertoire anglais",
+    "English entry page",       "Page d'entrée anglaise",
+    "English login page",       "Page anglaise d'ouverture de session",
+    "English logout page",      "Page anglaise fermeture de session",
+    "Example",                  "Exemple",
+    "Exit",                     "Sortie",
+    "Failed to save content",   "Impossible d'enregistrer le contenu",
+    "File",                     "Fichier",
+    "first form",               "(si laissé en blanc, le premier formulaire sur la page d'ouverture de session est utilisé)",
+    "French directory",         "Répertoire français",
+    "French entry page",        "Page d'entrée française",
+    "French login page",        "Page française d'ouverture de session",
+    "French logout page",       "Page française fermeture de session",
+    "Help",                     "Aide",
+    "Hide Browser",             "Masquer le navigateur",
+    "if blank use English",     "(si laissé en blanc, l'anglais est utilisé)",
+    "Ignore PDF pages",         "Ignorer les pages PDF",
+    "Line",                     "la ligne : ",
+    "Load Config",              "Charger Configuration",
+    "Load from File",           "Charger à partir du fichier",
+    "Load Open Data Config",    "Charger Configuration de Données Ouvertes",
+    "Load Site Config",         "Charger la configuration du site",
+    "Login form name",          "Page d'ouverture de session - Nom du formulaire",
+    "Login interstitial page count", "nombre de pages interstitielles d'ouverture de session",
+    "Login page count",         "nombre de pages d'ouverture de session",
+    "Login",                    "Ouverture de session",
+    "Login/Logout fields",      "Champs Ouverture de session/Fermeture de session, laissé en blanc si le site n'a pas besoin d'overture de session.",
+    "Login/Logout",             "Ouverture de session/Fermeture de session",
+    "Logout interstitial page count", "nombre de pages interstitielles de fermeture de session",
+    "Logout page count",        "nombre de pages de fermeture de session",
+    "Main Window Title",        "TPSGC Validateur SPNW",
+    "No URLs supplied",         "Aucune de URL fournie",
+    "Number of faults",         "Nombre de pannes: ",
+    "number of faults",         "nombre de pannes: ",
+    "Ok",                       "O.K.",
+    "Open Data",                "Données Ouvertes",
+    "Options",                  "Options",
+    "Overall compliance score", "Score de conformité totale: ",
+    "Page",                     "Page : ",
+    "Password",                 "Mot de passe",
+    "Press Continue",           "Appuyez sur Continuer pour reprendre ou sur Enregistrer le contenu pour enregistrer le contenu HTML",
+    "Press Ok to close browser", "Appuyez sur OK pour fermer navigateur",
+    "Process PDF pages",        "Traiter les pages PDF",
+    "Proxy address to use",     "Adresse proxy à utiliser",
+    "Proxy",                    "Proxy",
+    "referrer",                 "recommandataire",
+    "Report Fails and Passes",  "Rapporter les échecs et les succès",
+    "Report Fails Only",        "Rapporter les échecs seulement",
+    "Reset",                    "Effacer",
     "Resource Files",           "Fichiers de ressources",
-    "API URLs",                 "API URLs",
+    "Results Window Title",     "Fenêtre de résultats",
+    "Save As",                  "Enregistrer sous",
+    "Save Config",              "Sauver Configuration",
+    "Save Content Off",         "Enregistrer le contenu - désactiver",
+    "Save Content On",          "Enregistrer le contenu - activer",
+    "Save Content",             "Sauvegarder le contenu",
+    "Save Open Data Config",    "Sauver Configuration de Données Ouvertes",
+    "Save Site Config",         "Enregistrer la configuration du site",
+    "Show Browser",             "Afficher le navigateur",
+    "Site Details",             "Détails du site",
+    "Source line",              "Ligne de la source :\n",
+    "Stop Crawl",               "Arrêter l'exploration",
+    "Testcase",                 "Cas de test : ",
+    "Text Output",              "format de sortie du texte",
+    "The maximum crawl depth",  "La profondeur d'exploration maximale (0 = illimité)",
+    "The maximum number of URLs", "Le nombre maximal d'adresses URL (0 = illimité)",
+    "Total fault count",        "Nombre total de pannes: ",
+    "URL List",                 "Liste d'adresses URL",
+    "User Name",                "Nom d'utilisateur",
+    "Version",                  "Version ",
+    "XML Output",               "format de sortie XML",
 );
 
 my ($string_table) = \%string_table_en;
@@ -1496,6 +1500,7 @@ sub GUI_Do_HTML_Click {
         $report_options{"report_fails_only"} = $report_fails_only;
         $report_options{"save_content"} = $save_content;
         $report_options{"process_pdf"} = $process_pdf;
+        $report_options{"enable_generated_markup"} = 0;
 
         #
         # Show the results window.
@@ -1685,6 +1690,7 @@ sub GUI_Do_URL_List_Click {
         $report_options{"report_fails_only"} = $report_fails_only;
         $report_options{"save_content"} = $save_content;
         $report_options{"process_pdf"} = $process_pdf;
+        $report_options{"enable_generated_markup"} = $enable_generated_markup;
 
         #
         # Show the results window.
@@ -1910,6 +1916,7 @@ sub Validator_GUI_DoSite_Click {
     $crawl_details{"report_fails_only"} = $report_fails_only;
     $crawl_details{"save_content"} = $save_content;
     $crawl_details{"process_pdf"} = $process_pdf;
+    $crawl_details{"enable_generated_markup"} = $enable_generated_markup;
 
     #
     # Show the results window and clear any text.
@@ -3167,10 +3174,10 @@ sub GUI_Do_Load_URL_List_from_File_Click {
                         }
                     }
                 }
-                elsif ( $field_name eq "HTTP_401" ) {
-                    #
-                    # Have HTTP 401 credentials
-                    #
+                #
+                # Have HTTP 401 credentials
+                #
+                 elsif ( $field_name eq "HTTP_401" ) {
                     ($field_name, $url, $type, $value) = split(/\s+/, $line);
 
                     #
@@ -3188,6 +3195,13 @@ sub GUI_Do_Load_URL_List_from_File_Click {
                     # Skip over the output file setting, it is used in
                     # command line mode.
                     #
+                }
+                #
+                # Have generated source flag ?
+                #
+                elsif ( $field_name eq "enable_generated_markup" ) {
+                    ($field_name, $value) = split(/\s+/, $line, 2);
+                    $enable_generated_markup = $value;
                 }
                 else {
                     #
@@ -4085,6 +4099,13 @@ sub Load_Site_Config {
                     ($field_name, $type, $value) = split(/\s+/, $line, 3);
                     $login_credentials{$type} = $value;
                 }
+                #
+                # Have generated source flag ?
+                #
+                elsif ( $field_name eq "enable_generated_markup" ) {
+                    ($field_name, $value) = split(/\s+/, $line, 2);
+                    $enable_generated_markup = $value;
+                }
             }
             close(FILE);
             
@@ -4179,7 +4200,14 @@ sub Save_Site_Config {
                     print FILE "$field_name $value\n";
                 }
             }
-            
+
+            #
+            # Save generated source flag
+            #
+            if ( ! $enable_generated_markup ) {
+                print FILE "enable_generated_markup $enable_generated_markup\n";
+            }
+
             #
             # Save username/password settings
             #
@@ -4333,39 +4361,41 @@ sub Create_Main_Window {
             {
                  -name => "ShowBrowser",
                  -onClick => sub { 
-                                   $show_browser_window = 1; 
-                                   $main_window_menu->{ShowBrowser}->Enabled(0);
-                                   $main_window_menu->{HideBrowser}->Enabled(1);
+                                   if ( $show_browser_window ) {
+                                       #
+                                       # Turn off browser window
+                                       #
+                                       $show_browser_window = 0;
+                                       $main_window_menu->{ShowBrowser}->Change(-text => String_Value("Show Browser"));
+                                   }
+                                   else {
+                                       #
+                                       # Turn on browser window
+                                       #
+                                       $show_browser_window = 1;
+                                       $main_window_menu->{ShowBrowser}->Change(-text => String_Value("Hide Browser"));
+                                   }
                                  }
             },
 
-    " > " . String_Value("Hide Browser")  => 
-            {
-                 -name => "HideBrowser",
-                 -onClick => sub { 
-                                   $show_browser_window = 0; 
-                                   $main_window_menu->{ShowBrowser}->Enabled(1);
-                                   $main_window_menu->{HideBrowser}->Enabled(0);
-                                  }
-            },
-
-    " > " . String_Value("Report Fails Only")  =>
+    " > " . String_Value("Report Fails and Passes")  =>
             { 
-                 -name => "ReportFailsOnly", 
+                 -name => "ReportFailsOnly",
                  -onClick => sub { 
-                                   $report_fails_only = 1; 
-                                   $main_window_menu->{ReportFailsAndPasses}->Enabled(1);
-                                   $main_window_menu->{ReportFailsOnly}->Enabled(0);
-                                  }
-            },
-
-    " > " . String_Value("Report Fails and Passes")  => 
-            { 
-                 -name => "ReportFailsAndPasses", 
-                 -onClick => sub { 
-                                   $report_fails_only = 0;
-                                   $main_window_menu->{ReportFailsAndPasses}->Enabled(0);
-                                   $main_window_menu->{ReportFailsOnly}->Enabled(1);
+                                   if ( $report_fails_only ) {
+                                       #
+                                       # Turn on reporting passes and fails
+                                       #
+                                       $report_fails_only = 0;
+                                       $main_window_menu->{ReportFailsOnly}->Change(-text => String_Value("Report Fails Only"));
+                                   }
+                                   else {
+                                       #
+                                       # Turn off reporting passes and fails
+                                       #
+                                       $report_fails_only = 1;
+                                       $main_window_menu->{ReportFailsOnly}->Change(-text => String_Value("Report Fails and Passes"));
+                                   }
                                   }
             },
     " > " . String_Value("XML Output")  =>
@@ -4391,39 +4421,65 @@ sub Create_Main_Window {
     " > " . String_Value("Save Content On")  => 
             { 
                  -name => "SaveContentOn", 
-                 -onClick => sub { 
-                                   $save_content = 1;
-                                   $main_window_menu->{SaveContentOn}->Enabled(0);
-                                   $main_window_menu->{SaveContentOff}->Enabled(1);
+                 -onClick => sub {
+                                   if ( $save_content ) {
+                                       #
+                                       # Turn off content saving
+                                       #
+                                       $save_content = 0;
+                                       $main_window_menu->{SaveContentOn}->Change(-text => String_Value("Save Content On"));
+                                   }
+                                   else {
+                                       #
+                                       # Turn on content saving
+                                       #
+                                       $save_content = 1;
+                                       $main_window_menu->{SaveContentOn}->Change(-text => String_Value("Save Content Off"));
+                                   }
                                   }
             },
 
-    " > " . String_Value("Save Content Off")  => 
+    " > " . String_Value("Process PDF pages")  =>
             { 
-                 -name => "SaveContentOff", 
+                 -name => "ProcessPDF",
                  -onClick => sub { 
-                                   $save_content = 0;
-                                   $main_window_menu->{SaveContentOn}->Enabled(1);
-                                   $main_window_menu->{SaveContentOff}->Enabled(0);
-                                  }
-            },
-    " > " . String_Value("Ignore PDF pages")  => 
-            { 
-                 -name => "IgnorePDF", 
-                 -onClick => sub { 
-                                   $process_pdf = 0;
-                                   $main_window_menu->{IgnorePDF}->Enabled(0);
-                                   $main_window_menu->{ProcessPDF}->Enabled(1);
+                                   if ( $process_pdf ) {
+                                       #
+                                       # Turn off PDF file processing
+                                       #
+                                       $process_pdf = 0;
+                                       $main_window_menu->{ProcessPDF}->Change(-text => String_Value("Process PDF pages"));
+                                   }
+                                   else {
+                                       #
+                                       # Turn on PDF file processing
+                                       #
+                                       $process_pdf = 1;
+                                       $main_window_menu->{ProcessPDF}->Change(-text => String_Value("Ignore PDF pages"));
+                                   }
                                   }
             },
 
-    " > " . String_Value("Process PDF pages")  => 
-            { 
-                 -name => "ProcessPDF", 
-                 -onClick => sub { 
-                                   $process_pdf = 1;
-                                   $main_window_menu->{IgnorePDF}->Enabled(1);
-                                   $main_window_menu->{ProcessPDF}->Enabled(0);
+    " > " . String_Value("Disable generated markup")  =>
+            {
+                 -name => "UseGeneratedMarkup",
+                 -onClick => sub {
+                                   if ( $enable_generated_markup ) {
+                                       #
+                                       # Turn off the use of generated markup
+                                       # for HTML web pages.
+                                       #
+                                       $enable_generated_markup = 0;
+                                       $main_window_menu->{UseGeneratedMarkup}->Change(-text => String_Value("Enable generated markup"));
+                                   }
+                                   else {
+                                       #
+                                       # Turn on the use of generated markup
+                                       # for HTML web pages.
+                                       #
+                                       $enable_generated_markup = 1;
+                                       $main_window_menu->{UseGeneratedMarkup}->Change(-text => String_Value("Disable generated markup"));
+                                   }
                                   }
             },
 
@@ -4435,19 +4491,7 @@ sub Create_Main_Window {
             {
               -name => "Help", -enabled => 1
             },
-      );
-
-    #
-    # Set default enabled/disabled state for menu options
-    #
-    $main_window_menu->{HideBrowser}->Enabled(0);
-    $main_window_menu->{ReportFailsOnly}->Enabled(0);
-    $main_window_menu->{TextOutput}->Enabled(0);
-    $main_window_menu->{XMLOutput}->Enabled(1);
-    $main_window_menu->{SaveContentOn}->Enabled(1);
-    $main_window_menu->{SaveContentOff}->Enabled(0);
-    $main_window_menu->{IgnorePDF}->Enabled(1);
-    $main_window_menu->{ProcessPDF}->Enabled(0);
+    );
 
     #
     # Create main window
@@ -4521,6 +4565,7 @@ sub Create_Main_Window {
     $report_fails_only = 1;
     $save_content = 0;
     $process_pdf = 1;
+    $enable_generated_markup = 1;
 
     #
     # Return window handle
