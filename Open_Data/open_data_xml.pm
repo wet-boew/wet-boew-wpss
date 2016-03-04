@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 7352 $
+# $Revision: 7536 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2015-11-17 04:39:18 -0500 (Tue, 17 Nov 2015) $
+# $Date: 2016-03-02 06:44:13 -0500 (Wed, 02 Mar 2016) $
 #
 # Description:
 #
@@ -627,6 +627,14 @@ sub Start_Description_Tag_Handler {
     my ($self, %attr) = @_;
     
     my ($lang);
+    
+    #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for <description> tag\n" if $debug;
+        return;
+    }
 
     #
     # Check for language attribute
@@ -727,6 +735,14 @@ sub End_Description_Tag_Handler {
     my ($self) = @_;
 
     #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for </description> tag\n" if $debug;
+        return;
+    }
+
+    #
     # Do we have a text handler ?
     #
     if ( $save_text_between_tags ) {
@@ -792,6 +808,14 @@ sub Start_Field_Tag_Handler {
     my ($self, %attr) = @_;
 
     #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for <field> tag\n" if $debug;
+        return;
+    }
+
+    #
     # Set flag to indicate we are inside a field
     #
     $inside_field = 1;
@@ -810,6 +834,14 @@ sub Start_Field_Tag_Handler {
 #***********************************************************************
 sub End_Field_Tag_Handler {
     my ($self) = @_;
+
+    #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for </field> tag\n" if $debug;
+        return;
+    }
 
     #
     # Set flag to indicate we are no longer inside a field
@@ -832,6 +864,14 @@ sub End_Field_Tag_Handler {
 sub Start_Header_Tag_Handler {
     my ($self, %attr) = @_;
 
+    #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for <header> tag\n" if $debug;
+        return;
+    }
+    
     #
     # Increment header count
     #
@@ -877,6 +917,14 @@ sub End_Header_Tag_Handler {
 
     my ($lang);
     
+    #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for </header> tag\n" if $debug;
+        return;
+    }
+
     #
     # Did we find a heading ?
     #
@@ -935,6 +983,14 @@ sub Start_Heading_Tag_Handler {
     my ($self, %attr) = @_;
 
     #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for <heading> tag\n" if $debug;
+        return;
+    }
+
+    #
     # Do we already have a heading for this header ?
     #
     if ( $found_heading ) {
@@ -986,6 +1042,14 @@ sub Start_Heading_Tag_Handler {
 #***********************************************************************
 sub End_Heading_Tag_Handler {
     my ($self) = @_;
+
+    #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for </heading> tag\n" if $debug;
+        return;
+    }
 
     #
     # Do we have a text handler ?
@@ -1055,6 +1119,14 @@ sub Start_PWGSC_Dictionary_Tag_Handler {
     my ($self, %attr) = @_;
 
     #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for <data-dictionary> tag\n" if $debug;
+        return;
+    }
+
+    #
     # We have a PWGSC dictionary
     #
     $inside_pwgsc_data_dictionary = 1;
@@ -1075,6 +1147,14 @@ sub Start_PWGSC_Dictionary_Tag_Handler {
 #***********************************************************************
 sub End_PWGSC_Dictionary_Tag_Handler {
     my ($self) = @_;
+
+    #
+    # This tag applies to PWGSC defined XML data dictionaries only.
+    #
+    if ( ! defined($$current_open_data_profile{"TP_PW_OD_XML_1"}) ) {
+        print "Skip checks for </data-dictionary> tag\n" if $debug;
+        return;
+    }
 
     #
     # Did we find any headers (terms) ?
