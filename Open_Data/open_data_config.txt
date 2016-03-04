@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision: 6980 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Open_Data/Tools/open_data_config.txt $
-# $Date: 2015-01-13 16:11:39 -0500 (Tue, 13 Jan 2015) $
+# $Revision: 7540 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_config.txt $
+# $Date: 2016-03-03 04:35:53 -0500 (Thu, 03 Mar 2016) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -88,13 +88,12 @@ Testcase_Data OD_3 SUPPORT_URL soutien
 #
 #***********************************************************************
 #
-# Open Data
-#    http://www.tbs-sct.gc.ca/pol/doc-eng.aspx?section=text&id=25875
+# Common Open Data
 #
 #***********************************************************************
 #
-Open_Data_Check_Profile_eng TBS OD
-Open_Data_Check_Profile_fra DO SCT
+Open_Data_Check_Profile_eng Common
+Open_Data_Check_Profile_fra Commun
 
 #
 # Testcase id
