@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 7482 $
+# $Revision: 7532 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2016-02-05 06:49:43 -0500 (Fri, 05 Feb 2016) $
+# $Date: 2016-02-26 04:32:32 -0500 (Fri, 26 Feb 2016) $
 #
 # Description:
 #
@@ -11502,7 +11502,9 @@ sub End_Anchor_Tag_Handler {
     #
     # Get start tag attributes
     #
-    $start_tag_attr = $current_tag_object->attr();
+    if ( defined($current_tag_object) ) {
+        $start_tag_attr = $current_tag_object->attr();
+    }
 
     #
     # Get all the text & image paths found within the anchor tag
