@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 7488 $
+# $Revision: 7531 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2016-02-08 08:38:44 -0500 (Mon, 08 Feb 2016) $
+# $Date: 2016-02-26 04:31:04 -0500 (Fri, 26 Feb 2016) $
 #
 # Description:
 #
@@ -132,6 +132,7 @@ my %string_table_en = (
     "greater than expected maximum of", "greater than expected maximum of",
     "Hostname count for supporting files", "Hostname count for supporting files",
     "JS link found in <head>",       "JavaScript link found in <head>",
+    "JS link not near end of <body>",   "JavaScript link not near end of <body>",
     "link count",                    "link count",
     "No content in supporting file", "No content in supporting file",
     "No Etag or Last-Modified header field", "No Etag or Last-Modified header field",
@@ -156,6 +157,7 @@ my %string_table_fr = (
     "greater than expected maximum of", "plus que le maximum prévu de",
     "Hostname count for supporting files", "Nombre de nom d'hôte pour supporter les fichiers",
     "JS link found in <head>",       "lien JavaScript qui se trouve dans la balise <head>",
+    "JS link not near end of <body>",   "lien javascript pas vers la fin de la balise <body>",
     "link count",                    "nombre de liens",
     "No content in supporting file", "Aucun contenu dans le fichier de support",
     "No Etag or Last-Modified header field", "Aucune Etag ou un champ d'en-tête de Last-Modified",
@@ -1031,7 +1033,7 @@ sub Check_Broken_Redirect_Links {
     my ($link_sets) = @_;
 
     my ($section, $list_addr, $link, $resp, $pattern, $match_pattern);
-    my (%styles, $content, $mime_type, $header, $resp_url);
+    my (%styles, $content, $mime_type, $header, $resp_url, %attr);
 
     #
     # Check links in all sections of the page
@@ -1143,27 +1145,34 @@ sub Check_Broken_Redirect_Links {
                          ($supporting_file_size{$link->abs_url} > 0) ) {
                          
                         #
-                        # Do we already have a style count ?
+                        # Is this a link to a stylesheet ?
                         #
-                        if ( ! defined($style_count{$link->abs_url}) ) {
-                            $header = $resp->headers;
-                            $mime_type = $header->content_type;
-                            %styles = CSS_Check_Get_Styles_From_Content($link->abs_url,
-                                                                        $content,
-                                                                        $mime_type);
-                                                                         
-                            $style_count{$link->abs_url} = scalar(keys %styles);
-                            print "Have " . $style_count{$link->abs_url} .
-                                  " styles in CSS file " . $link->abs_url . "\n" if $debug;
-                        }
-                         
-                        #
-                        # Is the style count 0 ?
-                        #
-                        if ( $style_count{$link->abs_url} == 0 ) {
-                            Record_Result("NUM_HTTP", -1, -1, $link->source_line,
-                                          String_Value("No styles in stylesheet file") .
-                                          " \"" . $link->abs_url . "\"");
+                        %attr = $link->attr;
+                        if ( defined($attr{"rel"}) &&
+                             ($attr{"rel"} eq "stylesheet") ) {
+                            #
+                            # Do we already have a style count ?
+                            #
+                            if ( ! defined($style_count{$link->abs_url}) ) {
+                                $header = $resp->headers;
+                                $mime_type = $header->content_type;
+                                %styles = CSS_Check_Get_Styles_From_Content($link->abs_url,
+                                                                            $content,
+                                                                            $mime_type);
+
+                                $style_count{$link->abs_url} = scalar(keys %styles);
+                                print "Have " . $style_count{$link->abs_url} .
+                                      " styles in CSS file " . $link->abs_url . "\n" if $debug;
+                            }
+
+                            #
+                            # Is the style count 0 ?
+                            #
+                            if ( $style_count{$link->abs_url} == 0 ) {
+                                Record_Result("NUM_HTTP", -1, -1, $link->source_line,
+                                              String_Value("No styles in stylesheet file") .
+                                              " \"" . $link->abs_url . "\"");
+                            }
                         }
                     }
                 }
@@ -1257,6 +1266,7 @@ sub Check_CSS_Links {
 #
 # Parameters: link_sets - table of lists of link objects (1 list per
 #               document section)
+#             content - content pointer
 #
 # Description:
 #
@@ -1265,9 +1275,18 @@ sub Check_CSS_Links {
 #
 #***********************************************************************
 sub Check_JS_Links {
-    my ($link_sets) = @_;
+    my ($link_sets, $content) = @_;
 
     my ($section, $list_addr, $link, $js_count, %attr, %urls, $src);
+    my ($line_no, $content_line_count, @lines);
+
+    #
+    # Get a count of the number of lines of content.  We need the count
+    # to see if <script> tags appear near the beginning or end of the
+    # web page.
+    #
+    @lines = split(/\n/, $$content);
+    $content_line_count = @lines;
 
     #
     # Check links in all sections of the page
@@ -1322,13 +1341,52 @@ sub Check_JS_Links {
                 }
 
                 #
-                # Are we inside the HEAD section ? We should not find JS
-                # files in the <head>.
+                # Does this <script> tag have a defer attribute ?
+                # (instructing the browser to load the script when the page
+                # finishes loading).
                 #
-                if ( $section eq "HEAD" ) {
-                    Record_Result("JS_BOTTOM", $link->line_no, $link->column_no,
-                                  $link->source_line,
+                if ( defined($attr{"defer"}) ) {
+                    print "Skip script tag with defer attribute\n" if $debug;
+                }
+                #
+                # Is the <script> tag from the generated content ? It could
+                # be a link that was added by JavaScript to the
+                # page.
+                #
+                elsif ( $link->generated_content ) {
+                    print "Skip generated JavaScript link in <head>\n" if $debug;
+                }
+                #
+                # Is the <script> tag inside the HEAD section ?
+                #
+                elsif ( $section eq "HEAD" ) {
+                    Record_Result("JS_BOTTOM", $link->line_no,
+                                  $link->column_no, $link->source_line,
                                   String_Value("JS link found in <head>"));
+                }
+                #
+                # Is the <script> tag near the bottom of the web page ?
+                #
+                else {
+                    $line_no = $link->line_no;
+
+                    #
+                    # Do we have atleast 100 lines of content ?
+                    #
+                    if ( $content_line_count > 100 ) {
+                        #
+                        # Is the <script> tag within the last 10% of the
+                        # content ?
+                        #
+                        if ( $line_no < (int($content_line_count * 0.90)) ) {
+                            Record_Result("JS_BOTTOM", $link->line_no,
+                                          $link->column_no, $link->source_line,
+                                          String_Value("JS link not near end of <body>"));
+                        }
+                        else {
+                            print "Skip script tag in bottom 10% of content\n" if $debug;
+                        }
+                    }
                 }
             }
         }
@@ -1556,6 +1614,7 @@ sub Check_Hostnames {
 #             language - URL language
 #             link_sets - table of lists of link objects (1 list per
 #               document section)
+#             content - content pointer
 #
 # Description:
 #
@@ -1564,7 +1623,8 @@ sub Check_Hostnames {
 #
 #***********************************************************************
 sub Mobile_Check_Links {
-    my ($tqa_results_list, $url, $profile, $language, $link_sets) = @_;
+    my ($tqa_results_list, $url, $profile, $language, $link_sets,
+        $content) = @_;
 
     my ($result_object, $section, $list_addr, $link, $tcid);
     
@@ -1609,7 +1669,7 @@ sub Mobile_Check_Links {
     #
     # Check the number of JS files in the page
     #
-    Check_JS_Links($link_sets);
+    Check_JS_Links($link_sets, $content);
     
     #
     # Check the number of image files in the page
