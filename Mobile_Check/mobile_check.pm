@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 7531 $
+# $Revision: 7544 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2016-02-26 04:31:04 -0500 (Fri, 26 Feb 2016) $
+# $Date: 2016-03-07 05:19:14 -0500 (Mon, 07 Mar 2016) $
 #
 # Description:
 #
@@ -1060,7 +1060,8 @@ sub Check_Broken_Redirect_Links {
                 # Is this a broken link ?
                 #
                 if ( defined($resp) && ($resp->code == 404) ) {
-                    Record_Result("NO_404", -1, -1, $link->source_line,
+                    Record_Result("NO_404", $link->line_no,
+                                  $link->column_no, $link->source_line,
                                   String_Value("Broken link") .
                                   " \"" . $link->abs_url . "\"");
                 }
@@ -1093,7 +1094,8 @@ sub Check_Broken_Redirect_Links {
                     # Do we record this redirect ?
                     #
                     if ( ! $match_pattern ) {
-                        Record_Result("REDIRECTS", -1, -1, $link->source_line,
+                        Record_Result("REDIRECTS", $link->line_no,
+                                      $link->column_no, $link->source_line,
                                       String_Value("Redirected link") .
                                       " \"" . $link->abs_url . "\" -> \"" .
                                       $link->redirect_url . "\"");
@@ -1133,7 +1135,8 @@ sub Check_Broken_Redirect_Links {
                     # Is there any content in the supporting file
                     #
                     if ( $supporting_file_size{$link->abs_url} == 0 ) {
-                        Record_Result("NUM_HTTP", -1, -1, $link->source_line,
+                        Record_Result("NUM_HTTP", $link->line_no,
+                                      $link->column_no, $link->source_line,
                                       String_Value("No content in supporting file") .
                                       " \"" . $link->abs_url . "\"");
                     }
@@ -1169,7 +1172,8 @@ sub Check_Broken_Redirect_Links {
                             # Is the style count 0 ?
                             #
                             if ( $style_count{$link->abs_url} == 0 ) {
-                                Record_Result("NUM_HTTP", -1, -1, $link->source_line,
+                                Record_Result("NUM_HTTP", $link->line_no,
+                                              $link->column_no, $link->source_line,
                                               String_Value("No styles in stylesheet file") .
                                               " \"" . $link->abs_url . "\"");
                             }
@@ -1208,12 +1212,14 @@ sub Check_CSS_Links {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
             #
-            # Exclude <noscript> links and links from
-            # conditional includes.
+            # Exclude <noscript> links, links from
+            # conditional includes or generated content.
             #
             print "Check link " . $link->abs_url . "\n" if $debug;
-            if ( $link->noscript || $link->modified_content ) {
-                print "Skip noscript or modified content link\n" if $debug;
+            if ( $link->noscript ||
+                 $link->modified_content ||
+                 $link->generated_content ) {
+                print "Skip noscript, modified content or generated content link\n" if $debug;
             }
             #
             # Is this link from a <link> tag ?
@@ -1230,10 +1236,8 @@ sub Check_CSS_Links {
                 if ( defined($attr{"rel"}) &&
                      ($attr{"rel"} =~ /^stylesheet$/i) ) {
                     print "Found stylesheet\n" if $debug;
-                    if ( ! defined($css_urls{$link->abs_url}) ) {
-                        $css_count++;
-                        $css_urls{$link->abs_url} = 1;
-                    }
+                    $css_count++;
+                    $css_urls{$link->abs_url} = 1;
                 }
                 
                 #
@@ -1241,8 +1245,8 @@ sub Check_CSS_Links {
                 # files outside the <head>.
                 #
                 if ( $section ne "HEAD" ) {
-                    Record_Result("CSS_TOP", $link->line_no, $link->column_no,
-                                  $link->source_line,
+                    Record_Result("CSS_TOP", $link->line_no,
+                                  $link->column_no, $link->source_line,
                                   String_Value("CSS link found outside of <head>"));
                 }
             }
@@ -1298,11 +1302,13 @@ sub Check_JS_Links {
         foreach $link (@$list_addr) {
             #
             # Exclude <noscript> links and links from
-            # conditional includes.
+            # conditional includes or generated content.
             #
             print "Check link " . $link->abs_url . "\n" if $debug;
-            if ( $link->noscript || $link->modified_content ) {
-                print "Skip noscript or modified content link\n" if $debug;
+            if ( $link->noscript ||
+                 $link->modified_content ||
+                 $link->generated_content ) {
+                print "Skip noscript, modified content or generated content link\n" if $debug;
             }
             #
             # Is this link from a <script> tag ?
@@ -1349,14 +1355,6 @@ sub Check_JS_Links {
                     print "Skip script tag with defer attribute\n" if $debug;
                 }
                 #
-                # Is the <script> tag from the generated content ? It could
-                # be a link that was added by JavaScript to the
-                # page.
-                #
-                elsif ( $link->generated_content ) {
-                    print "Skip generated JavaScript link in <head>\n" if $debug;
-                }
-                #
                 # Is the <script> tag inside the HEAD section ?
                 #
                 elsif ( $section eq "HEAD" ) {
@@ -1371,7 +1369,7 @@ sub Check_JS_Links {
                     $line_no = $link->line_no;
 
                     #
-                    # Do we have atleast 100 lines of content ?
+                    # Do we have at least 100 lines of content ?
                     #
                     if ( $content_line_count > 100 ) {
                         #
@@ -1430,12 +1428,14 @@ sub Check_Image_Links {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
             #
-            # Exclude <noscript> links and links from
-            # conditional includes.
+            # Exclude <noscript> links, links from conditional
+            # includes and generated content links.
             #
             print "Check link " . $link->abs_url . "\n" if $debug;
-            if ( $link->noscript || $link->modified_content ) {
-                print "Skip noscript or modified content link\n" if $debug;
+            if ( $link->noscript ||
+                 $link->modified_content ||
+                 $link->generated_content ) {
+                print "Skip noscript, modified content or generated content link\n" if $debug;
             }
             #
             # Is this link from a <img> tag ?
@@ -1736,11 +1736,13 @@ sub Mobile_Check_Compute_Page_Size {
         $links_addr = $$link_sets{$section};
         foreach $link (@$links_addr) {
             #
-            # Ignore links in modified code (IE conditional code) and
-            # in <noscript> tags.
+            # Ignore links in modified code (IE conditional code),
+            # in <noscript> tags and generated content.
             #
             $link_type = $link->link_type;
-            if ( (! $link->modified_content) && (! $link->noscript) ) {
+            if ( (! $link->modified_content) &&
+                 (! $link->noscript) &&
+                 (! $link->generated_content) ) {
                 #
                 # Check for <img> tag
                 #
