@@ -2,9 +2,9 @@
 #
 # Name: link_object.pm
 #
-# $Revision: 7527 $
+# $Revision: 7582 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/link_object.pm $
-# $Date: 2016-02-26 04:23:32 -0500 (Fri, 26 Feb 2016) $
+# $Date: 2016-06-03 09:09:20 -0400 (Fri, 03 Jun 2016) $
 #
 # Description:
 #
@@ -24,10 +24,12 @@
 #    attr - get/set the set of link attributes
 #    column_no - get/set column number value
 #    content_length - get/set link content length value
+#    content_section - get/set the name of the content section
 #    domain_path - get/set the protocol/domain/path portion of the URL
 #    generated_content - get/set the generated content value
 #    has_alt - get/set the has_alt attribute
 #    has_img - get/set the has_img attribute
+#    in_anchor - get/set the in_anchor attribute
 #    in_list - get/set the in_list attribute
 #    is_archived - get/set the is_archived attribute
 #    is_redirected - get/set the is_redirected attribute
@@ -168,10 +170,12 @@ sub new {
     $self->{"attr"} = \%attr;
     $self->{"column_no"} = $column_no;
     $self->{"content_length"} = 0;
+    $self->{"content_section"} = "BODY";
     $self->{"generated_content"} = 0;
     $self->{"has_alt"} = 0;
     $self->{"has_img"} = 0;
     $self->{"href"} = $href;
+    $self->{"in_anchor"} = 0;
     $self->{"in_list"} = 0;
     $self->{"is_archived"} = 0;
     $self->{"is_redirected"} = 0;
@@ -443,13 +447,42 @@ sub content_length {
     my ($self, $content_length) = @_;
 
     #
-    # Was a content lngth value supplied ?
+    # Was a content length value supplied ?
     #
     if ( defined($content_length) ) {
         $self->{"content_length"} = $content_length;
     }
     else {
         return($self->{"content_length"});
+    }
+}
+
+#********************************************************
+#
+# Name: content_section
+#
+# Parameters: self - class reference
+#             content_section - content section(optional)
+#
+# Description:
+#
+#   This function either sets or returns the content section
+# attribute of the link object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub content_section {
+    my ($self, $content_section) = @_;
+
+    #
+    # Was a content section value supplied ?
+    #
+    if ( defined($content_section) ) {
+        $self->{"content_section"} = $content_section;
+    }
+    else {
+        return($self->{"content_section"});
     }
 }
 
@@ -597,6 +630,35 @@ sub href {
     }
     else {
         return($self->{"href"});
+    }
+}
+
+#********************************************************
+#
+# Name: in_anchor
+#
+# Parameters: self - class reference
+#             in_anchor_value - in_anchor value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the in_anchor
+# attribute of the link object.
+# If a value is supplied, it is saved in the object.
+# If no value is supplied, the current value is returned.
+#
+#********************************************************
+sub in_anchor {
+    my ($self, $in_anchor_value) = @_;
+
+    #
+    # Was a in_anchor value supplied ?
+    #
+    if ( defined($in_anchor_value) ) {
+        $self->{"in_anchor"} = $in_anchor_value;
+    }
+    else {
+        return($self->{"in_anchor"});
     }
 }
 
