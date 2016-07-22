@@ -2,9 +2,9 @@
 #
 # Name:   open_data_txt.pm
 #
-# $Revision: 7350 $
+# $Revision: 7594 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_txt.pm $
-# $Date: 2015-11-17 04:38:00 -0500 (Tue, 17 Nov 2015) $
+# $Date: 2016-06-10 10:47:00 -0400 (Fri, 10 Jun 2016) $
 #
 # Description:
 #
@@ -378,9 +378,9 @@ sub Parse_Text_Dictionary {
     my ($filename, $dictionary) = @_;
 
     my ($in_term, $found_term, $in_definition, $line, $term);
-    my ($line_no, $blank_line_count, $current_text);
+    my ($line_no, $blank_line_count, $current_text, $current_definition);
     my (%terms_and_definitions, %term_location, $have_dictionary);
-    my (%definitions_and_terms, $term_count);
+    my (%definitions_and_terms, $term_count, $dictionary_object);
     my ($is_utf8_content) = 0;
 
     #
@@ -503,7 +503,8 @@ sub Parse_Text_Dictionary {
                     # Add this term to the dictionary as we may encounter
                     # it when checking data files.
                     #
-                    $$dictionary{$term} = $term;
+                    $dictionary_object = open_data_dictionary_object->new($term);
+                    $$dictionary{$term} = $dictionary_object;
                 }
                 else {
                     #
@@ -532,25 +533,30 @@ sub Parse_Text_Dictionary {
                 # Save term and definition
                 #
                 print "Add term $term to dictionary\n" if $debug;
-                $terms_and_definitions{$term} = $current_text;
+                $dictionary_object = open_data_dictionary_object->new($term);
+                $terms_and_definitions{$term} = $dictionary_object;
                 
-#                #
-#                # Have we seen this definition before ?
-#                #
-#                #$current_text = lc($current_text);
-#                if ( defined($definitions_and_terms{$current_text}) ) {
-#                    Record_Result("OD_TXT_1", $line_no, 0, "$current_text",
-#                                  String_Value("Duplicate definition") .
-#                                  " $term = \"$current_text\" " .
-#                                  String_Value("Previous instance found at") .
-#                                  $definitions_and_terms{$current_text});
-#                }
-#                else {
-#                    #
-#                    # Save this definition
-#                    #
-#                    $definitions_and_terms{$current_text} = $term;
-#                }
+                #
+                # Have we seen this definition before ?
+                # Convert definition to lower case and remove whitespace
+                # to make comparisons easier.
+                #
+                $current_definition = $current_text;
+                $current_definition = lc($current_definition);
+                $current_definition =~ s/\s*//g;
+                if ( defined($definitions_and_terms{$current_text}) ) {
+                    Record_Result("OD_TXT_1", $line_no, 0, "$current_text",
+                                  String_Value("Duplicate definition") .
+                                  " $term = \"$current_text\" " .
+                                  String_Value("Previous instance found at") .
+                                  $definitions_and_terms{$current_text});
+                }
+                else {
+                    #
+                    # Save this definition
+                    #
+                    $definitions_and_terms{$current_text} = $term;
+                }
 
                 #
                 # Clear current term and definitions.
@@ -657,7 +663,8 @@ sub Parse_Text_Dictionary {
         # Save term and definition
         #
         print "Add term $term to dictionary\n" if $debug;
-        $terms_and_definitions{$term} = $current_text;
+        $dictionary_object = open_data_dictionary_object->new($term);
+        $terms_and_definitions{$term} = $dictionary_object;
     }
     #
     # We may have ended on a term without a definition
@@ -793,7 +800,8 @@ sub Open_Data_TXT_Check_Dictionary {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("tqa_result_object", "open_data_testcases");
+    my (@package_list) = ("tqa_result_object", "open_data_testcases",
+                          "open_data_dictionary_object");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
