@@ -2,9 +2,9 @@
 #
 # Name:   metadata.pm
 #
-# $Revision: 7349 $
+# $Revision: 7607 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Metadata_Check/Tools/metadata.pm $
-# $Date: 2015-11-17 04:36:35 -0500 (Tue, 17 Nov 2015) $
+# $Date: 2016-06-22 10:49:19 -0400 (Wed, 22 Jun 2016) $
 #
 # Description:
 #
@@ -877,7 +877,7 @@ sub Check_YYYY_MM_DD_Format {
         elsif ( ( $fields[2] < 1 ) || ( $fields[2] > 31 ) ) {
             $status = $metadata_error;
             $message = String_Value("Invalid content") .
-                       String_Value("Date") . $fields[0] .
+                       String_Value("Date") . $fields[2] .
                        String_Value("out of range 1-31");
             print "$message\n" if $debug;
         }
