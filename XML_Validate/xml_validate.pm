@@ -2,9 +2,9 @@
 #
 # Name:   xml_validate.pm
 #
-# $Revision: 7412 $
+# $Revision: 7629 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/XML_Validate/Tools/xml_validate.pm $
-# $Date: 2015-12-22 04:15:16 -0500 (Tue, 22 Dec 2015) $
+# $Date: 2016-07-21 08:29:10 -0400 (Thu, 21 Jul 2016) $
 #
 # Description:
 #
@@ -14,6 +14,7 @@
 #     XML_Validate_Content
 #     XML_Validate_Language
 #     XML_Validate_Debug
+#     XML_Validate_XSD
 #
 # Terms and Conditions of Use
 #
@@ -50,6 +51,7 @@ package xml_validate;
 use strict;
 use File::Basename;
 use XML::Parser;
+use File::Temp qw/ tempfile tempdir /;
 
 
 #***********************************************************************
@@ -65,6 +67,7 @@ BEGIN {
     @EXPORT  = qw(XML_Validate_Content
                   XML_Validate_Language
                   XML_Validate_Debug
+                  XML_Validate_XSD
                   );
     $VERSION = "1.0";
 }
@@ -75,9 +78,33 @@ BEGIN {
 #
 #***********************************************************************
 
-my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
+my (@paths, $this_path, $program_dir, $program_name, $paths);
 
+my ($xsd_url, $xsdv_jar);
+my ($runtime_error_reported) = 0;
 my ($debug) = 0;
+
+#
+# String table for error strings.
+#
+my %string_table_en = (
+    "Failed to create temporary file", "Failed to create temporary file",
+    "Runtime Error",                 "Runtime Error",
+    "XSD Schema file not found",     "XSD Schema file not found",
+    "XSD validation failed",         "XSD validation failed",
+    );
+
+my %string_table_fr = (
+    "Failed to create temporary file", "Impossible de créer un fichier temporaire",
+    "Runtime Error",                 "Erreur D'Exécution",
+    "XSD Schema file not found",     "Fichier XSD Schema introuvable",
+    "XSD validation failed",         "XSD validation échouée",
+    );
+
+#
+# Default messages to English
+#
+my ($string_table) = \%string_table_en;
 
 #********************************************************
 #
@@ -123,13 +150,47 @@ sub XML_Validate_Language {
     # Check for French language
     #
     if ( $language =~ /^fr/i ) {
-        print "XML_Validate_Language, language = French\n" if $debug;
+        $string_table = \%string_table_fr;
     }
     else {
         #
         # Default language is English
         #
-        print "XML_Validate_Language, language = English\n" if $debug;
+        $string_table = \%string_table_en;
+    }
+}
+
+#**********************************************************************
+#
+# Name: String_Value
+#
+# Parameters: key - string table key
+#
+# Description:
+#
+#   This function returns the value in the string table for the
+# specified key.  If there is no entry in the table an error string
+# is returned.
+#
+#**********************************************************************
+sub String_Value {
+    my ($key) = @_;
+
+    #
+    # Do we have a string table entry for this key ?
+    #
+    if ( defined($$string_table{$key}) ) {
+        #
+        # return value
+        #
+        return ($$string_table{$key});
+    }
+    else {
+        #
+        # No string table entry, either we are missing a string or
+        # we have a typo in the key name.
+        #
+        return ("*** No string for $key ***");
     }
 }
 
@@ -150,12 +211,51 @@ sub XML_Validate_Language {
 sub Start_Handler {
     my ($self, $tagname, %attr) = @_;
 
-    my ($key, $value);
-
+    my (@fields, $directory, $file_name);
+    
     #
     # Check tags.
     #
     print "Start_Handler tag $tagname\n" if $debug;
+    
+    #
+    # Check for a possible xsi:schemaLocation attribute
+    #
+    if ( defined($attr{"xsi:schemaLocation"}) ) {
+        $xsd_url = $attr{"xsi:schemaLocation"};
+        
+        #
+        # Get the URL directory and file name components
+        #
+        @fields = split(/\s+/, $xsd_url);
+        
+        #
+        # Join the URL components together
+        #
+        if ( @fields > 1 ) {
+            $directory = $fields[0];
+            $file_name = $fields[1];
+            
+            #
+            # Is the file name component an absolute URL ?
+            #
+            if ( $file_name =~ /^http[s]:/ ) {
+                $xsd_url = $file_name;
+            }
+            #
+            # Does the directory URL have a trailing slash ?
+            #
+            elsif ( $directory =~ /\/$/ ) {
+                $xsd_url = $directory . $file_name;
+            }
+            else {
+                $xsd_url = "$directory/$file_name";
+            }
+        }
+        else {
+            $xsd_url = "";
+        }
+    }
 }
 
 #***********************************************************************
@@ -182,6 +282,182 @@ sub End_Handler {
 
 #***********************************************************************
 #
+# Name: XML_Validate_XSD
+#
+# Parameters: this_url - a URL
+#             content - XML content pointer
+#             xml_file - optional name of XML content file
+#             xsd_schema_url - URL of XSD schema file
+#             tcid - testcase identifier
+#             tc_desc - testcase description
+#
+# Description:
+#
+#   This function validates XML content against an XSD schema.
+#
+#***********************************************************************
+sub XML_Validate_XSD {
+    my ($this_url, $content, $xml_file, $xsd_schema_url, $tcid, $tc_desc) = @_;
+
+    my ($result_object, $resp, $resp_url, $output, @lines, $line1, $filename);
+    my ($xsd_fh, $xsd_filename, $xsd_content, $xml_fh, $xml_filename);
+
+    #
+    # Validate XML against an XSD schema file
+    #
+    print "XML_Validate_XSD XSD url = $xsd_schema_url\n" if $debug;
+
+    #
+    # Get the XSD file so we can validate the XML against it.
+    #
+    ($resp_url, $resp) = Crawler_Get_HTTP_Response($xsd_schema_url, "");
+
+    #
+    # Did we get the XSD file ?
+    #
+    if ( defined($resp) && ($resp->is_success) ) {
+        #
+        # Create a local file for the XSD content
+        #
+        ($xsd_fh, $xsd_filename) = tempfile( SUFFIX => '.xsd');
+        if ( ! defined($xsd_fh) ) {
+            print "Error: Failed to create temporary XSD file in General_XML_Validate\n";
+            $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
+                                                    -1, -1, "",
+                                                    String_Value("Failed to create temporary file"),
+                                                    $this_url);
+            return($result_object);
+        }
+        binmode $xsd_fh;
+
+        #
+        # Save the XSD content in the file
+        #
+        print "Save XSD content in temporary file $xsd_filename\n" if $debug;
+        $xsd_content = Crawler_Decode_Content($resp);
+        print $xsd_fh "$xsd_content\n";
+        close($xsd_fh);
+
+        #
+        # Do we need to write the XML content to a file ?
+        #
+        if ( $xml_file eq "" ) {
+            #
+            # Create a local file for the XML content
+            #
+            ($xml_fh, $xml_filename) = tempfile( SUFFIX => '.xml');
+            if ( ! defined($xml_fh) ) {
+                print "Error: Failed to create temporary XML file in General_XML_Validate\n";
+                unlink($xsd_filename);
+                $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
+                                                        -1, -1, "",
+                                                        String_Value("Failed to create temporary file"),
+                                                        $this_url);
+                return($result_object);
+            }
+            binmode $xml_fh;
+
+            #
+            # Save the XML content in the file
+            #
+            print "Save XML content in temporary file $xml_filename\n" if $debug;
+            print $xml_fh $$content;
+            close($xml_fh);
+        }
+        else {
+            print "Use existing XML file name $xml_file\n" if $debug;
+            $xml_filename = $xml_file;
+        }
+
+        #
+        # Run the XSD validator
+        #
+        print "Run XSD validator\n --> java -cp $xsdv_jar xsdvalidator.validate $xsd_filename $xml_filename 2>\&1\n" if $debug;
+        $output = `java -cp \"$xsdv_jar\" xsdvalidator.validate \"$xsd_filename\" \"$xml_filename\" 2>\&1`;
+
+        #
+        # Did the file validate ?
+        #
+        @lines = split(/\n/, $output);
+        $line1 = $lines[0];
+        if ( $line1 =~ / validates/ ) {
+            print "Validation passed\n" if $debug;
+        }
+        elsif ( $line1 =~ / fails to validate because:/ ) {
+            print "Validation failes\n" if $debug;
+            #
+            # Validation failed, get error message portion of the output
+            #
+            shift(@lines);
+            $output =join("\n", @lines);
+            print "XSD Validation failed\n$output\n" if $debug;
+            $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
+                                                    -1, -1, "",
+                                                    String_Value("XSD validation failed") .
+                                                    " $output", $this_url);
+        }
+        else {
+            #
+            # An error trying to run the tool
+            #
+            print "Error running xsdvalidator\n" if $debug;
+            print STDERR "Error running xsdvalidator\n";
+            print STDERR "  java -cp $xsdv_jar xsdvalidator.validate $xsd_filename $xml_filename 2>\&1\n";
+            print STDERR "$output\n";
+
+            #
+            # Report runtime error only once
+            #
+            if ( ! $runtime_error_reported ) {
+                Record_Result($tcid, -1, -1, "",
+                              String_Value("Runtime Error") .
+                              " \"java -cp $xsdv_jar xsdvalidator.validate $xsd_filename $xml_filename\"\n" .
+                              " \"$output\"");
+                $runtime_error_reported = 1;
+            }
+        }
+
+        #
+        # Remove the temporary XSD and XML files
+        #
+        print "Remove temporary XSD file $xsd_filename\n" if $debug;
+        unlink($xsd_filename);
+        if ( $xml_file eq "" ) {
+            unlink($xml_filename);
+            print "Remove temporary XML file $xml_filename\n" if $debug;
+        }
+
+        #
+        # Extract the content file name from HTTP::Response object
+        #
+        $filename = $resp->header("WPSS-Content-File");
+
+        #
+        # Remove URL content file
+        #
+        if ( defined($filename) && ($filename ne "") ) {
+            print "Remove content file $filename\n" if $debug;
+            unlink($filename);
+        }
+    }
+    else {
+        #
+        # XSD Schema file not found
+        #
+        print "XSD Schema \"$xsd_url\" file not found\n" if $debug;
+        $result_object = tqa_result_object->new($tcid, 1, $tc_desc, -1, -1, "",
+                                                String_Value("XSD Schema file not found") .
+                                                " $xsd_url", $this_url);
+    }
+
+    #
+    # Return result object
+    #
+    return($result_object);
+}
+
+#***********************************************************************
+#
 # Name: General_XML_Validate
 #
 # Parameters: this_url - a URL
@@ -202,6 +478,11 @@ sub General_XML_Validate {
     #
     print "General_XML_Validate\n" if $debug;
     $parser = XML::Parser->new;
+    
+    #
+    # Initialize global variables
+    #
+    $xsd_url = "";
 
     #
     # Add handlers for some of the XML tags
@@ -227,6 +508,16 @@ sub General_XML_Validate {
                                                 -1, -1, "",
                                                 $eval_output,
                                                 $this_url);
+    }
+    #
+    # Did we get a XSD schema URL ?
+    #
+    elsif ( $xsd_url ne "" ) {
+        #
+        # Validate the XML against it.
+        #
+        $result_object = XML_Validate_XSD($this_url, $content, "", $xsd_url,
+                                          "XML_VALIDATION", "XML_VALIDATION");
     }
 
     #
@@ -313,7 +604,7 @@ sub Import_Packages {
 
     my ($package);
     my (@package_list) = ("feed_validate", "tqa_result_object",
-                          "xml_ttml_validate");
+                          "xml_ttml_validate", "crawler");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
@@ -364,6 +655,21 @@ if ( $program_dir eq "." ) {
 # Import required packages
 #
 Import_Packages;
+
+#
+# Generate path the schema validate jar file
+#
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $xsdv_jar = ".\\lib\\xsdv.jar";
+} else {
+    #
+    # Not Windows.
+    #
+    $xsdv_jar = "$program_dir/lib/xsdv.jar";
+}
 
 #
 # Return true to indicate we loaded successfully
