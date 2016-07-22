@@ -2,9 +2,9 @@
 #
 # Name: extract_links.pm	
 #
-# $Revision: 7528 $
+# $Revision: 7583 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/extract_links.pm $
-# $Date: 2016-02-26 04:24:43 -0500 (Fri, 26 Feb 2016) $
+# $Date: 2016-06-03 09:10:13 -0400 (Fri, 03 Jun 2016) $
 #
 # Description:
 #
@@ -601,6 +601,7 @@ sub Save_Link_In_Subsection_List {
     #
     $subsection_link_list = $subsection_links{$subsection};
     push(@$subsection_link_list, $link);
+    $link->content_section($subsection);
     print "Add link object to subsection list $subsection\n" if $debug;
 }
 
@@ -1401,6 +1402,10 @@ sub Image_Tag_Handler {
     if ( defined($current_anchor_reference) ) {
         print "img tag inside a tag\n" if $debug;
         $current_anchor_reference->has_img(1);
+        
+        if ( defined($link) ) {
+            $link->in_anchor(1);
+        }
     }
 }
 
@@ -2776,6 +2781,56 @@ sub HTML_Extract_Links {
 
 #***********************************************************************
 #
+# Name: Update_Link_Subsection_Lists
+#
+# Parameters: links - list of link objects
+#
+# Description:
+#
+#   This function processes a list of link objects and copies them
+# into a set of subsection link lists.  The module global subsection_links
+# hash table is updated.
+#
+#***********************************************************************
+sub Update_Link_Subsection_Lists {
+    my (@links) = @_;
+
+
+    my ($link, $subsection, $subsection_link_list);
+
+    #
+    # Clear the existing subsection lists
+    #
+    %subsection_links = ();
+
+    #
+    # Process each link in the list
+    #
+    foreach $link (@links) {
+        #
+        # Get the subsection for this link
+        #
+        $subsection = $link->content_section();
+
+        #
+        # Are we missing a list that we can add this link object to ?
+        #
+        if ( ! defined($subsection_links{$subsection}) ) {
+            my (@list);
+            $subsection_links{$subsection} = \@list;
+        }
+
+        #
+        # Add link object to the list for the current subsection
+        #
+        $subsection_link_list = $subsection_links{$subsection};
+        push(@$subsection_link_list, $link);
+        #print "Add link object to subsection list $subsection\n" if $debug;
+    }
+}
+
+#***********************************************************************
+#
 # Name: Extract_Links_From_HTML
 #
 # Parameters: url - URL of document to extract links from
@@ -2801,7 +2856,8 @@ sub Extract_Links_From_HTML {
 
     my (@links, $link, $anchor_list, $extracted_content, @other_links);
     my ($modified_content, $subsection_name, $link_addr, $orig_link);
-    my (%saved_subsection_links, $mod_link, $i, $resp);
+    my (%saved_subsection_links, $mlink, $ol, $gl, $i, $j, $resp);
+    my (@merged_links, $olink, $glink, $found, $mod_link);
 
     #
     # Did we get any content ?
@@ -2929,7 +2985,7 @@ sub Extract_Links_From_HTML {
 
             #
             # Extract links from the generated content.  Save the
-            # exiasting subsection link set and reinitialize it
+            # existing subsection link set and reinitialize it
             # before extracting link information from the generated
             # content.
             #
@@ -2953,54 +3009,153 @@ sub Extract_Links_From_HTML {
             if ( @other_links > @links ) {
                 print "Use links from generated content\n" if $debug;
                 #
-                # Set the generated_content flag for the extra links found
-                # in the generated content.
+                # Create a union of the original content links and the
+                # generated content links.
                 #
-                $i = 0;
-                foreach $mod_link (@other_links) {
-                    print "Check generated content link href = " .
-                          $mod_link->abs_url . "\n" if $debug;
-
+                undef $olink;
+                $ol = 0;
+                if ( $ol < @links ) {
+                    $olink = $links[$ol];
+                }
+                undef $glink;
+                $gl = 0;
+                if ( $gl < @other_links ) {
+                    $glink = $other_links[$gl];
+                }
+                while ( defined($olink) && defined($glink) ) {
                     #
-                    # Do we have any links left in the original link list ?
+                    # If the links match for URL, add the original list link
+                    # to the merged list.
                     #
-                    if ( $i < @links ) {
-                        $orig_link = $links[$i];
-
-                        #
-                        # Do the href values match ?
-                        #
-                        if ( $mod_link->abs_url eq $orig_link->abs_url ) {
-                            #
-                            # Matching URLs, increment the counter for the
-                            # original list of links.  Copy the modified_content
-                            # attribute from the origianl link.
-                            #
-                            print "Found matching URL in original link list at position $i\n" if $debug;
-                            $i++;
-                            $mod_link->modified_content($orig_link->modified_content);
-                        }
-                        else {
-                            #
-                            # Generated content link found
-                            #
-                            print "Generated content link found before original link list link # $i\n" if $debug;
-                            $mod_link->generated_content(1);
-                        }
+                    print "Original content link  # $ol " . $olink->abs_url . "\n" if $debug;
+                    print "Generated content link # $gl " . $glink->abs_url . "\n" if $debug;
+                    if ( $olink->abs_url eq $glink->abs_url ) {
+                        push(@merged_links, $olink);
+                        $ol++;
+                        $gl++;
+                        print "Add to merged list\n" if $debug;
                     }
                     else {
                         #
-                        # Link from Generated content
+                        # Links do not match, check to see if the original
+                        # content link appears later in the generated
+                        # content link (i.e. there is an extra link in the
+                        # generated content list).
                         #
-                        print "No more original list of links, set generated content flag\n" if $debug;
-                        $mod_link->generated_content(1);
+                        print "Link mismatch look ahead in generated content list for match\n" if $debug;
+                        $found = 0;
+                        for ($i = $gl; $i < @other_links; $i++) {
+                            $mlink = $other_links[$i];
+                            if ( $olink->abs_url eq $mlink->abs_url ) {
+                                print "Found link in generated content list at index $i\n" if $debug;
+                                $found = 1;
+                                last;
+                            }
+                        }
+                        
+                        #
+                        # Did we find the link ? If so copy all the links before
+                        # the match into the merged list
+                        #
+                        if ( $found ) {
+                            for ($j = $gl; $j < $i; $j++) {
+                                $mlink = $other_links[$j];
+                                $mlink->generated_content(1);
+                                push(@merged_links, $mlink);
+                                $gl++;
+                                print "Add to merged list generated content link # $j " . $mlink->abs_url . "\n" if $debug;
+                            }
+                        }
+                        else {
+                            #
+                            # Original link does not appear in generated content links.
+                            # Does the generated link appear in the original content
+                            # list ?
+                            #
+                            print "Link mismatch look ahead in original content list for match\n" if $debug;
+                            for ($i = $ol; $i < @links; $i++) {
+                                $mlink = $links[$i];
+                                if ( $glink->abs_url eq $mlink->abs_url ) {
+                                    print "Found link in original content list at index $i\n" if $debug;
+                                    $found = 1;
+                                    last;
+                                }
+                            }
+
+                            #
+                            # Did we find the link ? If so copy all the links before
+                            # the match into the merged list
+                            #
+                            if ( $found ) {
+                                for ($j = $ol; $j < $i; $j++) {
+                                    $mlink = $links[$j];
+                                    push(@merged_links, $mlink);
+                                    $ol++;
+                                    print "Add to merged list original content link # $j " . $mlink->abs_url . "\n" if $debug;
+                                }
+                            }
+                            else {
+                                #
+                                # The 2 links are unique to their respective
+                                # content.  Add both links to the merged list.
+                                #
+                                print "Link appears in original content only\n" if $debug;
+                                push(@merged_links, $olink);
+                                $ol++;
+                                print "Link appears in generated content only\n" if $debug;
+                                $glink->generated_content(1);
+                                push(@merged_links, $glink);
+                                $gl++;
+                            }
+                        }
+                    }
+                    
+                    #
+                    # Get next link in each list
+                    #
+                    undef $olink;
+                    if ( $ol < @links ) {
+                        $olink = $links[$ol];
+                    }
+                    undef $glink;
+                    if ( $gl < @other_links ) {
+                        $glink = $other_links[$gl];
+                    }
+                }
+                    
+                #
+                # Do we have any links left in the original link list that
+                # did not appear in the generated content ?
+                #
+                if ( $ol < @links ) {
+                    print "Copy remaining links from original content\n" if $debug;
+                    for ($j = $ol; $j < @links; $j++) {
+                        $mlink = $links[$j];
+                        print "Add original content link # $j " . $mlink->abs_url .
+                              " to merged list\n" if $debug;
+                        push(@merged_links, $mlink);
                     }
                 }
 
                 #
-                # Save generated content list of links
+                # Do we have any links left in the original link list that
+                # did not appear in the generated content ?
                 #
-                @links = @other_links;
+                if ( $gl < @other_links ) {
+                    print "Copy remaining links from generated content\n" if $debug;
+                    for ($j = $gl; $j < @other_links; $j++) {
+                        $mlink = $other_links[$j];
+                        print "Add generated content link # $j " . $mlink->abs_url .
+                              " to merged list\n" if $debug;
+                        push(@merged_links, $mlink);
+                    }
+                }
+                
+                #
+                # Save merged list of links and update the subsection lists
+                #
+                @links = @merged_links;
+                Update_Link_Subsection_Lists(@links);
             }
             else {
                 #
