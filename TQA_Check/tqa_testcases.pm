@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 7405 $
+# $Revision: 7601 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2015-12-18 05:34:30 -0500 (Fri, 18 Dec 2015) $
+# $Date: 2016-06-20 06:05:56 -0400 (Mon, 20 Jun 2016) $
 #
 # Description:
 #
@@ -17,6 +17,7 @@
 #     TQA_Testcase_Groups
 #     TQA_Testcase_Group_Count
 #     TQA_Testcase_Read_URL_Help_File
+#     TQA_Testcase_Success_Criteria_Description
 #     TQA_Testcase_URL
 #
 # Terms and Conditions of Use
@@ -69,6 +70,7 @@ BEGIN {
                   TQA_Testcase_Groups
                   TQA_Testcase_Group_Count
                   TQA_Testcase_Read_URL_Help_File
+                  TQA_Testcase_Success_Criteria_Description
                   TQA_Testcase_URL
                   );
     $VERSION = "1.0";
@@ -121,10 +123,11 @@ my (%testcase_description_en) = (
 "WCAG_2.0-F32", "1.3.2 F32: Failure of Success Criterion 1.3.2 due to using white space characters to control spacing within a word",
 "WCAG_2.0-F38", "1.1.1 F38: Failure of Success Criterion 1.1.1 due to omitting the alt-attribute for non-text content used for decorative purposes only in HTML",
 "WCAG_2.0-F39", "1.1.1 F39: Failure of Success Criterion 1.1.1 due to providing a text alternative that is not null (e.g., alt='spacer' or alt='image') for images that should be ignored by assistive technology",
-"WCAG_2.0-F40", "2.2.1, 2.2.4 F40: Failure of Success Criterion 2.2.1 and 2.2.4 due to using meta redirect with a time limit",
-"WCAG_2.0-F41", "2.2.1, 2.2.4, 3.2.5 F41: Failure of Success Criterion 2.2.1, 2.2.4 and 3.2.5 due to using meta refresh with a time limit",
+"WCAG_2.0-F40", "2.2.1 F40: Failure of Success Criterion 2.2.1 and 2.2.4 due to using meta redirect with a time limit",
+"WCAG_2.0-F41", "2.2.1 F41: Failure of Success Criterion 2.2.1, 2.2.4 and 3.2.5 due to using meta refresh with a time limit",
 "WCAG_2.0-F42", "1.3.1, 2.1.1 F42: Failure of Success Criterion 1.3.1 and 2.1.1 due to using scripting events to emulate links in a way that is not programmatically determinable",
 "WCAG_2.0-F43", "1.3.1 F43: Failure of Success Criterion 1.3.1 due to using structural markup in a way that does not represent relationships in the content",
+"WCAG_2.0-F46", "1.3.1 F46: Failure of Success Criterion 1.3.1 due to using th elements, caption elements, or non-empty summary attributes in layout tables",
 "WCAG_2.0-F47", "2.2.2 F47: Failure of Success Criterion 2.2.2 due to using the blink element",
 "WCAG_2.0-F54", "2.1.1 F54: Failure of Success Criterion 2.1.1 due to using only pointing-device-specific event handlers (including gesture) for a function",
 "WCAG_2.0-F55", "2.1.1, 2.4.7, 3.2.1 F55: Failure of Success Criteria 2.1.1, 2.4.7, and 3.2.1 due to using script to remove focus when focus is received",
@@ -145,7 +148,7 @@ my (%testcase_description_en) = (
 #      Failures of this technique are reported under technique H44
 #
 "WCAG_2.0-F87", "1.3.1 F87: Failure of Success Criterion 1.3.1 due to inserting non-decorative content by using :before and :after pseudo-elements and the 'content' property in CSS",
-"WCAG_2.0-F89", "2.4.4, 2.4.9, 4.1.2 F89: Failure of Success Criteria 2.4.4, 2.4.9 and 4.1.2 due to using null alt on an image where the image is the only content in a link",
+"WCAG_2.0-F89", "2.4.4, 4.1.2 F89: Failure of Success Criteria 2.4.4, 2.4.9 and 4.1.2 due to using null alt on an image where the image is the only content in a link",
 "WCAG_2.0-F92", "1.3.1 F92: Failure of Success Criterion 1.3.1 due to the use of role presentation on content which conveys semantic information",
 #
 # G4: Allowing the content to be paused and restarted from where it was paused
@@ -235,6 +238,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-PDF12", "1.3.1, 4.1.2 PDF12: Providing name, role, value information for form fields in PDF documents",
 "WCAG_2.0-PDF16", "3.1.1 PDF16: Setting the default language using the /Lang entry in the document catalog of a PDF document",
 "WCAG_2.0-PDF18", "2.4.2 PDF18: Specifying the document title using the Title entry in the document information dictionary of a PDF document",
+"WCAG_2.0-SC1.4.4", "1.4.4 SC1.4.4: Resize text",
 "WCAG_2.0-SC3.1.1", "3.1.1 SC3.1.1: Language of Page",
 #
 # SCR2: Using redundant keyboard and mouse event handlers
@@ -281,10 +285,11 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-F32", "1.3.2 F32: Échec du critère de succès 1.3.2 consistant à utiliser des caractères blancs pour contrôler l'espacement à l'intérieur d'un mot",
 "WCAG_2.0-F38", "1.1.1 F38: Échec du critère de succès 1.1.1 consistant à omettre l'attribut alt pour un contenu non textuel utilisé de façon décorative, seulement en HTML",
 "WCAG_2.0-F39", "1.1.1 F39: Échec du critère de succès 1.1.1 consistant à fournir un équivalent textuel non vide (par exemple alt='espaceur' ou alt='image') pour des images qui doivent être ignorées par les technologies d'assistance",
-"WCAG_2.0-F40", "2.2.1, 2.2.4 F40: Échec du critère de succès 2.2.1 et 2.2.4 consistant à utiliser une redirection meta avec un délai",
-"WCAG_2.0-F41", "2.2.1, 2.2.4, 3.2.5 F41: Échec du critère de succès 2.2.1, 2.2.4 et 3.2.5 consistant à utiliser meta refresh avec un délai",
+"WCAG_2.0-F40", "2.2.1 F40: Échec du critère de succès 2.2.1 et 2.2.4 consistant à utiliser une redirection meta avec un délai",
+"WCAG_2.0-F41", "2.2.1 F41: Échec du critère de succès 2.2.1, 2.2.4 et 3.2.5 consistant à utiliser meta refresh avec un délai",
 "WCAG_2.0-F42", "1.3.1, 2.1.1 F42: Échec du critère de succès 1.3.1 et 2.1.1 consistant à utiliser des événements de scripts pour émuler des liens d'une manière qui n'est pas déterminable par un programme informatique",
 "WCAG_2.0-F43", "1.3.1 F43: Échec du critère de succès 1.3.1 consistant à utiliser un balisage structurel d'une façon qui ne représente pas les relations à l'intérieur du contenu",
+"WCAG_2.0-F46", "1.3.1 F46: F46 : Échec du critère de succès 1.3.1 consistant à utiliser les éléments th ou caption ou des attributs summary non vides dans des tableaux de présentation",
 "WCAG_2.0-F47", "2.2.2 F47: Échec du critère de succès 2.2.2 consistant à utiliser l'élément 'blink'",
 "WCAG_2.0-F54", "2.1.1 F54: Échec du critère de succès 2.1.1 consistant à utiliser seulement des événements au pointeur (y compris par geste) pour une fonction",
 "WCAG_2.0-F55", "2.1.1, 2.4.7, 3.2.1 F55: Échec du critère de succès 2.1.1, 2.4.7 et 3.2.1 consistant à utiliser un script pour enlever le focus lorsque le focus est reçu",
@@ -305,7 +310,7 @@ my (%testcase_description_fr) = (
 #      Failures of this technique are reported under technique H44
 #
 "WCAG_2.0-F87", "1.3.1 F87: Échec du critère de succès 1.3.1 consistant à utiliser les pseudo-éléments :before et :after et la propriété content en CSS",
-"WCAG_2.0-F89", "2.4.4, 2.4.9, 4.1.2 F89: Échec du critère de succès 2.4.4, 2.4.9 et 4.1.2 consistant à utiliser un attribut alt vide pour une image qui est le seul contenu d'un lien",
+"WCAG_2.0-F89", "2.4.4, 4.1.2 F89: Échec du critère de succès 2.4.4, 2.4.9 et 4.1.2 consistant à utiliser un attribut alt vide pour une image qui est le seul contenu d'un lien",
 "WCAG_2.0-F92", "1.3.1 F92: Failure of Success Criterion 1.3.1 due to the use of role presentation on content which conveys semantic information",
 #
 # G4: Allowing the content to be paused and restarted from where it was paused
@@ -395,6 +400,7 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-PDF12", "1.3.1, 4.1.2 PDF12 : Fourni le nom, le rôle, la valeur des renseignements des champs de formulaire des documents PDF",
 "WCAG_2.0-PDF16", "3.1.1 PDF16 : Règle la langue par défaut au moyen de l’entrée /Lang dans le catalogue de document d’un document PDF",
 "WCAG_2.0-PDF18", "2.4.2 PDF18 : Précise le titre du document au moyen de l’entrée du dictionnaire d’informations du document d’un document PDF",
+"WCAG_2.0-SC1.4.4", "1.4.4 SC1.4.4: Redimensionnement du texte",
 "WCAG_2.0-SC3.1.1", "3.1.1 SC3.1.1: Langue de la page",
 #
 # SCR2: Using redundant keyboard and mouse event handlers
@@ -439,10 +445,11 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-F32", "1.3.2",
 "WCAG_2.0-F38", "1.1.1",
 "WCAG_2.0-F39", "1.1.1",
-"WCAG_2.0-F40", "2.2.1, 2.2.4",
-"WCAG_2.0-F41", "2.2.1, 2.2.4, 3.2.5",
+"WCAG_2.0-F40", "2.2.1",
+"WCAG_2.0-F41", "2.2.1",
 "WCAG_2.0-F42", "1.3.1, 2.1.1",
 "WCAG_2.0-F43", "1.3.1",
+"WCAG_2.0-F46", "1.3.1",
 "WCAG_2.0-F47", "2.2.2",
 "WCAG_2.0-F54", "2.1.1",
 "WCAG_2.0-F55", "2.1.1, 2.4.7, 3.2.1",
@@ -503,6 +510,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-PDF12", "1.3.1, 4.1.2",
 "WCAG_2.0-PDF16", "3.1.1",
 "WCAG_2.0-PDF18", "2.4.2",
+"WCAG_2.0-SC1.4.4", "1.4.4",
 "WCAG_2.0-SC3.1.1", "3.1.1",
 "WCAG_2.0-SCR20", "2.1.1",
 "WCAG_2.0-SCR21", "1.3.1",
@@ -514,6 +522,99 @@ my (%testcase_groups_table) = (
 my (%testcase_group_counts) = (
 "WCAG_2.0", 38,
 );
+
+#
+# String tables for success criteria to descriptions
+#
+my (%testcase_sc_description_en) = (
+"1.1.1", "1.1.1 Non-text Content Level A",
+"1.2.1", "1.2.1 Audio-only and Video-only (Prerecorded) Level A",
+"1.2.2", "1.2.2 Captions (Prerecorded)Level A",
+"1.2.3", "1.2.3 Audio Description or Media Alternative (Prerecorded) Level A",
+"1.2.4", "1.2.4 Captions (Live) Level AA",
+"1.2.5", "1.2.5 Audio Description (Prerecorded) Level AA",
+"1.3.1", "1.3.1 Info and Relationships Level A",
+"1.3.2", "1.3.2 Meaningful Sequence Level A",
+"1.3.3", "1.3.3 Sensory Characteristics Level A",
+"1.4.1", "1.4.1 Use of Colour Level A",
+"1.4.2", "1.4.2 Audio Control Level A",
+"1.4.3", "1.4.3 Contrast (Minimum) Level AA",
+"1.4.4", "1.4.4 Resize Text Level AA",
+"1.4.5", "1.4.5 Images of Text Level AA",
+"2.1.1", "2.1.1 Keyboard Level A",
+"2.1.2", "2.1.2 No Keyboard Trap Level A",
+"2.2.1", "2.2.1 Timing Adjustable Level A",
+"2.2.2", "2.2.2 Pause, Stop, Hide Level A",
+"2.3.1", "2.3.1 Three Flashes or Below Level A",
+"2.4.1", "2.4.1 Bypass Blocks Level A",
+"2.4.2", "2.4.2 Page Titled Level A",
+"2.4.3", "2.4.3 Focus Order Level A",
+"2.4.4", "2.4.4 Link Purpose (In Context) Level A",
+"2.4.5", "2.4.5 Multiple Ways Level AA",
+"2.4.6", "2.4.6 Headings and Labels Level AA",
+"2.4.7", "2.4.7 Focus Visible Level AA",
+"3.1.1", "3.1.1 Language of Page Level A",
+"3.1.2", "3.1.2 Language of Parts Level AA",
+"3.2.1", "3.2.1 On Focus Level A",
+"3.2.2", "3.2.2 On Input Level A",
+"3.2.3", "3.2.3 Consistent Navigation Level AA",
+"3.2.4", "3.2.4 Consistent Identification Level AA",
+"3.3.1", "3.3.1 Error Identification Level A",
+"3.3.2", "3.3.2 Labels or Instructions Level A",
+"3.3.3", "3.3.3 Error Suggestion Level AA",
+"3.3.4", "3.3.4 Error Prevention (Legal, Financial, Data) Level AA",
+"4.1.1", "4.1.1 Parsing Level A",
+"4.1.2", "4.1.2 Name, Role, Value Level A",
+);
+
+my (%testcase_sc_description_fr) = (
+#
+#  Text taken from http://www.braillenet.org/accessibilite/comprendre-wcag20/CAT20110222/Overview.html
+#
+"1.1.1", "1.1.1 Contenu non textuel Niveau A",
+"1.2.1", "1.2.1 Contenu seulement audio ou vidéo (pré-enregistré) Niveau A",
+"1.2.2", "1.2.2 Sous-titres (pré-enregistrés) Niveau A",
+"1.2.3", "1.2.3 Audio-description ou version de remplacement pour un média temporel (pré-enregistré) Niveau A",
+"1.2.4", "1.2.4 Sous-titres (en direct) Niveau AA",
+"1.2.5", "1.2.5 Audio-description (pré-enregistrée) Niveau AA",
+"1.3.1", "1.3.1 Information et relations Niveau A",
+"1.3.2", "1.3.2 Ordre séquentiel logique Niveau A",
+"1.3.3", "1.3.3 Caractéristiques sensorielles Niveau A",
+"1.4.1", "1.4.1 Utilisation de la couleur Niveau A",
+"1.4.2", "1.4.2 Contrôle du son Niveau A",
+"1.4.3", "1.4.3 Contraste (Minimum) Niveau AA",
+"1.4.4", "1.4.4 Redimensionnement du texte Niveau AA",
+"1.4.5", "1.4.5 Texte sous forme d'image Niveau AA",
+"2.1.1", "2.1.1 Clavier Niveau A",
+"2.1.2", "2.1.2 Pas de piège au clavier Niveau A",
+"2.2.1", "2.2.1 Réglage du délai Niveau A",
+"2.2.2", "2.2.2 Mettre en pause, arrêter, masquer Niveau A",
+"2.3.1", "2.3.1 Pas plus de trois flashs ou sous le seuil critique Niveau A",
+"2.4.1", "2.4.1 Contourner des blocs Niveau A",
+"2.4.2", "2.4.2 Titre de page Niveau A",
+"2.4.3", "2.4.3 Parcours du focus Niveau A",
+"2.4.4", "2.4.4[Fonction du lien (selon le contexte) Niveau A",
+"2.4.5", "2.4.5 Accès multiples Niveau AA",
+"2.4.6", "2.4.6 En-têtes et étiquettes Niveau AA",
+"2.4.7", "2.4.7 Visibilité du focus Niveau AA",
+"3.1.1", "3.1.1 Langue de la page Niveau A",
+"3.1.2", "3.1.2 Langue d'un passaage Niveau AA",
+"3.2.1", "3.2.1 Au focus Niveau A",
+"3.2.2", "3.2.2 À la saisie Niveau A",
+"3.2.3", "3.2.3 Navigation cohérente Niveau AA",
+"3.2.4", "3.2.4 Identification cohérente Niveau AA",
+"3.3.1", "3.3.1 Identification des erreurs Niveau A",
+"3.3.2", "3.3.2 Étiquettes ou instructions Niveau A",
+"3.3.3", "3.3.3 Suggestion après une erreur Niveau AA",
+"3.3.4", "3.3.4 Prévention des erreurs (juridiques, financières, de données) Niveau AA",
+"4.1.1", "4.1.1 Analyse syntaxique Niveau A",
+"4.1.2", "4.1.2 Nom, rôle et valeur Niveau A",
+);
+
+#
+# Default messages to English
+#
+my ($testcase_sc_description_table) = \%testcase_sc_description_en;
 
 #
 # Create reverse table, indexed by description
@@ -580,6 +681,7 @@ sub TQA_Testcase_Language {
         $testcase_description_table = \%testcase_description_fr;
         $reverse_testcase_description_table = \%reverse_testcase_description_fr;
         $url_table = \%testcase_url_fr;
+        $testcase_sc_description_table = \%testcase_sc_description_fr;
     }
     else {
         #
@@ -589,6 +691,7 @@ sub TQA_Testcase_Language {
         $testcase_description_table = \%testcase_description_en;
         $reverse_testcase_description_table = \%reverse_testcase_description_en;
         $url_table = \%testcase_url_en;
+        $testcase_sc_description_table = \%testcase_sc_description_en;
     }
 }
 
@@ -620,6 +723,40 @@ sub TQA_Testcase_Description {
     else {
         #
         # No testcase description table entry, either we are missing
+        # a string or we have a typo in the key name.
+        #
+        return ("*** No string for $key ***");
+    }
+}
+
+#**********************************************************************
+#
+# Name: TQA_Testcase_Success_Criteria_Description
+#
+# Parameters: key - success criteria
+#
+# Description:
+#
+#   This function returns the value in the success criteria description
+# table for the specified key.  If there is no entry in the table an error
+# string is returned.
+#
+#**********************************************************************
+sub TQA_Testcase_Success_Criteria_Description {
+    my ($key) = @_;
+
+    #
+    # Do we have a success criteria description table entry for this key ?
+    #
+    if ( defined($$testcase_sc_description_table{$key}) ) {
+        #
+        # return value
+        #
+        return ($$testcase_sc_description_table{$key});
+    }
+    else {
+        #
+        # No testcase success criteria table entry, either we are missing
         # a string or we have a typo in the key name.
         #
         return ("*** No string for $key ***");
