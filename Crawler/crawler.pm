@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 7526 $
+# $Revision: 7573 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2016-02-26 04:22:18 -0500 (Fri, 26 Feb 2016) $
+# $Date: 2016-05-25 08:03:22 -0400 (Wed, 25 May 2016) $
 #
 # Description:
 #
@@ -719,7 +719,7 @@ sub HTML_Charset {
 sub Crawler_Decode_Content {
     my ($resp) = @_;
 
-    my ($content, $header);
+    my ($content, $header, $filename, $line);
 
     #
     # Do we have a valid HTTP::Response object ?
@@ -727,6 +727,23 @@ sub Crawler_Decode_Content {
     print "Crawler_Decode_Content\n" if $debug;
     if ( ! defined($resp) ) {
         return("");
+    }
+    
+    #
+    # Have we saved the content in a file rather than the content
+    # attribute of the HTTP::Response object ?
+    #
+    if ( defined($resp->header("WPSS-Content-File")) ) {
+        $filename = $resp->header("WPSS-Content-File");
+        print "Read content from $filename\n" if $debug;
+        open(CONTENT, $filename);
+        binmode CONTENT;
+        $content = "";
+        while ( $line = <CONTENT> ) {
+            $content .= $line;
+        }
+        close(CONTENT);
+        return($content);
     }
 
     #
