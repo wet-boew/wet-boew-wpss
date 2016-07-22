@@ -2,9 +2,9 @@
 #
 # Name:   epub_validate.pm
 #
-# $Revision: 7433 $
+# $Revision: 7635 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/EPUB_Validate/Tools/epub_validate.pm $
-# $Date: 2016-01-18 03:29:19 -0500 (Mon, 18 Jan 2016) $
+# $Date: 2016-07-22 03:40:16 -0400 (Fri, 22 Jul 2016) $
 #
 # Description:
 #
@@ -76,6 +76,7 @@ BEGIN {
 #***********************************************************************
 
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
+my ($runtime_error_reported) = 0;
 my ($debug) = 0;
 
 #
@@ -83,6 +84,7 @@ my ($debug) = 0;
 #
 my %string_table_en = (
     "Error in reading EPUB, status =",   "Error in reading EPUB, status =",
+    "Runtime Error",                     "Runtime Error",
 );
 
 #
@@ -90,6 +92,7 @@ my %string_table_en = (
 #
 my %string_table_fr = (
     "Error in reading EPUB, status =",  "Erreur de lecture fichier EPUB, status =",
+    "Runtime Error",                    "Erreur D'Exécution",
 );
 
 #
@@ -247,13 +250,37 @@ sub EPUB_Validate_Content {
         #
         # Did validation fail ?
         #
-        if ( $validator_output ne "" ) {
+        if ( $validator_output =~ /Check finished with errors/im ) {
             $result_object = tqa_result_object->new("EPUB_VALIDATION",
                                                     1, "EPUB_VALIDATION",
                                                     -1, -1, "",
                                                     $validator_output,
                                                     $this_url);
             push(@results_list, $result_object);
+        }
+        elsif ( $validator_output ne "" ) {
+            #
+            # Some error trying to run the validator
+            #
+            print "EPUB validator command failed\n" if $debug;
+            print STDERR "EPUB validator command failed\n";
+            print STDERR "$validate_cmnd \"$epub_file\"\n";
+            print STDERR "$validator_output\n";
+
+            #
+            # Report runtime error only once
+            #
+            if ( ! $runtime_error_reported ) {
+                $result_object = tqa_result_object->new("EPUB_VALIDATION",
+                                                        1, "EPUB_VALIDATION",
+                                                        -1, -1, "",
+                                                        String_Value("Runtime Error") .
+                                                        " \"$validate_cmnd \"$epub_file\"\n" .
+                                                        " \"$validator_output\"",
+                                                        $this_url);
+                $runtime_error_reported = 1;
+                push (@results_list, $result_object);
+            }
         }
 
         #
