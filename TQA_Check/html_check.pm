@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 7532 $
+# $Revision: 7633 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2016-02-26 04:32:32 -0500 (Fri, 26 Feb 2016) $
+# $Date: 2016-07-22 03:07:27 -0400 (Fri, 22 Jul 2016) $
 #
 # Description:
 #
@@ -134,7 +134,8 @@ my (%tqa_check_profile_map, $current_tqa_check_profile,
     @table_th_td_in_tfoot_count, @inside_tfoot, $inside_video,
     %video_track_kind_map, $found_content_after_heading, $in_header_tag,
     %form_id_values, %input_form_id, %audio_track_kind_map, $inside_audio,
-    @list_heading_text, $form_count, @content_lines,
+    @list_heading_text, $form_count, @content_lines, @table_is_layout,
+    %f32_reported, @inside_dd,
 );
 
 my ($is_valid_html) = -1;
@@ -703,6 +704,14 @@ my (%landmark_role) = (
 );
 
 #
+# Tags for which we ignore any id attribute to suppress
+# any WCAG_2.0-F77 errors.
+#
+my (%tags_to_ignore_id_attribute) = (
+    "script",  1,
+);
+
+#
 # String table for error strings.
 #
 my %string_table_en = (
@@ -718,6 +727,7 @@ my %string_table_en = (
     "Broken link in cite for",       "Broken link in 'cite' for ",
     "Broken link in longdesc for",   "Broken link in 'longdesc' for ",
     "Broken link in src for",        "Broken link in 'src' for ",
+    "caption found in layout table", "<caption> found in layout table",
     "click here link found",         "'click here' link found",
     "color is",                      " color is ",
     "Combining adjacent image and text links for the same resource",   "Combining adjacent image and text links for the same resource",
@@ -789,6 +799,8 @@ my %string_table_en = (
     "Link inside of label",          "Link inside of <label>",
     "link",                          "link",
     "Meta refresh with timeout",     "Meta 'refresh' with timeout ",
+    "Meta viewport maximum-scale less than 5.0", "Meta viewport maximum-scale less than 5.0",
+    "Meta viewport with user-scalable disabled", "Meta viewport with user-scalable disabled",
     "Metadata missing",              "Metadata missing",
     "Mismatching lang and xml:lang attributes", "Mismatching 'lang' and 'xml:lang' attributes",
     "Missing <title> tag",           "Missing <title> tag",
@@ -798,7 +810,7 @@ my %string_table_en = (
     "Missing alt or title in",       "Missing 'alt' or 'title' in ",
     "Missing cite content for",      "Missing 'cite' content for ",
     "Missing close tag for",         "Missing close tag for",
-    "Missing content before new list",  "Missing content before new list ",
+    "Missing content before list",   "Missing content before list",
     "Missing content in",            "Missing content in ",
     "Missing event handler from pair", "Missing event handler from pair ",
     "Missing fieldset",              "Missing <fieldset> tag",
@@ -843,7 +855,6 @@ my %string_table_en = (
     "No links found",                "No links found",
     "No matching noembed for embed", "No matching <noembed> for <embed>",
     "No table header reference",     "No table header reference",
-    "No table header tags found",    "No table header tags found",
     "No tag with id attribute",      "No tag with 'id' attribute ",
     "No td, th found inside tfoot",  "No <td>, <th> found inside <tfoot>",
     "Non-decorative image loaded via CSS with", "Non-decorative image loaded via CSS with",
@@ -862,6 +873,8 @@ my %string_table_en = (
     "Self reference in headers",        "Self reference in 'headers'",
     "Span language attribute",          "Span language attribute",
     "started at line:column",           "started at (line:column) ",
+    "summary found in layout table",    "<summary> found in layout table",
+    "Table header found in layout table", "Table header found in layout table",
     "Table headers",                  "Table 'headers'",
     "Tag not allowed here",             "Tag not allowed here ",
     "Text styled to appear like a heading", "Text styled to appear like a heading",
@@ -893,6 +906,7 @@ my %string_table_fr = (
     "Broken link in cite for",         "Lien brisé dans l'élément 'cite' pour ",
     "Broken link in longdesc for",     "Lien brisé dans l'élément 'longdesc' pour ",
     "Broken link in src for",          "Lien brisé dans l'élément 'src' pour ",
+    "caption found in layout table",   "<caption> trouvé dans la table de mise en page",
     "click here link found",           "Lien 'cliquez ici' retrouvé",
     "color is",                        " la couleur est ",
     "Combining adjacent image and text links for the same resource",   "Combiner en un même lien une image et un intitulé de lien pour la même ressource",
@@ -964,6 +978,8 @@ my %string_table_fr = (
     "Link inside of label",            "lien dans une <label>",
     "link",                          "lien",
     "Meta refresh with timeout",       "Méta 'refresh' avec délai d'inactivité ",
+    "Meta viewport maximum-scale less than 5.0", "Meta viewport maximale échelle inférieure à 5,0",
+    "Meta viewport with user-scalable disabled", "Meta viewport utilisateur évolutive désactivée",
     "Metadata missing",              "Métadonnées manquantes",
     "Mismatching lang and xml:lang attributes", "Erreur de correspondance des attributs 'lang' et 'xml:lang'",
     "Missing <title> tag",              "Balise <title> manquant",
@@ -973,7 +989,7 @@ my %string_table_fr = (
     "Missing alt or title in",         "Attribut 'alt' ou 'title' manquant dans  ",
     "Missing cite content for",        "Contenu de l'élément 'cite' manquant pour ",
     "Missing close tag for",           "Balise de fin manquantes pour",
-    "Missing content before new list", "Contenu manquant avant la nouvelle liste ",
+    "Missing content before list",     "Contenu manquant avant la liste",
     "Missing content in",              "Contenu manquant dans ",
     "Missing event handler from pair", "Gestionnaire d'événements manquant dans la paire ",
     "Missing fieldset",                 "Élément <fieldset> manquant",
@@ -1018,7 +1034,6 @@ my %string_table_fr = (
     "No links found",                "Pas des liens qui se trouvent",
     "No matching noembed for embed", "Aucun <noembed> correspondant à <embed>",
     "No table header reference",     "Aucun en-tête de tableau retrouvé",
-    "No table header tags found",    "Aucune balise d'en-tête de tableau retrouvée",
     "No tag with id attribute",      "Aucon balise avec l'attribut 'id'",
     "No td, th found inside tfoot",  "Pas de <td>, <th> trouve à l'intérieur de <tfoot>",
     "Non-decorative image loaded via CSS with", "Image non-décoratif chargé par CSS avec",
@@ -1037,6 +1052,8 @@ my %string_table_fr = (
     "Self reference in headers",        "référence auto dans 'headers'",
     "Span language attribute",         "Attribut de langue 'span'",
     "started at line:column",          "a commencé à (la ligne:colonne) ",
+    "summary found in layout table", "<summary> trouvé dans la table de mise en page",
+    "Table header found in layout table", "En-tête de table trouvée dans la table de mise en page",
     "Table headers",                   "'headers' de tableau",
     "Tag not allowed here",            "Balise pas autorisé ici ",
     "Text styled to appear like a heading", "Texte de style pour apparaître comme un titre",
@@ -1281,6 +1298,7 @@ sub Initialize_Test_Results {
     @table_has_headers     = ();
     @table_header_values   = ();
     @table_header_types    = ();
+    @table_is_layout       = ();
     @table_th_td_in_thead_count = ();
     @table_th_td_in_thead_count = ();
     @missing_table_headers = ();
@@ -1369,6 +1387,7 @@ sub Initialize_Test_Results {
     $found_content_after_heading = 0;
     %form_id_values         = ();
     %input_form_id          = ();
+    %f32_reported           = ();
 
     #
     # Initialize content section found flags to false
@@ -1834,6 +1853,56 @@ sub Destroy_Text_Handler {
 
 #***********************************************************************
 #
+# Name: Discard_Saved_Text
+#
+# Parameters: self - reference to a HTML::Parse object
+#             tag - current tag
+#
+# Description:
+#
+#   This function discards text for the current tag (e.g. text from a table
+# cell <td>).  This prevents the text from being included in the parent tag.
+#
+#***********************************************************************
+sub Discard_Saved_Text {
+    my ($self, $tag) = @_;
+
+    my ($current_tag_text, $current_all_text, $current_text);
+
+    #
+    # Discard saved text
+    #
+    print "Discard_Saved_Text for tag $tag\n" if $debug;
+
+    #
+    # Do we have a text handler ?
+    #
+    if ( $have_text_handler ) {
+        #
+        # Is the current text handler for this tag ?
+        #
+        if ( $current_text_handler_tag ne $tag ) {
+            #
+            # Not the right tag, don't discard text.
+            #
+            print "Error: Trying to discard text handler for $tag, current handler is for $current_text_handler_tag\n" if $debug;
+        }
+        else {
+            #
+            # Discard the text from the handler
+            #
+            @text_handler_tag_text = ();
+
+            #
+            # Add empty string to text handler to be passed to parent tag.
+            #
+            push(@text_handler_tag_text_list, "");
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Have_Text_Handler_For_Tag
 #
 # Parameters: tag - tag name
@@ -1965,8 +2034,21 @@ sub Check_Character_Spacing {
     if ( $tag_is_visible &&
          ($text =~ /\s+[a-z]\s+[a-z]\s+[a-z]\s+[a-z]\s+/i) ) {
         ($i1, $t, $i2) = $text =~ /^(.*)(\s+[a-z]\s+[a-z]\s+[a-z]\s+[a-z]\s+)(.*)$/io;
-        Record_Result("WCAG_2.0-F32", $line, $column, $text,
-                      String_Value("Using white space characters to control spacing within a word in tag") . " $tag \"$t\"");
+        
+        #
+        # Have we already reported this error, we could be reporting the
+        # same error for parent tags of the inner most tag set that
+        # contains this string.  There is a chance that if the same
+        # string appears in different places on the page we will not
+        # report all instances, however, eliminating duplicate error
+        # messages is preferred.
+        #
+        if ( ! defined($f32_reported{$t}) ) {
+            Record_Result("WCAG_2.0-F32", $line, $column, $text,
+                      String_Value("Using white space characters to control spacing within a word in tag") .
+                                   " $tag \"$t\"");
+            $f32_reported{$t} = 1;
+        }
     }
 }
 
@@ -2206,6 +2288,17 @@ sub Table_Tag_Handler {
     $table_th_td_in_tfoot_count[$table_nesting_index] = 0;
 
     #
+    # Is this a layout table, role="presentation"
+    #
+    if ( defined($attr{"role"}) && ($attr{"role"} eq "presentation") ) {
+        print "Table is a layout table\n" if $debug;
+        $table_is_layout[$table_nesting_index] = 1;
+    }
+    else {
+        $table_is_layout[$table_nesting_index] = 0;
+    }
+
+    #
     # Do we have a summary attribute ?
     #
     if ( defined( $attr{"summary"} ) ) {
@@ -2224,15 +2317,24 @@ sub Table_Tag_Handler {
             Record_Result("WCAG_2.0-H73", $line, $column, $text,
                           String_Value("Missing table summary"));
         }
+        
+        #
+        # Are we inside a layout table ? There must not be a summary in
+        # layout tables.
+        #
+        if ( $table_is_layout[$table_nesting_index] ) {
+            Record_Result("WCAG_2.0-F46", $line, $column, $text,
+                          String_Value("summary found in layout table"));
+        }
     }
     else {
         $table_summary[$table_nesting_index] = "";
     }
-
+    
     #
     # Since we don't include table contents in the contents of the
     # parent tag (table contents may contain single characters that
-    # may be caught as usig spacing between text for presentation
+    # may be caught as using spacing between text for presentation
     # effect) add some dummy text to the parent tag's text handler.
     #
     if ( $have_text_handler ) {
@@ -3601,7 +3703,7 @@ sub Check_Accesskey_Attribute {
             # Have we seen this label id before ?
             #
             if ( defined($accesskey_location{"$accesskey"}) ) {
-                Record_Result("WCAG_2.0-F17", $line, $column,
+                Record_Result("WCAG_2.0-F77", $line, $column,
                               $text, String_Value("Duplicate accesskey") .
                               "'$accesskey'" .  " " .
                               String_Value("Previous instance found at") .
@@ -3618,7 +3720,7 @@ sub Check_Accesskey_Attribute {
              # Invalid accesskey value.  The validator does not always
              # report this so we will.
              #
-             Record_Result("WCAG_2.0-F17", $line, $column,
+             Record_Result("WCAG_2.0-F77", $line, $column,
                            $text, String_Value("Invalid content for") .
                            "'accesskey'");
         }
@@ -3674,7 +3776,7 @@ sub Label_Tag_Handler {
             if ( defined($label_for_location{"$label_for"}) ) {
                 ($label_line, $label_column, $label_is_visible, $label_is_hidden) = split(/:/,
                                      $label_for_location{"$label_for"});
-                Record_Result("WCAG_2.0-F17", $line, $column,
+                Record_Result("WCAG_2.0-F77", $line, $column,
                               $text, String_Value("Duplicate label id") .
                               "'$label_for'" .  " " .
                               String_Value("Previous instance found at") .
@@ -4734,7 +4836,7 @@ sub Check_Headers_Attribute {
 #
 # Description:
 #
-#   This function performs delayed checks on  headers attributes for 
+#   This function performs delayed checks on headers attributes for
 # headers that are defined after they are used.  It checks to see if all
 # the references to this header include references to this header's
 # headers  (e.g. is this tag references header id=h1, this tag should also
@@ -4831,6 +4933,15 @@ sub TH_Tag_Handler {
     # If we are inside a table, set table headers present flag
     #
     if ( $table_nesting_index >= 0 ) {
+        #
+        # Are we inside a layout table ? There must not be headers in
+        # layout tables.
+        #
+        if ( $table_is_layout[$table_nesting_index] ) {
+            Record_Result("WCAG_2.0-F46", $line, $column, $text,
+                          String_Value("Table header found in layout table"));
+        }
+        
         #
         # Table has headers.
         #
@@ -4952,6 +5063,12 @@ sub End_TH_Tag_Handler {
     if ( $clean_text eq "" ) {
         Record_Result("WCAG_2.0-H51", $line, $column, $text,
                       String_Value("Missing text in table header") . "<th>");
+    }
+    else {
+        #
+        # Check for using white space characters to control spacing within a word
+        #
+        Check_Character_Spacing("<th>", $line, $column, $clean_text);
     }
 }
 
@@ -5150,6 +5267,14 @@ sub End_TD_Tag_Handler {
         print "End <td> found outside a table\n" if $debug;
         return;
     }
+    
+    #
+    # Are we inside a layout table ? If so we skip headers checks.
+    #
+    if ( $table_is_layout[$table_nesting_index] ) {
+        print "Skip header checking for td inside layout table\n" if $debug;
+        return;
+    }
 
     #
     # Get saved copy of the <td> tag attributes
@@ -5206,6 +5331,12 @@ sub End_TD_Tag_Handler {
             }
         }
     }
+    
+    #
+    # Discard any text from this tag, we don't include it in the parent tag
+    # content.
+    #
+    Discard_Saved_Text($self, "td");
 }
 
 #***********************************************************************
@@ -6287,6 +6418,50 @@ sub Meta_Tag_Handler {
         # We have metadata on this page
         #
         $have_metadata = 1;
+    }
+
+    #
+    # Do we have name="viewport" ?
+    # If so check for scaling limitations the would prevent
+    # text zooming.  Reference: https://dequeuniversity.com/rules/axe/1.1/meta-viewport
+    #
+    if ( defined($attr{"name"}) && ($attr{"name"} =~ /viewport/i) ) {
+        #
+        # Do we have a content attributte ?
+        #
+        if ( defined($attr{"content"}) ) {
+            $content = $attr{"content"};
+
+            #
+            # Split content on comma then check each value
+            #
+            @values = split(/,/, $content);
+            foreach $value (@values) {
+                #
+                # Do we have a content attribute and does it contain
+                # user-scalable=no ? This setting prevents zooming text in
+                # some moble devices (e.g. IOS).
+                #
+                if ( $value =~ /user-scalable=no/i ) {
+                    Record_Result("WCAG_2.0-SC1.4.4", $line, $column, $text,
+                                   String_Value("Meta viewport with user-scalable disabled"));
+                }
+                #
+                # Do we have a maximum scaling value ?
+                #
+                elsif ( $value =~ /maximum-scale/ ) {
+                    #
+                    # Is the maximum scaling less than 5 ?
+                    #
+                    $value =~ s/^maximum-scale=//g;
+                    print "maximum-scale = $value\n" if $debug;
+                    if ( $value < 5.0 ) {
+                        Record_Result("WCAG_2.0-SC1.4.4", $line, $column, $text,
+                                      String_Value("Meta viewport maximum-scale less than 5.0"));
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -7671,6 +7846,15 @@ sub End_Button_Tag_Handler {
 #***********************************************************************
 sub Caption_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
+    
+    #
+    # Are we inside a layout table ? There must not be a caption in
+    # layout tables.
+    #
+    if ( $table_is_layout[$table_nesting_index] ) {
+        Record_Result("WCAG_2.0-F46", $line, $column, $text,
+                      String_Value("caption found in layout table"));
+    }
 }
 
 #***********************************************************************
@@ -9357,11 +9541,11 @@ sub Check_Start_of_New_List {
     # Is this a nested list ?
     #
     print "Check_Start_of_New_List $tag, list level = $current_list_level\n" if $debug;
-    if ( $current_list_level > 0 ) {
+    if ( $current_list_level > -1 ) {
         print "New list inside an existing list\n" if $debug;
 
         #
-        # New list as the value of an existing list.  Do we have
+        # A new list as the content of an existing list item.  Do we have
         # any text that acts as a header ?
         #
         if ( $have_text_handler ) {
@@ -9382,7 +9566,7 @@ sub Check_Start_of_New_List {
         # the introduction text.
         #
         if ( $fieldset_tag_index > 0 ) {
-            $clean_text .= " "  . $legend_text_value{$fieldset_tag_index};
+            $clean_text .= " " . $legend_text_value{$fieldset_tag_index};
         }
 
         #
@@ -9390,9 +9574,22 @@ sub Check_Start_of_New_List {
         #
         print "Check_Start_of_New_List: text = \"$clean_text\"\n" if $debug;
         if ( $tag_is_visible && ($clean_text eq "") ) {
-            Record_Result("WCAG_2.0-G115", $line, $column, $text,
-                          String_Value("Missing content before new list") .
-                          "<$tag>");
+            #
+            # Are we inside a <dd> tag? If so the <dt> content acts
+            # as the list header.
+            #
+            if ( ($current_list_level > -1) &&
+                 ($inside_dd[$current_list_level] == 1) ) {
+                print "Inside a <dd>, the <dt> is the list introduction text\n" if $debug;
+            }
+            #
+            # No content before the list
+            #
+            else {
+                Record_Result("WCAG_2.0-G115", $line, $column, $text,
+                              String_Value("Missing content before list") .
+                              " <$tag>");
+            }
         }
         
         #
@@ -9422,18 +9619,19 @@ sub Ol_Ul_Tag_Handler {
     my ( $self, $tag, $line, $column, $text, %attr ) = @_;
 
     #
+    # Start of new list, are we already inside a list ?
+    #
+    Check_Start_of_New_List($self, $tag, $line, $column, $text);
+
+    #
     # Increment list level count and set list item count to zero
     #
     $current_list_level++;
     $list_item_count[$current_list_level] = 0;
     $inside_list_item[$current_list_level] = 0;
     $list_heading_text[$current_list_level] = "";
+    $inside_dd[$current_list_level] = 0;
     print "Start new $tag list, level $current_list_level\n" if $debug;
-
-    #
-    # Start of new list, are we already inside a list ?
-    #
-    Check_Start_of_New_List($self, $tag, $line, $column, $text);
 }
 
 #***********************************************************************
@@ -9473,6 +9671,59 @@ sub End_Ol_Ul_Tag_Handler {
         # Decrement list level
         #
         $current_list_level--;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Dd_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the dd tag.
+#
+#***********************************************************************
+sub Dd_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Set flag to indicate we are inside a dd tag
+    #
+    if ( $current_list_level > -1 ) {
+        $inside_dd[$current_list_level] = 1;
+        print "Start new dd, level $current_list_level\n" if $debug;
+    }
+}
+
+#***********************************************************************
+#
+# Name: End_Dd_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end dd tag.
+#
+#***********************************************************************
+sub End_Dd_Tag_Handler {
+    my ( $line, $column, $text ) = @_;
+
+    #
+    # Clear flag to indicate we are no longer inside a dd tag
+    #
+    if ( $current_list_level > -1 ) {
+        $inside_dd[$current_list_level] = 0;
+        print "End dd, level $current_list_level\n" if $debug;
     }
 }
 
@@ -9575,16 +9826,17 @@ sub Dl_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
     #
+    # Start of new list, are we already inside a list ?
+    #
+    Check_Start_of_New_List($self, "dl", $line, $column, $text);
+
+    #
     # Increment list level count and set list item count to zero
     #
     $current_list_level++;
     $list_item_count[$current_list_level] = 0;
+    $inside_dd[$current_list_level] = 0;
     print "Start new dl list, level $current_list_level\n" if $debug;
-
-    #
-    # Start of new list, are we already inside a list ?
-    #
-    Check_Start_of_New_List($self, "dl", $line, $column, $text);
 }
 
 #***********************************************************************
@@ -9621,6 +9873,7 @@ sub End_Dl_Tag_Handler {
         #
         # Decrement list level
         #
+        $inside_dd[$current_list_level] = 0;
         $current_list_level--;
     }
 }
@@ -9644,13 +9897,19 @@ sub End_Dl_Tag_Handler {
 sub Check_ID_Attribute {
     my ( $tagname, $line, $column, $text, $attrseq, %attr ) = @_;
 
-    my ($id, $id_line, $id_column, $id_is_visible, $id_is_hidden);
-
+    my ($id, $id_line, $id_column, $id_is_visible, $id_is_hidden, $id_tag);
+    
+    #
+    # Are we ignoring id attributes for this tag ?
+    #
+    print "Check_ID_Attribute\n" if $debug;
+    if ( defined($tags_to_ignore_id_attribute{$tagname}) ) {
+        print "Ignore id attribute for this tag\n" if $debug;
+    }
     #
     # Do we have an id attribute ?
     #
-    print "Check_ID_Attribute\n" if $debug;
-    if ( defined($attr{"id"}) ) {
+    elsif ( defined($attr{"id"}) ) {
         $id = $attr{"id"};
         $id =~ s/^\s*//g;
         $id =~ s/\s*$//g;
@@ -9660,18 +9919,18 @@ sub Check_ID_Attribute {
         # Have we seen this id before ?
         #
         if ( defined($id_attribute_values{$id}) ) {
-            ($id_line, $id_column, $id_is_visible, $id_is_hidden) = split(/:/, $id_attribute_values{$id});
+            ($id_line, $id_column, $id_is_visible, $id_is_hidden, $id_tag) = split(/:/, $id_attribute_values{$id});
             Record_Result("WCAG_2.0-F77", $line, $column,
                           $text, String_Value("Duplicate id") .
-                          "'$id'" .  " " .
+                          "'<$tagname id=\"$id\">' " .
                           String_Value("Previous instance found at") .
-                          "$id_line:$id_column");
+                          "$id_line:$id_column <$id_tag id=\"$id\">");
         }
 
         #
         # Save id location
         #
-        $id_attribute_values{$id} = "$line:$column:$tag_is_visible:$tag_is_hidden";
+        $id_attribute_values{$id} = "$line:$column:$tag_is_visible:$tag_is_hidden,$tagname";
     }
 }
 
@@ -11037,6 +11296,13 @@ sub Start_Handler {
     }
 
     #
+    # Check dd tag
+    #
+    elsif ( $tagname eq "dd" ) {
+        Dd_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+
+    #
     # Check dl tag
     #
     elsif ( $tagname eq "dl" ) {
@@ -12270,6 +12536,13 @@ sub End_Handler {
     }
 
     #
+    # Check dd tag
+    #
+    elsif ( $tagname eq "dd" ) {
+        End_Dd_Tag_Handler($line, $column, $text);
+    }
+
+    #
     # Check dl tag
     #
     elsif ( $tagname eq "dl" ) {
@@ -12782,7 +13055,7 @@ sub Check_Language_Spans {
 sub Check_Missing_Aria_Id {
 
     my ($aria_id, $line, $column, $tag, $tcid);
-    my ($id_line, $id_column, $id_is_visible, $id_is_hidden);
+    my ($id_line, $id_column, $id_is_visible, $id_is_hidden, $id_tag);
 
     #
     # Are we checking for missing ARIA aria-describedby values ?
@@ -12811,7 +13084,7 @@ sub Check_Missing_Aria_Id {
 #                #
 #                # Is the target visible ?
 #                #
-#                ($id_line, $id_column, $id_is_visible, $id_is_hidden) = split(/:/, $id_attribute_values{$aria_id});
+#                ($id_line, $id_column, $id_is_visible, $id_is_hidden, $id_tag) = split(/:/, $id_attribute_values{$aria_id});
 #                if ( $id_is_hidden ) {
 #                    Record_Result($tcid, $line, $column, "",
 #                                  String_Value("Content referenced by") .
@@ -12847,7 +13120,7 @@ sub Check_Missing_Aria_Id {
 #            #
 #            # Is the target visible ?
 #            #
-#            ($id_line, $id_column, $id_is_visible, $id_is_hidden) = split(/:/, $id_attribute_values{$aria_id});
+#            ($id_line, $id_column, $id_is_visible, $id_is_hidden, $id_tag) = split(/:/, $id_attribute_values{$aria_id});
 #            if ( ! $id_is_not_hidden ) {
 #                Record_Result($tcid, $line, $column, "",
 #                              String_Value("Content referenced by") .
