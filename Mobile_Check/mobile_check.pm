@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 7544 $
+# $Revision: 7562 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2016-03-07 05:19:14 -0500 (Mon, 07 Mar 2016) $
+# $Date: 2016-04-13 04:14:45 -0400 (Wed, 13 Apr 2016) $
 #
 # Description:
 #
@@ -1837,13 +1837,13 @@ sub Mobile_Check_Save_Web_Page_Size {
         #
         # Print header row for CSV file
         #
-        print $file_handle "url,size,html_size,css_count,css_size,js_count,js_size,img_count,img_size,other_count,other_size\n";
+        print $file_handle "url,size,html_size,css_count,css_size,js_count,js_size,img_count,img_size,other_count,other_size\r\n";
     }
 
     #
     # print size string to file
     #
-    print $file_handle "$url,$size_string\n";
+    print $file_handle "$url,$size_string\r\n";
 
     #
     # Return file handle and file name
