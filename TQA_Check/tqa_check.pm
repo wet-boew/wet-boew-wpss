@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 7490 $
+# $Revision: 7556 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2016-02-08 08:39:28 -0500 (Mon, 08 Feb 2016) $
+# $Date: 2016-03-30 08:23:57 -0400 (Wed, 30 Mar 2016) $
 #
 # Description:
 #
@@ -1027,6 +1027,18 @@ sub Check_Link_Anchor_Alt_Title_Check {
                  ($link->on_page_id_reference) &&
                  ($link->href eq "#") ) {
                 print "Skip on page link to #\n" if $debug;
+                next;
+            }
+
+            #
+            # Is this an image link inside an anchor ? If so the
+            # same image may be used for multiple links, each with
+            # different alt text as the links serve different
+            # purposes (e.g. using a calendar image to open
+            # a calendar widget in a form).
+            #
+            if ( ($link_type eq "img") && $link->in_anchor ) {
+                print "Skip image inside anchor\n" if $debug;
                 next;
             }
 
