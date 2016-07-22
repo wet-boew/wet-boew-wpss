@@ -2,9 +2,9 @@
 #
 # Name:   css_validate.pm
 #
-# $Revision: 7129 $
+# $Revision: 7630 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/CSS_Validate/Tools/css_validate.pm $
-# $Date: 2015-05-07 15:34:24 -0400 (Thu, 07 May 2015) $
+# $Date: 2016-07-21 08:30:06 -0400 (Thu, 21 Jul 2016) $
 #
 # Description:
 #
@@ -81,11 +81,28 @@ BEGIN {
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($validate_cmnd, $extracted_css_content, $have_text_handler);
 my ($last_style_end, $inline_style_count);
+my ($runtime_error_reported) = 0;
 
 my ($debug) = 0;
 
 my ($VALID_CSS) = 1;
 my ($INVALID_CSS) = 0;
+
+#
+# String table for error strings.
+#
+my %string_table_en = (
+    "Runtime Error",         "Runtime Error",
+);
+
+my %string_table_fr = (
+    "Runtime Error",         "Erreur D'Exécution",
+);
+
+#
+# Default messages to English
+#
+my ($string_table) = \%string_table_en;
 
 #
 # Default language is English
@@ -131,9 +148,45 @@ sub CSS_Validate_Language {
     #
     if ( $this_language =~ /^fr/i ) {
         $language = "fra";
+        $string_table = \%string_table_fr;
     }
     else {
         $language = "eng";
+        $string_table = \%string_table_en;
+    }
+}
+
+#**********************************************************************
+#
+# Name: String_Value
+#
+# Parameters: key - string table key
+#
+# Description:
+#
+#   This function returns the value in the string table for the
+# specified key.  If there is no entry in the table an error string
+# is returned.
+#
+#**********************************************************************
+sub String_Value {
+    my ($key) = @_;
+
+    #
+    # Do we have a string table entry for this key ?
+    #
+    if ( defined($$string_table{$key}) ) {
+        #
+        # return value
+        #
+        return ($$string_table{$key});
+    }
+    else {
+        #
+        # No string table entry, either we are missing a string or
+        # we have a typo in the key name.
+        #
+        return ("*** No string for $key ***");
     }
 }
 
@@ -248,6 +301,30 @@ sub CSS_Validate_Content {
                                                 -1, -1, "",
                                                 $errors, $this_url);
         push (@results_list, $result_object);
+    }
+    else {
+        #
+        # Some error trying to run the validator
+        #
+        print "CSS validator command failed\n" if $debug;
+        print STDERR "CSS validator command failed\n";
+        print STDERR "$validate_cmnd $format file:$temp_file_name\n";
+        print STDERR "$validator_output\n";
+
+        #
+        # Report runtime error only once
+        #
+        if ( ! $runtime_error_reported ) {
+            $result_object = tqa_result_object->new("CSS_VALIDATION",
+                                                    1, "CSS_VALIDATION",
+                                                    -1, -1, "",
+                                                    String_Value("Runtime Error") .
+                                                    " \"$validate_cmnd $format file:$temp_file_name\"\n" .
+                                                    " \"$validator_output\"",
+                                                    $this_url);
+            $runtime_error_reported = 1;
+            push (@results_list, $result_object);
+        }
     }
 
     #
@@ -559,7 +636,7 @@ sub CSS_Validate_Extract_CSS_From_HTML {
         #
         $have_text_handler = 0;
         $parser->parse($$content);
-        print "Extracted CSS content\n$extracted_css_content\n" if $debug;
+        #print "Extracted CSS content\n$extracted_css_content\n" if $debug;
     }
     else {
         print "No content passed to CSS_Validate_Extract_CSS_From_HTML\n" if $debug;
@@ -639,8 +716,8 @@ if ( $program_dir eq "." ) {
 #   -warning -1 = suppress warnings
 #   -vextwarning true = treat vendor extensions as warnings
 #
-$validate_cmnd = "java -classpath \"$program_dir/lib/css-validator.jar\";" .
-                 "$program_dir/lib/jigsaw.ja;" .
+$validate_cmnd = "java -classpath \"$program_dir/lib/css-validator.jar;" .
+                 "$program_dir/lib/jigsaw.jar;" .
                  "$program_dir/lib/velocity.jar;" .
                  "$program_dir/lib/tagsoup.jar;" .
                  "$program_dir/lib/commons-lang.jar;" .
