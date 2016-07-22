@@ -2,9 +2,9 @@
 #
 # Name:   xml_ttml_validate.pm
 #
-# $Revision: 7379 $
+# $Revision: 7629 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/XML_Validate/Tools/xml_ttml_validate.pm $
-# $Date: 2015-11-30 05:58:52 -0500 (Mon, 30 Nov 2015) $
+# $Date: 2016-07-21 08:29:10 -0400 (Thu, 21 Jul 2016) $
 #
 # Description:
 #
@@ -78,6 +78,7 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
 my ($is_ttml);
+my ($runtime_error_reported) = 0;
 
 my ($debug) = 0;
 
@@ -91,6 +92,7 @@ my %string_table_en = (
     "Error",                 "Error: ",
     "Line",                  "Line",
     "column",                "column",
+    "Runtime Error",         "Runtime Error",
     "Source line",           "Source line:",
 );
 
@@ -98,6 +100,7 @@ my %string_table_fr = (
     "Error",                 "Erreur: ",
     "Line",                  "Ligne",
     "column",                "colonne",
+    "Runtime Error",         "Erreur D'Exécution",
     "Source line",           "Ligne de la source:",
 );
 
@@ -255,19 +258,46 @@ sub XML_TTML_Validate_Content {
                                String_Value("Source line") . " " .
                                $lines[$line - 1] . "\n\n";
                 }
-                else {
-                    $errors .= String_Value("Error") . $message . "\n";
-                }
             }
             
             #
-            # Create testcase result object
+            # Did we find any error messages ?
             #
-            $result_object = tqa_result_object->new("XML_VALIDATION",
-                                                    1, "XML_VALIDATION",
-                                                    -1, -1, "",
-                                                    $errors, $this_url);
-            push (@results_list, $result_object);
+            if ( $errors ne "" ) {
+                #
+                # Create testcase result object
+                #
+                $result_object = tqa_result_object->new("XML_VALIDATION",
+                                                        1, "XML_VALIDATION",
+                                                        -1, -1, "",
+                                                       $errors, $this_url);
+                push (@results_list, $result_object);
+            }
+            else {
+                #
+                # Some error trying to run the validator
+                #
+                print "TTML validator command failed\n" if $debug;
+                print STDERR "TTML validator command failed\n";
+                print STDERR "java -jar ttv.jar --quiet --hide-warnings --hide-resource-location $this_url\n";
+                print STDERR "$validator_output\n";
+
+                #
+                # Report runtime error only once
+                #
+                if ( ! $runtime_error_reported ) {
+                    $result_object = tqa_result_object->new("XML_VALIDATION",
+                                                            1, "XML_VALIDATION",
+                                                            -1, -1, "",
+                                                            String_Value("Runtime Error") .
+                                                            " \"java -jar ttv.jar --quiet --hide-warnings --hide-resource-location $this_url\"\n" .
+                                                            " \"$validator_output\"",
+                                                            $this_url);
+                    $runtime_error_reported = 1;
+                    push (@results_list, $result_object);
+                }
+            }
+
         }
     }
     else {
