@@ -2,9 +2,9 @@
 #
 # Name:   feed_validate.pm
 #
-# $Revision: 7120 $
+# $Revision: 7634 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Feed_Validate/Tools/feed_validate.pm $
-# $Date: 2015-05-06 08:02:29 -0400 (Wed, 06 May 2015) $
+# $Date: 2016-07-22 03:29:00 -0400 (Fri, 22 Jul 2016) $
 #
 # Description:
 #
@@ -79,11 +79,28 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
 my ($feed_type, $in_feed);
+my ($runtime_error_reported) = 0;
 
 my ($debug) = 0;
 
 my ($VALID_FEED) = 1;
 my ($INVALID_FEED) = 0;
+
+#
+# String table for error strings.
+#
+my %string_table_en = (
+    "Runtime Error",         "Runtime Error",
+);
+
+my %string_table_fr = (
+    "Runtime Error",         "Erreur D'Exécution",
+);
+
+#
+# Default messages to English
+#
+my ($string_table) = \%string_table_en;
 
 #********************************************************
 #
@@ -124,12 +141,48 @@ sub Feed_Validate_Language {
     #
     if ( $language =~ /^fr/i ) {
         print "Feed_Validate_Language, language = French\n" if $debug;
+        $string_table = \%string_table_fr;
     }
     else {
         #
         # Default language is English
         #
         print "Feed_Validate_Language, language = English\n" if $debug;
+        $string_table = \%string_table_en;
+    }
+}
+
+#**********************************************************************
+#
+# Name: String_Value
+#
+# Parameters: key - string table key
+#
+# Description:
+#
+#   This function returns the value in the string table for the
+# specified key.  If there is no entry in the table an error string
+# is returned.
+#
+#**********************************************************************
+sub String_Value {
+    my ($key) = @_;
+
+    #
+    # Do we have a string table entry for this key ?
+    #
+    if ( defined($$string_table{$key}) ) {
+        #
+        # return value
+        #
+        return ($$string_table{$key});
+    }
+    else {
+        #
+        # No string table entry, either we are missing a string or
+        # we have a typo in the key name.
+        #
+        return ("*** No string for $key ***");
     }
 }
 
@@ -165,7 +218,10 @@ sub Run_Web_Feed_Validator {
         ($validator_output =~ /No errors or warnings/i) ) {
         print "Validation successful\n" if $debug;
     }
-    else {
+    #
+    # Do we have validation errors ?
+    #
+    elsif ( $validator_output =~ /Validation failed/im ) {
         $status = $INVALID_FEED;
         $result_object = tqa_result_object->new("XML_VALIDATION",
                                                 1, "XML_VALIDATION",
@@ -173,6 +229,30 @@ sub Run_Web_Feed_Validator {
                                                 $validator_output,
                                                 $this_url);
         push (@results_list, $result_object);
+    }
+    else {
+        #
+        # An error trying to run the tool
+        #
+        print "Error running feedvalidator.py\n" if $debug;
+        print STDERR "Error running feedvalidator.py\n";
+        print STDERR "  $validate_cmnd $this_url 2>\&1\n";
+        print STDERR "$validator_output\n";
+
+        #
+        # Report runtime error only once
+        #
+        if ( ! $runtime_error_reported ) {
+            $result_object = tqa_result_object->new("XML_VALIDATION",
+                                                    1, "XML_VALIDATION",
+                                                    -1, -1, "",
+                                                    String_Value("Runtime Error") .
+                                                    " \"$validate_cmnd $this_url\"\n" .
+                                                    " \"$validator_output\"",
+                                                    $this_url);
+            push (@results_list, $result_object);
+            $runtime_error_reported = 1;
+        }
     }
 
     #
