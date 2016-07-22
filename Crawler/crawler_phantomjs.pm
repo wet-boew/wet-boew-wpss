@@ -2,9 +2,9 @@
 #
 # Name:   crawler_phantomjs.pm
 #
-# $Revision: 7464 $
+# $Revision: 7621 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Crawler/Tools/crawler_phantomjs.pm $
-# $Date: 2016-01-22 10:32:49 -0500 (Fri, 22 Jan 2016) $
+# $Date: 2016-07-13 03:32:58 -0400 (Wed, 13 Jul 2016) $
 #
 # Description:
 #
@@ -189,7 +189,7 @@ sub Crawler_Phantomjs_Page_Markup {
     # Get page markup from the URL ?
     #
     print "Crawler_Phantomjs_Content start $date page markup from $this_url\n" if $debug;
-    $output = `$phantomjs_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_arg \"$this_url\" $image_param`;
+    $output = `$phantomjs_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_arg \"$this_url\" $image_param 2>> phantomjs_stderr.txt`;
     ($sec, $min, $hour) = (localtime)[0,1,2];
     $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
     print "Crawler_Phantomjs_Content end   $date page markup\n" if $debug;
@@ -224,7 +224,12 @@ sub Crawler_Phantomjs_Page_Markup {
         $content = decode("utf8", $content);
     }
     else {
-        print STDERR "Did not find page markup from phantomjs page_markup.js $this_url, output =\n$output\n";
+        #
+        # Error running phantomjs
+        #
+        print STDERR "Error running phantomjs\n";
+        print STDERR "  $phantomjs_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_arg \"$this_url\" $image_param\n";
+        print STDERR "$output\n";
         $content = "";
     }
 
