@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 7435 $
+# $Revision: 7563 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2016-01-19 03:40:14 -0500 (Tue, 19 Jan 2016) $
+# $Date: 2016-04-13 04:15:57 -0400 (Wed, 13 Apr 2016) $
 #
 # Description:
 #
@@ -6724,7 +6724,7 @@ sub Check_Skip_Links {
         #
         # Do we have the expected number of links ?
         #
-        if ( $link_count != $href_count ) {
+        if ( $link_count < $href_count ) {
             Record_Result("SWU_TEMPLATE", -1, -1, "",
                           String_Value("Missing links in") . " SKIP_LINKS. " .
                           String_Value("Found") . " $link_count " .
@@ -6738,8 +6738,8 @@ sub Check_Skip_Links {
             # between WET 2.3 and 3.0).
             #
             $i = 0;
-            foreach $link (@links) {
-                $href = $$skip_links_hrefs[$i];
+            foreach $href (@$skip_links_hrefs) {
+                $link = $links[$i];
 
                 #
                 # Split href value on white space in case there are several
