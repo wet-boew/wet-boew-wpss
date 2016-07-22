@@ -2,9 +2,9 @@
 #
 # Name:   csv_check.pm
 #
-# $Revision: 6749 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/csv_check.pm $
-# $Date: 2014-09-10 13:25:56 -0400 (Wed, 10 Sep 2014) $
+# $Revision: 7636 $
+# $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/csv_check.pm $
+# $Date: 2016-07-22 06:54:19 -0400 (Fri, 22 Jul 2016) $
 #
 # Description:
 #
@@ -470,6 +470,7 @@ sub CSV_Check {
             Record_Result("WCAG_2.0-G134", $line_no, 0, $line,
                           String_Value("Parse error in line"));
         }
+        close($csv_file);
         unlink($csv_file_name);
     }
 
