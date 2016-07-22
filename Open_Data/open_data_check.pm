@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 7489 $
+# $Revision: 7604 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_check.pm $
-# $Date: 2016-02-08 08:38:59 -0500 (Mon, 08 Feb 2016) $
+# $Date: 2016-06-22 10:46:52 -0400 (Wed, 22 Jun 2016) $
 #
 # Description:
 #
@@ -316,7 +316,7 @@ sub String_Value {
 sub Set_Open_Data_Check_Testcase_Data {
     my ($testcase, $data) = @_;
     
-    my ($list_addr, $type, $value);
+    my ($type, $value);
     
     #
     # Is this data for supporting files ?
@@ -833,7 +833,7 @@ sub Check_Data_File_URL {
     }
     else {
         #
-        # Unexpected mime-type for a dictionary.  If the mime type
+        # Unexpected mime-type for a data file.  If the mime type
         # is for a ZIP file, use the type from the file suffix to
         # report the error.
         #
@@ -846,7 +846,7 @@ sub Check_Data_File_URL {
     }
 
     #
-    # Add results from data dictionary check into the complete results list.
+    # Add results from data file check into the complete results list.
     #
     foreach $result_object (@other_results) {
         push(@$results_list_addr, $result_object);
@@ -1689,7 +1689,7 @@ sub Open_Data_Check_Read_JSON_Description {
         }
         else {
             #
-            # Unexpected mime-type for API
+            # Unexpected mime-type for description URL
             #
             print "Invalid mime-type for description URL \"$mime_type\"\n" if $debug;
             Record_Result("OD_3", -1, -1, "",
