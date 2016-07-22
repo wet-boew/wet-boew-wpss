@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 7539 $
+# $Revision: 7627 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2016-03-02 06:55:02 -0500 (Wed, 02 Mar 2016) $
+# $Date: 2016-07-15 08:23:18 -0400 (Fri, 15 Jul 2016) $
 #
 # Description:
 #
@@ -262,8 +262,12 @@ my %string_table_en = (
     "Description URL",     "Description URL",
     "Dictionary Files",    "Dictionary Files",
     "Direct HTML Input",   "Direct HTML Input",
+    "Disable content capture", "Disable content capture",
     "Disable generated markup", "Disable generated markup",
+    "Disable PDF checking",  "Disable PDF checking",
+    "Enable content capture", "Enable content capture",
     "Enable generated markup",     "Enable generated markup",
+    "Enable PDF checking",   "Enable PDF checking",
     "English directory",   "English directory",
     "English entry page",  "English entry page",
     "English login page",  "English login page",
@@ -280,7 +284,6 @@ my %string_table_en = (
     "Help",                "Help",
     "Hide Browser",        "Hide Browser",
     "if blank use English", "(if left blank the English value is used)",
-    "Ignore PDF pages",    "Ignore PDF pages",
     "Line",                "Line: ",
     "Load Config",         "Load Config",
     "Load from File",      "Load from File",
@@ -306,7 +309,6 @@ my %string_table_en = (
     "Password",            "Password",
     "Press Continue",      "Press Continue to resume or Save Content to save the HTML content",
     "Press Ok to close browser", "Press Ok to close browser",
-    "Process PDF pages",   "Process PDF pages",
     "Proxy address to use", "Proxy address to use (leave blank if proxy is not needed)",
     "Proxy",               "Proxy",
     "referrer",            "referrer",
@@ -317,8 +319,6 @@ my %string_table_en = (
     "Results Window Title", "Results Window",
     "Save As",             "Save As",
     "Save Config",         "Save Config",
-    "Save Content Off",    "Save Content Off",
-    "Save Content On",     "Save Content On",
     "Save Content",        "Save Content",
     "Save Open Data Config", "Save Open Data Config",
     "Save Site Config",    "Save Site Config",
@@ -361,8 +361,12 @@ my %string_table_fr = (
     "Description URL",          "Description URL",
     "Dictionary Files",         "Fichiers de dictionnaire",
     "Direct HTML Input",        "Entrée de données direct HTML",
+    "Disable content capture",  "Désactiver la capture du contenu",
     "Disable generated markup", "Désactiver généré de balisage",
+    "Disable PDF checking",     "Désactiver la vérification PDF",
+    "Enable content capture",   "Activer la capture de contenu",
     "Enable generated markup",  "Permettre aux produits de balisage",
+    "Enable PDF checking",      "Activer PDF vérification",
     "English directory",        "Répertoire anglais",
     "English entry page",       "Page d'entrée anglaise",
     "English login page",       "Page anglaise d'ouverture de session",
@@ -379,7 +383,6 @@ my %string_table_fr = (
     "Help",                     "Aide",
     "Hide Browser",             "Masquer le navigateur",
     "if blank use English",     "(si laissé en blanc, l'anglais est utilisé)",
-    "Ignore PDF pages",         "Ignorer les pages PDF",
     "Line",                     "la ligne : ",
     "Load Config",              "Charger Configuration",
     "Load from File",           "Charger à partir du fichier",
@@ -405,7 +408,6 @@ my %string_table_fr = (
     "Password",                 "Mot de passe",
     "Press Continue",           "Appuyez sur Continuer pour reprendre ou sur Enregistrer le contenu pour enregistrer le contenu HTML",
     "Press Ok to close browser", "Appuyez sur OK pour fermer navigateur",
-    "Process PDF pages",        "Traiter les pages PDF",
     "Proxy address to use",     "Adresse proxy à utiliser",
     "Proxy",                    "Proxy",
     "referrer",                 "recommandataire",
@@ -416,8 +418,6 @@ my %string_table_fr = (
     "Results Window Title",     "Fenêtre de résultats",
     "Save As",                  "Enregistrer sous",
     "Save Config",              "Sauver Configuration",
-    "Save Content Off",         "Enregistrer le contenu - désactiver",
-    "Save Content On",          "Enregistrer le contenu - activer",
     "Save Content",             "Sauvegarder le contenu",
     "Save Open Data Config",    "Sauver Configuration de Données Ouvertes",
     "Save Site Config",         "Enregistrer la configuration du site",
@@ -439,6 +439,18 @@ my %string_table_fr = (
 my ($string_table) = \%string_table_en;
 
 my (@package_list) = ("tqa_result_object", "validator_xml", "crawler");
+
+#
+#***********************************************************************
+# Configuration items
+#***********************************************************************
+#
+
+#
+# Maximum number of characters for direct HTML input and URL list
+#
+my ($GUI_DIRECT_HTML_SIZE) = 100000;
+my ($GUI_URL_LIST_SIZE) = 100000;
 
 #***********************************************************************
 #
@@ -2981,7 +2993,7 @@ sub Add_Direct_Input_Fields {
     #
     # Set maximum size for text area
     #
-    $main_window->ConfigTabs->$text_field_name->SetLimitText(100000);
+    $main_window->ConfigTabs->$text_field_name->SetLimitText($GUI_DIRECT_HTML_SIZE);
 
     #
     # Add button to reset HTML text
@@ -3298,7 +3310,7 @@ sub Add_URL_List_Input_Fields {
     #
     # Set maximum size for text area
     #
-    $main_window->ConfigTabs->$text_field_name->SetLimitText(100000);
+    $main_window->ConfigTabs->$text_field_name->SetLimitText($GUI_URL_LIST_SIZE);
 
     #
     # Add button to read URL list from a file
@@ -4418,7 +4430,7 @@ sub Create_Main_Window {
                                   }
             },
 
-    " > " . String_Value("Save Content On")  => 
+    " > " . String_Value("Enable content capture")  =>
             { 
                  -name => "SaveContentOn", 
                  -onClick => sub {
@@ -4427,19 +4439,19 @@ sub Create_Main_Window {
                                        # Turn off content saving
                                        #
                                        $save_content = 0;
-                                       $main_window_menu->{SaveContentOn}->Change(-text => String_Value("Save Content On"));
+                                       $main_window_menu->{SaveContentOn}->Change(-text => String_Value("Enable content capture"));
                                    }
                                    else {
                                        #
                                        # Turn on content saving
                                        #
                                        $save_content = 1;
-                                       $main_window_menu->{SaveContentOn}->Change(-text => String_Value("Save Content Off"));
+                                       $main_window_menu->{SaveContentOn}->Change(-text => String_Value("Disable content capture"));
                                    }
                                   }
             },
 
-    " > " . String_Value("Process PDF pages")  =>
+    " > " . String_Value("Disable PDF checking")  =>
             { 
                  -name => "ProcessPDF",
                  -onClick => sub { 
@@ -4448,14 +4460,14 @@ sub Create_Main_Window {
                                        # Turn off PDF file processing
                                        #
                                        $process_pdf = 0;
-                                       $main_window_menu->{ProcessPDF}->Change(-text => String_Value("Process PDF pages"));
+                                       $main_window_menu->{ProcessPDF}->Change(-text => String_Value("Enable PDF checking"));
                                    }
                                    else {
                                        #
                                        # Turn on PDF file processing
                                        #
                                        $process_pdf = 1;
-                                       $main_window_menu->{ProcessPDF}->Change(-text => String_Value("Ignore PDF pages"));
+                                       $main_window_menu->{ProcessPDF}->Change(-text => String_Value("Disable PDF checking"));
                                    }
                                   }
             },
