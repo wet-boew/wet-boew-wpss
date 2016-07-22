@@ -2,9 +2,9 @@
 //
 // Name: page_markup.js
 //
-// $Revision: 7499 $
+// $Revision: 7566 $
 // $URL: svn://10.36.21.45/trunk/Web_Checks/Crawler/Tools/page_markup.js $
-// $Date: 2016-02-10 08:47:36 -0500 (Wed, 10 Feb 2016) $
+// $Date: 2016-04-13 04:18:55 -0400 (Wed, 13 Apr 2016) $
 //
 // Synopsis: phantomjs page_markup.js <url> [ -debug ]
 //
@@ -110,6 +110,12 @@ if (system.args.length > 2) {
 // Get the start time
 start_time = Date.now();
 
+// Make sure console.error messages go to the system stderr output stream.
+console.error = function () {
+    require("system").stderr.write(Array.prototype.join.call(arguments, ' ') + '\n');
+};
+
+
 // ************************************************************
 //
 // Name: doRender
@@ -131,6 +137,14 @@ function doRender() {
     var elapsed = t - start_time;
     console.log(program_name + ': page load time ' + elapsed);
 
+    if ( debug === 1 ) {
+        console.error('In doRender at ' + elapsed);
+    }
+
+    // Cancel any possible timers
+    clearTimeout(renderTimeout);
+    clearTimeout(forcedRenderTimeout);
+
     // Print marker for the start of the HTML mark-up
     console.log(program_name + ': ===== PAGE MARKUP BEGINS =====');
     
@@ -149,7 +163,18 @@ function doRender() {
     if ( generate_page_image === 1 ) {
         page.render(page_image_file_name);
     }
+    
+    if ( debug === 1 ) {
+        t = Date.now();
+        elapsed = t - start_time;
+        console.error('Exit program at ' + elapsed);
+    }
     phantom.exit();
+    if ( debug === 1 ) {
+        t = Date.now();
+        elapsed = t - start_time;
+        console.error('After program exit at ' + elapsed);
+    }
 }
 
 // ************************************************************
@@ -172,7 +197,8 @@ page.open(url, function (status) {
     if ( debug === 1 ) {
         t = Date.now();
         var elapsed = t - start_time;
-        console.log('page.open, msec since start ' + elapsed);
+        console.error('page.open, msec since start ' + elapsed +
+                    ' for url ' + url);
     }
 
     // Was the open successful ?
@@ -269,8 +295,8 @@ page.onResourceRequested = function(requestData, networkRequest) {
     if ( debug === 1 ) {
         t = Date.now();
         var elapsed = t - start_time;
-        console.log('time since start ' + elapsed + ' Resource Request #' + count +
-                    ' id: ' + requestData.id + ' url: ' + requestData.url);
+        console.error('time since start ' + elapsed + ' Resource Request #' + count +
+                      ' id: ' + requestData.id + ' url: ' + requestData.url);
     }
 };
 
@@ -300,9 +326,9 @@ page.onResourceReceived = function(response) {
         if ( debug === 1 ) {
             t = Date.now();
             var elapsed = t - start_time;
-            console.log('time since start ' + elapsed + ' Response Received #' + count +
-                        ' id: ' + response.id + ' URL:' + response.url +
-                        ' status: ' + response.status);
+            console.error('time since start ' + elapsed + ' Response Received #' + count +
+                          ' id: ' + response.id + ' URL:' + response.url +
+                          ' status: ' + response.status);
         }
 
         // If the count is 0, set a timeout for JavaScript to execute
@@ -311,10 +337,45 @@ page.onResourceReceived = function(response) {
             if ( debug === 1 ) {
                 t = Date.now();
                 var elapsed = t - start_time;
-                console.log('time since start ' + elapsed + ' Resource count is 0, start rendering timer');
+                console.error('time since start ' + elapsed + ' Resource count is 0, start rendering timer');
             }
             renderTimeout = setTimeout(doRender, renderWait);
         }
     }
 };
+
+// ************************************************************
+//
+// Name: phantom.onError
+//
+// Parameters: msg - error message
+//             trace - traceback stack
+//
+// Description:
+//
+//    This callback is invoked when there is a JavaScript execution
+// error not caught by a page.onError handler. This is the closest it
+// gets to having a global error handler in PhantomJS, and so it is
+// a best practice to set this onError handler up in order to catch
+// any unexpected problems. The arguments passed to the callback are
+// the error message and the stack trace [as an Array].
+//
+// ************************************************************
+phantom.onError = function(msg, trace) {
+  var msgStack = ['PHANTOM ERROR: ' + msg];
+  if (trace && trace.length) {
+    msgStack.push('TRACE:');
+    trace.forEach(function(t) {
+      msgStack.push(' -> ' + (t.file || t.sourceURL) + ': ' + t.line + (t.function ? ' (in function ' + t.function +')' : ''));
+    });
+  }
+  console.error(msgStack.join('\n'));
+  if ( debug === 1 ) {
+      t = Date.now();
+      var elapsed = t - start_time;
+      console.error('Phantom onError at ' + elapsed);
+  }
+  phantom.exit(1);
+};
+
 
