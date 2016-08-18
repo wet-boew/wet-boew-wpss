@@ -213,7 +213,7 @@ sub Validate_XHTML_Content {
 
     my ($status) = $VALID_HTML;
     my ($validator_output, $line, $html_file_name, @results_list);
-    my ($result_object, $fh);
+    my ($result_object, $fh, $char);
 
     #
     # Write the content to a temporary file
@@ -225,7 +225,23 @@ sub Validate_XHTML_Content {
         return(@results_list);
     }
     binmode $fh;
-    print $fh $$content;
+
+    #
+    # Remove any UTF-8 BOM from the content.  The XHTML validator
+    # does not handle it.
+    #
+    $char = substr($$content, 0, 1);
+    if ( ord($char) == 65279 ) {
+        print "Skip over BOM xFEFF\n" if $debug;
+        print $fh substr($$content, 1);
+    }
+    elsif ( $$content =~ s/^\xEF\xBB\xBF// ) {
+        print "Skip over BOM xFEBBBF\n" if $debug;
+        print $fh substr($$content, 3);
+    }
+    else {
+        print $fh $$content;
+    }
     close($fh);
 
     #
