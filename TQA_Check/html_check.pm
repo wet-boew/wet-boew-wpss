@@ -6614,9 +6614,11 @@ sub Check_Aria_Labelledby_Attribute {
             }
 
             #
-            # No technique for this tag
+            # If we don't have a specific tag, use technique ARIA10
             #
-            return;
+            if ( ! defined($tcid) ) {
+                $tcid = "WCAG_2.0-ARIA10";
+            }
         }
 
         #
@@ -6715,16 +6717,16 @@ sub Check_Aria_Describedby_Attribute {
             $tcid = "WCAG_2.0-ARIA16";
         }
         elsif ( $tag eq "select" ) {
-            $tcid = "WCAG_2.0-ARIA10";
+            $tcid = "WCAG_2.0-ARIA1";
         }
         elsif ( $tag eq "title" ) {
             $tcid = "WCAG_2.0-ARIA1";
         }
         else {
             #
-            # No technique for this tag
+            # If we don't have a specific tag, use technique ARIA1
             #
-            return;
+            $tcid = "WCAG_2.0-ARIA1";
         }
 
         #
