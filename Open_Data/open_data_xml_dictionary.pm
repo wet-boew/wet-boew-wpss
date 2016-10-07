@@ -639,39 +639,6 @@ sub Check_URL {
 
 #***********************************************************************
 #
-# Name: Declaration_Handler
-#
-# Parameters: self - reference to this parser
-#             version - XML version
-#             encoding - ancoding attribute (if any)
-#             standalone - standalone attribute
-#
-# Description:
-#
-#   This function is a callback handler for XML parsing that
-# handles the declaration tag.
-#
-#***********************************************************************
-sub Declaration_Handler {
-    my ($self, $version, $encoding, $standalone) = @_;
-
-    #
-    # Check character encoding attribute.
-    #
-    print "XML doctype $version, $encoding, $standalone\n" if $debug;
-    if ( $encoding =~ /UTF-8/i ) {
-        print "Found UTF-8 encoding\n" if $debug;
-    }
-    else {
-        Record_Result("OD_2", $self->current_line,
-                      $self->current_column, $self->original_string,
-                      String_Value("Encoding is not UTF-8, found") .
-                      " \"$encoding\"");
-    }
-}
-
-#***********************************************************************
-#
 # Name: Start_Data_Condition_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -1765,7 +1732,6 @@ sub Open_Data_XML_Dictionary_Check_Dictionary {
     #
     $parser->setHandlers(Start => \&Dictionary_Start_Handler);
     $parser->setHandlers(End => \&Dictionary_End_Handler);
-    $parser->setHandlers(XMLDecl => \&Declaration_Handler);
     $parser->setHandlers(Char => \&Char_Handler);
 
     #
