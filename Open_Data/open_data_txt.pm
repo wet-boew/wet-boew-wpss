@@ -103,6 +103,7 @@ my %string_table_en = (
     "Expect at least 2 blank lines after definition", "Expect at least 2 blank lines after definition",
     "Extra term in dictionary",      "Extra term in dictionary",
     "Fails validation",              "Fails validation",
+    "Missing UTF-8 BOM",             "Missing UTF-8 BOM",
     "Multiple blank lines after term", "Multiple blank lines after term",
     "Multiple lines found in term",  "Multiple lines found in term",
     "No content in file",            "No content in file",
@@ -119,6 +120,7 @@ my %string_table_fr = (
     "Expect at least 2 blank lines after definition", "Attendez au moins 2 lignes vides aprés définition",
     "Extra term in dictionary",      "Terme supplémentaire dans dictionnaire",
     "Fails validation",              "Échoue la validation",
+    "Missing UTF-8 BOM",             "Manquant UTF-8 BOM",
     "Multiple blank lines after term", "Plusieurs lignes vides aprés terme",
     "Multiple lines found in term",  "Plusieurs lignes trouvées dans le terme",
     "No content in file",            "Aucun contenu dans fichier",
@@ -426,15 +428,31 @@ sub Parse_Text_Dictionary {
     #
     binmode FH;
     while ( $line = <FH> ) {
+        $line_no++;
+                
         #
-        # Remove possible BOM from UTF-8 content ($EF $BB $BF)
+        # Check for possible BOM from UTF-8 content ($EF $BB $BF)
         #  Byte Order Mark - http://en.wikipedia.org/wiki/Byte_order_mark
         #
-        if ( $line_no == 0 ) {
-            $line =~ s/^\xEF\xBB\xBF//;
-            $is_utf8_content = 1;
+        if ( $line_no == 1 ) {
+            #
+            # Do we have a BOM ?
+            #
+            if ( $line =~ /^\xEF\xBB\xBF/ ) {
+                #
+                # Remove the BOM
+                #
+                $line =~ s/^\xEF\xBB\xBF//;
+                $is_utf8_content = 1;
+            }
+            else {
+                #
+                # Missing BOM in file
+                #
+                Record_Result("TP_PW_OD_BOM", 1, 0, $line,
+                              String_Value("Missing UTF-8 BOM"));
+             }
         }
-        $line_no++;
 
         #
         # Decode UTF-8 content
