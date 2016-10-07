@@ -86,6 +86,7 @@ if ( $have_threads ) {
 }
 use File::Temp qw/ tempfile tempdir /;
 use File::Path qw(make_path remove_tree);
+use IO::Socket::SSL qw( SSL_VERIFY_NONE );
 
 #***********************************************************************
 #
@@ -879,7 +880,9 @@ sub Crawler_Uncompress_Content_File {
         #
         # Get a new temporary file
         #
-        (undef, $new_filename) = tempfile(OPEN => 0);
+        (undef, $new_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", OPEN => 0,
+                                          TMPDIR => 1);
+        print "Temporary file for uncompressed content $new_filename\n" if $debug;
         
         #
         # Uncompress the content
@@ -893,6 +896,7 @@ sub Crawler_Uncompress_Content_File {
         }
         else {
             print "Error: Crawler_Uncompress_Content_File failed to gunzip $filename, error = $GunzipError\n";
+            unlink($new_filename);
         }
     }
 
@@ -1027,7 +1031,7 @@ sub Create_User_Agents {
                                                                'Referer' => ''});
 
     $user_agent->ssl_opts(verify_hostname => 0,
-                          SSL_verify_mode => 'SSL_VERIFY_NONE');
+                          SSL_verify_mode => SSL_VERIFY_NONE);
     $user_agent->timeout("60");
     $user_agent->delay(1/120);
     
@@ -1064,7 +1068,7 @@ sub Create_User_Agents {
     print "Create LWP::UserAgent user agent $user_agent_name\n" if $debug;
     $lwp_user_agent = LWP::UserAgent->new("$user_agent_name");
     $lwp_user_agent->ssl_opts(verify_hostname => 0,
-                              SSL_verify_mode => 'SSL_VERIFY_NONE');
+                              SSL_verify_mode => SSL_VERIFY_NONE);
     $lwp_user_agent->timeout("60");
 
     #
@@ -1569,7 +1573,7 @@ sub Crawler_Get_HTTP_Response {
     my ($use_simple_request) = 1;
 
     #
-    # Do we have a  user agent ?
+    # Do we have a user agent ?
     #
     if ( ! defined($user_agent) ) {
         Create_User_Agents();
@@ -1598,7 +1602,9 @@ sub Crawler_Get_HTTP_Response {
     # LWP::UserAgent object, not a LWP::RobotUA::Cached object.
     #
     if ( $user_agent_content_file ) {
-        (undef, $filename) = tempfile(OPEN => 0);
+        (undef, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", OPEN => 0,
+                                      TMPDIR => 1);
+        print "Set temporary content file name $filename\n" if $debug;
         $content_length = 0;
         $lwp_user_agent->remove_handler("response_data");
         $lwp_user_agent->add_handler("response_data" => \&HTTP_Response_Data_Callback);
@@ -1932,6 +1938,13 @@ sub Crawler_Get_HTTP_Response {
                 if ( $redirect_protocol eq "" ) {
                     $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
                     print "Crawler_Get_HTTP_Response end   $date Invalid URL provided in redirect, $url\n" if $debug;
+
+                    #
+                    # Do we have a temporary content file ?
+                    #
+                    if ( defined($filename) ) {
+                        unlink($filename);
+                    }
                     return ($url, $resp);
                 }
 
@@ -1941,6 +1954,13 @@ sub Crawler_Get_HTTP_Response {
                 if ( $redirect_count >= $max_redirects ) {
                     $done = 1;
                     print "Aborting GET, too many redirects\n" if $debug;
+
+                    #
+                    # Do we have a temporary content file ?
+                    #
+                    if ( defined($filename) ) {
+                        unlink($filename);
+                    }
                 }
             }
             else {
@@ -1953,6 +1973,13 @@ sub Crawler_Get_HTTP_Response {
                     $http_error = $resp->status_line;
                     print "Error accessing URL, code is $http_error_code\n";
                     print "                     Error is $http_error\n";
+                    
+                    #
+                    # Do we have a temporary content file ?
+                    #
+                    if ( defined($filename) ) {
+                        unlink($filename);
+                    }
                 }
             }
         }
@@ -1977,6 +2004,12 @@ sub Crawler_Get_HTTP_Response {
     ($sec, $min, $hour) = (localtime)[0,1,2];
     $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
     print "Crawler_Get_HTTP_Response end   $date GET\n" if $debug;
+    
+    #
+    # Make sure the response URL is properly formatted
+    #
+    $url = url($url, $url)->abs;
+    print "Response URL = $url\n" if $debug;
 
     #
     # Return the response object
@@ -3599,7 +3632,7 @@ sub Crawl_Site {
             # 
             # Do we already have this URL in the list ?
             # 
-            if ( defined($url_list_map{$url}) ) {
+            if ( defined($url_list_map{$rewritten_url}) ) {
                 next;
             } 
 
@@ -3619,7 +3652,7 @@ sub Crawl_Site {
             }
             else {
                 $url_checksum_map{$checksum} = $rewritten_url;
-                $url_checksum_map{$checksum} = $url;
+                #$url_checksum_map{$checksum} = $url;
                 $url_list_map{$rewritten_url} = $crawl_depth;
             }
 
@@ -3632,8 +3665,8 @@ sub Crawl_Site {
             # Add URL and its attributes to the lists.
             #
             $header = $resp->headers;
-            push (@$url_list, $url);
-            $url_list_map{$url} = $crawl_depth;
+            push (@$url_list, $rewritten_url);
+            $url_list_map{$rewritten_url} = $crawl_depth;
             $content_type = $header->content_type;
             push (@$url_type, $content_type);
 
@@ -3660,7 +3693,7 @@ sub Crawl_Site {
             #
             # Call http response or content callbacks.
             #
-            if ( ! Call_Callback_Functions($url,
+            if ( ! Call_Callback_Functions($rewritten_url,
                       $url_referer_map{$url}, $resp) ) {
                     #
                     # Exit crawler
