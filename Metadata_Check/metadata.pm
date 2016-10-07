@@ -308,8 +308,10 @@ sub Read_Compressed_Metadata_Thesaurus_File {
         #
         # Save the thersaurus term
         #
-        $terms{lc($term)} = lc($term);
-        print "Save DC_Subject term \"$term\" as \"" . lc($term) . "\"\n" if $debug;
+        if ( $term ne "" ) {
+            $terms{lc($term)} = lc($term);
+            print "Save DC_Subject term \"$term\" as \"" . lc($term) . "\"\n" if $debug;
+        }
     }
     close(THESAURUS);
 
