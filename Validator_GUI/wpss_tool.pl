@@ -5137,11 +5137,20 @@ sub Save_Testcase_Summary_CSV {
     my ($tcid, $help_url, $tc_label, $sc, %sc_url, %sc_instance, @sc_list);
 
     #
+    # Do we already have a results summary CSV file (e.g. from a previous run)?
+    #
+    if ( defined($shared_testcase_results_summary_csv_filename) ) {
+        unlink($shared_testcase_results_summary_csv_filename);
+    }
+
+    #
     # Create testcase results summary CSV file
     #
     print "Save results summary CSV\n" if $debug;
     ($csv_results_fh, $shared_testcase_results_summary_csv_filename) =
-       tempfile( SUFFIX => '.csv');
+       tempfile("WPSS_TOOL_XXXXXXXXXX",
+                SUFFIX => '.csv',
+                TMPDIR => 1);
     if ( ! defined($csv_results_fh) ) {
         print "Error: Failed to create temporary file in Save_Testcase_Summary_CSV\n";
         return;
@@ -6460,6 +6469,7 @@ sub Initialize_Tool_Globals {
     my ($url, %options) = @_;
 
     my ($html_profile_table, $html_feature_id, $resp_url, $resp, $tab);
+    my ($filename);
 
     #
     # Clean up any temporary file from a possible previous analysis run
@@ -6571,6 +6581,14 @@ sub Initialize_Tool_Globals {
         Set_Crawler_HTTP_401_Callback(\&HTTP_401_Callback);
         print "Check firewall URL $firewall_check_url\n" if $debug;
         ($resp_url, $resp) = Crawler_Get_HTTP_Response($firewall_check_url, "");
+        
+        #
+        # Clean up any possible temporary file
+        #
+        if ( defined($resp) && defined($resp->header("WPSS-Content-File")) ) {
+            $filename = $resp->header("WPSS-Content-File");
+            unlink($filename);
+        }
     }
 
     #
@@ -6652,7 +6670,9 @@ sub Initialize_Tool_Globals {
     # Create web page details temporary file
     #
     ($web_page_details_fh, $shared_web_page_details_filename) =
-       tempfile( SUFFIX => '.csv');
+       tempfile("WPSS_TOOL_XXXXXXXXXX",
+                SUFFIX => '.csv',
+                TMPDIR => 1);
     if ( ! defined($web_page_details_fh) ) {
         print "Error: Failed to create temporary file in Initialize_Tool_Globals\n";
         return;
@@ -8749,7 +8769,9 @@ sub Perform_Open_Data_Check {
                 # Get contents for this member in a file
                 #
                 print "Process zip member $member_name\n" if $debug;
-                (undef, $filename) = tempfile(OPEN => 0);
+                (undef, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                                              TMPDIR => 1,
+                                              OPEN => 0);
                 print "Extract member to $filename\n" if $debug;
                 $member->extractToFileNamed($filename);
 
@@ -8881,6 +8903,14 @@ sub Open_Data_Callback {
         Set_Crawler_HTTP_401_Callback(\&HTTP_401_Callback);
         print "Check firewall URL $firewall_check_url\n" if $debug;
         ($resp_url, $resp) = Crawler_Get_HTTP_Response($firewall_check_url, "");
+
+        #
+        # Clean up any possible temporary file
+        #
+        if ( defined($resp) && defined($resp->header("WPSS-Content-File")) ) {
+            $filename = $resp->header("WPSS-Content-File");
+            unlink($filename);
+        }
     }
 
     #
