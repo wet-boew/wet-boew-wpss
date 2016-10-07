@@ -239,7 +239,7 @@ sub Start_Handler {
             #
             # Is the file name component an absolute URL ?
             #
-            if ( $file_name =~ /^http[s]:/ ) {
+            if ( $file_name =~ /^http[s]?:/ ) {
                 $xsd_url = $file_name;
             }
             #
@@ -319,7 +319,9 @@ sub XML_Validate_XSD {
         #
         # Create a local file for the XSD content
         #
-        ($xsd_fh, $xsd_filename) = tempfile( SUFFIX => '.xsd');
+        ($xsd_fh, $xsd_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                                            SUFFIX => '.xsd',
+                                            TMPDIR => 1);
         if ( ! defined($xsd_fh) ) {
             print "Error: Failed to create temporary XSD file in General_XML_Validate\n";
             $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
@@ -345,7 +347,9 @@ sub XML_Validate_XSD {
             #
             # Create a local file for the XML content
             #
-            ($xml_fh, $xml_filename) = tempfile( SUFFIX => '.xml');
+            ($xml_fh, $xml_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                                                SUFFIX => '.xml',
+                                                TMPDIR => 1);
             if ( ! defined($xml_fh) ) {
                 print "Error: Failed to create temporary XML file in General_XML_Validate\n";
                 unlink($xsd_filename);
@@ -409,10 +413,11 @@ sub XML_Validate_XSD {
             # Report runtime error only once
             #
             if ( ! $runtime_error_reported ) {
-                Record_Result($tcid, -1, -1, "",
-                              String_Value("Runtime Error") .
-                              " \"java -cp $xsdv_jar xsdvalidator.validate $xsd_filename $xml_filename\"\n" .
-                              " \"$output\"");
+                $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
+                                                        -1, -1, "",
+                                                        String_Value("Runtime Error") .
+                  " \"java -cp $xsdv_jar xsdvalidator.validate $xsd_filename $xml_filename\"\n" .
+                                                        " \"$output\"", $this_url);
                 $runtime_error_reported = 1;
             }
         }
@@ -444,10 +449,10 @@ sub XML_Validate_XSD {
         #
         # XSD Schema file not found
         #
-        print "XSD Schema \"$xsd_url\" file not found\n" if $debug;
+        print "XSD Schema \"$xsd_schema_url\" file not found\n" if $debug;
         $result_object = tqa_result_object->new($tcid, 1, $tc_desc, -1, -1, "",
                                                 String_Value("XSD Schema file not found") .
-                                                " $xsd_url", $this_url);
+                                                " $xsd_schema_url", $this_url);
     }
 
     #
