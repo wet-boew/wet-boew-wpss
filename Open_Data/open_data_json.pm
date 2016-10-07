@@ -402,7 +402,7 @@ sub Open_Data_JSON_Check_API {
     #
     if ( length($content) == 0 ) {
         print "No content passed to Open_Data_JSON_Check_API\n" if $debug;
-        Record_Result("OD_API_3", -1, 0, "",
+        Record_Result("OD_3", -1, 0, "",
                       String_Value("No content in API"));
     }
     else {

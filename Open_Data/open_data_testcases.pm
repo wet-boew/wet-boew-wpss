@@ -102,22 +102,15 @@ my (%testcase_description_en) = (
 # Standard on Open Data checkpoints
 #
 "OD_1",     "OD_1: Open Data URL",
-"OD_2",     "OD_2: Character Encoding Requirements",
-"OD_3",     "OD_3: Mark-up Language Requirements",
+"OD_2",     "OD_2: Character Encoding",
+"OD_3",     "OD_3: Validation",
 "OD_CSV_1", "OD_CSV_1: CSV Data",
 "OD_TXT_1", "OD_TXT_1: TXT Dictionary",
-"OD_ZIP_1", "OD_ZIP_1: ZIP Archive",
-
-#
-# Open Data API checkpoints
-#
-"OD_API_1",     "OD_API_1: Open Data URL",
-"OD_API_2",     "OD_API_2: Character Encoding Requirements",
-"OD_API_3",     "OD_API_3: Mark-up Language Requirements",
 
 #
 # PWGSC Open Data checkpoints
 #
+"TP_PW_OD_BOM",     "TP_PW_OD_BOM: UTF-8 BOM",
 "TP_PW_OD_CSV_1",   "TP_PW_OD_CSV_1: CSV Header Row",
 "TP_PW_OD_XML_1",   "TP_PW_OD_XML_1: XML Dictionary",
 "TP_PW_OD_ZIP_1",   "TP_PW_OD_ZIP_1: ZIP Archive",
@@ -128,22 +121,15 @@ my (%testcase_description_fr) = (
 # Standard on Open Data checkpoints
 #
 "OD_1",     "OD_1: URL des Données Ouvertes",
-"OD_2",     "OD_2: Exigences relatives à l'encodage des caractères",
-"OD_3",     "OD_3: Exigences relatives au langage de balisage",
+"OD_2",     "OD_2: Encodage de caractère",
+"OD_3",     "OD_3: Validation",
 "OD_CSV_1", "OD_CSV_1: Données CSV",
 "OD_TXT_1", "OD_TXT_1: TXT Dictionnaire",
-"OD_ZIP_1", "OD_ZIP_1: Archive ZIP",
-
-#
-# Open Data API checkpoints
-#
-"OD_API_1",     "OD_API_1: URL des Données Ouvertes",
-"OD_API_2",     "OD_API_2: Exigences relatives à l'encodage des caractères",
-"OD_API_3",     "OD_API_3: Exigences relatives au langage de balisage",
 
 #
 # PWGSC Open Data checkpoints
 #
+"TP_PW_OD_BOM",     "TP_PW_OD_BOM: UTF-8 BOM",
 "TP_PW_OD_CSV_1",   "TP_PW_OD_CSV_1: Lignes d'en-tête du CSV",
 "TP_PW_OD_XML_1",   "TP_PW_OD_XML_1: XML Dictionnaire",
 "TP_PW_OD_ZIP_1",   "TP_PW_OD_ZIP_1: Archive ZIP",
