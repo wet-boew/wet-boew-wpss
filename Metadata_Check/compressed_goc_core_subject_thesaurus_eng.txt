@@ -7,7 +7,7 @@
 # text delimited file.  It contains only the prefered subject terms.
 # This file was generated as follows
 #    compress_thesaurus_file.pl goc_core_subject_thesaurus_eng.txt
-# at: 11:42 2015-05-19
+# at: 13:14 2016-09-19
 #
 # This file should not be modified.
 #
@@ -36,6 +36,7 @@ accident prevention
 accidents
 accountability
 accounting
+accounting standards
 acculturation
 acid rain
 acquisitions (businesses)
@@ -99,6 +100,7 @@ alcoholic beverages
 alcoholism
 allergies
 allied forces
+allotments
 allowances
 almanacs
 alternative energy
@@ -109,6 +111,7 @@ amateur sports
 amendments
 amphibians
 analysis
+analytics
 anatomy
 animal diseases
 animal health
@@ -251,6 +254,7 @@ botany
 boundaries
 boundary waters
 braille
+branches
 breast cancer
 bridges
 briefing papers
@@ -310,6 +314,7 @@ cemeteries
 censorship
 census
 census data
+central provinces
 centralization
 ceramics
 cereals
@@ -327,6 +332,9 @@ chemical weapons
 chemicals
 chemistry
 chief electoral officer
+chief financial officer
+chief human resources officer
+chief information officer
 child care
 child custody
 child development
@@ -553,12 +561,14 @@ demographic statistics
 demography
 dental insurance
 departmental relations
+departments
 deportation
 design
 destroyers
 detection
 developing countries
 development
+development tools
 devolution
 diabetes
 diagnosis
@@ -566,10 +576,12 @@ diamonds
 dictionaries
 diesel fuel
 digital collections
+digital elevation data
 digital libraries
 digital recordings
 digital technology
 digitization
+digitized information
 diplomatic missions
 direct marketing
 directories
@@ -592,6 +604,7 @@ distribution
 diversification
 divestiture
 division of powers
+divisions
 divorce
 domestic animals
 domestic architecture
@@ -614,6 +627,7 @@ drug laws
 drug use
 drugs
 dumping
+duty to accommodate
 earth sciences
 earthquakes
 east-west relations
@@ -868,6 +882,9 @@ forests
 forgery
 forms
 fossils
+foster care placement
+foster children
+foster families
 franchises
 francophonie
 fraud
@@ -878,6 +895,7 @@ freight
 french in the workplace
 french language
 french second language
+frequently asked questions
 fresh water
 freshwater fish
 frigates
@@ -888,6 +906,7 @@ fuels
 fugitives from justice
 full-time employment
 functional foods
+functions
 funding
 fundraising
 fungi
@@ -940,10 +959,13 @@ gold
 goods and services tax
 governance
 government communications
+government departments
 government information
 government leader
 government libraries
+government plans
 government policy
+government priorities
 government publications
 government services
 governments
@@ -1010,6 +1032,7 @@ hibernation
 high technology
 hiking
 historic sites
+historical hydrometric data
 historical research
 historical societies
 history
@@ -1051,6 +1074,9 @@ hydroelectric plants
 hydrogeology
 hydrography
 hydrology
+hydrometric network
+hydrometric station
+hydrometry
 hydroponics
 hydropower
 hygiene
@@ -1104,6 +1130,7 @@ infectious diseases
 inflation
 influenza
 information
+information bulletin
 information dissemination
 information management
 information policy
@@ -1141,6 +1168,7 @@ interest rates
 intergovernmental organizations
 intergovernmental relations
 interlibrary loans
+internal audits
 internal migration
 international adoption
 international agreements
@@ -1276,6 +1304,7 @@ maintenance
 mammals
 management
 management information systems
+management tool
 mandate
 manufacturing industry
 manure
@@ -1335,6 +1364,7 @@ metadata
 metals
 metalworking industry
 metamorphic rocks
+metamorphism
 meteorological data
 meteorology
 methadone
@@ -1438,9 +1468,9 @@ networks
 newsletters
 newspapers
 nomenclature
+non-profit organizations
+non-renewable resources
 non-status indians
-non profit organizations
-non renewable resources
 nongovernmental organizations
 nonprescription drugs
 north-south relations
@@ -1474,6 +1504,7 @@ office automation
 office consolidations
 office equipment
 office management
+office supplies
 official languages
 official languages promotion
 official residences
@@ -1485,6 +1516,7 @@ oil spills
 old age
 olympic games
 ombudsman
+open data
 open government
 operations
 oral communication
@@ -1511,7 +1543,7 @@ panamerican games
 parasites
 parenting
 parents
-pari mutuel
+pari-mutuel betting
 parking
 parks
 parliament
@@ -1575,6 +1607,7 @@ plant diseases
 plants
 plastics industry
 pleasure craft
+poaching
 poetry
 poisoning
 polar regions
@@ -1583,6 +1616,7 @@ police services
 policing
 policy
 policy development
+policy instruments
 policy review
 political parties
 political science
@@ -1595,6 +1629,7 @@ popular culture
 population
 population distribution
 pornography
+portfolio
 position papers
 postal services
 posters
@@ -1628,6 +1663,7 @@ private pensions
 private schools
 private sector
 privatization
+pro bono legal services
 probate
 proceeds of crime
 processing
@@ -1639,6 +1675,7 @@ productivity
 products
 professional associations
 professional development
+profiles
 profitability
 program assessment
 program delivery
@@ -1700,6 +1737,7 @@ quality of life
 quality of service
 quality standards
 quarantine
+quarterly financial reports
 questionnaires
 quilting
 race relations
@@ -1719,6 +1757,7 @@ railway networks
 railway safety
 rates
 reading
+real-time hydrometric data
 real estate
 real estate industry
 real property services
@@ -1733,10 +1772,11 @@ recourse
 recoveries
 recreation
 recreational facilities
-recreational hunting
 recruiting
 recyclable materials
 recycling
+red tape burdens
+red tape reduction
 reference services
 reforestation
 reform
@@ -1787,6 +1827,7 @@ retention of staff
 retirement
 retraining
 review
+revision
 risk management
 risk premiums
 rivers
@@ -1844,6 +1885,7 @@ second languages
 secondary education
 secondary industry
 secondary schools
+sections
 sector analysis
 securities
 security intelligence
@@ -1862,6 +1904,7 @@ seniors
 service agreements
 service contracts
 service industry
+services
 severance pay
 sewing
 sexual harassment
@@ -1949,9 +1992,11 @@ standards
 standing offers
 state ceremonial
 statements
+stationery
 statistical analysis
 statistical profile
 statistics
+status indians
 status of disabled persons
 status of the elderly
 status of women
@@ -1965,7 +2010,6 @@ strategic management
 strategies
 stratigraphy
 streams
-street gangs
 structural geology
 student labour
 student loans
@@ -1973,9 +2017,11 @@ students
 studies abroad
 style manuals
 submarines
+submissions
 subsidized housing
 suicide
 supervision
+supplementary estimates
 supplements
 suppliers
 supplies
@@ -2021,7 +2067,6 @@ telecommunications
 telecommunications networks
 telecommunications policy
 teleconferencing
-telegrams
 telegraph
 telehealth
 telemedicine
@@ -2030,6 +2075,7 @@ telephones
 television
 telework
 temperature
+templates
 temporary employment
 tenders
 term loans
@@ -2055,6 +2101,7 @@ time zones
 tissues
 tobacco industry
 tolls
+tooling
 tools
 topographical maps
 topography
@@ -2091,8 +2138,11 @@ transport
 transport industry
 transport policy
 transportation safety
+trapping
 travel
 travel documents
+treasury board
+treasury board secretariat
 trees
 trends
 trucking industry
@@ -2114,6 +2164,7 @@ user education
 uses
 utilities
 vacations
+values
 vandalism
 vegetable crops
 vegetables
@@ -2173,8 +2224,8 @@ weather
 weather forecasts
 weather warnings
 weaving
-web sites
 web usability
+websites
 weeds
 western provinces
 wetlands
