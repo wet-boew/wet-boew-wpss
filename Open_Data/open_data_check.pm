@@ -60,7 +60,6 @@ use Encode;
 use File::Basename;
 use Archive::Zip qw(:ERROR_CODES);
 use JSON;
-use File::Temp qw/ tempfile tempdir /;
 
 
 #***********************************************************************
@@ -483,7 +482,6 @@ sub Record_Result {
 # Name: Check_Content_Encoding
 #
 # Parameters: filename - file containing content
-#             tcid - testcase identifier
 #
 # Description:
 #
@@ -491,7 +489,7 @@ sub Record_Result {
 #
 #***********************************************************************
 sub Check_Content_Encoding {
-    my ($filename, $tcid) = @_;
+    my ($filename) = @_;
 
     my ($output, $content);
 
@@ -516,7 +514,7 @@ sub Check_Content_Encoding {
             # Not UTF 8 content
             #
             $output =  eval { decode('utf8', $content, Encode::FB_WARN);};
-            Record_Result($tcid, 0, -1, "$output",
+            Record_Result("OD_2", 0, -1, "$output",
                           String_Value("Character encoding is not UTF-8"));
         }
     }
@@ -531,7 +529,6 @@ sub Check_Content_Encoding {
 #
 # Parameters: resp - HTTP response object
 #             filename - file containing content
-#             tcid - testcase identifier
 #
 # Description:
 #
@@ -540,7 +537,7 @@ sub Check_Content_Encoding {
 #
 #***********************************************************************
 sub Check_Encoding {
-    my ($resp, $filename, $tcid) = @_;
+    my ($resp, $filename) = @_;
 
     #
     # Does the HTTP response object indicate the content is UTF-8
@@ -550,7 +547,7 @@ sub Check_Encoding {
         print "UTF-8 content\n" if $debug;
     }
     else {
-        Check_Content_Encoding($filename, $tcid);
+        Check_Content_Encoding($filename);
     }
 }
 
@@ -599,16 +596,16 @@ sub Check_Dictionary_URL {
     }
 
     #
+    # Check for UTF-8 encoding
+    #
+    Check_Encoding($resp, $filename);
+
+    #
     # Is this a plain text file ?
     #
     if ( ($mime_type =~ /text\/plain/) ||
          ($format =~ /^txt$/i) ||
          ($url =~ /\.txt$/i) ) {
-        #
-        # Check for UTF-8 encoding
-        #
-        Check_Encoding($resp, $filename, "OD_2");
-
         #
         # Check plain text data dictionary
         #
@@ -626,11 +623,6 @@ sub Check_Dictionary_URL {
             ($mime_type =~ /text\/xml/) ||
             ($format =~ /^xml$/i) ||
             ($url =~ /\.xml$/i) ) {
-        #
-        # Check for UTF-8 encoding
-        #
-        Check_Encoding($resp, $filename, "OD_2");
-
         #
         # Check XML data dictionary
         #
@@ -680,7 +672,7 @@ sub Check_Resource_URL {
     #
     # Check for UTF-8 encoding
     #
-    Check_Encoding($resp, $content, "OD_2");
+    Check_Encoding($resp, $content);
 }
 
 #***********************************************************************
@@ -739,7 +731,7 @@ sub Check_Data_File_URL {
         # Check for UTF-8 encoding
         #
         print "CSV data file\n" if $debug;
-        Check_Encoding($resp, $filename, "OD_2");
+        Check_Encoding($resp, $filename);
 
         #
         # Check CSV data file
@@ -798,7 +790,7 @@ sub Check_Data_File_URL {
         #
         # Check for UTF-8 encoding
         #
-        Check_Encoding($resp, $filename, "OD_2");
+        Check_Encoding($resp, $filename);
 
         #
         # Check JSON data file
@@ -820,7 +812,7 @@ sub Check_Data_File_URL {
         #
         # Check for UTF-8 encoding
         #
-        Check_Encoding($resp, $filename, "OD_2");
+        Check_Encoding($resp, $filename);
 
         #
         # Check XML data file
@@ -1035,7 +1027,7 @@ sub Check_API_URL {
             #
             # Check for UTF-8 encoding
             #
-            Check_Encoding($resp, $filename, "OD_API_2");
+            Check_Encoding($resp, $filename);
 
             #
             # Check JSON API
@@ -1054,7 +1046,7 @@ sub Check_API_URL {
             #
             # Check for UTF-8 encoding
             #
-            Check_Encoding($resp, $filename, "OD_API_2");
+            Check_Encoding($resp, $filename);
 
             #
             # Check XML API
@@ -1068,7 +1060,7 @@ sub Check_API_URL {
             #
             # Unexpected mime-type for API
             #
-            Record_Result("OD_API_3", -1, -1, "",
+            Record_Result("OD_3", -1, -1, "",
                           String_Value("Invalid mime-type for API")
                            . " \"" . $mime_type . "\"");
         }
@@ -1359,7 +1351,7 @@ sub Open_Data_Check_Zip_Content {
     if ( $zip_status != AZ_OK ) {
         print "Error reading archive, status = $zip_status\n" if $debug;
         undef($zip);
-        Record_Result("OD_ZIP_1", -1, -1, "",
+        Record_Result("OD_3", -1, -1, "",
                       String_Value("Error in reading ZIP, status =")
                        . " $zip_status");
     }
@@ -1456,7 +1448,7 @@ sub Check_Open_Data_Description_URL {
         #
         # Check for UTF-8 encoding
         #
-        Check_Encoding($resp, $filename, "OD_2");
+        Check_Encoding($resp, $filename);
     }
 }
 
