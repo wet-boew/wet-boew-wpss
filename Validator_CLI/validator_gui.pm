@@ -1375,10 +1375,20 @@ sub Read_Password {
     #
     while( 1 ) {
         #
-        # Do we have enter, either 13 for Windows or 10 for Linux.
+        # Read a keystroke from stdin
         #
         $key = ReadKey(0);
-        if ( (ord($key) == 13) || (ord($key) == 10) ) {
+        
+        #
+        # Did we get a character ?
+        #
+        if ( ! defined($key) ) {
+            last;
+        }
+        #
+        # Do we have enter, either 13 for Windows or 10 for Linux.
+        #
+        elsif ( (ord($key) == 13) || (ord($key) == 10) ) {
             last;
         }
         #
