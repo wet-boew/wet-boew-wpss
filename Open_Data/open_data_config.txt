@@ -59,18 +59,11 @@ tcid OD_2
 tcid OD_3
 tcid OD_CSV_1
 tcid OD_TXT_1
-tcid OD_ZIP_1
-
-#
-# Open Data API
-#
-tcid OD_API_1
-tcid OD_API_2
-tcid OD_API_3
 
 #
 # PWGSC Open Data
 #
+tcid TP_PW_OD_BOM
 tcid TP_PW_OD_CSV_1
 tcid TP_PW_OD_XML_1
 tcid TP_PW_OD_ZIP_1
@@ -110,14 +103,6 @@ tcid OD_2
 tcid OD_3
 tcid OD_CSV_1
 tcid OD_TXT_1
-tcid OD_ZIP_1
-
-#
-# Open Data API
-#
-tcid OD_API_1
-tcid OD_API_2
-tcid OD_API_3
 
 #
 #***********************************************************************
