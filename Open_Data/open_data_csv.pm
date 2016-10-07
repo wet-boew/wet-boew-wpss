@@ -54,10 +54,11 @@ package open_data_csv;
 use strict;
 use URI::URL;
 use File::Basename;
-use Text::CSV;
 use IO::Handle;
 use File::Temp qw/ tempfile tempdir /;
 use HTML::Entities;
+use Digest::MD5 qw(md5_hex);
+use Encode;
 
 #***********************************************************************
 #
@@ -108,12 +109,15 @@ my %string_table_en = (
     "csv-validator failed",          "csv-validator failed",
     "Data pattern",                  "Data pattern",
     "Duplicate column header",       "Duplicate column header",
+    "Duplicate content in columns",  "Duplicate content in columns",
+    "Duplicate row content, first instance at", "Duplicate row content, first instance at row",
     "expecting",                     "expecting",
     "failed for value",              "failed for value",
     "Found at",                      "Found at",
     "Inconsistent number of fields, found", "Inconsistent number of fields, found ",
     "Missing header row",            "Missing header row",
     "Missing header row terms",      "Missing header row terms",
+    "Missing UTF-8 BOM",             "Missing UTF-8 BOM",
     "No content in file",            "No content in file",
     "No content in row",             "No content in row",
     "Parse error in line",           "Parse error in line",
@@ -126,12 +130,15 @@ my %string_table_fr = (
     "csv-validator failed",          "csv-validator a échoué",
     "Data pattern",                  "Modèle de données",
     "Duplicate column header",       "Duplicate tête de colonne",
+    "Duplicate content in columns",  "Dupliquer le contenu dans les colonnes",
+    "Duplicate row content, first instance at", "Dupliquer le contenu en ligne, première instance à ligne",
     "expecting",                     "expectant",
     "failed for value",              "a échoué pour la valeur",
     "Found at",                      "Trouvé à",
     "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté ",
     "Missing header row",            "Manquant lignes d'en-tête",
     "Missing header row terms",      "Manquant termes de lignes d'en-tête",
+    "Missing UTF-8 BOM",             "Manquant UTF-8 BOM",
     "No content in file",            "Aucun contenu dans fichier",
     "No content in row",             "Aucun contenu dans ligne",
     "Parse error in line",           "Parse error en ligne",
@@ -161,6 +168,11 @@ sub Set_Open_Data_CSV_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+    
+    #
+    # Set debug flag in supporting modules
+    #
+    CSV_Parser_Debug($debug);
 }
 
 #**********************************************************************
@@ -385,14 +397,15 @@ sub Record_Result {
 sub Check_First_Data_Row {
     my ($dictionary, @fields) = @_;
 
-    my ($count, $field, @unmatched_fields, %headers, @headings);
+    my ($count, $field, @unmatched_fields, %headers);
+    my (@headings) = ();
     
     #
     # Do we have any dictionary terms ?
     #
     if ( keys(%$dictionary) == 0 ) {
         print "No terms to check for first row of CSV file\n" if $debug;
-        return();
+        return(@headings);
     }
     
     #
@@ -403,13 +416,10 @@ sub Check_First_Data_Row {
     foreach $field (@fields) {
         #
         # Don't convert to lower case, terms are case sensitive
-        # $field = lc($field);
-        #
         # Check to see if it matches a dictionary entry.
         #
         $field =~ s/^\s*//g;
         $field =~ s/\s*$//g;
-        #$field = encode_entities($field);
         if ( defined($$dictionary{$field}) ) {
             print "Found term/field match for \"$field\"\n" if $debug;
             $count++;
@@ -453,11 +463,6 @@ sub Check_First_Data_Row {
         foreach $field (@fields) {
             push(@headings, $$dictionary{$field});
         }
-        
-        #
-        # Return the list of headers
-        #
-        return(@headings);
     }
     #
     # Did we get a match on atleast 25% of the fields ? If so we expect
@@ -465,7 +470,7 @@ sub Check_First_Data_Row {
     #
     elsif ( $count >= (@fields / 4) ) {
         print "Found atleast 25% match on fields and terms\n" if $debug;
-        Record_Result("OD_CSV_1", 1, 0, "",
+        Record_Result("TP_PW_OD_CSV_1", 1, 0, "",
                       String_Value("Missing header row terms") .
                       " \"" . join(", ", @unmatched_fields) . "\"");
     }
@@ -486,9 +491,8 @@ sub Check_First_Data_Row {
     }
     
     #
-    # No headers found, return an empty list
+    # Return list of headings found
     #
-    @headings = ();
     return(@headings);
 }
 
@@ -557,6 +561,14 @@ sub Check_UTF8_BOM {
     }
     
     #
+    # Are we missing the BOM ?
+    #
+    if ( ! $have_bom ) {
+        Record_Result("TP_PW_OD_BOM", 1, 0, $line,
+                      String_Value("Missing UTF-8 BOM"));
+    }
+    
+    #
     # Return BOM flag
     #
     return($have_bom);
@@ -596,7 +608,9 @@ sub Run_CSV_Validator {
         # Construct a cvs-validator schema file with the
         # column conditions.
         #
-        ($csvs_fh, $csvs_filename) = tempfile( SUFFIX => '.csvs');
+        ($csvs_fh, $csvs_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                                              SUFFIX => '.csvs',
+                                              TMPDIR => 1);
         if ( ! defined($csvs_fh) ) {
             print "Error: Failed to create temporary file in Run_CSV_Validator\n";
             print STDERR "Error: Failed to create temporary file in Run_CSV_Validator\n";
@@ -668,7 +682,9 @@ sub Run_CSV_Validator {
                 # reports problems with the header line.
                 #
                 print "Have BOM, create temporary CSV file before running csv-validator\n" if $debug;
-                ($temp_csv_fh, $csv_filename) = tempfile( SUFFIX => '.csv');
+                ($temp_csv_fh, $csv_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                                                         SUFFIX => '.csv',
+                                                         TMPDIR => 1);
                 if ( ! defined($temp_csv_fh) ) {
                     print "Error: Failed to create temporary file in Run_CSV_Validator\n";
                     print STDERR "Error: Failed to create temporary file in Run_CSV_Validator\n";
@@ -777,7 +793,10 @@ sub Open_Data_CSV_Check_Data {
     my ($line, @fields, $line_no, $status, $found_fields, $field_count);
     my ($csv_file, $csv_file_name, $rows, $message, $content);
     my ($row_content, $eval_output, @headings, $i, $regex, $heading, $data);
-    my ($have_regex, $have_bom);
+    my ($have_regex, $have_bom, %row_checksum, $checksum);
+    my (%duplicate_columns, %duplicate_columns_flag, $j, $this_field);
+    my ($duplicate_columns_ptr, $duplicate_column_list, $other_heading);
+    my (%blank_zero_column_flag);
 
     #
     # Do we have a valid profile ?
@@ -824,16 +843,18 @@ sub Open_Data_CSV_Check_Data {
     #
     # Create a document parser
     #
-    $parser = Text::CSV->new({ binary => 1,
-                               eol => $\,
-                               max_line_length => 100000 });
+    $parser = csv_parser->new();
+    if ( ! defined($parser) ) {
+        print STDERR "Error: Failed to create CSV parser in Open_Data_CSV_Check_Data\n";
+        exit(1);
+    }
 
     #
     # Parse each line/record of the content
     #
-    $eval_output = eval { $rows = $parser->getline($csv_file); 1 };
+    $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
     $line_no = 0;
-    while ( $eval_output && defined($rows) ) {
+    while ( $eval_output && defined($rows) && ( ! $parser->eof()) ) {
         #
         # Increment record/line number
         #
@@ -873,6 +894,14 @@ sub Open_Data_CSV_Check_Data {
             print "Expected fields count = $field_count\n" if $debug;
             
             #
+            # Initialize the blank/zero column flag. This is used to track
+            # whether or not the column contains any non-blank/non-zero data.
+            #
+            for ($i = 0; $i < $field_count; $i++) {
+                $blank_zero_column_flag{$i} = 1;
+            }
+            
+            #
             # If we did find a heading row, skip to the next (data) row
             #
             $have_regex = 0;
@@ -889,23 +918,29 @@ sub Open_Data_CSV_Check_Data {
                         last;
                     }
                 }
-            }
 
-            #
-            # Get next line from the CSV file
-            #
-            $eval_output = eval { $rows = $parser->getline($csv_file); 1 };
-            next;
+                #
+                # Get next line from the CSV file
+                #
+                $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
+                next;
+            }
         }
 
         #
-        # Check for a blank row.  Join all fields and remove whitespace
+        # Check for a blank row, remove whitespace from content string.
         #
         $row_content = join("", @fields);
         $row_content =~ s/\s|\n|\r//g;
         if ( $row_content eq "" ) {
             Record_Result("OD_CSV_1", $line_no, 0, "$line",
-                  String_Value("No content in row"));
+                          String_Value("No content in row"));
+
+            #
+            # Get next line from the CSV file
+            #
+            $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
+            next;
         }
         #
         # Does the field count match the expected number of fields ?
@@ -913,9 +948,9 @@ sub Open_Data_CSV_Check_Data {
         elsif ( $field_count != @fields ) {
             $found_fields = @fields;
             Record_Result("OD_CSV_1", $line_no, 0, "$line",
-                  String_Value("Inconsistent number of fields, found") .
-                   " $found_fields " . String_Value("expecting") .
-                   " $field_count");
+                          String_Value("Inconsistent number of fields, found") .
+                          " $found_fields " . String_Value("expecting") .
+                          " $field_count");
             if ( $debug ) {
                print "Field values are\n";
                $field_count = 0;
@@ -924,6 +959,12 @@ sub Open_Data_CSV_Check_Data {
                    print " Field $field_count \"$_\"\n";
                }
             }
+
+            #
+            # Get next line from the CSV file
+            #
+            $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
+            next;
         }
         #
         # Do we have data regular expressions ? If so check data quality
@@ -943,21 +984,132 @@ sub Open_Data_CSV_Check_Data {
                         #
                         # Regular expression pattern fails
                         #
-                        Record_Result("OD_CSV_1", $line_no, 0, "$line",
+                        print "Regular expression failed for column $i, regex = $regex, data = $data\n" if $debug;
+                        Record_Result("OD_CSV_1", $line_no, ($i + 1), "$line",
                                       String_Value("Data pattern") .
                                       " \"$regex\" " .
                                       String_Value("failed for value") .
                                       " \"$data\" " .
-                                      String_Value("Column") . " \"" . $heading->term() . "\"");
+                                      String_Value("Column") . " \"" .
+                                      $heading->term() . "\" (#" . ($i + 1) . ")");
                     }
                 }
             }
         }
             
         #
+        # Generate a checksum of the row content.
+        #
+        $checksum = md5_hex(encode_utf8(join("", @fields)));
+
+        #
+        # Have we seen this checksum before ? If so we have a duplicate
+        # row of content.
+        #
+        print "Check for duplicate row, checksum = $checksum\n" if $debug;
+        if ( defined($row_checksum{$checksum}) ) {
+            Record_Result("OD_CSV_1", $line_no, 0, "$line",
+                          String_Value("Duplicate row content, first instance at") .
+                          " " . $row_checksum{$checksum});
+        }
+        else {
+            #
+            # Record this checksum and row number
+            #
+            $row_checksum{$checksum} = $line_no;
+        }
+
+        #
+        # Check data cells for duplicate data.
+        #
+        # If we do not have any recognized headings (i.e. didn't hava a data
+        # dictionary to check against) and this is row 1 of the CSV, we skip
+        # checking for duplicate column content.  This row may be a heading row
+        # and not a data row.  The heading row may not have duplicate column
+        # values, but the subsequent data rows may have duplicates.  If we
+        # include the possible heading row in the check we may miss the
+        # duplicate data columns.
+        #
+        if ( ($line_no == 1) && (@headings == 0) ) {
+            print "Skip field duplicates check for row 1 with no headings\n" if $debug;
+        }
+        else {
+            print "Check for field duplicates\n" if $debug;
+            for ($i = 0; $i < @fields; $i++) {
+                #
+                # Do we have any non-blank/non-zero data in this field ?
+                # If so reset the blank column flag
+                #
+                if ( ($fields[$i] ne "") && ($fields[$i] ne "0") ) {
+                    $blank_zero_column_flag{$i} = 0;
+                }
+
+                #
+                # Do we have a value for the duplicate columns flag ?
+                # If we don't, or it is true, we have not ruled out the
+                # possibility that this column is a duplicate.
+                #
+                if ( (! defined($duplicate_columns_flag{$i})) ||
+                     $duplicate_columns_flag{$i} ) {
+                    #
+                    # Get the current field value and a pointer to the
+                    # hash table of which columns were previously found
+                    # to be duplicates
+                    #
+                    print "Check for duplicates in row $line_no, column $i\n" if $debug;
+                    $this_field = $fields[$i];
+                    $duplicate_columns_ptr = $duplicate_columns{$i};
+
+                    #
+                    # Check this field against all other fields that come
+                    # after it in the row (no need to check earlier fields as
+                    # they would have checked against this field).
+                    #
+                    # Clear the duplicate column flag before the loop.  If a
+                    # duplicate is found, the flag is reset.  If no duplicate
+                    # is found we will not have to check this column again for
+                    # any subsequent rows of data.
+                    #
+                    $duplicate_columns_flag{$i} = 0;
+                    for ($j = $i + 1; $j < @fields; $j++) {
+                        #
+                        # Do we have a list of columns that are duplicates (from
+                        # checks of previous rows)? If so, don't check the columns
+                        # that previously were not duplicates (we have to have
+                        # duplicate values for columns in every row).
+                        #
+                        print "Check for duplicates in row $line_no, column $i and $j\n" if $debug;
+                        if ( (! defined($duplicate_columns_ptr)) ||
+                             (defined($$duplicate_columns_ptr{$j})) ) {
+                            #
+                            # Do field values match ?
+                            #
+                            if ( $this_field eq $fields[$j] ) {
+                                #
+                                # Duplicate content in fields $i and $j
+                                # Add this column number to the set of duplicate
+                                # columns and set the duplicate columns flag for the
+                                # main column being checked.
+                                #
+                                print "Duplicate content fields $i and $j\n" if $debug;
+                                if ( ! defined($duplicate_columns_ptr) ) {
+                                    my (%columns);
+                                    $duplicate_columns_ptr = \%columns;
+                                    $duplicate_columns{$i} = $duplicate_columns_ptr;
+                                }
+                                $$duplicate_columns_ptr{$j} = $j;
+                                $duplicate_columns_flag{$i} = 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        #
         # Get next line from the CSV file
         #
-        $eval_output = eval { $rows = $parser->getline($csv_file); 1 };
+        $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
     }
 
     #
@@ -965,8 +1117,8 @@ sub Open_Data_CSV_Check_Data {
     #
     $last_csv_row_count = $line_no;
     if ( ! $eval_output ) {
-        print STDERR "parser->getline fail, eval_output = \"$@\"\n";
-        print "parser->getline fail, eval_output = \"$@\"\n" if $debug;
+        print STDERR "parser->getrow fail, eval_output = \"$@\"\n";
+        print "parser->getrow fail, eval_output = \"$@\"\n" if $debug;
         Record_Result("OD_CSV_1", $line_no, 0, $line,
                       String_Value("Parse error in line") .
                       " \"$@\"");
@@ -990,6 +1142,73 @@ sub Open_Data_CSV_Check_Data {
         Record_Result("OD_3", -1, 0, "", String_Value("No content in file"));
     }
     close($csv_file);
+    
+    #
+    # Check columns for duplicates, only if we have at least 10 rows of data
+    #
+    if ( $line_no > 9 ) {
+        undef $heading;
+        for ($i = 0; $i < @fields; $i++) {
+            #
+            # Get heading, if we have defined headings.
+            #
+            if ( @headings > 0 ) {
+                $heading = $headings[$i];
+            }
+            
+            #
+            # Does the column contain any non-blank/non-zero content ?
+            # (the assumption is that a column could be blank and we don't
+            # want to report duplicate columns if the columns are blank).
+            #
+            if ( defined($blank_zero_column_flag{$i}) && $blank_zero_column_flag{$i} ) {
+                #
+                # Skip this field for duplicates reporting
+                #
+                next;
+            }
+
+            #
+            # Do we have a value for the duplicate columns flag and
+            # is it true ?
+            #
+            if ( defined($duplicate_columns_flag{$i}) &&
+                 $duplicate_columns_flag{$i} ) {
+                #
+                # This column has other columns with duplicate
+                # content.
+                #
+                $duplicate_columns_ptr = $duplicate_columns{$i};
+                
+                #
+                # Get column headings, if we have defined headings.
+                #
+                if ( @headings > 0 ) {
+                    $duplicate_column_list = "\"" . $heading->term() .
+                                             "\" (#" . ($i + 1) . ")";
+                    $duplicate_column_list = join(", ", keys(%$duplicate_columns_ptr));
+                    foreach $j (keys(%$duplicate_columns_ptr)) {
+                        $other_heading = $headings[$j];
+                        $duplicate_column_list .= ", \"" . $other_heading->term() .
+                                                  "\" (#" . ($j + 1) . ")";
+                    }
+                }
+                else {
+                    #
+                    # Just include column numbers in the message
+                    #
+                    $duplicate_column_list = "" . ($i + 1);
+                    foreach $j (keys(%$duplicate_columns_ptr)) {
+                        $duplicate_column_list .= ", " . ($j + 1);
+                    }
+                }
+                print "Duplicate columns $duplicate_column_list\n" if $debug;
+                Record_Result("OD_CSV_1", -1, $i + 1, "$line",
+                              String_Value("Duplicate content in columns") .
+                              " $duplicate_column_list");
+            }
+        }
+    }
     
     #
     # Check data conditions for data columns
@@ -1056,7 +1275,8 @@ sub Open_Data_CSV_Check_Get_Row_Count {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("tqa_result_object", "open_data_testcases");
+    my (@package_list) = ("csv_parser", "open_data_testcases",
+                          "tqa_result_object");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
