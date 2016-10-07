@@ -559,7 +559,7 @@ sub Run_pdfchecker {
     # Create a temporary file for the PDF content.
     #
     print "Run_pdfchecker $this_url\n" if $debug;
-    ($fh, $pdf_file) = tempfile( SUFFIX => '.pdf');
+    ($fh, $pdf_file) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.pdf');
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in Run_pdfchecker\n";
         return;
@@ -1047,12 +1047,12 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
-    $pdf_checker_cmnd = "pdfchecker\\pdfchecker.py";
+    $pdf_checker_cmnd = "bin\\pdfchecker\\pdfchecker.py";
 } else {
     #
     # Not Windows.
     #
-    $pdf_checker_cmnd = "python \"$program_dir/pdfchecker/pdfchecker.py\" 2>\&1";
+    $pdf_checker_cmnd = "python \"$program_dir/bin/pdfchecker/pdfchecker.py\" 2>\&1";
 }
 
 #
