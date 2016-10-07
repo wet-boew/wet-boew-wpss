@@ -333,6 +333,7 @@ sub Initialize_Test_Results {
     $tag_count = 0;
     $save_text_between_tags = 0;
     $saved_text = "";
+    $xsd_url = "";
 }
 
 #***********************************************************************
@@ -494,13 +495,54 @@ sub Declaration_Handler {
 sub Data_Start_Handler {
     my ($self, $tagname, %attr) = @_;
 
-    my ($key, $value);
+    my (@fields, $directory, $file_name);
 
     #
     # Check tags.
     #
     print "Data_Start_Handler tag $tagname\n" if $debug;
     $tag_count++;
+
+    #
+    # Check for a possible xsi:schemaLocation attribute
+    #
+    if ( defined($attr{"xsi:schemaLocation"}) ) {
+        $xsd_url = $attr{"xsi:schemaLocation"};
+        print "Found xsi:schemaLocation attribute, value = $xsd_url\n" if $debug;
+
+        #
+        # Get the URL directory and file name components
+        #
+        @fields = split(/\s+/, $xsd_url);
+
+        #
+        # Join the URL components together
+        #
+        if ( @fields > 1 ) {
+            $directory = $fields[0];
+            $file_name = $fields[1];
+
+            #
+            # Is the file name component an absolute URL ?
+            #
+            if ( $file_name =~ /^http[s]?:/ ) {
+                $xsd_url = $file_name;
+            }
+            #
+            # Does the directory URL have a trailing slash ?
+            #
+            elsif ( $directory =~ /\/$/ ) {
+                $xsd_url = $directory . $file_name;
+            }
+            else {
+                $xsd_url = "$directory/$file_name";
+            }
+        }
+        else {
+            $xsd_url = "";
+        }
+        print "XSD url = $xsd_url\n" if $debug;
+    }
 }
 
 #***********************************************************************
@@ -544,6 +586,7 @@ sub Open_Data_XML_Check_Data {
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($eval_output);
+    my ($validation_failed) = 0;
 
     #
     # Do we have a valid profile ?
@@ -598,13 +641,28 @@ sub Open_Data_XML_Check_Data {
         $eval_output =~ s/\n at .* line \d*$//g;
         Record_Result("OD_3", -1, 0, "$eval_output",
                       String_Value("Fails validation"));
+        $validation_failed = 1;
+    }
+    #
+    # Did we get a XSD schema URL ?
+    #
+    elsif ( $xsd_url ne "" ) {
+        #
+        # Validate the XML against it.
+        #
+        $result_object = XML_Validate_XSD($this_url, "", $filename, $xsd_url, "OD_3",
+                                          "OD_3:" . String_Value("Fails validation"));
+        if ( defined($result_object) ) {
+            push(@tqa_results_list, $result_object);
+            $validation_failed = 1;
+        }
     }
     #
     # Did we find some tags (may or may not be data) ?
     #
     elsif ( $tag_count == 0 ) {
-        Record_Result("OD_3", -1, 0, "",
-                      String_Value("No content in file"));
+        Record_Result("OD_3", -1, 0, "", String_Value("No content in file"));
+        $validation_failed = 1;
     }
 
     #
@@ -683,6 +741,7 @@ sub Dictionary_Start_Handler {
     #
     if ( defined($attr{"xsi:schemaLocation"}) ) {
         $xsd_url = $attr{"xsi:schemaLocation"};
+        print "Found xsi:schemaLocation attribute, value = $xsd_url\n" if $debug;
 
         #
         # Get the URL directory and file name components
@@ -699,7 +758,7 @@ sub Dictionary_Start_Handler {
             #
             # Is the file name component an absolute URL ?
             #
-            if ( $file_name =~ /^http[s]:/ ) {
+            if ( $file_name =~ /^http[s]?:/ ) {
                 $xsd_url = $file_name;
             }
             #
@@ -715,6 +774,7 @@ sub Dictionary_Start_Handler {
         else {
             $xsd_url = "";
         }
+        print "XSD url = $xsd_url\n" if $debug;
     }
 
     #
@@ -766,7 +826,6 @@ sub Initialize_Dictionary_Globals {
     #
     $have_pwgsc_data_dictionary = 0;
     $tag_count = 0;
-    $xsd_url = "";
 }
 
 #***********************************************************************
@@ -859,7 +918,7 @@ sub Open_Data_XML_Check_Dictionary {
         # Validate the XML against it.
         #
         $result_object = XML_Validate_XSD($this_url, "", $filename, $xsd_url, "OD_3",
-                                          String_Value("Fails validation"));
+                                          "OD_3:" . String_Value("Fails validation"));
         if ( defined($result_object) ) {
             push(@tqa_results_list, $result_object);
             $validation_failed = 1;
