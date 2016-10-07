@@ -1,4 +1,4 @@
-WPSS Validation Tool version 6.0.0
+WPSS Validation Tool version 6.1.0
 -----------------------------------
 
 The WPSS Validation Tool provides web developers and quality assurance testers the ability to perform a number of web site and web page validation tasks at one time. The tool crawls a site to find all of the documents then analyses each document with a number of validation tools.
@@ -7,46 +7,43 @@ Major Changes
 ----------------------
 This version of the tool makes use of a JavaScript aware headless user agent to retrieve HTML web documents.  The user agent executes JavaScript when the page loads and provides generated HTML mark-up to be used by the WPSS_Tool.
 
-Version 6.0.0 contains the following updates and additions
+Version 6.1.0 contains the following updates and additions
 
 WPSS_Tool
 ---------
 
-    - Use PhantomJS to get web page markup after initial JavaScript is run on the page. Use generated 
-      source for most checks. Mark up validation will be run on the original (not generated) source.
-    - Use LWP::RobotUA::Cached module to implement a disk cache to store local copies of documents 
-      retrieved.
-    - Use a connection cache to maintain connections to web servers between document requests to 
-      improve performance.
-    - Accept aria-label, aria-labelledby or title attribute as well as alt attribute for text 
-      alternatives for images - WCAG_2.0-F65
-    - Generate a snapshot image of web pages when content saving is enabled.
-    - Remove check for role="presentation" since generated mark-up from WET pages contains a 
-      large number of these attributes, leading to false failures - WCAG_2.0-F92
-    - Validate EPUB files with the epubcheck tool.
-    - Ignore text in <style> tags, is not part of the page content - SWU.
-    - When extracting links from web pages, if link is within a list, use list introduction text as 
-      part of the anchor text.
-    - Accept <title>/dc.title matches is the dc.title is a substring of the <title> - 
-      TITLE_DC_TITLE_MISMATCH
-    - Add SSL_verify_mode setting to crawler to ignore SSL certificate host name verification.
-    - Skip consistent labelling checks for on page anchors - WCAG_2.0-G197
-    - Allow for nested forms in HTML.
-    - Include up to 3 lines of source context in HTML error messages.
-    - Avoid duplicate WCAG_2.0-F30 error messages for the same image tag.
-    - Check for xlink attribute in anchor tags - WCAG_2.0-G115
-    - Include help URL for testcases in CSV results file.
-    - Speed up PWGSC template file checking by checking only critical files.
-    - Get link details from generated content in addition to the original content.
-    - Handle the defer attribute on <script> tags - Mobile
-    - Don't report errors for <script> tags that are part of the generated content - Mobile
-
+    - Don't check alt text for images inside of anchor tags as the same image
+      may be used with different alt text for different purposes (e.g. a
+      calendar image to open a widget in a form) - WCAG_2.0-G197
+    - Check for inputs of type email in login forms.
+    - Allow for extra links in skip links section.  Generated markup
+      includes 1 extra link - SWU_TEMPLATE
+    - Report duplicate label id failures as WCAG 2.0 F77 (F17 has been
+      removed from WCAG).
+    - Add configuration items to set the size of the URL list and direct HTML input buffer sizes.
+    - Check for PWGSC web analytics code (i.e. piwik) on pages - TP_PW_ANALYTICS
+    - Check <meta name="viewport" for possible text resize restrictions - WCAG_2.0-SC1.4.4
+    - Generate a summary results CSV file similar to the summary at the bottom of the text 
+       results.
+    - Treat tables with role="presentation" as layout tables. Check for summary, caption or 
+       headers in layout tables.
+    - Report the use of white space to control formatting only once for a given 
+       string - WCAG_2.0-F32
+    - Use the definition term <dt> as possible introduction text for a list - WCAG_2.0-G115
+    - Report a runtime error if any external tool fails to run.
+    - Skip checking of id attribute values for <script> tags.
 
 Open Data Tool
 --------------
 
-    - Report URL access problems in the crawl tab if open data URLs cannot be accessed or are malformed.
-    - Include help URL for testcases in CSV results file.
+    - Check for duplicate column headers in CSV files - TP_PW_OD_CSV_1
+    - Check for duplicate data dictionary definitions - OD_TXT_1
+    - If an XML file contains a schema specification using the xsi:schemaLocation 
+       attribute, validate the XML against the schema.
+    - Perform XML schema validation using the xsd-validator tool.
+    - Parse and extract data dictionary details (headings, definitions, etc.) from 
+       PWGSC formatted XML data dictionaries.
+    - Perform CSV data validation using the csv-validator tool.
 
 
 WPSS_Tool Installer
@@ -64,4 +61,4 @@ The WPSS_Tool has been tested on the following platforms
 - Windows 7 (32 bit), Strawberry Perl 5.18 (32 bit), Python 2.7.6
 
 The WPSS Tool installer is available as a release in this repository
-  - https://github.com/wet-boew/wet-boew-wpss/releases/download/6.0.0/WPSS_Tool.exe
+  - https://github.com/wet-boew/wet-boew-wpss/releases/download/6.1.0/WPSS_Tool.exe
