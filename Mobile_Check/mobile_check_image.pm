@@ -388,7 +388,8 @@ sub JPEG_Image_Details {
     # Write content to a file for analysis
     #
     print "JPEG_Image_Details\n" if $debug;
-    ($fh, $filename) = tempfile( SUFFIX => '.jpg');
+    ($fh, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.jpg',
+                                TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in JPEG_Image_Details\n";
         return;
@@ -498,7 +499,8 @@ sub PNG_Image_Details {
     # Write content to a file for analysis
     #
     print "PNG_Image_Details\n" if $debug;
-    ($fh, $filename) = tempfile( SUFFIX => '.png');
+    ($fh, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.png',
+                                TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in PNG_Image_Details\n";
         return;
@@ -628,7 +630,8 @@ sub GIF_Image_Details {
     # Write content to a file for analysis
     #
     print "GIF_Image_Details\n" if $debug;
-    ($fh, $filename) = tempfile( SUFFIX => '.gif');
+    ($fh, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.gif',
+                                TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in GIF_Image_Details\n";
         return;

@@ -1826,7 +1826,9 @@ sub Mobile_Check_Save_Web_Page_Size {
     print "Mobile_Check_Save_Web_Page_Size_Details\n" if $debug;
     if ( ! defined($file_handle) ) {
         print "Create temporary CSV file\n" if $debug;
-        ($file_handle, $file_name) = tempfile( SUFFIX => '.csv');
+        ($file_handle, $file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                                              SUFFIX => '.csv',
+                                              TMPDIR => 1);
         if ( ! defined($file_handle) ) {
             print "Error: Failed to create temporary file in Mobile_Check_Save_Web_Page_Size\n";
             return;

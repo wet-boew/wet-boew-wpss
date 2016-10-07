@@ -219,7 +219,8 @@ sub Validate_XHTML_Content {
     # Write the content to a temporary file
     #
     print "Validate_XHTML_Content create temporary HTML file\n" if $debug;
-    ($fh, $html_file_name) = tempfile( SUFFIX => '.htm');
+    ($fh, $html_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.htm',
+                                      TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in Validate_XHTML_Content\n";
         return(@results_list);
@@ -332,7 +333,8 @@ sub Validate_HTML5_Content {
     # Write the content to a temporary file
     #
     print "Validate_HTML5_Content create temporary HTML file\n" if $debug;
-    ($fh, $html_file_name) = tempfile( SUFFIX => '.html');
+    ($fh, $html_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.html',
+                                      TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in Validate_HTML5_Content\n";
         return(@results_list);

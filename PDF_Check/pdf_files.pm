@@ -378,7 +378,8 @@ sub PDF_Files_Get_Properties_From_Content {
         #
         # Create temporary file for PDF content.
         #
-        ($fh, $pdf_file_name) = tempfile( SUFFIX => '.pdf');
+        ($fh, $pdf_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.pdf',
+                                         TMPDIR => 1);
         if ( ! defined($fh) ) {
             print "Error: Failed to create temporary file in PDF_Files_Get_Properties_From_Content\n";
             return(0, %properties);
@@ -484,7 +485,8 @@ sub PDF_Files_PDF_Content_To_Text {
     #
     # Create temporary file for PDF content.
     #
-    ($fh, $pdf_file_name) = tempfile( SUFFIX => '.pdf');
+    ($fh, $pdf_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.pdf',
+                                     TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in PDF_Files_PDF_Content_To_Text\n";
         return("");

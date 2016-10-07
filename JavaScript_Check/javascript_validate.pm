@@ -168,7 +168,8 @@ sub JavaScript_Validate_Content {
         # Write the content to a temporary file
         #
         print "Create temporary JS file\n" if $debug;
-        ($fh, $filename) = tempfile( SUFFIX => '.js');
+        ($fh, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.js',
+                                    TMPDIR => 1);
         if ( ! defined($fh) ) {
             print "Error: Failed to create temporary file in JavaScript_Validate_Content\n";
             return(@results_list);

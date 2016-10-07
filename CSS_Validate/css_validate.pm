@@ -215,7 +215,8 @@ sub CSS_Validate_Content {
     # Create temporary file for CSS content.
     #
     print "CSS_Validate_Content create temporary css file\n" if $debug;
-    ($fh, $temp_file_name) = tempfile( SUFFIX => '.css');
+    ($fh, $temp_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.css',
+                                      TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in CSS_Validate_Content\n";
         return(@results_list);

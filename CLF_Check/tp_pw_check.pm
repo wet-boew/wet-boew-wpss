@@ -2069,7 +2069,7 @@ sub Checksum {
     #
     # Write the content to a file
     #
-    ($fh, $filename) = tempfile();
+    ($fh, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in Checksum\n";
         return($checksum);

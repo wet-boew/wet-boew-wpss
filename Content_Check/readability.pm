@@ -570,7 +570,8 @@ sub Analyse_Text {
     #
     # Create temporary file for content.
     #
-    ($fh, $temp_file_name) = tempfile( SUFFIX => '.txt');
+    ($fh, $temp_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.txt',
+                                      TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in Analyse_Text\n";
         return;
