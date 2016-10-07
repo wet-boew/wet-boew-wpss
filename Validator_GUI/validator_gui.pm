@@ -754,7 +754,9 @@ sub Print_TQA_Result_to_CSV {
         #
         # Create temporary CSV file for testcase results
         #
-        ($csv_results_fh, $csv_results_file_name) = tempfile( SUFFIX => '.csv');
+        ($csv_results_fh, $csv_results_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                                                             SUFFIX => '.csv',
+                                                             TMPDIR => 1);
         if ( ! defined($csv_results_fh) ) {
             print "Error: Failed to create temporary file in Print_TQA_Result_to_CSV\n";
             return;
@@ -5427,7 +5429,8 @@ sub Load_Open_Data_Config {
                         #
                         # Is this a group profile option ?
                         #
-                        if ( $field_name eq $testcase_profile_groups_config_option ) {
+                        if ( defined($testcase_profile_groups_config_option) &&
+                             ($field_name eq $testcase_profile_groups_config_option) ) {
                             $got_group_profile = 1;
                         }
                     }
