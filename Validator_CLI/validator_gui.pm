@@ -1342,6 +1342,14 @@ sub Run_Open_Data_Callback {
         if ( defined($csv_results_fh) ) {
             close($csv_results_fh);
         }
+
+        #
+        # Do we have a Save Results call back function ?
+        #
+        if ( defined($results_save_callback) && defined($results_file_name) ) {
+            print "Call Results_Save_As callback function\n" if $debug;
+            &$results_save_callback($results_file_name);
+        }
     }
     else {
         print "Error: Missing Open Data callback function in Run_Open_Data_Callback\n";
