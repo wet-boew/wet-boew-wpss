@@ -59,6 +59,7 @@ tcid OD_2
 tcid OD_3
 tcid OD_CSV_1
 tcid OD_TXT_1
+tcid OD_XML_1
 
 #
 # PWGSC Open Data
@@ -103,6 +104,7 @@ tcid OD_2
 tcid OD_3
 tcid OD_CSV_1
 tcid OD_TXT_1
+tcid OD_XML_1
 
 #
 #***********************************************************************
