@@ -89,7 +89,7 @@ my ($current_dictionary, %term_location, @required_description_languages);
 my (%expected_description_languages, %found_description_languages);
 my (%definitions_and_terms, $pattern_count, $dd_version, $heading_id);
 my ($dictionary_object, %found_label_languages, $current_label_language);
-my (%url_status, $current_lang);
+my (%url_status, $current_lang, %definitions_and_terms_headings);
 my ($url_status_count) = 0;
 my ($max_url_status_count) = 100;
 
@@ -121,6 +121,7 @@ my %string_table_en = (
     "found in",                    "found in",
     "found outside of",            "found outside of",
     "in",                          "in",
+    "in heading",                  " in <heading id=\"",
     "Invalid",                     "Invalid",
     "Invalid content",             "Invalid content: ",
     "Invalid data pattern",        "Invalid data pattern",
@@ -170,6 +171,7 @@ my %string_table_fr = (
     "found in",                    "trouvé dans",
     "found outside of",            "trouvent à l'extirieur de",
     "in",                          "dans",
+    "in heading",                  " dans <heading id=\"",
     "Invalid",                     "Non valide",
     "Invalid content",             "Contenu non valide: ",
     "Invalid data pattern",        "Modèle de données non valides",
@@ -388,6 +390,7 @@ sub Initialize_Test_Results {
     $current_dictionary = $dictionary;
     $current_label_language = "";
     %definitions_and_terms = ();
+    %definitions_and_terms_headings = ();
     %expected_description_languages = ();
     %found_description_languages = ();
     $heading_count = 0;
@@ -717,7 +720,7 @@ sub End_Data_Condition_Tag_Handler {
 #
 # Description:
 #
-#   This function handles the start data-dictionary tag which is used to
+#   This function handles the start data_dictionary tag which is used to
 # identify PWGSC XML data dictionary files.
 #
 #***********************************************************************
@@ -750,7 +753,7 @@ sub Start_Data_Dictionary_Tag_Handler {
 #
 # Description:
 #
-#   This function handles the end PWGSC data-dictionary tag.
+#   This function handles the end PWGSC data_dictionary tag.
 #
 #***********************************************************************
 sub End_Data_Dictionary_Tag_Handler {
@@ -763,7 +766,7 @@ sub End_Data_Dictionary_Tag_Handler {
         Record_Result("TP_PW_OD_XML_1", $self->current_line,
                       $self->current_column, $self->original_string,
                       String_Value("No") . " <heading> " .
-                      String_Value("found in") . " <data-dictionary>");
+                      String_Value("found in") . " <data_dictionary>");
     }
 }
 
@@ -793,7 +796,8 @@ sub Start_Data_Pattern_Tag_Handler {
     if ( $pattern_count > 1 ) {
         Record_Result("TP_PW_OD_XML_1", $self->current_line,
                       $self->current_column, $self->original_string,
-                      String_Value("Multiple data_pattern tags in heading"));
+                      String_Value("Multiple data_pattern tags in heading") .
+                      " <heading id=\"$heading_id\">");
     }
 
     #
@@ -1060,7 +1064,7 @@ sub Start_Description_Tag_Handler {
 sub End_Description_Tag_Handler {
     my ($self) = @_;
     
-    my ($table_ptr, %lang_table);
+    my ($lang_table_ptr, %lang_table, $heading_table_ptr, %heading_table);
 
     #
     # Do we have a text handler ?
@@ -1090,27 +1094,32 @@ sub End_Description_Tag_Handler {
         #
         if ( ! defined($definitions_and_terms{$current_lang}) ) {
             $definitions_and_terms{$current_lang} = \%lang_table;
+            $definitions_and_terms_headings{$current_lang} = \%heading_table;
         }
         
         #
         # Have we seen this description before ?
         #
-        $table_ptr = $definitions_and_terms{$current_lang};
+        $lang_table_ptr = $definitions_and_terms{$current_lang};
+        $heading_table_ptr = $definitions_and_terms_headings{$current_lang};
         $saved_text = lc($saved_text);
-        if ( defined($$table_ptr{$saved_text}) ) {
+        if ( defined($$lang_table_ptr{$saved_text}) ) {
             Record_Result("TP_PW_OD_XML_1", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Duplicate description") .
                           " \"$saved_text\" " .
                           String_Value("Previous instance found at") .
-                          $$table_ptr{$saved_text});
+                          $$lang_table_ptr{$saved_text} .
+                          String_Value("in heading") .
+                          $$heading_table_ptr{$saved_text} . "\">");
         }
         else {
             #
             # Save this definition
             #
-            $$table_ptr{$saved_text} = $self->current_line . ":" .
-                                       $self->current_column;
+            $$lang_table_ptr{$saved_text} = $self->current_line . ":" .
+                                            $self->current_column;
+            $$heading_table_ptr{$saved_text} = $heading_id;
         }
     }
 
@@ -1548,9 +1557,9 @@ sub Dictionary_Start_Handler {
         Start_Data_Condition_Tag_Handler($self, %attr);
     }
     #
-    # Check for PWGSC data-dictionary tag.
+    # Check for PWGSC data_dictionary tag.
     #
-    elsif ( $tagname eq "data-dictionary" ) {
+    elsif ( $tagname eq "data_dictionary" ) {
         Start_Data_Dictionary_Tag_Handler($self, %attr);
     }
     #
@@ -1625,9 +1634,9 @@ sub Dictionary_End_Handler {
         End_Data_Condition_Tag_Handler($self);
     }
     #
-    # Check for PWGSC data-dictionary tag.
+    # Check for PWGSC data_dictionary tag.
     #
-    elsif ( $tagname eq "data-dictionary" ) {
+    elsif ( $tagname eq "data_dictionary" ) {
         End_Data_Dictionary_Tag_Handler($self);
     }
     #
