@@ -557,6 +557,54 @@ sub getrow {
                 }
             }
             #
+            # Is this the second last character and are these characters
+            # a carriage return line feed combination? If so this may be the
+            # end of a row.
+            #
+            elsif ( ord($char) == 13 ) {
+                #
+                # Are we not in a quoted field?
+                #
+                if ( ! $in_quoted_field ) {
+                    print "Found carriage return outside a quoted field\n" if $debug;
+                    #
+                    # Is this the 2nd last character ?
+                    #
+                    if ( ($i + 1) == $last_character_index ) {
+                        $next_char = substr($line, $i + 1, 1);
+                        print "Last character in line is " . ord($next_char) . "\n" if $debug;
+                    }
+                    #
+                    # If there are no more characters, treat it as a line feed
+                    #
+                    elsif ( $i == $last_character_index ) {
+                        $end_of_row = 1;
+                        print "No more characters in line, end of row found\n" if $debug;
+                        last;
+                    }
+                    else {
+                        $next_char = "";
+                    }
+
+                    #
+                    # Do we have line feed ? If so we are at the end of
+                    # a row.
+                    #
+                    if ( ord($next_char) == 10 ) {
+                        $end_of_row = 1;
+                        print "End of row found\n" if $debug;
+                        last;
+                    }
+                }
+
+                #
+                # If we got here we are either in a quoted field or we
+                # found a carriage return without a line feed.
+                # Append character to current field value
+                #
+                $field_value .= $char;
+            }
+            #
             # Append it to the current field value
             #
             else {
@@ -580,11 +628,13 @@ sub getrow {
             }
 
             #
+            # Strip any trailing carriage return
+            #
             # Save field in the array of field values.
             #
             chomp($field_value);
             push(@fields, $field_value);
-            $end_of_row = 1
+            $end_of_row = 1;
         }
     }
 
