@@ -301,6 +301,11 @@ sub Crawler_Config {
             $user_agent_content_file = $value;
         }
     }
+    
+    #
+    # Pass configuration values to the PhantomJS module
+    #
+    Crawler_Phantomjs_Config(%config_vars);
 }
 
 #***********************************************************************
@@ -802,7 +807,7 @@ sub Crawler_Decode_Content {
 sub Crawler_Get_Generated_Content {
     my ($resp, $url, $image_file) = @_;
 
-    my ($content, $header);
+    my ($markup, $header, $content);
 
     #
     # Do we have a valid HTTP::Response object ?
@@ -823,14 +828,15 @@ sub Crawler_Get_Generated_Content {
         # Get page markup
         #
         print "Get content using PhantomJS\n" if $debug;
-        $content = Crawler_Phantomjs_Page_Markup($url, $phantomjs_cookie_file,
+        $markup = Crawler_Phantomjs_Page_Markup($url, $phantomjs_cookie_file,
                                                  $image_file);
 
         #
         # Did we get content ?
         #
-        if ( $content ne "" ) {
-            return($content);
+        if ( defined($$markup{"generated_content"}) &&
+             ($$markup{"generated_content"} ne "") ) {
+            return($$markup{"generated_content"});
         }
     }
 
