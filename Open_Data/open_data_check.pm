@@ -22,6 +22,8 @@
 #     Open_Data_Check_Zip_Content
 #     Open_Data_Check_Read_JSON_Description
 #     Open_Data_Check_Dataset_Files
+#     Open_Data_Check_Get_Headings_List
+#     Open_Data_Check_Get_Row_Column_Counts
 #
 # Terms and Conditions of Use
 #
@@ -82,6 +84,8 @@ BEGIN {
                   Open_Data_Check_Zip_Content
                   Open_Data_Check_Read_JSON_Description
                   Open_Data_Check_Dataset_Files
+                  Open_Data_Check_Get_Headings_List
+                  Open_Data_Check_Get_Row_Column_Counts
                   );
     $VERSION = "1.0";
 }
@@ -99,6 +103,7 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($current_open_data_profile, $current_url, $results_list_addr);
 my ($current_open_data_profile_name, %testcase_data);
 my (@supporting_doc_url, %expected_row_count, %first_url_count);
+my ($last_headings_list, %expected_column_count);
 
 my ($max_error_message_string) = 2048;
 
@@ -119,6 +124,7 @@ my %string_table_en = (
     "Error in reading ZIP, status =",  "Error in reading ZIP, status =",
     "Fails validation",                "Fails validation",
     "for",                             "for",
+    "Inconsistent column count, found", "Inconsistent column count, found ",
     "Inconsistent format and mime-type", "Inconsistent format and mime-type",
     "Inconsistent row count, found",   "Inconsistent row count, found ",
     "Invalid dataset description field type", "Invalid dataset description field type",
@@ -141,6 +147,7 @@ my %string_table_fr = (
     "Error in reading ZIP, status =",  "Erreur de lecture fichier ZIP, status =",
     "Fails validation",                "Échoue la validation",
     "for",                             "pour",
+    "Inconsistent column count, found", "Nombre de colonnes incompatibles, trouvé ",
     "Inconsistent format and mime-type", "Les valeurs de format et de type MIME sont incompatibles",
     "Inconsistent row count, found",   "Nombre de lignes incompatibles, trouvé ",
     "Invalid dataset description field type", "Invalide type de champ de description de données",
@@ -696,7 +703,7 @@ sub Check_Data_File_URL {
     my ($url, $format, $resp, $filename, $dictionary) = @_;
 
     my ($result_object, @other_results, $header, $mime_type, $base);
-    my ($row_count, $eng_url);
+    my ($row_count, $column_count, $eng_url);
 
     #
     # Data files are expected to be either XML or CSV
@@ -742,10 +749,16 @@ sub Check_Data_File_URL {
                                                   $dictionary);
 
         #
-        # Record the number of rows found
+        # Record the number of rows and columns found
         #
         $row_count = Open_Data_CSV_Check_Get_Row_Count($url);
+        $column_count = Open_Data_CSV_Check_Get_Column_Count($url);
         
+        #
+        # Record the list of headings found
+        #
+        $last_headings_list = Open_Data_CSV_Check_Get_Headings_List($url);
+
         #
         # Convert URL to an English URL (if there is a language specfied
         # in the directory path or file name).
@@ -776,6 +789,29 @@ sub Check_Data_File_URL {
                               $row_count .
                               String_Value("expecting") .
                               $expected_row_count{$eng_url} .
+                              String_Value("as found in") .
+                              $first_url_count{$eng_url});
+            }
+
+            #
+            # Do we have a column count for the English URL ?
+            # If we don't there may be no English URL, if this
+            # is the case use this URL as the pseudo English URL
+            #
+            if ( ! defined($expected_column_count{$eng_url}) ) {
+                $expected_column_count{$eng_url} = $column_count;
+            }
+
+            #
+            # Compare this URL's column count to the English
+            # (or pseudo English) URL's count count
+            #
+            if ( $row_count != $expected_row_count{$eng_url} ) {
+                Record_Result("OD_CSV_1", -1, -1, "",
+                              String_Value("Inconsistent column count, found") .
+                              $column_count .
+                              String_Value("expecting") .
+                              $expected_column_count{$eng_url} .
                               String_Value("as found in") .
                               $first_url_count{$eng_url});
             }
@@ -1191,6 +1227,11 @@ sub Open_Data_Check {
     #
     Initialize_Test_Results($profile, \@tqa_results_list);
     $current_url = $url;
+    
+    #
+    # Clear last headings list variable
+    #
+    $last_headings_list = "";
 
     #
     # Are any of the testcases defined in this module
@@ -1471,7 +1512,7 @@ sub Read_JSON_Open_Data_Description {
     my ($resp, $filename) = @_;
 
     my (%dataset_urls) = ();
-    my ($ref, $result, $resources, $value, $url, $type);
+    my ($ref, $result, $resources, $value, $url, $type, $name);
     my ($eval_output, $i, $ref_type, $format, $content, $line);
     my ($have_error) = 0;
 
@@ -1579,24 +1620,41 @@ sub Read_JSON_Open_Data_Description {
            if ( ref $value eq "HASH" ) {
                $type = $$value{"resource_type"};
                $format = $$value{"format"};
+               $name = $$value{"name"};
                $url = $$value{"url"};
                print "Dataset URL # $i, type = $type, format = $format, url = $url\n" if $debug;
                $i++;
                        
                #
-               # Save dataset URL
+               # Save dataset URL based on type.
                #
                if ( $type eq "api" ) {
                    $dataset_urls{"API"} .= "$format\t$url\n";
                }
-               elsif ( $type eq "doc" ) {
-                   $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
+               elsif ( ($type eq "doc") || ($type eq "guide") ) {
+                   #
+                   # Accept TXT and XML formatted documents. Other formats are
+                   # likely to be supporting documents, not data dictionaries.
+                   #
+                   if ( ($format eq "TXT") || ($format eq "XML") ) {
+                       $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
+                   }
+                   #
+                   # Check for name Data Dictionary or Dictionnaire de données
+                   #
+                   elsif ( ($name eq "Data Dictionary") ||
+                           ($name eq "Dictionnaire de données") ) {
+                       $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
+                   }
+                   #
+                   # Is the format HTML, then assume it is a supporting document
+                   #
+                   elsif ( $format eq "HTML" ) {
+                       $dataset_urls{"RESOURCE"} .= "$format\t$url\n";
+                   }
                }
-               elsif ( $type eq "file" ) {
+               elsif ( ($type eq "file") || ($type eq "dataset") ) {
                    $dataset_urls{"DATA"} .= "$format\t$url\n";
-               }
-               elsif ( $type eq "doc" ) {
-                   $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
                }
            }
         }
@@ -1775,6 +1833,43 @@ sub Open_Data_Check_Dataset_Files {
     # Return results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Check_Get_Headings_List
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function returns the headings list found in the last CSV file
+# analysed.
+#
+#***********************************************************************
+sub Open_Data_Check_Get_Headings_List {
+    my ($this_url) = @_;
+
+    return(Open_Data_CSV_Check_Get_Headings_List($this_url));
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Check_Get_Row_Column_Counts
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function returns the number of rows and columns
+# found in the last CSV file analysed.
+#
+#***********************************************************************
+sub Open_Data_Check_Get_Row_Column_Counts {
+    my ($this_url) = @_;
+
+    return(Open_Data_CSV_Check_Get_Row_Count($this_url),
+           Open_Data_CSV_Check_Get_Column_Count($this_url));
 }
 
 #***********************************************************************
