@@ -79,6 +79,7 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
 my ($doctype_label, $doctype_version, $doctype_class, $html5_validate_jar);
+my ($java_options);
 my ($runtime_error_reported) = 0;
 
 my ($debug) = 0;
@@ -352,7 +353,7 @@ sub Validate_HTML5_Content {
     # Run the Nu Markup Checker on the supplied content
     #
     print "Run Nu Markup Checker\n --> java -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\" 2>\&1\n" if $debug;
-    $validator_output = `java -Xss512k -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\" 2>\&1`;
+    $validator_output = `java $java_options -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\" 2>\&1`;
     print "Validator output = $validator_output\n" if $debug;
 
     #
@@ -493,7 +494,7 @@ sub Validate_HTML5_Content {
             #
             print "HTML5 validator command failed\n" if $debug;
             print STDERR "HTML5 validator command failed\n";
-            print STDERR "java -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\"\n";
+            print STDERR "java $java_options -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\"\n";
             print STDERR "$validator_output\n";
 
             #
@@ -504,7 +505,7 @@ sub Validate_HTML5_Content {
                                                         1, "HTML_VALIDATION",
                                                         -1, -1, "",
                                                         String_Value("Runtime Error") .
-                                                        " \"java -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\"\"\n" .
+                                                        " \"java $java_options -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\"\"\n" .
                                                         " \"$validator_output\"",
                                                         $this_url);
                 $runtime_error_reported = 1;
@@ -788,12 +789,14 @@ if ( $^O =~ /MSWin32/ ) {
     #
     $validate_cmnd = ".\\bin\\win_validate.pl";
     $html5_validate_jar = ".\\lib\\vnu.jar";
+    $java_options = "-Xss512k";
 } else {
     #
     # Not Windows.
     #
     $validate_cmnd = "$program_dir/bin/validate";
     $html5_validate_jar = "$program_dir/lib/vnu.jar";
+    $java_options = "-Xss1024k";
 }
 $ENV{VALIDATE_HOME} = "$program_dir/bin";
 
