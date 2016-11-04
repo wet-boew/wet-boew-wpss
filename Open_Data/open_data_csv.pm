@@ -18,6 +18,8 @@
 #     Set_Open_Data_CSV_Test_Profile
 #     Open_Data_CSV_Check_Data
 #     Open_Data_CSV_Check_Get_Row_Count
+#     Open_Data_CSV_Check_Get_Column_Count
+#     Open_Data_CSV_Check_Get_Headings_List
 #
 # Terms and Conditions of Use
 #
@@ -76,6 +78,8 @@ BEGIN {
                   Set_Open_Data_CSV_Test_Profile
                   Open_Data_CSV_Check_Data
                   Open_Data_CSV_Check_Get_Row_Count
+                  Open_Data_CSV_Check_Get_Column_Count
+                  Open_Data_CSV_Check_Get_Headings_List
                   );
     $VERSION = "1.0";
 }
@@ -90,7 +94,7 @@ my ($debug) = 0;
 my (%testcase_data, $results_list_addr, $last_csv_row_count);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
-my ($csv_validator);
+my ($csv_validator, $last_csv_headings_list, $last_csv_column_count);
 
 my ($max_error_message_string)= 2048;
 my ($runtime_error_reported) = 0;
@@ -312,6 +316,7 @@ sub Initialize_Test_Results {
     # Initialize global variables
     #
     $last_csv_row_count = 0;
+    $last_csv_column_count = 0;
 }
 
 #***********************************************************************
@@ -416,6 +421,7 @@ sub Check_First_Data_Row {
     foreach $field (@fields) {
         #
         # Don't convert to lower case, terms are case sensitive
+        #
         # Check to see if it matches a dictionary entry.
         #
         $field =~ s/^\s*//g;
@@ -493,6 +499,7 @@ sub Check_First_Data_Row {
     #
     # Return list of headings found
     #
+    $last_csv_headings_list = join(",", @fields);
     return(@headings);
 }
 
@@ -891,6 +898,7 @@ sub Open_Data_CSV_Check_Data {
             # Set the number of expected fields
             #
             $field_count = @fields;
+            $last_csv_column_count = $field_count;
             print "Expected fields count = $field_count\n" if $debug;
             
             #
@@ -1234,10 +1242,10 @@ sub Open_Data_CSV_Check_Data {
 
 #***********************************************************************
 #
-# Name: Open_Data_CSV_Check_Data
+# Name: Open_Data_CSV_Check_Get_Row_Count
 #
 # Parameters: this_url - a URL
-##
+#
 # Description:
 #
 #   This function runs the number of rows found in the last CSV file
@@ -1257,6 +1265,62 @@ sub Open_Data_CSV_Check_Get_Row_Count {
     else {
         print "Error: Open_Data_CSV_Check_Get_Row_Count url = $this_url, current_url = $current_url\n"if $debug;
         return(-1);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_CSV_Check_Get_Column_Count
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function runs the number of columns found in the last CSV file
+# analysed.
+#
+#***********************************************************************
+sub Open_Data_CSV_Check_Get_Column_Count {
+    my ($this_url) = @_;
+
+    #
+    # Check that the last URL process matches the one requested
+    #
+    if ( $this_url eq $current_url ) {
+        print "Open_Data_CSV_Check_Get_Column_Count url = $this_url, row count = $last_csv_row_count\n" if $debug;
+        return($last_csv_column_count);
+    }
+    else {
+        print "Error: Open_Data_CSV_Check_Get_Column_Count url = $this_url, current_url = $current_url\n"if $debug;
+        return(-1);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_CSV_Check_Get_Headings_List
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function runs the headings lsit found in the last CSV file
+# analysed.
+#
+#***********************************************************************
+sub Open_Data_CSV_Check_Get_Headings_List {
+    my ($this_url) = @_;
+
+    #
+    # Check that the last URL process matches the one requested
+    #
+    if ( $this_url eq $current_url ) {
+        print "Open_Data_CSV_Check_Get_Headings_List url = $this_url, headings list = $last_csv_headings_list\n" if $debug;
+        return($last_csv_headings_list);
+    }
+    else {
+        print "Error: Open_Data_CSV_Check_Get_Headings_List url = $this_url, current_url = $current_url\n"if $debug;
+        return("");
     }
 }
 
