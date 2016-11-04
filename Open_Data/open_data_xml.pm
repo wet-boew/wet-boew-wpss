@@ -89,7 +89,7 @@ my (%testcase_data, $results_list_addr);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count, $save_text_between_tags, $saved_text);
-my ($have_pwgsc_data_dictionary, $xsd_url);
+my ($have_pwgsc_data_dictionary, $have_doctype, $have_schema, $dictionary_ptr);
 
 my ($max_error_message_string)= 2048;
 
@@ -102,14 +102,17 @@ my ($check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
+    "Data pattern",                "Data pattern",
     "Duplicate definition",        "Duplicate definition",
     "Duplicate term",              "Duplicate term",
     "Encoding is not UTF-8, found", "Encoding is not UTF-8, found",
+    "failed for value",            "failed for value",
     "Fails validation",            "Fails validation",
     "for",                         "for",
     "found for",                   "found for",
     "found in",                    "found in",
     "found outside of",            "found outside of",
+    "Heading",                     "Heading",
     "in",                          "in",
     "Invalid PWGSC XML data dictionary", "Invalid PWGSC XML data dictionary",
     "Invalid",                     "Invalid",
@@ -120,6 +123,7 @@ my %string_table_en = (
     "Multiple",                    "Multiple",
     "No content in API",           "No content in API",
     "No content in file",          "No content in file",
+    "No DOCTYPE or Schema found in XML file", "No DOCTYPE or Schema found in XML file",
     "No terms in found data dictionary", "No terms found in data dictionary",
     "No",                          "No",
     "Previous instance found at",  "Previous instance found at line ",
@@ -128,14 +132,17 @@ my %string_table_en = (
     );
 
 my %string_table_fr = (
+    "Data pattern",                "Modèle de données",
     "Duplicate definition",        "Doublon définition",
     "Duplicate term",              "Doublon term",
     "Encoding is not UTF-8, found", "Encoding ne pas UTF-8, trouvé",
+    "failed for value",            "a échoué pour la valeur",
     "Fails validation",            "Échoue la validation",
     "for",                         "pour",
     "found for",                   "trouvé pour",
     "found in",                    "trouvé dans",
     "found outside of",            "trouvent à l'extirieur de",
+    "Heading",                     "En-tête",
     "in",                          "dans",
     "Invalid PWGSC XML data dictionary", "TPSGC dictionnaire de donnies XML non valide",
     "Invalid",                     "Non valide",
@@ -146,6 +153,7 @@ my %string_table_fr = (
     "Multiple",                    "Plusieurs",
     "No content in API",           "Aucun contenu dans API",
     "No content in file",          "Aucun contenu dans fichier",
+    "No DOCTYPE or Schema found in XML file", "Non DOCTYPE ou schéma trouvé dans le fichier XML",
     "No terms found in data dictionary", "Pas de termes trouvés dans dictionnaire de données",
     "No",                          "Aucun",
     "Previous instance found at",  "Instance précédente trouvée à la ligne ",
@@ -333,7 +341,8 @@ sub Initialize_Test_Results {
     $tag_count = 0;
     $save_text_between_tags = 0;
     $saved_text = "";
-    $xsd_url = "";
+    $have_schema = 0;
+    $have_doctype = 0;
 }
 
 #***********************************************************************
@@ -421,6 +430,7 @@ sub Start_Text_Handler {
     $save_text_between_tags = 1;
     $saved_text = "";
 }
+
 #***********************************************************************
 #
 # Name: Char_Handler
@@ -480,6 +490,32 @@ sub Declaration_Handler {
 
 #***********************************************************************
 #
+# Name: Doctype_Handler
+#
+# Parameters: self - reference to this parser
+#             name - document type name
+#             sysid - system id
+#             pubid - public id
+#             internal - internal subset
+#
+# Description:
+#
+#   This function is a callback handler for XML parsing that
+# handles the Doctype declaration in XML.
+#
+#***********************************************************************
+sub Doctype_Handler {
+    my ($self, $name, $sysid, $pubid, $internal) = @_;
+
+    #
+    # Have doctype, set flag.
+    #
+    print "Doctype_Handler name = $name, system id = $sysid, public id = $pubid, internal subset = $internal\n" if $debug;
+    $have_doctype = 1;
+}
+
+#***********************************************************************
+#
 # Name: Data_Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -507,41 +543,31 @@ sub Data_Start_Handler {
     # Check for a possible xsi:schemaLocation attribute
     #
     if ( defined($attr{"xsi:schemaLocation"}) ) {
-        $xsd_url = $attr{"xsi:schemaLocation"};
-        print "Found xsi:schemaLocation attribute, value = $xsd_url\n" if $debug;
+        #
+        # Schema defined for this XML file
+        #
+        $have_schema = 1;
+    }
+    #
+    # Check for a possible xsi:noNamespaceSchemaLocation attribute
+    #
+    if ( defined($attr{"xsi:noNamespaceSchemaLocation"}) ) {
+        #
+        # Schema defined for this XML file
+        #
+        $have_schema = 1;
+    }
+
+    #
+    # Does this tag match a data dictionary heading ?
+    #
+    if ( defined($$dictionary_ptr{$tagname}) ) {
+        print "Found start tag for dictionary heading tag $tagname\n" if $debug;
 
         #
-        # Get the URL directory and file name components
+        # Start a text handler to get the tag content
         #
-        @fields = split(/\s+/, $xsd_url);
-
-        #
-        # Join the URL components together
-        #
-        if ( @fields > 1 ) {
-            $directory = $fields[0];
-            $file_name = $fields[1];
-
-            #
-            # Is the file name component an absolute URL ?
-            #
-            if ( $file_name =~ /^http[s]?:/ ) {
-                $xsd_url = $file_name;
-            }
-            #
-            # Does the directory URL have a trailing slash ?
-            #
-            elsif ( $directory =~ /\/$/ ) {
-                $xsd_url = $directory . $file_name;
-            }
-            else {
-                $xsd_url = "$directory/$file_name";
-            }
-        }
-        else {
-            $xsd_url = "";
-        }
-        print "XSD url = $xsd_url\n" if $debug;
+        Start_Text_Handler();
     }
 }
 
@@ -561,10 +587,51 @@ sub Data_Start_Handler {
 sub Data_End_Handler {
     my ($self, $tagname) = @_;
 
+    my ($heading, $regex);
+    
     #
     # Check tag
     #
     print "Data_End_Handler tag $tagname\n" if $debug;
+
+    #
+    # Does this tag match a data dictionary heading ?
+    #
+    if ( defined($$dictionary_ptr{$tagname}) ) {
+        print "Found end tag for dictionary heading tag $tagname\n" if $debug;
+        print "Tag content is \"$saved_text\"\n" if $debug;
+        
+        #
+        # Do we have a regular expression for this heading ?
+        #
+        $heading = $$dictionary_ptr{$tagname};
+        $regex = $heading->regex();
+
+        if ( $regex ne "" ) {
+            #
+            # Run the regular expression against the content
+            #
+            if ( ! ($saved_text =~ qr/$regex/) ) {
+                #
+                # Regular expression pattern fails
+                #
+                print "Regular expression failed for heading $tagname, regex = $regex, data = $saved_text\n" if $debug;
+                Record_Result("OD_XML_1", $self->current_line,
+                              $self->current_column, $self->original_string,
+                              String_Value("Data pattern") .
+                              " \"$regex\" " .
+                              String_Value("failed for value") .
+                              " \"$saved_text\" " .
+                              String_Value("Heading") . " \"" .
+                              $heading->term() . "\"");
+            }
+        }
+        
+        #
+        # End any text handler
+        #
+        $save_text_between_tags = 0;
+    }
 }
 
 #***********************************************************************
@@ -582,7 +649,7 @@ sub Data_End_Handler {
 #
 #***********************************************************************
 sub Open_Data_XML_Check_Data {
-    my ( $this_url, $profile, $filename, $dictionary ) = @_;
+    my ($this_url, $profile, $filename, $dictionary) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($eval_output);
@@ -610,6 +677,11 @@ sub Open_Data_XML_Check_Data {
         #
         $current_url = "";
     }
+    
+    #
+    # Save data dictionary pointer
+    #
+    $dictionary_ptr = $dictionary;
 
     #
     # Initialize the test case pass/fail table.
@@ -624,6 +696,7 @@ sub Open_Data_XML_Check_Data {
     #
     # Add handlers for some of the XML tags
     #
+    $parser->setHandlers(Doctype => \&Doctype_Handler);
     $parser->setHandlers(Start => \&Data_Start_Handler);
     $parser->setHandlers(End => \&Data_End_Handler);
     $parser->setHandlers(XMLDecl => \&Declaration_Handler);
@@ -644,13 +717,13 @@ sub Open_Data_XML_Check_Data {
         $validation_failed = 1;
     }
     #
-    # Did we get a XSD schema URL ?
+    # Did we find a doctye or schema ?
     #
-    elsif ( $xsd_url ne "" ) {
+    elsif ( $have_schema || $have_doctype ) {
         #
-        # Validate the XML against it.
+        # Validate the XML against doctype or schema.
         #
-        $result_object = XML_Validate_XSD($this_url, "", $filename, $xsd_url, "OD_3",
+        $result_object = XML_Validate_Xerces($this_url, "", $filename, "OD_3",
                                           "OD_3:" . String_Value("Fails validation"));
         if ( defined($result_object) ) {
             push(@tqa_results_list, $result_object);
@@ -662,6 +735,14 @@ sub Open_Data_XML_Check_Data {
     #
     elsif ( $tag_count == 0 ) {
         Record_Result("OD_3", -1, 0, "", String_Value("No content in file"));
+        $validation_failed = 1;
+    }
+    #
+    # We have neither a doctye nor a schema
+    #
+    elsif ( (! $have_schema) && (! $have_doctype) ) {
+        Record_Result("OD_3", -1, 0, "",
+                      String_Value("No DOCTYPE or Schema found in XML file"));
         $validation_failed = 1;
     }
 
@@ -691,7 +772,7 @@ sub Open_Data_XML_Check_Data {
 #
 # Description:
 #
-#   This function handles the start data-dictionary tag which is used to
+#   This function handles the start data_dictionary tag which is used to
 # identify PWGSC XML data dictionary files.
 #
 #***********************************************************************
@@ -740,47 +821,25 @@ sub Dictionary_Start_Handler {
     # Check for a possible xsi:schemaLocation attribute
     #
     if ( defined($attr{"xsi:schemaLocation"}) ) {
-        $xsd_url = $attr{"xsi:schemaLocation"};
-        print "Found xsi:schemaLocation attribute, value = $xsd_url\n" if $debug;
-
         #
-        # Get the URL directory and file name components
+        # Schema defined for this XML file
         #
-        @fields = split(/\s+/, $xsd_url);
-
+        $have_schema = 1;
+    }
+    #
+    # Check for a possible xsi:noNamespaceSchemaLocation attribute
+    #
+    if ( defined($attr{"xsi:noNamespaceSchemaLocation"}) ) {
         #
-        # Join the URL components together
+        # Schema defined for this XML file
         #
-        if ( @fields > 1 ) {
-            $directory = $fields[0];
-            $file_name = $fields[1];
-
-            #
-            # Is the file name component an absolute URL ?
-            #
-            if ( $file_name =~ /^http[s]?:/ ) {
-                $xsd_url = $file_name;
-            }
-            #
-            # Does the directory URL have a trailing slash ?
-            #
-            elsif ( $directory =~ /\/$/ ) {
-                $xsd_url = $directory . $file_name;
-            }
-            else {
-                $xsd_url = "$directory/$file_name";
-            }
-        }
-        else {
-            $xsd_url = "";
-        }
-        print "XSD url = $xsd_url\n" if $debug;
+        $have_schema = 1;
     }
 
     #
-    # Check for PWGSC data-dictionary tag
+    # Check for PWGSC data_dictionary tag
     #
-    if ( $tagname eq "data-dictionary" ) {
+    if ( $tagname eq "data_dictionary" ) {
         Start_Data_Dictionary_Tag_Handler($self, %attr);
     }
 }
@@ -826,6 +885,8 @@ sub Initialize_Dictionary_Globals {
     #
     $have_pwgsc_data_dictionary = 0;
     $tag_count = 0;
+    $have_schema = 0;
+    $have_doctype = 0;
 }
 
 #***********************************************************************
@@ -890,6 +951,7 @@ sub Open_Data_XML_Check_Dictionary {
     #
     # Add handlers for some of the XML tags
     #
+    $parser->setHandlers(Doctype => \&Doctype_Handler);
     $parser->setHandlers(Start => \&Dictionary_Start_Handler);
     $parser->setHandlers(End => \&Dictionary_End_Handler);
     $parser->setHandlers(XMLDecl => \&Declaration_Handler);
@@ -911,20 +973,35 @@ sub Open_Data_XML_Check_Dictionary {
         $validation_failed = 1;
     }
     #
-    # Did we get a XSD schema URL ?
+    # Did we find a doctye or schema ?
     #
-    elsif ( $xsd_url ne "" ) {
+    elsif ( $have_schema || $have_doctype ) {
         #
-        # Validate the XML against it.
+        # Validate the XML against doctype or schema.
         #
-        $result_object = XML_Validate_XSD($this_url, "", $filename, $xsd_url, "OD_3",
+        $result_object = XML_Validate_Xerces($this_url, "", $filename, "OD_3",
                                           "OD_3:" . String_Value("Fails validation"));
         if ( defined($result_object) ) {
             push(@tqa_results_list, $result_object);
             $validation_failed = 1;
         }
     }
-    
+    #
+    # Did we find some tags (may or may not be data) ?
+    #
+    elsif ( $tag_count == 0 ) {
+        Record_Result("OD_3", -1, 0, "", String_Value("No content in file"));
+        $validation_failed = 1;
+    }
+    #
+    # We have neither a doctye nor a schema
+    #
+    elsif ( (! $have_schema) && (! $have_doctype) ) {
+        Record_Result("OD_3", -1, 0, "",
+                      String_Value("No DOCTYPE or Schema found in XML file"));
+        $validation_failed = 1;
+    }
+
     #
     # If XML/XSD validation did not fail, check the contents of the
     # dictionary.
@@ -994,7 +1071,7 @@ sub Open_Data_XML_Check_Dictionary {
 #
 #***********************************************************************
 sub Open_Data_XML_Check_API {
-    my ( $this_url, $profile, $filename, $dictionary ) = @_;
+    my ($this_url, $profile, $filename, $dictionary) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($eval_output);
@@ -1021,6 +1098,11 @@ sub Open_Data_XML_Check_API {
         #
         $current_url = "";
     }
+
+    #
+    # Save data dictionary pointer
+    #
+    $dictionary_ptr = $dictionary;
 
     #
     # Initialize the test case pass/fail table.
