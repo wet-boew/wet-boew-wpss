@@ -112,7 +112,7 @@ my ($no_login_mode) = 0;
 #
 # Shared variables for use between treads
 #
-my ($shared_image_alt_text_report, $shared_web_page_details_filename);
+my ($shared_image_alt_text_report, $shared_file_details_filename);
 my ($shared_site_dir_e, $shared_site_dir_f);
 my ($shared_headings_report, $shared_web_page_size_filename);
 my ($shared_save_content, $shared_save_content_directory);
@@ -123,7 +123,7 @@ if ( $have_threads ) {
     share(\$shared_site_dir_f);
     share(\$shared_headings_report);
     share(\$shared_web_page_size_filename);
-    share(\$shared_web_page_details_filename);
+    share(\$shared_file_details_filename);
     share(\$shared_save_content);
     share(\$shared_save_content_directory);
     share(\$shared_testcase_results_summary_csv_filename);
@@ -272,6 +272,9 @@ my (%open_data_error_url_count, %open_data_error_instance_count);
 my ($open_data_testcase_url_help_file_name, %open_data_dictionary);
 my (@open_data_file_types) = ("DICTIONARY", "DATA", "RESOURCE", "API");
 my (%open_data_check_profiles_languages);
+my (@open_data_file_details_fields) = ("type", "url", "mime-type", "size",
+                                       "component size", "rows", "columns",
+                                       "headings");
 
 #
 # Document Features variables
@@ -299,7 +302,7 @@ my (@web_page_details_fields) = ("url", "title", "lang", "h1", "breadcrumb",
                                  "dcterms.issued", "dcterms.modified",
                                  "dcterms.subject", "dcterms.creator", 
                                  "content size", "flesch-kincaid");
-my (%web_page_details_values, $web_page_details_fh);
+my (%web_page_details_values, $files_details_fh);
 
 #
 # Testcase profile group variables
@@ -2821,6 +2824,27 @@ sub Read_Config_File {
                 $crawler_config_vars{"user_agent_name"} = $user_agent_name;
             }
         }
+        elsif ( $config_type eq "Markup_Server_Port" ) {
+            #
+            # Save markup server port value
+            #
+            if ( @fields > 1 ) {
+                @fields = split(/\s+/, $_, 2);
+                $crawler_config_vars{"markup_server_port"} = $fields[1];
+            }
+        }
+        elsif ( $config_type eq "Use_Markup_Server" ) {
+            #
+            # Set use markup server value
+            #
+            if ( @fields > 1 ) {
+                @fields = split(/\s+/, $_, 2);
+                $crawler_config_vars{"use_markup_server"} = $fields[1];
+            }
+            else {
+                $crawler_config_vars{"use_markup_server"} = 0;
+            }
+        }
         elsif ( $config_type =~ /Validation_Ignore_Pattern/i ) {
             #
             # Pattern of URLs to skip for validation
@@ -3468,21 +3492,21 @@ sub Save_Web_Page_Details {
         # Do we print a comma before this field ?
         #
         if ( $printed_one ) {
-            print $web_page_details_fh ",";
+            print $files_details_fh ",";
         }
 
         #
         # Print the field value
         #
         print "Web page details $field = \"$value\"\n" if $debug;
-        print $web_page_details_fh "\"$value\"";
+        print $files_details_fh "\"$value\"";
         $printed_one = 1;
     }
 
     #
     # Print newline to end this record
     #
-    print $web_page_details_fh "\r\n";
+    print $files_details_fh "\r\n";
 }
 
 #***********************************************************************
@@ -4881,7 +4905,7 @@ sub URL_List_Callback {
     #
     # Close the web page details list
     #
-    close($web_page_details_fh);
+    close($files_details_fh);
 
     #
     # Close the web page size file
@@ -4946,7 +4970,7 @@ sub Runtime_Error_Callback {
     #
     # Close the web page details list
     #
-    close($web_page_details_fh);
+    close($files_details_fh);
 
     #
     # Close the web page size file
@@ -5477,11 +5501,11 @@ sub Results_Save_Callback {
     #
     $save_filename = $filename . "_page_inventory.csv";
     unlink($save_filename);
-    print "Copy $shared_web_page_details_filename, $save_filename\n" if $debug;
-    if ( -f $shared_web_page_details_filename ) {
-        copy($shared_web_page_details_filename, $save_filename);
+    print "Copy $shared_file_details_filename, $save_filename\n" if $debug;
+    if ( -f $shared_file_details_filename ) {
+        copy($shared_file_details_filename, $save_filename);
     }
-    unlink($shared_web_page_details_filename);
+    unlink($shared_file_details_filename);
 }
 
 #***********************************************************************
@@ -6419,9 +6443,9 @@ sub Remove_Temporary_Files {
          && ($shared_web_page_size_filename ne "") ) {
         unlink($shared_web_page_size_filename);
     }
-    if ( defined($shared_web_page_details_filename)
-         && ($shared_web_page_details_filename ne "") ) {
-        unlink($shared_web_page_details_filename);
+    if ( defined($shared_file_details_filename)
+         && ($shared_file_details_filename ne "") ) {
+        unlink($shared_file_details_filename);
     }
     if ( defined($shared_testcase_results_summary_csv_filename)
          && ($shared_testcase_results_summary_csv_filename ne "") ) {
@@ -6669,16 +6693,16 @@ sub Initialize_Tool_Globals {
     #
     # Create web page details temporary file
     #
-    ($web_page_details_fh, $shared_web_page_details_filename) =
+    ($files_details_fh, $shared_file_details_filename) =
        tempfile("WPSS_TOOL_XXXXXXXXXX",
                 SUFFIX => '.csv',
                 TMPDIR => 1);
-    if ( ! defined($web_page_details_fh) ) {
+    if ( ! defined($files_details_fh) ) {
         print "Error: Failed to create temporary file in Initialize_Tool_Globals\n";
         return;
     }
-    binmode $web_page_details_fh, ":utf8";
-    print $web_page_details_fh join(",", @web_page_details_fields) . "\r\n";
+    binmode $files_details_fh, ":utf8";
+    print $files_details_fh join(",", @web_page_details_fields) . "\r\n";
 }
 
 #***********************************************************************
@@ -6942,7 +6966,7 @@ sub Perform_Site_Crawl {
     #
     # Close the web page details file
     #
-    close($web_page_details_fh);
+    close($files_details_fh);
 
     #
     # Close the web page size file
@@ -8689,7 +8713,8 @@ sub Perform_Open_Data_Check {
     my ($url, $format, $data_file_type, $resp) = @_;
 
     my ($contents, $zip, @members, $member_name, $header, $mime_type);
-    my (@results, $member_url, $member, $filename);
+    my (@results, $member_url, $member, $filename, $t, $size, $h);
+    my ($rows, $cols);
 
     #
     # Check for possible ZIP content (a zip file containing the
@@ -8746,6 +8771,15 @@ sub Perform_Open_Data_Check {
         }
 
         #
+        # Get file details
+        #
+        $filename = $resp->header("WPSS-Content-File");
+        $size = -s $filename;
+        $t = $url;
+        $t =~ s/"/""/g;
+        print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",$size,,,,\r\n";
+
+        #
         # Process each member of the zip archive
         #
         if ( defined($zip) ) {
@@ -8792,6 +8826,21 @@ sub Perform_Open_Data_Check {
                                            $data_file_type, $resp,
                                            $filename, \%open_data_dictionary);
                 Record_Open_Data_Check_Results($member_url, @results);
+                
+                #
+                # Get file details
+                #
+                $size = -s $filename;
+                $t = $member_url;
+                $t =~ s/"/""/g;
+                $h = Open_Data_Check_Get_Headings_List($member_url);
+                $h =~ s/"/""/g;
+                ($rows, $cols) = Open_Data_Check_Get_Row_Column_Counts($member_url);
+                if ( $rows == -1 ) {
+                    $rows = "";
+                    $cols = "";
+                }
+                print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",,$size,$rows,$cols,\"$h\"\r\n";
                 
                 #
                 # Remove temporary file
@@ -8845,8 +8894,24 @@ sub Perform_Open_Data_Check {
             Print_Resource_Usage($url, "after",
                                  $document_count{$crawled_urls_tab});
         }
+
+        #
+        # Get file details
+        #
+        $filename = $resp->header("WPSS-Content-File");
+        $size = -s $filename;
+        $t = $url;
+        $t =~ s/"/""/g;
+        $h = Open_Data_Check_Get_Headings_List($url);
+        $h =~ s/"/""/g;
+        ($rows, $cols) = Open_Data_Check_Get_Row_Column_Counts($url);
+        if ( $rows == -1 ) {
+            $rows = "";
+            $cols = "";
+        }
+        print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",$size,,$rows,$cols,\"$h\"\r\n";
     }
-    
+
     #
     # Remove URL content file
     #
@@ -8877,7 +8942,7 @@ sub Open_Data_Callback {
 
     my (@url_list, $i, $key, $value, $resp_url, $resp, $header, $content);
     my ($data_file_type, $item, $format, $url, $tab, @results, $filename);
-    my ($language, $mime_type, $error);
+    my ($language, $mime_type, $error, $t, $size);
 
     #
     # Initialize tool global variables
@@ -8895,6 +8960,20 @@ sub Open_Data_Callback {
     %tqa_error_url_count = ();
     %tqa_error_instance_count = ();
     Crawler_Abort_Crawl(0);
+    
+    #
+    # Create open data files details temporary file
+    #
+    ($files_details_fh, $shared_file_details_filename) =
+       tempfile("WPSS_TOOL_XXXXXXXXXX",
+                SUFFIX => '.csv',
+                TMPDIR => 1);
+    if ( ! defined($files_details_fh) ) {
+        print "Error: Failed to create temporary file in Initialize_Tool_Globals\n";
+        return;
+    }
+    binmode $files_details_fh, ":utf8";
+    print $files_details_fh join(",", @open_data_file_details_fields) . "\r\n";
 
     #
     # Make sure we are authenticated with the firewall before we start.
@@ -8951,6 +9030,25 @@ sub Open_Data_Callback {
         ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
         Crawler_Uncompress_Content_File($resp);
         push(@all_urls, "DESCRIPTION $url");
+        
+        #
+        # Get the file details
+        #
+        if ( defined($resp) &&  $resp->is_success ) {
+            $header = $resp->headers;
+            $mime_type = $header->content_type;
+        }
+        else {
+            #
+            # Unknown mime-type
+            #
+            $mime_type = "";
+        }
+        $filename = $resp->header("WPSS-Content-File");
+        $size = -s $filename;
+        $t = $url;
+        $t =~ s/"/""/g;
+        print $files_details_fh "DESCRIPTION,\"$t\",\"$mime_type\",$size,,,,\r\n";
 
         #
         # Print URL
@@ -9122,6 +9220,15 @@ sub Open_Data_Callback {
                     push(@all_urls, "HTML $url");
                     Perform_TQA_Check($url, \$content, $language, $mime_type,
                                       $resp);
+
+                    #
+                    # Get file details
+                    #
+                    $filename = $resp->header("WPSS-Content-File");
+                    $size = -s $filename;
+                    $t = $url;
+                    $t =~ s/"/""/g;
+                    print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",$size,,,,\r\n";
                 }
                 else {
                     #
@@ -9187,6 +9294,11 @@ sub Open_Data_Callback {
     # Analysis complete, print report footer
     #
     Print_Results_Footer(0, 0);
+
+    #
+    # Close the open data files details file
+    #
+    close($files_details_fh);
 }
 
 #***********************************************************************
@@ -9404,6 +9516,37 @@ sub Open_Data_Runtime_Error_Callback {
 
 #***********************************************************************
 #
+# Name: Open_Data_Results_Save_Callback
+#
+# Parameters: filename - directory and filename prefix
+#
+# Description:
+#
+#   This function is a callback function used by the validator package.
+# It is called when the user wants to save the results tab content
+# in files.  This function saves the results that don't appear
+# in a results tab (e.g. file inventory CSV).
+#
+#***********************************************************************
+sub Open_Data_Results_Save_Callback {
+    my ($filename) = @_;
+
+    my ($save_filename);
+
+    #
+    # Copy the open data files details CSV to the results directory.
+    #
+    $save_filename = $filename . "_file_inventory.csv";
+    unlink($save_filename);
+    print "Copy $shared_file_details_filename, $save_filename\n" if $debug;
+    if ( -f $shared_file_details_filename ) {
+        copy($shared_file_details_filename, $save_filename);
+    }
+    unlink($shared_file_details_filename);
+}
+
+#***********************************************************************
+#
 # Name: Setup_Open_Data_Tool_GUI
 #
 # Parameters: none
@@ -9495,6 +9638,11 @@ sub Setup_Open_Data_Tool_GUI {
     Validator_GUI_Add_Results_Tab($validation_tab);
     Validator_GUI_Add_Results_Tab($acc_tab);
     Validator_GUI_Add_Results_Tab($doc_list_tab);
+
+    #
+    # Set Results Save callback function
+    #
+    Validator_GUI_Set_Results_Save_Callback(\&Open_Data_Results_Save_Callback);
 }
 
 #***********************************************************************
