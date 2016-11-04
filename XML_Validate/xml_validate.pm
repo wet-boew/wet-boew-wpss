@@ -14,7 +14,7 @@
 #     XML_Validate_Content
 #     XML_Validate_Language
 #     XML_Validate_Debug
-#     XML_Validate_XSD
+#     XML_Validate_Xerces
 #
 # Terms and Conditions of Use
 #
@@ -67,7 +67,7 @@ BEGIN {
     @EXPORT  = qw(XML_Validate_Content
                   XML_Validate_Language
                   XML_Validate_Debug
-                  XML_Validate_XSD
+                  XML_Validate_Xerces
                   );
     $VERSION = "1.0";
 }
@@ -80,7 +80,7 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
-my ($xsd_url, $xsdv_jar);
+my ($have_doctype, $have_schema, $xerces_validate_cmnd);
 my ($runtime_error_reported) = 0;
 my ($debug) = 0;
 
@@ -90,15 +90,13 @@ my ($debug) = 0;
 my %string_table_en = (
     "Failed to create temporary file", "Failed to create temporary file",
     "Runtime Error",                 "Runtime Error",
-    "XSD Schema file not found",     "XSD Schema file not found",
-    "XSD validation failed",         "XSD validation failed",
+    "XML validation failed",           "XML validation failed",
     );
 
 my %string_table_fr = (
     "Failed to create temporary file", "Impossible de créer un fichier temporaire",
     "Runtime Error",                 "Erreur D'Exécution",
-    "XSD Schema file not found",     "Fichier XSD Schema introuvable",
-    "XSD validation failed",         "XSD validation échouée",
+    "XML validation failed",         "XML validation échouée",
     );
 
 #
@@ -196,6 +194,32 @@ sub String_Value {
 
 #***********************************************************************
 #
+# Name: Doctype_Handler
+#
+# Parameters: self - reference to this parser
+#             name - document type name
+#             sysid - system id
+#             pubid - public id
+#             internal - internal subset
+#
+# Description:
+#
+#   This function is a callback handler for XML parsing that
+# handles the Doctype declaration in XML.
+#
+#***********************************************************************
+sub Doctype_Handler {
+    my ($self, $name, $sysid, $pubid, $internal) = @_;
+
+    #
+    # Have doctype, set flag.
+    #
+    print "Doctype_Handler name = $name, system id = $sysid, public id = $pubid, internal subset = $internal\n" if $debug;
+    $have_doctype = 1;
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -205,56 +229,32 @@ sub String_Value {
 # Description:
 #
 #   This function is a callback handler for XML parsing that
-# handles the start of XML tags.
+# handles the start of XML tags.  It checks for the presence of
+# schema attribute indicating this XML file follows a specific
+# tag schema.
 #
 #***********************************************************************
 sub Start_Handler {
     my ($self, $tagname, %attr) = @_;
 
-    my (@fields, $directory, $file_name);
-    
-    #
-    # Check tags.
-    #
-    print "Start_Handler tag $tagname\n" if $debug;
-    
     #
     # Check for a possible xsi:schemaLocation attribute
     #
+    print "Start_Handler tag $tagname\n" if $debug;
     if ( defined($attr{"xsi:schemaLocation"}) ) {
-        $xsd_url = $attr{"xsi:schemaLocation"};
-        
         #
-        # Get the URL directory and file name components
+        # Schema defined for this XML file
         #
-        @fields = split(/\s+/, $xsd_url);
-        
+        $have_schema = 1;
+    }
+    #
+    # Check for a possible xsi:noNamespaceSchemaLocation attribute
+    #
+    if ( defined($attr{"xsi:noNamespaceSchemaLocation"}) ) {
         #
-        # Join the URL components together
+        # Schema defined for this XML file
         #
-        if ( @fields > 1 ) {
-            $directory = $fields[0];
-            $file_name = $fields[1];
-            
-            #
-            # Is the file name component an absolute URL ?
-            #
-            if ( $file_name =~ /^http[s]?:/ ) {
-                $xsd_url = $file_name;
-            }
-            #
-            # Does the directory URL have a trailing slash ?
-            #
-            elsif ( $directory =~ /\/$/ ) {
-                $xsd_url = $directory . $file_name;
-            }
-            else {
-                $xsd_url = "$directory/$file_name";
-            }
-        }
-        else {
-            $xsd_url = "";
-        }
+        $have_schema = 1;
     }
 }
 
@@ -282,177 +282,145 @@ sub End_Handler {
 
 #***********************************************************************
 #
-# Name: XML_Validate_XSD
+# Name: XML_Validate_Xerces
 #
 # Parameters: this_url - a URL
 #             content - XML content pointer
 #             xml_file - optional name of XML content file
-#             xsd_schema_url - URL of XSD schema file
 #             tcid - testcase identifier
 #             tc_desc - testcase description
 #
 # Description:
 #
-#   This function validates XML content against an XSD schema.
+#   This function validates XML content using the Xerces parser.  It
+# can be used to validate XML content that specifies an XSD schema or
+# XML content that includes a DOCTYPE declaration.
 #
 #***********************************************************************
-sub XML_Validate_XSD {
-    my ($this_url, $content, $xml_file, $xsd_schema_url, $tcid, $tc_desc) = @_;
+sub XML_Validate_Xerces {
+    my ($this_url, $content, $xml_file, $tcid, $tc_desc) = @_;
 
-    my ($result_object, $resp, $resp_url, $output, @lines, $line1, $filename);
-    my ($xsd_fh, $xsd_filename, $xsd_content, $xml_fh, $xml_filename);
-
-    #
-    # Validate XML against an XSD schema file
-    #
-    print "XML_Validate_XSD XSD url = $xsd_schema_url\n" if $debug;
+    my ($result_object, $output, @lines, $line, $errors, $base_url);
+    my ($xml_fh, $xml_filename, $validation_run, $base_filename);
+    my ($protocol, $domain, $file_path, $query, $url);
 
     #
-    # Get the XSD file so we can validate the XML against it.
+    # Validate XML using the Xerces parser
     #
-    ($resp_url, $resp) = Crawler_Get_HTTP_Response($xsd_schema_url, "");
+    print "XML_Validate_Xerces url = $this_url\n" if $debug;
 
     #
-    # Did we get the XSD file ?
+    # Do we need to write the XML content to a file ?
     #
-    if ( defined($resp) && ($resp->is_success) ) {
+    if ( $xml_file eq "" ) {
         #
-        # Create a local file for the XSD content
+        # Create a local file for the XML content
         #
-        ($xsd_fh, $xsd_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
-                                            SUFFIX => '.xsd',
+        ($xml_fh, $xml_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                                            SUFFIX => '.xml',
                                             TMPDIR => 1);
-        if ( ! defined($xsd_fh) ) {
-            print "Error: Failed to create temporary XSD file in General_XML_Validate\n";
+        if ( ! defined($xml_fh) ) {
+            print "Error: Failed to create temporary XML file in XML_Validate_Xerces\n";
             $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
                                                     -1, -1, "",
                                                     String_Value("Failed to create temporary file"),
                                                     $this_url);
             return($result_object);
         }
-        binmode $xsd_fh;
+        binmode $xml_fh;
 
         #
-        # Save the XSD content in the file
+        # Save the XML content in the file
         #
-        print "Save XSD content in temporary file $xsd_filename\n" if $debug;
-        $xsd_content = Crawler_Decode_Content($resp);
-        print $xsd_fh "$xsd_content\n";
-        close($xsd_fh);
-
-        #
-        # Do we need to write the XML content to a file ?
-        #
-        if ( $xml_file eq "" ) {
-            #
-            # Create a local file for the XML content
-            #
-            ($xml_fh, $xml_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
-                                                SUFFIX => '.xml',
-                                                TMPDIR => 1);
-            if ( ! defined($xml_fh) ) {
-                print "Error: Failed to create temporary XML file in General_XML_Validate\n";
-                unlink($xsd_filename);
-                $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
-                                                        -1, -1, "",
-                                                        String_Value("Failed to create temporary file"),
-                                                        $this_url);
-                return($result_object);
-            }
-            binmode $xml_fh;
-
-            #
-            # Save the XML content in the file
-            #
-            print "Save XML content in temporary file $xml_filename\n" if $debug;
-            print $xml_fh $$content;
-            close($xml_fh);
-        }
-        else {
-            print "Use existing XML file name $xml_file\n" if $debug;
-            $xml_filename = $xml_file;
-        }
-
-        #
-        # Run the XSD validator
-        #
-        print "Run XSD validator\n --> java -cp $xsdv_jar xsdvalidator.validate $xsd_filename $xml_filename 2>\&1\n" if $debug;
-        $output = `java -cp \"$xsdv_jar\" xsdvalidator.validate \"$xsd_filename\" \"$xml_filename\" 2>\&1`;
-
-        #
-        # Did the file validate ?
-        #
-        @lines = split(/\n/, $output);
-        $line1 = $lines[0];
-        if ( $line1 =~ / validates/ ) {
-            print "Validation passed\n" if $debug;
-        }
-        elsif ( $line1 =~ / fails to validate because:/ ) {
-            print "Validation failes\n" if $debug;
-            #
-            # Validation failed, get error message portion of the output
-            #
-            shift(@lines);
-            $output =join("\n", @lines);
-            print "XSD Validation failed\n$output\n" if $debug;
-            $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
-                                                    -1, -1, "",
-                                                    String_Value("XSD validation failed") .
-                                                    " $output", $this_url);
-        }
-        else {
-            #
-            # An error trying to run the tool
-            #
-            print "Error running xsdvalidator\n" if $debug;
-            print STDERR "Error running xsdvalidator\n";
-            print STDERR "  java -cp $xsdv_jar xsdvalidator.validate $xsd_filename $xml_filename 2>\&1\n";
-            print STDERR "$output\n";
-
-            #
-            # Report runtime error only once
-            #
-            if ( ! $runtime_error_reported ) {
-                $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
-                                                        -1, -1, "",
-                                                        String_Value("Runtime Error") .
-                  " \"java -cp $xsdv_jar xsdvalidator.validate $xsd_filename $xml_filename\"\n" .
-                                                        " \"$output\"", $this_url);
-                $runtime_error_reported = 1;
-            }
-        }
-
-        #
-        # Remove the temporary XSD and XML files
-        #
-        print "Remove temporary XSD file $xsd_filename\n" if $debug;
-        unlink($xsd_filename);
-        if ( $xml_file eq "" ) {
-            unlink($xml_filename);
-            print "Remove temporary XML file $xml_filename\n" if $debug;
-        }
-
-        #
-        # Extract the content file name from HTTP::Response object
-        #
-        $filename = $resp->header("WPSS-Content-File");
-
-        #
-        # Remove URL content file
-        #
-        if ( defined($filename) && ($filename ne "") ) {
-            print "Remove content file $filename\n" if $debug;
-            unlink($filename);
-        }
+        print "Save XML content in temporary file $xml_filename\n" if $debug;
+        print $xml_fh $$content;
+        close($xml_fh);
     }
     else {
+        print "Use existing XML file name $xml_file\n" if $debug;
+        $xml_filename = $xml_file;
+    }
+
+    #
+    # Run the Xerces validator
+    #
+    print "Run Xerces validator\n --> $xerces_validate_cmnd $xml_filename 2>\&1\n" if $debug;
+    $output = `$xerces_validate_cmnd \"$xml_filename\" 2>\&1`;
+
+    #
+    # Did the file validate ?
+    #
+    @lines = split(/\n/, $output);
+    $validation_run = 0;
+    $base_filename = basename($xml_filename);
+    ($protocol, $domain, $file_path, $query, $url) = URL_Check_Parse_URL($this_url);
+    $base_url = basename($file_path);
+    foreach $line (@lines) {
         #
-        # XSD Schema file not found
+        # Did we fine an Error line ?
         #
-        print "XSD Schema \"$xsd_schema_url\" file not found\n" if $debug;
-        $result_object = tqa_result_object->new($tcid, 1, $tc_desc, -1, -1, "",
-                                                String_Value("XSD Schema file not found") .
-                                                " $xsd_schema_url", $this_url);
+        if ( $line =~ /^\[Error\] /i ) {
+            $line =~ s/ $base_filename:/ $base_url:/;
+            $errors .= "$line\n";
+        }
+        #
+        # Did we find a fatal error line ?
+        #
+        elsif ( $line =~ /^\[Fatal\] /i ) {
+            $line =~ s/ $base_filename:/ $base_url:/;
+            $errors .= "$line\n";
+        }
+        #
+        # Do we have end of validation ? (implies that the validation
+        # process ran).
+        #
+        elsif ( $line =~ /: \d+ ms \(\d+ elems/ ) {
+            $validation_run = 1;
+        }
+    }
+
+    #
+    # Did we find any error messages ?
+    #
+    if ( defined($errors) && ($errors ne "") ) {
+        print "Validation failed\n" if $debug;
+        #
+        # Validation failed
+        #
+        print "XML Xerces Validation failed\n$output\n" if $debug;
+        $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
+                                                -1, -1, "",
+                                                String_Value("XML validation failed") .
+                                                " $errors", $this_url);
+    }
+    elsif ( ! $validation_run ) {
+        #
+        # An error trying to run the tool
+        #
+        print "Error running xerces XML validation\n" if $debug;
+        print STDERR "Error running xerces XML validation\n";
+        print STDERR "  $xerces_validate_cmnd \"$xml_filename\" 2>\&1\n";
+        print STDERR "$output\n";
+
+        #
+        # Report runtime error only once
+        #
+        if ( ! $runtime_error_reported ) {
+            $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
+                                                    -1, -1, "",
+                                                    String_Value("Runtime Error") .
+              " \"$xerces_validate_cmnd \"$xml_filename\"\"\n" .
+                                                    " \"$output\"", $this_url);
+            $runtime_error_reported = 1;
+        }
+    }
+
+    #
+    # Remove the temporary XML file
+    #
+    if ( $xml_file eq "" ) {
+        unlink($xml_filename);
+        print "Remove temporary XML file $xml_filename\n" if $debug;
     }
 
     #
@@ -487,11 +455,13 @@ sub General_XML_Validate {
     #
     # Initialize global variables
     #
-    $xsd_url = "";
+    $have_schema = 0;
+    $have_doctype = 0;
 
     #
     # Add handlers for some of the XML tags
     #
+    $parser->setHandlers(Doctype => \&Doctype_Handler);
     $parser->setHandlers(Start => \&Start_Handler);
     $parser->setHandlers(End => \&End_Handler);
 
@@ -515,14 +485,14 @@ sub General_XML_Validate {
                                                 $this_url);
     }
     #
-    # Did we get a XSD schema URL ?
+    # Did we find a doctye or schema ?
     #
-    elsif ( $xsd_url ne "" ) {
+    elsif ( $have_schema || $have_doctype ) {
         #
-        # Validate the XML against it.
+        # Validate the XML against doctype or schema.
         #
-        $result_object = XML_Validate_XSD($this_url, $content, "", $xsd_url,
-                                          "XML_VALIDATION", "XML_VALIDATION");
+        $result_object = XML_Validate_Xerces($this_url, $content, "",
+                                             "XML_VALIDATION", "XML_VALIDATION");
     }
 
     #
@@ -608,8 +578,8 @@ sub XML_Validate_Content {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("feed_validate", "tqa_result_object",
-                          "xml_ttml_validate", "crawler");
+    my (@package_list) = ("crawler", "feed_validate", "tqa_result_object",
+                          "url_check", "xml_ttml_validate");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
@@ -657,24 +627,34 @@ if ( $program_dir eq "." ) {
 }
 
 #
+# Set xerces validator command and options
+#   -v = validate XML
+#   -n = namespace processing
+#   -np = namespace prefixes
+#   -s = schema validation
+#   -f = file to process
+#
+$xerces_validate_cmnd = "java -classpath \"$program_dir/lib/xercesImpl.jar;" .
+                        "$program_dir/lib/xml-apis.jar;" .
+                        "$program_dir/lib/xercesSamples.jar\" " .
+                        "sax.Counter -v -n -np -s -f ";
+
+#
+# Check for operating system specifics
+#
+if ( !( $^O =~ /MSWin32/ ) ) {
+    #
+    # Not Windows, change ; separator to : separator in class path,
+    # add LANG environment variable setting for Unix.
+    #
+    $xerces_validate_cmnd =~ s/;/:/g;
+    $xerces_validate_cmnd = "LANG=en_US.ISO8859-1;export LANG;" . $xerces_validate_cmnd;
+}
+
+#
 # Import required packages
 #
 Import_Packages;
-
-#
-# Generate path the schema validate jar file
-#
-if ( $^O =~ /MSWin32/ ) {
-    #
-    # Windows.
-    #
-    $xsdv_jar = ".\\lib\\xsdv.jar";
-} else {
-    #
-    # Not Windows.
-    #
-    $xsdv_jar = "$program_dir/lib/xsdv.jar";
-}
 
 #
 # Return true to indicate we loaded successfully
