@@ -3024,13 +3024,15 @@ sub Extract_Links_From_HTML {
                 }
                 while ( defined($olink) && defined($glink) ) {
                     #
-                    # If the links match for URL, add the original list link
-                    # to the merged list.
+                    # If the links match for URL, add the generated markup list
+                    # link to the merged list.
                     #
                     print "Original content link  # $ol " . $olink->abs_url . "\n" if $debug;
                     print "Generated content link # $gl " . $glink->abs_url . "\n" if $debug;
                     if ( $olink->abs_url eq $glink->abs_url ) {
-                        push(@merged_links, $olink);
+                        $mlink = $glink;
+                        $mlink->generated_content(0);
+                        push(@merged_links, $mlink);
                         $ol++;
                         $gl++;
                         print "Add to merged list\n" if $debug;
