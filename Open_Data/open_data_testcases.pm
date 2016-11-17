@@ -106,7 +106,7 @@ my (%testcase_description_en) = (
 "OD_3",     "OD_3: Validation",
 "OD_CSV_1", "OD_CSV_1: CSV Data",
 "OD_TXT_1", "OD_TXT_1: TXT Dictionary",
-"OD_XML_1", "OD_CSV_1: XML Data",
+"OD_XML_1", "OD_XML_1: XML Data",
 
 #
 # PWGSC Open Data checkpoints
@@ -126,7 +126,7 @@ my (%testcase_description_fr) = (
 "OD_3",     "OD_3: Validation",
 "OD_CSV_1", "OD_CSV_1: Données CSV",
 "OD_TXT_1", "OD_TXT_1: TXT Dictionnaire",
-"OD_XML_1", "OD_CSV_1: Données XML",
+"OD_XML_1", "OD_XML_1: Données XML",
 
 #
 # PWGSC Open Data checkpoints
