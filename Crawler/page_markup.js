@@ -2,9 +2,9 @@
 //
 // Name: page_markup.js
 //
-// $Revision: 7566 $
-// $URL: svn://10.36.21.45/trunk/Web_Checks/Crawler/Tools/page_markup.js $
-// $Date: 2016-04-13 04:18:55 -0400 (Wed, 13 Apr 2016) $
+// $Revision: 90 $
+// $URL: svn://10.36.20.203/Crawler/Tools/page_markup.js $
+// $Date: 2016-11-15 09:02:04 -0500 (Tue, 15 Nov 2016) $
 //
 // Synopsis: phantomjs page_markup.js <url> [ -debug ]
 //
@@ -53,6 +53,7 @@ var system = require('system');
 var debug = 0;
 var generate_page_image = 0;
 var page = require('webpage').create();
+    page.settings.XSSAuditingEnabled = 'true';
 var resourceWait = 500,
     renderWait = 500,
     count = 0,
@@ -107,9 +108,6 @@ if (system.args.length > 2) {
     }
 }
 
-// Get the start time
-start_time = Date.now();
-
 // Make sure console.error messages go to the system stderr output stream.
 console.error = function () {
     require("system").stderr.write(Array.prototype.join.call(arguments, ' ') + '\n');
@@ -132,13 +130,12 @@ console.error = function () {
 //
 // ************************************************************
 function doRender() {
-    // Get the elapsed time for loading the page
-    t = Date.now();
-    var elapsed = t - start_time;
-    console.log(program_name + ': page load time ' + elapsed);
+    // Get current time
+    t = new Date();
+    console.log(program_name + ': page ' + t.toLocaleTimeString());
 
     if ( debug === 1 ) {
-        console.error('In doRender at ' + elapsed);
+        console.error('In doRender at ' + t.toLocaleTimeString());
     }
 
     // Cancel any possible timers
@@ -165,16 +162,10 @@ function doRender() {
     }
     
     if ( debug === 1 ) {
-        t = Date.now();
-        elapsed = t - start_time;
-        console.error('Exit program at ' + elapsed);
+        t = new Date();
+        console.error('Exit program at ' + t.toLocaleTimeString());
     }
     phantom.exit();
-    if ( debug === 1 ) {
-        t = Date.now();
-        elapsed = t - start_time;
-        console.error('After program exit at ' + elapsed);
-    }
 }
 
 // ************************************************************
@@ -195,9 +186,8 @@ function doRender() {
 page.open(url, function (status) {
 
     if ( debug === 1 ) {
-        t = Date.now();
-        var elapsed = t - start_time;
-        console.error('page.open, msec since start ' + elapsed +
+        t = new Date();
+        console.error('page.open ' + t.toLocaleTimeString() +
                     ' for url ' + url);
     }
 
@@ -227,16 +217,19 @@ page.open(url, function (status) {
 // ************************************************************
 page.onResourceError = function(resourceError) {
 
+    // Get current time
+    t = new Date();
+    
     // Print error message
     if ( debug === 1 ) {
-        console.error('Unable to load resource # ' + count + ' id: ' + resourceError.id + ' URL:' + resourceError.url);
+        console.error('Unable to load resource # ' + count + ' id: ' + resourceError.id + ' URL:' + resourceError.url + ' at ' + t.toLocaleTimeString());
         console.error('Error code: ' + resourceError.errorCode + '. Description: ' + resourceError.errorString);
     }
 
     // Is the resource the URL of the main page ?
     if ( url === resourceError.url ) {
         // Error loading main page, print error message and exit
-        console.error('Unable to load page ' + resourceError.url);
+        console.error('Unable to load page ' + resourceError.url + ' at ' + t.toLocaleTimeString());
         console.error('Error code: ' + resourceError.errorCode + '. Description: ' + resourceError.errorString);
         phantom.exit();
     }
@@ -268,7 +261,8 @@ page.onError = function(msg, trace) {
     }
 
     // Print error message and traceback
-    console.error(msgStack.join('\n'));
+    t = new Date();
+    console.error('Error at ' + t.toLocaleTimeString() + '\n' + msgStack.join('\n'));
 };
 
 // ************************************************************
@@ -293,10 +287,9 @@ page.onResourceRequested = function(requestData, networkRequest) {
 
     // Print request details
     if ( debug === 1 ) {
-        t = Date.now();
-        var elapsed = t - start_time;
-        console.error('time since start ' + elapsed + ' Resource Request #' + count +
-                      ' id: ' + requestData.id + ' url: ' + requestData.url);
+        t = new Date();
+        console.error('Resource Request #' + count + ' id: ' + requestData.id +
+                      ' url: ' + requestData.url + ' at ' + t.toLocaleTimeString());
     }
 };
 
@@ -324,20 +317,18 @@ page.onResourceReceived = function(response) {
 
         // Print response details
         if ( debug === 1 ) {
-            t = Date.now();
-            var elapsed = t - start_time;
-            console.error('time since start ' + elapsed + ' Response Received #' + count +
+            t = new Date();
+            console.error('Response Received #' + count +
                           ' id: ' + response.id + ' URL:' + response.url +
-                          ' status: ' + response.status);
+                          ' status: ' + response.status + ' at ' + t.toLocaleTimeString());
         }
 
         // If the count is 0, set a timeout for JavaScript to execute
         // and to render the page.
         if (count === 0) {
             if ( debug === 1 ) {
-                t = Date.now();
-                var elapsed = t - start_time;
-                console.error('time since start ' + elapsed + ' Resource count is 0, start rendering timer');
+                t = new Date();
+                console.error('Resource count is 0, start rendering timer at ' + t.toLocaleTimeString());
             }
             renderTimeout = setTimeout(doRender, renderWait);
         }
@@ -371,9 +362,8 @@ phantom.onError = function(msg, trace) {
   }
   console.error(msgStack.join('\n'));
   if ( debug === 1 ) {
-      t = Date.now();
-      var elapsed = t - start_time;
-      console.error('Phantom onError at ' + elapsed);
+      t = new Date();
+      console.error('Phantom onError at ' + t.toLocaleTimeString());
   }
   phantom.exit(1);
 };
