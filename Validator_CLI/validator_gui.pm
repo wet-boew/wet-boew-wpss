@@ -176,6 +176,7 @@ my (%site_configuration_fields) = (
     "logoutinterstitialcount", "",
     "logoutinterstitialcount", "",
     "httpproxy", "",
+    "process_pdf", "",
     "report_fails_only", "",
     "report_passes_only", "",
    );
