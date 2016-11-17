@@ -2,9 +2,9 @@
 //
 // Name: markup_server.js
 //
-// $Revision$
-// $URL$
-// $Date$
+// $Revision: 92 $
+// $URL: svn://10.36.20.203/Crawler/Tools/markup_server.js $
+// $Date: 2016-11-15 09:05:40 -0500 (Tue, 15 Nov 2016) $
 //
 // Synopsis: phantomjs markup_server.js <port> -debug
 //
@@ -50,17 +50,18 @@
 // ************************************************************
 var program_name = 'markup_server.js';
 var system = require('system');
+var page = require('webpage').create();
 var debug = 0;
 var generate_page_image = 0;
-var page = require('webpage').create();
 var resourceWait = 500,
     renderWait = 500,
     count = 0,
     maxRenderWait = 2000,
     forcedRenderTimeout,
     renderTimeout,
+    get_pageTimeout,
     t,
-    start_time,
+    start_time, now,
     arg,
     arg_count,
     page_image_file_name;
@@ -70,7 +71,8 @@ var element_text, child_element;
 var get_computed_styles = 1;
 var idle_timeout = 50000,
     idle_timer,
-    received_request = 0;
+    received_request = 0,
+    rendering_done = 0;
 
 // ************************************************************
 //
@@ -94,19 +96,17 @@ function get_page(status, _callback) {
 
     // Print load time information
     if (debug === 1) {
-        t = Date.now();
-        var elapsed = t - start_time;
-        console.out('get_page, msec since start ' + elapsed +
-            ' for url ' + url);
+        t = new Date();
+        console.out('get_page, at ' + t.toLocaleTimeString() + ' for url ' + url);
     }
 
     // Was the open successful ?
-    //page_status = status;
     if (status !== "success") {
         if (debug === 1) {
             console.log('Failed to load URL in get_page ' + url);
             console.log('Status = ' + status);
         }
+        return;
     } else {
         // Set a timeout to allow for JavaScript to run.
         // The timeout is adjusted as resources (e.g. CSS, JavaScript)
@@ -114,9 +114,31 @@ function get_page(status, _callback) {
         forcedRenderTimeout = setTimeout(doRender, maxRenderWait);
     }
 
-    // Save page content and call the callback function
-    page_content = page.content;
-    _callback();
+    if (debug === 1) {
+        t = new Date();
+        console.out('In get_page at ' + t.toLocaleTimeString() +
+            ' rendering_done = ' + rendering_done);
+    }
+
+    if (rendering_done === 1) { // Page has been rendered
+        if (debug === 1) {
+            t = new Date();
+            console.out('get_page, invoke callback function at ' + t.toLocaleTimeString() + ' for url ' + url);
+        }
+
+        // Save page content and call the callback function
+        page_content = page.content;
+        _callback();
+
+    } else {
+        if (debug === 1) {
+            t = new Date();
+            console.out('Reset get_page at ' + t.toLocaleTimeString());
+        }
+        setTimeout(function() {
+            get_page(status, _callback);
+        }, 250);
+    }
 }
 
 // ************************************************************
@@ -162,24 +184,45 @@ function getParameterByName(name, url) {
 // ************************************************************
 function doRender() {
 
+    // Has rendering already been done?
+    if ( rendering_done === 1 ) {
+        if (debug === 1) {
+            t = new Date();
+            console.out('In doRender, page already rendered at ' + t.toLocaleTimeString());
+        }
+        return;
+    }
+
     // Get the elapsed time for loading the page
     if (debug === 1) {
-        t = Date.now();
-        var elapsed = t - start_time;
-        console.out('In doRender at ' + elapsed);
+        t = new Date();
+        console.out('In doRender at ' + t.toLocaleTimeString());
     }
 
     // Cancel any possible timers
     clearTimeout(renderTimeout);
     clearTimeout(forcedRenderTimeout);
+    page_content = page.content;
+    if (debug === 1) {
+        console.log(': ===== PAGE MARKUP BEGINS =====');
+        console.log(page_content.toString('utf8'));
+        console.log('');
+        console.log(': ===== PAGE MARKUP ENDS =====');
 
+
+    }
     // Do we want a rendered image of this page ?
     if (generate_page_image === 1) {
         if (debug === 1) {
-            console.log('Render page into an image file');
+            t = new Date();
+            console.log('Render page into an image file at ' + t.toLocaleTimeString());
         }
         page.render(page_image_file_name);
     }
+
+    // Set rendering done flag
+    rendering_done = 1;
+    clearTimeout(get_pageTimeout);
 }
 
 // ************************************************************
@@ -204,7 +247,7 @@ phantom.onError = function(msg, trace) {
     if (trace && trace.length) {
         msgStack.push('TRACE:');
         trace.forEach(function(t) {
-            msgStack.push(' -> ' + (t.file || t.sourceURL) + ': ' + t.line + (t.function ? ' (in function ' + t.function + ')' : ''));
+            msgStack.push(' -> ' + (t.file || t.sourceURL) + ': ' + t.line + (t.function ? ' (in function ' + t.function+')' : ''));
         });
     }
 
@@ -228,7 +271,7 @@ phantom.onError = function(msg, trace) {
 function Idle_Exit() {
 
     // Get the elapsed time for loading the page
-    if ( received_request === 0 ) {
+    if (received_request === 0) {
         console.log('Idle timeout, exiting program');
         clearInterval(idle_timer);
         phantom.exit();
@@ -243,16 +286,141 @@ function Idle_Exit() {
 
 // ************************************************************
 //
+// Name: page.onResourceError
+//
+// Parameters: resourceError - metadata object for error details
+//
+// Description:
+//
+//    This handler is called when there is an error loading a
+// resource (e.g. main page, CSS, JavaScript).
+//
+// ************************************************************
+page.onResourceError = function(resourceError) {
+
+    // Print error message
+    if (debug === 1) {
+        t = new Date();
+        console.out('Unable to load resource # ' + count + ' id: ' + resourceError.id + ' URL:' + resourceError.url);
+        console.out('Error code: ' + resourceError.errorCode + '. Description: ' + resourceError.errorString);
+        console.out('at ' + t.toLocaleTimeString());
+    }
+
+    // Is the resource the URL of the main page ?
+    if (url === resourceError.url) {
+        // Error loading main page, set page status to fail
+        page_status = "fail";
+    }
+};
+
+// ************************************************************
+//
+// Name: page.onError
+//
+// Parameters: msg - error message
+//             trace - traceback stack
+//
+// Description:
+//
+//    This handler is called when there is an error executing
+// JavaScript.  It prints the error message along with the stack
+// traceback.
+//
+// ************************************************************
+page.onError = function(msg, trace) {
+    var msgStack = ['ERROR: ' + msg];
+
+    // If there is a traceback stack, include each item in the message stack
+    if (trace && trace.length) {
+        msgStack.push('TRACE:');
+        trace.forEach(function(t) {
+            msgStack.push(' -> ' + t.file + ': ' + t.line + (t.function ? ' (in function "' + t.function+'")' : ''));
+        });
+    }
+
+    // Print error message and traceback
+    console.out(msgStack.join('\n'));
+    phantom.exit(1);
+};
+
+// ************************************************************
+//
+// Name: page.onResourceRequested
+//
+// Parameters: requestData - metadata object for request
+//             networkRequest - object for request
+//
+// Description:
+//
+//    This handler is called when there is a request to load
+// a resource (e.g. CSS, JavaScript, image, etc).  It increments
+// the count of outstanding requests and clears any timer.
+//
+// ************************************************************
+page.onResourceRequested = function(requestData, networkRequest) {
+
+    // Increment resource count and clear rendering timer.
+    count += 1;
+    clearTimeout(renderTimeout);
+
+    // Print request load time details
+    if (debug === 1) {
+        t = new Date();
+        console.out('Resource Request #' + count +
+            ' id: ' + requestData.id + ' at ' + t.toLocaleTimeString() +
+            ' url: ' + requestData.url);
+    }
+};
+
+// ************************************************************
+//
+// Name: page.onResourceReceived
+//
+// Parameters: response - metadata object for response
+//
+// Description:
+//
+//    This handler is called when there a resource
+// (e.g. CSS, JavaScript, image, etc) is received.  It decrements
+// the count of outstanding requests.  If the count reaches 0,
+// it sets a timer to allow any JavaScript to execute on the
+// page.
+//
+// ************************************************************
+page.onResourceReceived = function(response) {
+
+    // Is the response stage "end" (all content received) ?
+    if (!response.stage || response.stage === 'end') {
+        // Decrement outstanding resource count
+        count -= 1;
+
+        // Print response load time details
+        if (debug === 1) {
+            t = new Date();
+            console.out('Response Received #' + count +
+                ' id: ' + response.id +
+                ' status: ' + response.status + ' at ' + t.toLocaleTimeString() +
+                ' url: ' + response.url);
+        }
+
+        // If the count is 0, set a timeout for JavaScript to execute
+        // and to render the page.
+        if (count <= 0) {
+            if (debug === 1) {
+                t = new Date();
+                console.out('Resource count is 0, start rendering timer at ' +
+                    t.toLocaleTimeString());
+            }
+            renderTimeout = setTimeout(doRender, renderWait);
+        }
+    }
+};
+
+// ************************************************************
+//
 // Mainline
 //
 // ************************************************************
-
-// Set page viewport size to ensure we get a full web page and not
-// a smaller (e.g. mobile) page presentation.
-page.viewportSize = {
-    width: 1280,
-    height: 847
-};
 
 // Check for program arguments
 if (system.args.length === 1) {
@@ -308,7 +476,20 @@ server = require('webserver').create();
 // ************************************************************
 service = server.listen(port, function(request, response) {
     var parser = document.createElement('a');
-    
+
+    // Attempt to allow cross site scripting.
+    // This does not appear to work in all cases.
+    page.settings.XSSAuditingEnabled = 'false';
+    page.settings.webSecurityEnabled = 'false';
+    page.settings.localToRemoteUrlAccessEnabled = 'true';
+
+    // Set page viewport size to ensure we get a full web page and not
+    // a smaller (e.g. mobile) page presentation.
+    page.viewportSize = {
+        width: 1280,
+        height: 847
+    };
+
     // Get the full request
     parser.href = "http://127.0.0.1:" + port + request.url;
     received_request = 1;
@@ -340,7 +521,7 @@ service = server.listen(port, function(request, response) {
         get_computed_styles = getParameterByName('get_computed_styles', parser.href);
         if (debug === 1) {
             console.log('Get url = ' + url + ' get_computed_styles ' +
-                        get_computed_styles + ' page_image = ' + page_image_file_name);
+                get_computed_styles + ' page_image = ' + page_image_file_name);
         }
 
         // Did we find a URL parameter?
@@ -370,7 +551,8 @@ service = server.listen(port, function(request, response) {
 
     // Server is up and running
     if (debug === 1) {
-        console.log('server.listen page.open ' + url);
+        now = new Date();
+        console.log('server.listen at ' + now + ' page.open ' + url);
     }
     page.onConsoleMessage = function(msg) {
         console.log(msg);
@@ -378,11 +560,22 @@ service = server.listen(port, function(request, response) {
 
     // Open the URL provided in the url paramter of the request
     page_status = "success";
+    rendering_done = 0;
     page.open(url, function(status) {
+        // Set a timeout to allow for JavaScript to run.
+        // The timeout is adjusted as resources (e.g. CSS, JavaScript)
+        // files are loaded by the page.
+        if (debug === 1) {
+            t = new Date();
+            console.out('Before get_page at ' + t.toLocaleTimeString());
+        }
         get_page(status, function() {
-
             // Do we get computed styles ?
             if (get_computed_styles === 1) {
+                if (debug === 1) {
+                    t = new Date();
+                    console.out('Get computed styles at ' + t.toLocaleTimeString());
+                }
                 var output = page.evaluate(function() {
                     var style_attributes, output, elements, el, i, j, k, l, len;
                     var propertyName, ref1, ref2, rule, ruleList, rules, style;
@@ -399,7 +592,7 @@ service = server.listen(port, function(request, response) {
                     // that have text.  Get the computed styles for the text.
                     for (j = 0, len = elements.length; j < len; j++) {
                         el = elements[j];
-                        
+
                         // Get parent element
                         pl = el.parentNode;
 
@@ -467,6 +660,10 @@ service = server.listen(port, function(request, response) {
             // Set HTTP response code to 200 OK and set content type to
             // plain text (so the user agent doesn't interpret the HTML
             // markup).
+            if (debug === 1) {
+                t = new Date();
+                console.out('Create HTTP response at ' + t.toLocaleTimeString());
+            }
             response.statusCode = 200;
             response.headers = {
                 'Cache': 'no-cache',
@@ -481,7 +678,7 @@ service = server.listen(port, function(request, response) {
                 // Eliminate <noscript> content.  PhantomJS converts angle
                 // brackets to &lt; and &gt;, so the content must be removed
                 // to avoid validation errors.
-                buffer = page_content;
+                buffer = page.content;
                 buffer = buffer.replace(/<\s*noscript\s*>([^<]+)<\s*\/\s*noscript\s*>/img, "");
                 response.write(buffer.toString('utf8'));
                 response.write('\n');
@@ -518,152 +715,25 @@ service = server.listen(port, function(request, response) {
                 response.write('</html>');
                 response.statusCode = 404;
             }
-            
+
             // Close the response to send it back to the caller
+            if (debug === 1) {
+                t = new Date();
+                console.log('Close response at ' + t.toLocaleTimeString());
+            }
             response.close();
         });
     });
-
-    // ************************************************************
-    //
-    // Name: page.onResourceError
-    //
-    // Parameters: resourceError - metadata object for error details
-    //
-    // Description:
-    //
-    //    This handler is called when there is an error loading a
-    // resource (e.g. main page, CSS, JavaScript).
-    //
-    // ************************************************************
-    page.onResourceError = function(resourceError) {
-
-        // Print error message
-        if (debug === 1) {
-            console.out('Unable to load resource # ' + count + ' id: ' + resourceError.id + ' URL:' + resourceError.url);
-            console.out('Error code: ' + resourceError.errorCode + '. Description: ' + resourceError.errorString);
-        }
-
-        // Is the resource the URL of the main page ?
-        if (url === resourceError.url) {
-            // Error loading main page, set page status to fail
-            page_status = "fail";
-        }
-    };
-
-    // ************************************************************
-    //
-    // Name: page.onError
-    //
-    // Parameters: msg - error message
-    //             trace - traceback stack
-    //
-    // Description:
-    //
-    //    This handler is called when there is an error executing
-    // JavaScript.  It prints the error message along with the stack
-    // traceback.
-    //
-    // ************************************************************
-    page.onError = function(msg, trace) {
-        var msgStack = ['ERROR: ' + msg];
-
-        // If there is a traceback stack, include each item in the message stack
-        if (trace && trace.length) {
-            msgStack.push('TRACE:');
-            trace.forEach(function(t) {
-                msgStack.push(' -> ' + t.file + ': ' + t.line + (t.function ? ' (in function "' + t.function + '")' : ''));
-            });
-        }
-
-        // Print error message and traceback
-        console.out(msgStack.join('\n'));
-        phantom.exit(1);
-    };
-
-    // ************************************************************
-    //
-    // Name: page.onResourceRequested
-    //
-    // Parameters: requestData - metadata object for request
-    //             networkRequest - object for request
-    //
-    // Description:
-    //
-    //    This handler is called when there is a request to load
-    // a resource (e.g. CSS, JavaScript, image, etc).  It increments
-    // the count of outstanding requests and clears any timer.
-    //
-    // ************************************************************
-    page.onResourceRequested = function(requestData, networkRequest) {
-
-        // Increment resource count and clear rendering timer.
-        count += 1;
-        clearTimeout(renderTimeout);
-
-        // Print request load time details
-        if (debug === 1) {
-            t = Date.now();
-            var elapsed = t - start_time;
-            console.out('time since start ' + elapsed + ' Resource Request #' + count +
-                ' id: ' + requestData.id);
-        }
-    };
-
-    // ************************************************************
-    //
-    // Name: page.onResourceReceived
-    //
-    // Parameters: response - metadata object for response
-    //
-    // Description:
-    //
-    //    This handler is called when there a resource
-    // (e.g. CSS, JavaScript, image, etc) is received.  It decrements
-    // the count of outstanding requests.  If the count reaches 0,
-    // it sets a timer to allow any JavaScript to execute on the
-    // page.
-    //
-    // ************************************************************
-    page.onResourceReceived = function(response) {
-
-        // Is the response stage "end" (all content received) ?
-        if (!response.stage || response.stage === 'end') {
-            // Decrement outstanding resource count
-            count -= 1;
-
-            // Print response load time details
-            if (debug === 1) {
-                t = Date.now();
-                var elapsed = t - start_time;
-                console.out('time since start ' + elapsed + ' Response Received #' + count +
-                    ' id: ' + response.id +
-                    ' status: ' + response.status);
-            }
-
-            // If the count is 0, set a timeout for JavaScript to execute
-            // and to render the page.
-            if (count <= 0) {
-                if (debug === 1) {
-                    t = Date.now();
-                    var elapsed = t - start_time;
-                    console.out('time since start ' + elapsed + ' Resource count is 0, start rendering timer');
-                }
-                renderTimeout = setTimeout(doRender, renderWait);
-            }
-        }
-    };
 
 });
 
 // Did the service get created ?
 if (service) {
     if (debug === 1) {
-        var now = new Date();
-        console.log('Web server running on port ' + port + ' at ' + now);
+        t = new Date();
+        console.log('Web server running on port ' + port + ' at ' + t.toLocaleTimeString());
     }
 } else {
     console.log('Error: Could not create web server listening on port ' + port);
     phantom.exit();
 }
-
