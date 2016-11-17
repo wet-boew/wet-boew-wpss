@@ -222,6 +222,7 @@ my (%site_configuration_fields) = (
     "logoutinterstitialcount", "",
     "logoutinterstitialcount", "",
     "httpproxy", "",
+    "process_pdf", "",
    );
 
 my ($language) = "eng";
