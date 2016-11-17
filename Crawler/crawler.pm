@@ -135,7 +135,7 @@ my ($http_response_callback_function, $login_callback_function);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef, @login_url_patterns);
 my ($login_form_name, $http_401_callback_function, %http_401_credentials);
 my ($login_domain_e, $login_domain_f, $accepted_content_encodings);
-my (%domain_prod_dev_map, %domain_dev_prod_map);
+my (%domain_prod_dev_map, %domain_dev_prod_map, $RobotUA_cache_dir, $tmp);
 my ($login_interstitial_count, $logout_interstitial_count, $user_agent_hostname);
 my ($charset, $lwp_user_agent, $content_length, $phantomjs_cookie_file);
 
@@ -983,7 +983,7 @@ sub Create_User_Agents {
     #
     # Local variables
     #
-    my ($cookie_jar, $host, $fh, $cache, $tmp, $cache_dir);
+    my ($cookie_jar, $host, $fh, $cache);
     my $num_connections = 10;
 
     #
@@ -997,34 +997,23 @@ sub Create_User_Agents {
     }
     
     #
-    # Clean out any files in the disk cache
-    #
-    if ( defined($ENV{"TMP"}) ) {
-        $tmp = $ENV{"TMP"};
-    }
-    else {
-        $tmp = "/tmp";
-    }
-    $cache_dir = "$tmp/wpss_tool_RobotUA_cache";
-    
-    #
     # Does the cache exist ?
     #
-    if ( -d $cache_dir ) {
+    if ( -d $RobotUA_cache_dir ) {
         #
         # Remove files
         #
-        print "Remove existing cache content from $cache_dir\n" if $debug;
-        remove_tree($cache_dir) ||
-          die "Error: Failed to remove cache content from $cache_dir\n";
+        print "Remove existing cache content from $RobotUA_cache_dir\n" if $debug;
+        remove_tree($RobotUA_cache_dir) ||
+          die "Error: Failed to remove cache content from $RobotUA_cache_dir\n";
     }
     
     #
     # Create disk cache
     #
-    print "Create disk cache at $cache_dir\n" if $debug;
-    mkdir($cache_dir, 0755) ||
-      die "Error: Failed to create cache directory $cache_dir\n";
+    print "Create disk cache at $RobotUA_cache_dir\n" if $debug;
+    mkdir($RobotUA_cache_dir, 0755) ||
+      die "Error: Failed to create cache directory $RobotUA_cache_dir\n";
 
     #
     # Setup user agent to handle HTTP requests
@@ -1032,7 +1021,7 @@ sub Create_User_Agents {
     print "Create LWP::RobotUA::Cached user agent $user_agent_name\n" if $debug;
     $user_agent = LWP::RobotUA::Cached->new(agent => "$user_agent_name",
                                             from => "$user_agent_name\@$host",
-                                            cache_dir => "$cache_dir",
+                                            cache_dir => "$RobotUA_cache_dir",
                                             cachename_spec => {'Client-Date' => '',
                                                                'Referer' => ''});
 
@@ -1089,11 +1078,6 @@ sub Create_User_Agents {
     #
     $cookie_jar = HTTP::Cookies->new;
     $lwp_user_agent->cookie_jar($cookie_jar);
-
-    #
-    # Create temporary file for PhantomJS cookies.
-    #
-    $phantomjs_cookie_file = "$tmp/phantomjs_cookies.txt";
 
     #
     # Clear PhantomJS disk cache and cookie jar
@@ -3914,6 +3898,23 @@ if ( $program_dir eq "." ) {
 # Import required packages
 #
 Import_Packages;
+
+#
+# Get path for cache and cookie jars
+#
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $tmp = $ENV{"TMP"};
+} else {
+    #
+    # Not Windows.
+    #
+    $tmp = $ENV{"HOME"};
+}
+$RobotUA_cache_dir = "$tmp/wpss_tool_RobotUA_cache";
+$phantomjs_cookie_file = "$tmp/phantomjs_cookies.txt";
 
 #
 # Return true to indicate we loaded successfully
