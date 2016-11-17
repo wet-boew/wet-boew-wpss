@@ -1376,6 +1376,7 @@ sub Check_JS_Links {
                         # Is the <script> tag within the last 10% of the
                         # content ?
                         #
+                        print "Link line number $line_no, content line count = $content_line_count\n" if $debug;
                         if ( $line_no < (int($content_line_count * 0.90)) ) {
                             Record_Result("JS_BOTTOM", $link->line_no,
                                           $link->column_no, $link->source_line,
