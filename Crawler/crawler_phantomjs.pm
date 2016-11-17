@@ -2,9 +2,9 @@
 #
 # Name:   crawler_phantomjs.pm
 #
-# $Revision: 7621 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Crawler/Tools/crawler_phantomjs.pm $
-# $Date: 2016-07-13 03:32:58 -0400 (Wed, 13 Jul 2016) $
+# $Revision: 91 $
+# $URL: svn://10.36.20.203/Crawler/Tools/crawler_phantomjs.pm $
+# $Date: 2016-11-15 09:03:45 -0500 (Tue, 15 Nov 2016) $
 #
 # Description:
 #
@@ -235,7 +235,7 @@ sub Stop_Markup_Server {
 sub Start_Markup_Server {
     my ($cookie_file) = @_;
 
-    my ($output, $debug_option, $sec, $min, $hour, $time);
+    my ($debug_option, $sec, $min, $hour, $time);
 
     #
     # Stop any server that may be running
@@ -258,9 +258,8 @@ sub Start_Markup_Server {
     ($sec, $min, $hour) = (localtime)[0,1,2];
     $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
     print "Start_Markup_Server at $time\n" if $debug;
-    print "$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt $phantomjs_server_last_arg\n" if $debug;
-    system("$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt $phantomjs_server_last_arg");
-    print "Start_Markup_Server started, output = $output\n" if $debug;
+    print "$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt 2>> phantomjs_stderr.txt $phantomjs_server_last_arg\n" if $debug;
+    system("$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt 2>> phantomjs_stderr.txt $phantomjs_server_last_arg");
 
     #
     # Set flag to indicate that the markup server has been started.
@@ -628,7 +627,7 @@ if ( $^O =~ /MSWin32/ ) {
     $phantomjs_server_cmnd = "START /B .\\bin\\phantomjs";
     $phantomjs_server_arg = ".\\lib\\markup_server.js";
     $phantomjs_server_last_arg = "";
-    $phantomjs_cache = $ENV{"HOME"} . "/AppData/Local/Ofi Labs/PhantomJS";
+    $phantomjs_cache = $ENV{"HOMEDRIVE"} . $ENV{"HOMEPATH"} . "\\AppData\\Local\\Ofi Labs\\PhantomJS";
 } else {
     #
     # Not Windows.
@@ -640,6 +639,11 @@ if ( $^O =~ /MSWin32/ ) {
     $phantomjs_server_last_arg = "\&";
     $phantomjs_cache = $ENV{"HOME"} . "/.qws/cache/Ofi Labs/PhantomJS";
 }
+
+#
+# Remove any existing cache
+#
+Crawler_Phantomjs_Clear_Cache("");
 
 #
 # Import required packages
