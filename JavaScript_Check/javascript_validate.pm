@@ -53,6 +53,11 @@ use File::Basename;
 use HTML::Parser;
 use File::Temp qw/ tempfile tempdir /;
 
+#
+# Use WPSS_Tool program modules
+#
+use tqa_result_object;
+
 #***********************************************************************
 #
 # Export package globals
@@ -484,38 +489,6 @@ sub JavaScript_Validate_Extract_JavaScript_From_HTML {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -551,7 +524,7 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
-    $validate_cmnd = ".\\bin\\jsl.exe";
+    $validate_cmnd = "$program_dir\\bin\\jsl.exe";
 } else {
     #
     # Not Windows.
@@ -582,11 +555,6 @@ if ( defined $ENV{LD_LIBRARY_PATH} ) {
 else {
     $ENV{LD_LIBRARY_PATH} = "/usr/local/lib:/opt/sfw/lib";
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

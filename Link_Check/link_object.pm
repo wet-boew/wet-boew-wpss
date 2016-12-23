@@ -2,9 +2,9 @@
 #
 # Name: link_object.pm
 #
-# $Revision: 7582 $
+# $Revision: 7637 $
 # $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/link_object.pm $
-# $Date: 2016-06-03 09:09:20 -0400 (Fri, 03 Jun 2016) $
+# $Date: 2016-07-22 07:50:26 -0400 (Fri, 22 Jul 2016) $
 #
 # Description:
 #
@@ -85,6 +85,11 @@ use strict;
 use warnings;
 use File::Basename;
 
+#
+# Use WPSS_Tool program modules
+#
+use url_check;
+
 #***********************************************************************
 #
 # Export package globals
@@ -106,7 +111,6 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($MAX_SOURCE_LINE_SIZE) = 200;
 
 #********************************************************
@@ -1207,70 +1211,9 @@ sub url_title {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("url_check");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
