@@ -2,9 +2,9 @@
 #
 # Name:   clf_archive.pm
 #
-# $Revision: 6816 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/CLF_Check/Tools/clf_archive.pm $
-# $Date: 2014-10-31 10:30:43 -0400 (Fri, 31 Oct 2014) $
+# $Revision: 142 $
+# $URL: svn://10.36.20.203/CLF_Check/Tools/clf_archive.pm $
+# $Date: 2016-12-07 13:05:31 -0500 (Wed, 07 Dec 2016) $
 #
 # Description:
 #
@@ -56,6 +56,16 @@ use HTML::Entities;
 use URI::URL;
 use File::Basename;
 
+#
+# Use WPSS_Tool program modules
+#
+use content_check;
+use metadata;
+use metadata_result_object;
+use textcat;
+use tqa_result_object;
+use url_check;
+
 #***********************************************************************
 #
 # Export package globals
@@ -83,7 +93,6 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%archive_markers, %have_archive_markers, $results_list_addr);
 
 #
@@ -1165,72 +1174,9 @@ sub CLF_Archive_Check_Links {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("metadata", "content_check",
-                          "metadata_result_object", "url_check",
-                          "tqa_result_object", "textcat");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

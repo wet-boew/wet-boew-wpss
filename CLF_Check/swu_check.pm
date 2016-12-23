@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 7563 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/CLF_Check/Tools/swu_check.pm $
-# $Date: 2016-04-13 04:15:57 -0400 (Wed, 13 Apr 2016) $
+# $Revision: 142 $
+# $URL: svn://10.36.20.203/CLF_Check/Tools/swu_check.pm $
+# $Date: 2016-12-07 13:05:31 -0500 (Wed, 07 Dec 2016) $
 #
 # Description:
 #
@@ -59,6 +59,16 @@ use HTML::Entities;
 use URI::URL;
 use File::Basename;
 
+#
+# Use WPSS_Tool program modules
+#
+use clf_archive;
+use content_check;
+use crawler;
+use testcase_data_object;
+use tqa_result_object;
+use url_check;
+
 #***********************************************************************
 #
 # Export package globals
@@ -89,7 +99,6 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my ($current_clf_check_profile);
 my ($results_list_addr, $content_section_handler);
@@ -149,7 +158,11 @@ my (%clf_check_profile_map) = (
 
 my ($max_error_message_string) = 2048;
 
+#
+# Create a testcase data object for the empty testcase profile.
+#
 my (%testcase_data_objects);
+$testcase_data_objects{""} = testcase_data_object->new;;
 
 #
 # Document section testcase data
@@ -7251,77 +7264,9 @@ sub SWU_Check_Archive_Check {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object", "url_check", "crawler",
-                          "clf_archive", "content_check",
-                          "testcase_data_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-
-    #
-    # Create a testcase data object for the empty testcase profile.
-    #
-    $testcase_data_objects{""} = testcase_data_object->new;;
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
