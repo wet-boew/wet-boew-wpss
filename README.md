@@ -1,53 +1,79 @@
-WPSS Validation Tool version 6.1.0
------------------------------------
+Web and Open Data Validator version 6.2.0
+-----------------------------------------
 
-The WPSS Validation Tool provides web developers and quality assurance testers the ability to perform a number of web site and web page validation tasks at one time. The tool crawls a site to find all of the documents then analyses each document with a number of validation tools.
+The Web and Open Data Validator (formerly the WPSS Validation Tool) provides web developers and quality assurance testers the ability to perform a number of web site, web page validation and Open data validation tasks at one time.
 
 Major Changes
 ----------------------
-This version of the tool makes use of a JavaScript aware headless user agent to retrieve HTML web documents.  The user agent executes JavaScript when the page loads and provides generated HTML mark-up to be used by the WPSS_Tool.
+Web Tool
 
-Version 6.1.0 contains the following updates and additions
+    - Change program folder and program names in Windows start menu.  Folder is "Web and Open Data Validator", 
+      tools are "Web Tool" and "Open Data Tool".
+    - Update Core Subject Thesaurus to July 4, 2016 version - DC Subject	
+    - Add a PhantomJS markup server program to remain active for an analysis run and save the delays in 
+      starting PhantomJS for each page retrieved.
+    - When merging link details from original markup and generated markup, use line/column information 
+      from the generated markup.
 
-WPSS_Tool
+Open Data_Tool
+
+    - Check for duplicate rows in CSV file - OD_CSV_1
+    - Check for duplicate columns in CSV file - OD_CSV_1
+    - If an XML data file contains a schema specification using the xsi:schemaLocation or 
+      xsi:noNamespaceSchemaLocation attribute, validate the XML against the schema - OD_3
+    - Check for BOM (Byte Order Mark) in all text files - OD_TP_PW_BOM
+    - If an XML data file contains a DOCTYPE declaration, validate the XML against the DOCTYPE - OD_3
+    - Generate a dataset inventory CSV file containing details of the dataset files (URL, size, mime-type, etc).
+    - Check the alternate language versions of CSV datafiles contain the same number of columns - OD_CSV_1
+
+
+Version 6.2.0 contains the following updates and additions
+
+Web
+---
+
+    - Prefix all temporary file names with WPSS_TOOL_ for easy deletion.
+    - Update Core Subject Thesaurus to July 4, 2016 version - DC Subject
+    - Move supporting programs to a bin folder from the top level folder.
+    - Add a PhantomJS markup server program to remain active for an analysis
+      run and save the delays in starting PhantomJS for each page retrieved.
+    - Change tool name to "Web and Open Data Validator" to better describe
+      the purpose of the tool.
+    - When merging link details from original markup and generated markup,
+      use line/column information from the generated markup.
+    - Change program folder and program names in Windows start menu.  Folder
+      is "Web and Open Data Validator", tools are "Web Tool" and
+      "Open Data Tool".
+
+Open Data
 ---------
 
-    - Don't check alt text for images inside of anchor tags as the same image
-      may be used with different alt text for different purposes (e.g. a
-      calendar image to open a widget in a form) - WCAG_2.0-G197
-    - Check for inputs of type email in login forms.
-    - Allow for extra links in skip links section.  Generated markup
-      includes 1 extra link - SWU_TEMPLATE
-    - Report duplicate label id failures as WCAG 2.0 F77 (F17 has been
-      removed from WCAG).
-    - Add configuration items to set the size of the URL list and direct HTML input buffer sizes.
-    - Check for PWGSC web analytics code (i.e. piwik) on pages - TP_PW_ANALYTICS
-    - Check <meta name="viewport" for possible text resize restrictions - WCAG_2.0-SC1.4.4
-    - Generate a summary results CSV file similar to the summary at the bottom of the text 
-       results.
-    - Treat tables with role="presentation" as layout tables. Check for summary, caption or 
-       headers in layout tables.
-    - Report the use of white space to control formatting only once for a given 
-       string - WCAG_2.0-F32
-    - Use the definition term <dt> as possible introduction text for a list - WCAG_2.0-G115
-    - Report a runtime error if any external tool fails to run.
-    - Skip checking of id attribute values for <script> tags.
-
-Open Data Tool
---------------
-
-    - Check for duplicate column headers in CSV files - TP_PW_OD_CSV_1
-    - Check for duplicate data dictionary definitions - OD_TXT_1
-    - If an XML file contains a schema specification using the xsi:schemaLocation 
-       attribute, validate the XML against the schema.
-    - Perform XML schema validation using the xsd-validator tool.
-    - Parse and extract data dictionary details (headings, definitions, etc.) from 
-       PWGSC formatted XML data dictionaries.
-    - Perform CSV data validation using the csv-validator tool.
+    - Check for duplicate rows in CSV file - OD_CSV_1
+    - Check for duplicate columns in CSV file - OD_CSV_1
+    - Remove API specific testcase identifiers
+    - If an XML data file contains a schema specification using the
+      xsi:schemaLocation or xsi:noNamespaceSchemaLocation attribute,
+      validate the XML against the schema - OD_3
+    - Use custom CSV file parser to avoid potential error in Text::CSV
+      module and quoted fields with greater than 32K characters.
+    - Check for BOM (Byte Order Mark) in all text files - OD_TP_PW_BOM
+    - If an XML data file contains a DOCTYPE declaration, validate
+      the XML against the DOCTYPE - OD_3
+    - Replace the xsd-validator tool with the Xerces tool to validate
+      XML against schema or a DOCTYPE.
+    - Check for a DOCTYPE or schema specification in XML files - OD_3
+    - Validate XML content against data patterns specified in the
+      data dictionary - OD_XML_1
+    - Update JSON open data description URL handling due to changes in
+      the open.canada.ca site.
+    - Generate a dataset inventory CSV file containing details of the
+      dataset files (URL, size, mime-type, etc).
+    - Check the alternate language versions of CSV datafiles contain the
+      same number of columns - OD_CSV_1
 
 
-WPSS_Tool Installer
----------------------
+Web and Open Data Validator Installer
+-------------------------------------
 
 The tool installer, WPSS_Tool.exe, does NOT include the required Perl or Python installers (as was the case for previous releases).  Perl and Python must be installed on the workstation prior to installing the WPSS_Tool.
 
@@ -61,4 +87,4 @@ The WPSS_Tool has been tested on the following platforms
 - Windows 7 (32 bit), Strawberry Perl 5.18 (32 bit), Python 2.7.6
 
 The WPSS Tool installer is available as a release in this repository
-  - https://github.com/wet-boew/wet-boew-wpss/releases/download/6.1.0/WPSS_Tool.exe
+  - https://github.com/wet-boew/wet-boew-wpss/releases/download/6.2.0/WPSS_Tool.exe
