@@ -39,6 +39,11 @@ use File::Basename;
 use HTML::Parser 3.00 ();
 use XML::Parser;
 
+#
+# Use WPSS_Tool program modules
+#
+use language_map;
+
 #***********************************************************************
 #
 # Export package globals
@@ -1027,37 +1032,6 @@ sub TextCat_Too_Close_Languages {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("language_map");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    push @INC, "$program_dir";
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        require "$package.pm";
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -1085,11 +1059,6 @@ if ( $program_dir eq "." ) {
         }
     }
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Load language models
