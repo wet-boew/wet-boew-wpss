@@ -60,6 +60,16 @@ use URI::URL;
 use File::Basename;
 use JSON;
 
+#
+# Use WPSS_Tool program modules
+#
+use content_check;
+use interop_testcases;
+use interop_xml_check;
+use link_checker;
+use tqa_result_object;
+use url_check;
+
 #***********************************************************************
 #
 # Export package globals
@@ -2136,39 +2146,6 @@ sub Interop_HTML_Check_Has_HTML_Data {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object", "content_check",
-                          "interop_testcases", "url_check", "link_checker");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -2196,11 +2173,6 @@ if ( $program_dir eq "." ) {
         }
     }
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

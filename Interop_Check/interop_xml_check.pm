@@ -56,6 +56,18 @@ use strict;
 use XML::Parser;
 use File::Basename;
 
+#
+# Use WPSS_Tool program modules
+#
+use content_check;
+use crawler;
+use feed_validate;
+use interop_testcases;
+use metadata;
+use tqa_result_object;
+use url_check;
+use xml_feed_object;
+
 #***********************************************************************
 #
 # Export package globals
@@ -85,7 +97,6 @@ BEGIN {
 
 my ($debug) = 0;
 my (%testcase_data);
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my ($current_interop_check_profile, $current_url);
 my ($results_list_addr);
@@ -2589,73 +2600,9 @@ sub Interop_XML_Check_Feeds {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object", "content_check", 
-                          "xml_feed_object", "interop_testcases",
-                          "url_check", "crawler", "metadata",
-                          "feed_validate");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
