@@ -52,6 +52,10 @@ use strict;
 use File::Basename;
 use XML::Parser;
 
+#
+# Use WPSS_Tool program modules
+#
+use tqa_result_object;
 
 #***********************************************************************
 #
@@ -439,38 +443,6 @@ sub Feed_Validate_Content {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -513,11 +485,6 @@ if ( $^O =~ /MSWin32/ ) {
     #
     $validate_cmnd = "$program_dir/bin/feedvalidator.py";
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

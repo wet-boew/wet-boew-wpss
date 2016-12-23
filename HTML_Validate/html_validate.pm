@@ -54,6 +54,11 @@ use Encode;
 use JSON;
 use File::Temp qw/ tempfile tempdir /;
 
+#
+# Use WPSS_Tool program modules
+#
+use tqa_result_object;
+
 #***********************************************************************
 #
 # Export package globals
@@ -340,7 +345,7 @@ sub Validate_HTML5_Content {
         print "Error: Failed to create temporary file in Validate_HTML5_Content\n";
         return(@results_list);
     }
-    binmode $fh;
+    binmode $fh, ":encoding(UTF-8)";
     print $fh $$content;
     close($fh);
     
@@ -719,38 +724,6 @@ sub HTML_Validate_Content {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -809,11 +782,6 @@ if ( defined $ENV{LD_LIBRARY_PATH} ) {
 else {
     $ENV{LD_LIBRARY_PATH} = "/usr/local/lib:/opt/sfw/lib";
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

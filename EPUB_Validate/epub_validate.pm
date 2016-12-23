@@ -52,6 +52,12 @@ use Archive::Zip qw(:ERROR_CODES);
 use File::Basename;
 use File::Temp qw/ tempfile tempdir /;
 
+#
+# Use WPSS_Tool program modules
+#
+use crawler;
+use tqa_result_object;
+
 #***********************************************************************
 #
 # Export package globals
@@ -78,6 +84,7 @@ BEGIN {
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
 my ($runtime_error_reported) = 0;
 my ($debug) = 0;
+my ($temp_folder);
 
 #
 # String table for error strings.
@@ -204,6 +211,7 @@ sub EPUB_Validate_Content {
 
     my (@results_list, $epub_file, $fh, $zip, $zip_status, $header);
     my ($validator_output, $result_object, $epub_url, $pattern);
+    my (@tmp_files);
 
     #
     # Do we have any content ?
@@ -237,6 +245,14 @@ sub EPUB_Validate_Content {
         print "Run epubcheck validator\n$validate_cmnd \"$epub_file\"\n" if $debug;
         $validator_output = `$validate_cmnd \"$epub_file\" 2>\&1`;
         print "Validator output = $validator_output\n" if $debug;
+        
+        #
+        # Remove any temporary image files that may be left
+        # behind by the epub validator
+        #
+        @tmp_files = glob "'$temp_folder/img*.*'";
+        print "Temporary files " . join(", ", @tmp_files) . "\n" if $debug;
+        unlink(@tmp_files);
             
         #
         # Strip out the temporary file name from the validator output.
@@ -323,38 +339,6 @@ sub EPUB_Validate_Content {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("crawler", "tqa_result_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -391,17 +375,14 @@ if ( $^O =~ /MSWin32/ ) {
     # Windows.
     #
     $validate_cmnd = "java -jar .\\bin\\epubcheck\\epubcheck.jar -e -q";
+    $temp_folder = $ENV{"HOMEPATH"} . "/AppData/Local/Temp";
 } else {
     #
     # Not Windows.
     #
     $validate_cmnd = "java -jar ./bin/epubcheck/epubcheck.jar -e -q";
+    $temp_folder = "/tmp";
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
