@@ -62,6 +62,13 @@ use HTML::Entities;
 use Digest::MD5 qw(md5_hex);
 use Encode;
 
+#
+# Use WPSS_Tool program modules
+#
+use csv_parser;
+use open_data_testcases;
+use tqa_result_object;
+
 #***********************************************************************
 #
 # Export package globals
@@ -442,7 +449,7 @@ sub Check_First_Data_Row {
         # Do we have a duplicate header ?
         #
         if ( defined($headers{$field}) ) {
-            Record_Result("TP_PW_OD_CSV_1", 1, 0, "",
+            Record_Result("OD_DATA", 1, 0, "",
                           String_Value("Duplicate column header") .
                           " \"$field\". " .
                           String_Value("Found at" . " " .
@@ -476,7 +483,7 @@ sub Check_First_Data_Row {
     #
     elsif ( $count >= (@fields / 4) ) {
         print "Found atleast 25% match on fields and terms\n" if $debug;
-        Record_Result("TP_PW_OD_CSV_1", 1, 0, "",
+        Record_Result("TP_PW_OD_DATA", 1, 0, "",
                       String_Value("Missing header row terms") .
                       " \"" . join(", ", @unmatched_fields) . "\"");
     }
@@ -486,11 +493,11 @@ sub Check_First_Data_Row {
         #
         print "Found a match on fewer than 25% fields\n" if $debug;
         if ( $count == 0 ) {
-            Record_Result("TP_PW_OD_CSV_1", 1, 0, "",
+            Record_Result("TP_PW_OD_DATA", 1, 0, "",
                           String_Value("Missing header row"));
         }
         else {
-            Record_Result("TP_PW_OD_CSV_1", 1, 0, "",
+            Record_Result("TP_PW_OD_DATA", 1, 0, "",
                           String_Value("Missing header row terms") .
                           " \"" . join(", ", @unmatched_fields) . "\"");
         }
@@ -734,7 +741,7 @@ sub Run_CSV_Validator {
             #
             if ( $output =~ /Error:/ ) {
                 print "csv-validator failed\n" if $debug;
-                Record_Result("OD_CSV_1", -1, -1, "",
+                Record_Result("OD_DATA", -1, -1, "",
                               String_Value("csv-validator failed") .
                               " \"$output\"");
             }
@@ -757,7 +764,7 @@ sub Run_CSV_Validator {
                 # Report runtime error only once
                 #
                 if ( ! $runtime_error_reported ) {
-                    Record_Result("OD_CSV_1", -1, -1, "",
+                    Record_Result("OD_DATA", -1, -1, "",
                                   String_Value("Runtime Error") .
                                   " \"$csv_validator $csv_filename $csvs_filename\"\n" .
                                   " \"$output\"");
@@ -803,7 +810,7 @@ sub Open_Data_CSV_Check_Data {
     my ($have_regex, $have_bom, %row_checksum, $checksum);
     my (%duplicate_columns, %duplicate_columns_flag, $j, $this_field);
     my ($duplicate_columns_ptr, $duplicate_column_list, $other_heading);
-    my (%blank_zero_column_flag);
+    my (%blank_zero_column_flag, $parse_error_reported);
 
     #
     # Do we have a valid profile ?
@@ -853,7 +860,7 @@ sub Open_Data_CSV_Check_Data {
     $parser = csv_parser->new();
     if ( ! defined($parser) ) {
         print STDERR "Error: Failed to create CSV parser in Open_Data_CSV_Check_Data\n";
-        exit(1);
+        return(@tqa_results_list);
     }
 
     #
@@ -861,6 +868,7 @@ sub Open_Data_CSV_Check_Data {
     #
     $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
     $line_no = 0;
+    $parse_error_reported = 0;
     while ( $eval_output && defined($rows) && ( ! $parser->eof()) ) {
         #
         # Increment record/line number
@@ -881,9 +889,10 @@ sub Open_Data_CSV_Check_Data {
             $message = $parser->error_diag();
             print "CSV file error at line $line_no, line = \"$line\"\n" if $debug;
             print "parser->error_diag = \"$message\"\n" if $debug;
-            Record_Result("OD_3", $line_no, 0, $line,
+            Record_Result("OD_VAL", $line_no, 0, $line,
                           String_Value("Parse error in line") .
                           " \"$message\"");
+            $parse_error_reported = 1;
             last;
         }
 
@@ -941,7 +950,7 @@ sub Open_Data_CSV_Check_Data {
         $row_content = join("", @fields);
         $row_content =~ s/\s|\n|\r//g;
         if ( $row_content eq "" ) {
-            Record_Result("OD_CSV_1", $line_no, 0, "$line",
+            Record_Result("OD_DATA", $line_no, 0, "$line",
                           String_Value("No content in row"));
 
             #
@@ -955,7 +964,7 @@ sub Open_Data_CSV_Check_Data {
         #
         elsif ( $field_count != @fields ) {
             $found_fields = @fields;
-            Record_Result("OD_CSV_1", $line_no, 0, "$line",
+            Record_Result("OD_DATA", $line_no, 0, "$line",
                           String_Value("Inconsistent number of fields, found") .
                           " $found_fields " . String_Value("expecting") .
                           " $field_count");
@@ -993,7 +1002,7 @@ sub Open_Data_CSV_Check_Data {
                         # Regular expression pattern fails
                         #
                         print "Regular expression failed for column $i, regex = $regex, data = $data\n" if $debug;
-                        Record_Result("OD_CSV_1", $line_no, ($i + 1), "$line",
+                        Record_Result("OD_DATA", $line_no, ($i + 1), "$line",
                                       String_Value("Data pattern") .
                                       " \"$regex\" " .
                                       String_Value("failed for value") .
@@ -1016,7 +1025,7 @@ sub Open_Data_CSV_Check_Data {
         #
         print "Check for duplicate row, checksum = $checksum\n" if $debug;
         if ( defined($row_checksum{$checksum}) ) {
-            Record_Result("OD_CSV_1", $line_no, 0, "$line",
+            Record_Result("OD_DATA", $line_no, 0, "$line",
                           String_Value("Duplicate row content, first instance at") .
                           " " . $row_checksum{$checksum});
         }
@@ -1124,22 +1133,23 @@ sub Open_Data_CSV_Check_Data {
     # Did we get a runtime error ?
     #
     $last_csv_row_count = $line_no;
-    if ( ! $eval_output ) {
+    if ( (! $eval_output) && (! $parse_error_reported) ) {
         print STDERR "parser->getrow fail, eval_output = \"$@\"\n";
         print "parser->getrow fail, eval_output = \"$@\"\n" if $debug;
-        Record_Result("OD_CSV_1", $line_no, 0, $line,
+        Record_Result("OD_VAL", $line_no, 0, $line,
                       String_Value("Parse error in line") .
                       " \"$@\"");
     }
     #
     # Did we get an error on the last line ?
     #
-    elsif ( defined($parser) && (! $parser->eof()) && (! $parser->status()) ) {
+    elsif ( defined($parser) && (! $parser->eof()) && (! $parser->status()) &&
+            (! $parse_error_reported) ) {
         $line = $parser->error_input();
         $message = $parser->error_diag();
         print "CSV file error at end of CSV at line $line_no, line = \"$line\"\n" if $debug;
         print "parser->error_diag = \"$message\"\n" if $debug;
-        Record_Result("OD_CSV_1", $line_no, 0, $line,
+        Record_Result("OD_VAL", $line_no, 0, $line,
                       String_Value("Parse error in line") .
                       " \"$message\"");
     }
@@ -1147,7 +1157,7 @@ sub Open_Data_CSV_Check_Data {
     # Did we find any rows in the CSV content ?
     #
     elsif ( $line_no == 0 ) {
-        Record_Result("OD_3", -1, 0, "", String_Value("No content in file"));
+        Record_Result("OD_VAL", -1, 0, "", String_Value("No content in file"));
     }
     close($csv_file);
     
@@ -1211,7 +1221,7 @@ sub Open_Data_CSV_Check_Data {
                     }
                 }
                 print "Duplicate columns $duplicate_column_list\n" if $debug;
-                Record_Result("OD_CSV_1", -1, $i + 1, "$line",
+                Record_Result("OD_DATA", -1, $i + 1, "$line",
                               String_Value("Duplicate content in columns") .
                               " $duplicate_column_list");
             }
@@ -1326,39 +1336,6 @@ sub Open_Data_CSV_Check_Get_Headings_List {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("csv_parser", "open_data_testcases",
-                          "tqa_result_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -1401,11 +1378,6 @@ if ( $^O =~ /MSWin32/ ) {
     #
     $csv_validator = "$program_dir/bin/csv-validator/bin/validate";
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
