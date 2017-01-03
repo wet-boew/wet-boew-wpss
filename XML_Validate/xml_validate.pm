@@ -53,6 +53,14 @@ use File::Basename;
 use XML::Parser;
 use File::Temp qw/ tempfile tempdir /;
 
+#
+# Use WPSS_Tool program modules
+#
+use crawler;
+use feed_validate;
+use tqa_result_object;
+use url_check;
+use xml_ttml_validate;
 
 #***********************************************************************
 #
@@ -565,39 +573,6 @@ sub XML_Validate_Content {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("crawler", "feed_validate", "tqa_result_object",
-                          "url_check", "xml_ttml_validate");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -650,11 +625,6 @@ if ( !( $^O =~ /MSWin32/ ) ) {
     $xerces_validate_cmnd =~ s/;/:/g;
     $xerces_validate_cmnd = "LANG=en_US.ISO8859-1;export LANG;" . $xerces_validate_cmnd;
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
