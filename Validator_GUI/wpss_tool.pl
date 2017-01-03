@@ -65,6 +65,9 @@
 #
 #***********************************************************************
 
+use FindBin;                      # locate this script
+use lib "$FindBin::RealBin/lib";  # use the lib directory
+
 my $have_threads = eval 'use threads; 1';
 if ( $have_threads ) {
     $have_threads = eval 'use threads::shared; 1';
@@ -83,6 +86,43 @@ use Win32::TieRegistry;
 use HTML::Entities;
 use Archive::Zip;
 use File::Temp qw/ tempfile tempdir /;
+
+#
+# Use WPSS_Tool program modules
+#
+use alt_text_check;
+use clf_check;
+use content_check;
+use content_sections;
+use crawler;
+use css_check;
+use css_validate;
+use dept_check;
+use epub_validate;
+use extract_anchors;
+use extract_links;
+use html_features;
+use html_language;
+use html_validate;
+use interop_check;
+use javascript_validate;
+use link_checker;
+use metadata;
+use metadata_result_object;
+use mobile_check;
+use open_data_check;
+use pdf_check;
+use pdf_files;
+use readability;
+use robots_check;
+use textcat;
+use tqa_check;
+use wpss_strings;
+use tqa_result_object;
+use tqa_testcases;
+use url_check;
+use validate_markup;
+use web_analytics_check;
 
 use strict;
 
@@ -105,6 +145,7 @@ my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
 my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
 my ($shared_save_content_directory, $firewall_check_url);
 my ($enable_generated_markup, $cmnd_line_disable_generated_markup);
+my (%gui_config);
 my ($report_passes_only) = 0;
 my ($ui_pm_dir) = "GUI";
 my ($no_login_mode) = 0;
@@ -2730,6 +2771,22 @@ sub Read_Config_File {
                 $firewall_check_url = $fields[1];
             }
         }
+        elsif ( $config_type eq "GUI_DIRECT_HTML_SIZE" ) {
+            #
+            # Save GUI configuration
+            #
+            if ( @fields > 1 ) {
+                $gui_config{"GUI_DIRECT_HTML_SIZE"} = $fields[1];
+            }
+        }
+        elsif ( $config_type eq "GUI_URL_LIST_SIZE" ) {
+            #
+            # Save GUI configuration
+            #
+            if ( @fields > 1 ) {
+                $gui_config{"GUI_URL_LIST_SIZE"} = $fields[1];
+            }
+        }
         elsif ( $config_type eq "Link_Ignore_Pattern" ) {
             #
             # Save link check ignore pattern
@@ -2982,18 +3039,6 @@ sub Check_Debug_File {
 sub Initialize {
 
     my ($package, $host);
-    my (@package_list) = ("extract_links", "crawler", "textcat",
-                          "metadata", "tqa_check", "pdf_files",
-                          "link_checker", "html_features", "html_validate",
-                          "css_validate", "robots_check", "content_check",
-                          "javascript_validate", "wpss_strings", "css_check",
-                          "alt_text_check", "tqa_result_object", "url_check",
-                          "tqa_testcases", "content_sections", "clf_check",
-                          "metadata_result_object", "validate_markup",
-                          "interop_check", "pdf_check", "dept_check",
-                          "html_language", "open_data_check",
-                          "web_analytics_check", "mobile_check",
-                          "readability", "extract_anchors", "epub_validate");
     my ($key, $value, $metadata_profile);
     my ($tag_required, $content_required, $content_type, $scheme_values);
     my ($invalid_content, $pdf_profile, $tmp);
@@ -3004,20 +3049,6 @@ sub Initialize {
     #
     chdir($program_dir);
     unlink("$program_dir/debug.txt");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    push @INC, "$program_dir/lib";
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        print "require $package.pm\n" if ($debug && (! $cgi_mode));
-        require "$package.pm";
-        $package->import();
-    }
 
     #
     # Import appropriate UI layer (GUI, CLI, HTML, ...)
@@ -6475,6 +6506,11 @@ sub Remove_Temporary_Files {
     # Remove temporary files from Validator GUI module
     #
     Validator_GUI_Remove_Temporary_Files();
+    
+    #
+    # Remove any cache or temporary files from the Crawler module
+    #
+    Crawler_Remove_Temporary_Files();
 }
 
 #***********************************************************************
@@ -8810,7 +8846,7 @@ sub Perform_Open_Data_Check {
                 $member->extractToFileNamed($filename);
 
                 #
-                # Create and a URL for the member of the ZIP
+                # Create a URL for the member of the ZIP
                 #
                 $member_url = "$url:$member_name";
                 push(@all_urls, "DATA $member_url");
@@ -9445,10 +9481,11 @@ sub Setup_HTML_Tool_GUI {
     $results_file_suffixes{$mobile_tab} = "mob";
 
     #
-    # Set results file suffixes
+    # Set results file suffixes and other configuration items
     #
     Validator_GUI_Set_Results_File_Suffixes(%results_file_suffixes);
-
+    Validator_GUI_Config(%gui_config);
+    
     #
     # Setup the validator GUI
     #
@@ -9726,6 +9763,7 @@ if ( $program_dir eq "." ) {
         }
     }
 }
+chdir($program_dir);
 
 #
 # Perform program initialization
