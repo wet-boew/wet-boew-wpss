@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision: 7041 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_testcases.pm $
-# $Date: 2015-03-20 11:28:56 -0400 (Fri, 20 Mar 2015) $
+# $Revision: 179 $
+# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_testcases.pm $
+# $Date: 2016-12-21 08:50:20 -0500 (Wed, 21 Dec 2016) $
 #
 # Description:
 #
@@ -101,40 +101,34 @@ my (%testcase_description_en) = (
 #
 # Standard on Open Data checkpoints
 #
-"OD_1",     "OD_1: Open Data URL",
-"OD_2",     "OD_2: Character Encoding",
-"OD_3",     "OD_3: Validation",
-"OD_CSV_1", "OD_CSV_1: CSV Data",
-"OD_TXT_1", "OD_TXT_1: TXT Dictionary",
-"OD_XML_1", "OD_XML_1: XML Data",
+"OD_URL",   "OD_URL: Open Data URL",
+"OD_ENC",   "OD_ENC: Character Encoding",
+"OD_VAL",   "OD_VAL: Validation",
+"OD_DATA",  "OD_DATA: Data Quality",
 
 #
 # PWGSC Open Data checkpoints
 #
 "TP_PW_OD_BOM",     "TP_PW_OD_BOM: UTF-8 BOM",
-"TP_PW_OD_CSV_1",   "TP_PW_OD_CSV_1: CSV Header Row",
-"TP_PW_OD_XML_1",   "TP_PW_OD_XML_1: XML Dictionary",
-"TP_PW_OD_ZIP_1",   "TP_PW_OD_ZIP_1: ZIP Archive",
+"TP_PW_OD_DATA",    "TP_PW_OD_DATA: PWGSC Data Quality",
+"TP_PW_OD_DD",      "TP_PW_OD_DD: Data Dictionary",
 );
 
 my (%testcase_description_fr) = (
 #
 # Standard on Open Data checkpoints
 #
-"OD_1",     "OD_1: URL des Données Ouvertes",
-"OD_2",     "OD_2: Encodage de caractère",
-"OD_3",     "OD_3: Validation",
-"OD_CSV_1", "OD_CSV_1: Données CSV",
-"OD_TXT_1", "OD_TXT_1: TXT Dictionnaire",
-"OD_XML_1", "OD_XML_1: Données XML",
+"OD_URL",   "OD_URL: URL des Données Ouvertes",
+"OD_ENC",   "OD_ENC: Encodage de caractère",
+"OD_VAL",   "OD_VAL: Validation",
+"OD_DATA",  "OD_DATA: Qualité des données",
 
 #
 # PWGSC Open Data checkpoints
 #
 "TP_PW_OD_BOM",     "TP_PW_OD_BOM: UTF-8 BOM",
-"TP_PW_OD_CSV_1",   "TP_PW_OD_CSV_1: Lignes d'en-tête du CSV",
-"TP_PW_OD_XML_1",   "TP_PW_OD_XML_1: XML Dictionnaire",
-"TP_PW_OD_ZIP_1",   "TP_PW_OD_ZIP_1: Archive ZIP",
+"TP_PW_OD_DATA",    "TP_PW_OD_DATA: Qualité des données de TPSGC",
+"TP_PW_OD_DD",      "TP_PW_OD_DD: XML Dictionnaire",
 );
 
 #
