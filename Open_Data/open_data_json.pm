@@ -56,6 +56,13 @@ use URI::URL;
 use File::Basename;
 use JSON;
 
+#
+# Use WPSS_Tool program modules
+#
+use crawler;
+use open_data_testcases;
+use tqa_result_object;
+
 #***********************************************************************
 #
 # Export package globals
@@ -83,12 +90,13 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (%testcase_data, $results_list_addr);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
+my (%testcase_data, $results_list_addr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
-my ($tag_count);
+my ($tag_count, $python_path, $json_schema_validator);
 
 my ($max_error_message_string)= 2048;
+my ($runtime_error_reported) = 0;
 
 #
 # Status values
@@ -99,15 +107,25 @@ my ($check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
+    "Broken link in Schema",       "Broken link in \"\$Schema\":",
     "Fails validation",            "Fails validation",
+    "Invalid URL in Schema",       "Invalid URL in \"\$Schema\":",
     "No content in API",           "No content in API",
+    "json_schema_validator failed", "json_schema_validator failed",
     "No content in file",          "No content in file",
+    "No Schema found in JSON file", "No Schema found in JSON file",
+    "Runtime Error",               "Runtime Error",
     );
 
 my %string_table_fr = (
+    "Broken link in Schema",       "Lien brisé dans \"\$Schema\":",
     "Fails validation",            "Échoue la validation",
+    "Invalid URL in Schema",       "URL non valide dans \"\$Schema\":",
+    "json_schema_validator failed", "json_schema_validator a échoué",
     "No content in API",           "Aucun contenu dans API",
     "No content in file",          "Aucun contenu dans fichier",
+    "No Schema found in JSON file", "Non schéma trouvé dans le fichier JSON",
+    "Runtime Error",               "Erreur D'Exécution",
     );
 
 #
@@ -402,7 +420,7 @@ sub Open_Data_JSON_Check_API {
     #
     if ( length($content) == 0 ) {
         print "No content passed to Open_Data_JSON_Check_API\n" if $debug;
-        Record_Result("OD_3", -1, 0, "",
+        Record_Result("OD_VAL", -1, 0, "",
                       String_Value("No content in API"));
     }
     else {
@@ -412,7 +430,7 @@ sub Open_Data_JSON_Check_API {
         if ( ! eval { $ref = decode_json($content); 1 } ) {
             $eval_output = $@;
             $eval_output =~ s/ at \S* line \d*\.$//g;
-            Record_Result("OD_3", -1, 0, "",
+            Record_Result("OD_VAL", -1, 0, "",
                           String_Value("Fails validation") . " $eval_output");
         }
     }
@@ -436,6 +454,113 @@ sub Open_Data_JSON_Check_API {
 
 #***********************************************************************
 #
+# Name: Valid_JSON_Against_Schema
+#
+# Parameters: this_url - a URL
+#             json_filename - JSON content file
+#             schema_url - URL of JSON schema
+#
+# Description:
+#
+#   This function retrieves the JSON schema using the specified URL.
+# It them validates the JSON data file against the schema.
+#
+#***********************************************************************
+sub Valid_JSON_Against_Schema {
+    my ($this_url, $json_filename, $schema_url) = @_;
+
+    my ($resp_url, $resp, $schema_filename, $output);
+    
+    #
+    # Get the JSON schema file
+    #
+    print "Valid_JSON_Against_Schema schema URL = $schema_url\n" if $debug;
+    ($resp_url, $resp) = Crawler_Get_HTTP_Response($schema_url, "");
+
+    #
+    # Is this a valid URI ?
+    #
+    if ( ! defined($resp) ) {
+        Record_Result("OD_VAL", "", "", "",
+                      String_Value("Invalid URL in Schema") .
+                      " \"$schema_url\"");
+    }
+    #
+    # Is it a broken link ?
+    #
+    elsif ( ! $resp->is_success ) {
+        Record_Result("OD_VAL", "", "", "",
+                      String_Value("Broken link in Schema") .
+                      " \"$schema_url\"");
+    }
+    else {
+        #
+        # Get the schema file name from the HTTP::Response object
+        #
+        if ( defined($resp->header("WPSS-Content-File")) ) {
+            $schema_filename = $resp->header("WPSS-Content-File");
+            print "JSON Schema file name = $schema_filename\n" if $debug;
+        }
+    }
+    
+    #
+    # If we have a schema file, validate the JSON data against the schema
+    #
+    if ( defined($schema_filename) ) {
+        #
+        # Run the schema validator
+        #
+        print "$json_schema_validator \"$schema_filename\" \"$json_filename\"\n" if $debug;
+        $output = `$json_schema_validator \"$schema_filename\" \"$json_filename\" 2>\&1`;
+        
+        #
+        # Did the validator pass ?
+        #
+        if ( $output =~ /Validation Passed/i ) {
+            print "Validation passed\n" if $debug;
+        }
+        elsif ( $output =~ /Schema Error/i ) {
+            print "Schema Error\n" if $debug;
+            Record_Result("OD_VAL", -1, -1, "",
+                          String_Value("json_schema_validator failed") .
+                          " \"$output\"");
+        }
+        elsif ( $output =~ /Validation Error/i ) {
+            print "Validation Error\n" if $debug;
+            Record_Result("OD_VAL", -1, -1, "",
+                          String_Value("json_schema_validator failed") .
+                          " \"$output\"");
+        }
+        else {
+            #
+            # Runtime error with JSON schema validator
+            #
+            print "Runtime error, output = \"$output\"\n" if $debug;
+            print STDERR "json_schema_validator command failed\n";
+            print STDERR "  $json_schema_validator $schema_filename $json_filename\n";
+            print STDERR "$output\n";
+
+            #
+            # Report runtime error only once
+            #
+            if ( ! $runtime_error_reported ) {
+                Record_Result("OD_VAL", -1, -1, "",
+                              String_Value("Runtime Error") .
+                              " \"$json_schema_validator $schema_filename $json_filename\"\n" .
+                              " \"$output\"");
+                $runtime_error_reported = 1;
+            }
+        }
+        
+        #
+        # Clean up the schema file
+        #
+        unlink($schema_filename);
+    }
+}
+
+#***********************************************************************
+#
 # Name: Open_Data_JSON_Check_Data
 #
 # Parameters: this_url - a URL
@@ -452,7 +577,7 @@ sub Open_Data_JSON_Check_Data {
     my ($this_url, $profile, $filename, $dictionary) = @_;
     
     my (@tqa_results_list, $result_object, $testcase, $eval_output, $ref);
-    my ($content, $line, $json_file);
+    my ($content, $line, $json_file, $schema_url);
 
     #
     # Do we have a valid profile ?
@@ -504,7 +629,7 @@ sub Open_Data_JSON_Check_Data {
     #
     if ( length($content) == 0 ) {
         print "No content passed to Open_Data_JSON_Check_Data\n" if $debug;
-        Record_Result("OD_3", -1, 0, "", String_Value("No content in file"));
+        Record_Result("OD_VAL", -1, 0, "", String_Value("No content in file"));
     }
     else {
         #
@@ -514,8 +639,29 @@ sub Open_Data_JSON_Check_Data {
         if ( ! eval { $ref = decode_json($content); 1 } ) {
             $eval_output = $@;
             $eval_output =~ s/ at \S* line \d*\.$//g;
-            Record_Result("OD_3", -1, 0, "",
+            Record_Result("OD_VAL", -1, 0, "",
                           String_Value("Fails validation") . " $eval_output");
+        }
+        else {
+            #
+            # Check for a $schema name/value object in the JSON data
+            #
+            if ( (! defined($ref)) ||
+                 (! defined($$ref{'$schema'})) ||
+                 ($$ref{'$schema'} eq "") ) {
+                #
+                # No schema specified
+                #
+                Record_Result("OD_VAL", -1, 0, "",
+                      String_Value("No Schema found in JSON file"));
+            }
+            else {
+                #
+                # Validate JSON against the schema
+                #
+                $schema_url = $$ref{'$schema'};
+                Valid_JSON_Against_Schema($this_url, $filename, $schema_url);
+            }
         }
     }
 
@@ -534,38 +680,6 @@ sub Open_Data_JSON_Check_Data {
     # Return list of results
     #
     return(@tqa_results_list);
-}
-
-#***********************************************************************
-#
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object", "open_data_testcases");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
 }
 
 #***********************************************************************
@@ -599,9 +713,21 @@ if ( $program_dir eq "." ) {
 }
 
 #
-# Import required packages
+# Generate path the the JSON schema validator
 #
-Import_Packages;
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $python_path = "$program_dir\\python\\Program Files\\python27\\Lib\\site-packages";
+    $json_schema_validator = "set PYTHONPATH=$python_path\&.\\bin\\json_schema_validator.py";
+} else {
+    #
+    # Not Windows.
+    #
+    $python_path = "$program_dir/python/usr/local/lib/python2.7/dist-packages";
+    $json_schema_validator = "export PYTHONPATH=\"$python_path\";python bin/json_schema_validator.py";
+}
 
 #
 # Return true to indicate we loaded successfully
