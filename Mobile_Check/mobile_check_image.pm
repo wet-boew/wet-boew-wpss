@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check_image.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 167 $
+# $URL: svn://10.36.20.203/Mobile_Check/Tools/mobile_check_image.pm $
+# $Date: 2016-12-21 08:15:44 -0500 (Wed, 21 Dec 2016) $
 #
 # Description:
 #
@@ -54,6 +54,12 @@ package mobile_check_image;
 use strict;
 use File::Basename;
 use File::Temp qw/ tempfile tempdir /;
+
+#
+# Use WPSS_Tool program modules
+#
+use mobile_testcases;
+use tqa_result_object;
 
 #***********************************************************************
 #
@@ -863,38 +869,6 @@ sub Mobile_Check_Image_Dimensions {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object", "mobile_testcases");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -939,11 +913,6 @@ if ( $^O =~ /MSWin32/ ) {
     $jpegoptim = "$program_dir/jpegoptim";
     $optipng = "$program_dir/validate";
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

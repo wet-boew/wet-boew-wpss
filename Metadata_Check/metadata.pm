@@ -63,6 +63,13 @@ use File::Basename;
 use HTML::Entities;
 use Encode;
 
+#
+# Use WPSS_Tool program modules
+#
+use language_map;
+use metadata_result_object;
+use tqa_result_object;
+
 #***********************************************************************
 #
 # Export package globals
@@ -94,7 +101,6 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my (%tag_required_profile_map, %content_required_profile_map,
     %invalid_content_profile_map, %content_type_map,
@@ -2377,71 +2383,9 @@ sub Validate_Metadata {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("language_map", "metadata_result_object",
-                          "tqa_result_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

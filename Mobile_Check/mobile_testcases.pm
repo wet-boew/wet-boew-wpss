@@ -2,9 +2,9 @@
 #
 # Name:   mobile_testcases.pm
 #
-# $Revision: 7155 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Mobile_Check/Tools/mobile_testcases.pm $
-# $Date: 2015-05-21 15:15:54 -0400 (Thu, 21 May 2015) $
+# $Revision: 168 $
+# $URL: svn://10.36.20.203/Mobile_Check/Tools/mobile_testcases.pm $
+# $Date: 2016-12-21 08:26:20 -0500 (Wed, 21 Dec 2016) $
 #
 # Description:
 #

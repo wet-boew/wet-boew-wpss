@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 7562 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2016-04-13 04:14:45 -0400 (Wed, 13 Apr 2016) $
+# $Revision: 167 $
+# $URL: svn://10.36.20.203/Mobile_Check/Tools/mobile_check.pm $
+# $Date: 2016-12-21 08:15:44 -0500 (Wed, 21 Dec 2016) $
 #
 # Description:
 #
@@ -59,6 +59,20 @@ use strict;
 use File::Basename;
 use File::Temp qw/ tempfile tempdir /;
 
+#
+# Use WPSS_Tool program modules
+#
+use crawler;
+use css_check;
+use link_checker;
+use mobile_check_css;
+use mobile_check_html;
+use mobile_check_image;
+use mobile_check_js;
+use mobile_testcases;
+use tqa_result_object;
+use url_check;
+
 #***********************************************************************
 #
 # Export package globals
@@ -90,7 +104,6 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my (%testcase_data, %mobile_check_profile_map, $current_mobile_check_profile);
 my ($results_list_addr, $current_url, $max_allowed_css, $max_allowed_js);
@@ -1856,74 +1869,9 @@ sub Mobile_Check_Save_Web_Page_Size {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object", "mobile_testcases",
-                          "link_checker", "mobile_check_css",
-                          "mobile_check_html", "mobile_check_js",
-                          "mobile_check_image", "url_check",
-                          "crawler", "css_check");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
