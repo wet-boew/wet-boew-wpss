@@ -2,9 +2,9 @@
 #
 # Name:   open_data_txt.pm
 #
-# $Revision: 7594 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_txt.pm $
-# $Date: 2016-06-10 10:47:00 -0400 (Fri, 10 Jun 2016) $
+# $Revision: 178 $
+# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_txt.pm $
+# $Date: 2016-12-21 08:49:50 -0500 (Wed, 21 Dec 2016) $
 #
 # Description:
 #
@@ -56,6 +56,13 @@ use File::Basename;
 use Encode;
 use HTML::Entities;
 
+#
+# Use WPSS_Tool program modules
+#
+use open_data_dictionary_object;
+use open_data_testcases;
+use tqa_result_object;
+
 #***********************************************************************
 #
 # Export package globals
@@ -83,7 +90,6 @@ BEGIN {
 
 my ($debug) = 0;
 my (%testcase_data, $results_list_addr);
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count);
 
@@ -499,7 +505,7 @@ sub Parse_Text_Dictionary {
                 # Have we seen this term before ?
                 #
                 if ( defined($terms_and_definitions{$term}) ) {
-                    Record_Result("OD_TXT_1", $line_no, 0, "$current_text",
+                    Record_Result("TP_PW_OD_DD", $line_no, 0, "$current_text",
                                   String_Value("Duplicate term") . 
                                   " \"$term\" " .
                                   String_Value("Previous instance found at") .
@@ -513,7 +519,7 @@ sub Parse_Text_Dictionary {
                     # Extra term in this data dictionary that does not exist
                     # in the previously defined dictionary
                     #
-                    Record_Result("OD_TXT_1", $line_no, 0, "$current_text",
+                    Record_Result("TP_PW_OD_DD", $line_no, 0, "$current_text",
                                   String_Value("Extra term in dictionary") . 
                                   " \"$term\"");
 
@@ -521,7 +527,8 @@ sub Parse_Text_Dictionary {
                     # Add this term to the dictionary as we may encounter
                     # it when checking data files.
                     #
-                    $dictionary_object = open_data_dictionary_object->new($term);
+                    $dictionary_object = open_data_dictionary_object->new();
+                    $dictionary_object->term($term);
                     $$dictionary{$term} = $dictionary_object;
                 }
                 else {
@@ -563,7 +570,7 @@ sub Parse_Text_Dictionary {
                 $current_definition = lc($current_definition);
                 $current_definition =~ s/\s*//g;
                 if ( defined($definitions_and_terms{$current_text}) ) {
-                    Record_Result("OD_TXT_1", $line_no, 0, "$current_text",
+                    Record_Result("TP_PW_OD_DD", $line_no, 0, "$current_text",
                                   String_Value("Duplicate definition") .
                                   " $term = \"$current_text\" " .
                                   String_Value("Previous instance found at") .
@@ -591,7 +598,7 @@ sub Parse_Text_Dictionary {
                 # Several blank lines after a term and no definition found.
                 #
                 print "Several blank lines after term with no definition\n" if $debug;
-                Record_Result("OD_TXT_1", $line_no, 0, "",
+                Record_Result("TP_PW_OD_DD", $line_no, 0, "",
                               String_Value("Multiple blank lines after term"));
 
                 #
@@ -611,7 +618,7 @@ sub Parse_Text_Dictionary {
             print "Non blank line at $line_no, in_term = $in_term, in_definition = $in_definition\n" if $debug;
             if ( $in_term ) {
                 print "Blank line expected after term at line $line_no\n" if $debug;
-                Record_Result("OD_TXT_1", $line_no, 0, "$line",
+                Record_Result("TP_PW_OD_DD", $line_no, 0, "$line",
                               String_Value("Multiple lines found in term"));
 
                 #
@@ -653,7 +660,7 @@ sub Parse_Text_Dictionary {
                 # definition ?
                 #
                 if ( $blank_line_count < 2 ) {
-                    Record_Result("OD_TXT_1", $line_no, 0, "$line",
+                    Record_Result("TP_PW_OD_DD", $line_no, 0, "$line",
                                   String_Value("Expect at least 2 blank lines after definition"));
                 }
             }
@@ -689,7 +696,7 @@ sub Parse_Text_Dictionary {
     #
     elsif ( $in_term ) {
         print "Found term at end of content with no definition\n" if $debug;
-        Record_Result("OD_TXT_1", $line_no, 0, "",
+        Record_Result("TP_PW_OD_DD", $line_no, 0, "",
                       String_Value("No definition for term") .
                       " \"$current_text\"");
     }
@@ -707,7 +714,7 @@ sub Parse_Text_Dictionary {
     # one we just parsed.
     #
     if ( keys(%terms_and_definitions) == 0 ) {
-        Record_Result("OD_3", -1, 0, "",
+        Record_Result("TP_PW_OD_DD", -1, 0, "",
                       String_Value("No terms found in dictionary"));
     }
     else {
@@ -719,7 +726,7 @@ sub Parse_Text_Dictionary {
                 #
                 # Missing term.
                 #
-                Record_Result("OD_TXT_1", -1, 0, "",
+                Record_Result("TP_PW_OD_DD", -1, 0, "",
                               String_Value("Term missing from dictionary") .
                               " \"$term\"");
             }
@@ -805,71 +812,9 @@ sub Open_Data_TXT_Check_Dictionary {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object", "open_data_testcases",
-                          "open_data_dictionary_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

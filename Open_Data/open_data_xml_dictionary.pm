@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml_dictionary.pm
 #
-# $Revision: 7623 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_xml_dictionary.pm $
-# $Date: 2016-07-13 03:34:36 -0400 (Wed, 13 Jul 2016) $
+# $Revision: 178 $
+# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_xml_dictionary.pm $
+# $Date: 2016-12-21 08:49:50 -0500 (Wed, 21 Dec 2016) $
 #
 # Description:
 #
@@ -55,6 +55,15 @@ use URI::URL;
 use File::Basename;
 use XML::Parser;
 
+#
+# Use WPSS_Tool program modules
+#
+use crawler;
+use open_data_dictionary_object;
+use open_data_testcases;
+use tqa_result_object;
+use url_check;
+
 #***********************************************************************
 #
 # Export package globals
@@ -82,7 +91,6 @@ BEGIN {
 
 my ($debug) = 0;
 my (%testcase_data, $results_list_addr);
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count, $save_text_between_tags, $saved_text, $heading_count);
 my ($current_dictionary, %term_location, @required_description_languages);
@@ -313,7 +321,7 @@ sub Set_Open_Data_XML_Dictionary_Testcase_Data {
     #
     # Is this data for required languages for descriptions ?
     #
-    if ( $testcase eq "TP_PW_OD_XML_1" ) {
+    if ( $testcase eq "TP_PW_OD_DD" ) {
         ($type, $value) = split(/\s/, $data, 2);
 
         #
@@ -608,7 +616,7 @@ sub Check_URL {
         # Is this a valid URI ?
         #
         if ( ! defined($resp) ) {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Expecting a URL in") . " $tag " .
                           String_Value("found") . " \"$url\"");
@@ -617,7 +625,7 @@ sub Check_URL {
         # Is it a broken link ?
         #
         elsif ( ! $resp->is_success ) {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Broken link in") . " $tag " .
                           " URL = \"$url\"");
@@ -628,7 +636,7 @@ sub Check_URL {
         # Not a valid URL string
         #
         $url_status{$url} = $resp;
-        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+        Record_Result("TP_PW_OD_DD", $self->current_line,
                       $self->current_column, $self->original_string,
                       String_Value("Expecting a URL in") . " $tag " .
                       String_Value("found") . " \"$url\"");
@@ -690,7 +698,7 @@ sub End_Data_Condition_Tag_Handler {
         # Do we have a value ?
         #
         if ( $saved_text eq "" ) {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing text in") . " <data_condition>");
         }
@@ -763,7 +771,7 @@ sub End_Data_Dictionary_Tag_Handler {
     # Did we find any headers (terms) ?
     #
     if ( $heading_count == 0 ) {
-        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+        Record_Result("TP_PW_OD_DD", $self->current_line,
                       $self->current_column, $self->original_string,
                       String_Value("No") . " <heading> " .
                       String_Value("found in") . " <data_dictionary>");
@@ -794,7 +802,7 @@ sub Start_Data_Pattern_Tag_Handler {
     # Do we have multiple patterns within the heading ?
     #
     if ( $pattern_count > 1 ) {
-        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+        Record_Result("TP_PW_OD_DD", $self->current_line,
                       $self->current_column, $self->original_string,
                       String_Value("Multiple data_pattern tags in heading") .
                       " <heading id=\"$heading_id\">");
@@ -850,7 +858,7 @@ sub End_Data_Pattern_Tag_Handler {
                 #
                 $error = $@;
                 $error =~ s/<-- HERE \$\/ at .*/<-- HERE \//;
-                Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                Record_Result("TP_PW_OD_DD", $self->current_line,
                               $self->current_column, $self->original_string,
                               String_Value("Invalid data pattern") .
                               " \"$saved_text\" " . String_Value("error") .
@@ -860,7 +868,7 @@ sub End_Data_Pattern_Tag_Handler {
             # Do we have a beginning of line character ?
             #
             elsif ( substr($saved_text, 0, 1) ne '^' ) {
-                Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                Record_Result("TP_PW_OD_DD", $self->current_line,
                               $self->current_column, $self->original_string,
                               String_Value("Invalid data pattern") .
                               " \"$saved_text\". " .
@@ -870,7 +878,7 @@ sub End_Data_Pattern_Tag_Handler {
             # Do we have an end of string character ?
             #
             elsif ( substr($saved_text, -1, 1) ne '$' ) {
-                Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                Record_Result("TP_PW_OD_DD", $self->current_line,
                               $self->current_column, $self->original_string,
                               String_Value("Invalid data pattern") .
                               " \"$saved_text\". " .
@@ -881,13 +889,12 @@ sub End_Data_Pattern_Tag_Handler {
                 # Save the pattern in the current dictionary object
                 #
                 if ( defined($dictionary_object) ) {
-                    print "Save data pattern regex in dictionary object\n" if $debug;
                     $dictionary_object->regex($saved_text);
                 }
             }
         }
         else {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing text in") . " <data_pattern> ");
         }
@@ -960,9 +967,16 @@ sub End_Data_Type_Tag_Handler {
             #
             # Missing value
             #
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing text in") . " <data_type>");
+        }
+        
+        #
+        # Save type value
+        #
+        if ( defined($dictionary_object) ) {
+            $dictionary_object->type($saved_text);
         }
     }
 
@@ -1008,7 +1022,7 @@ sub Start_Description_Tag_Handler {
         # Have we already seen a description for this language ?
         #
         if ( defined($found_description_languages{$current_lang}) ) {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Multiple") .
                           " <description xml:lang=\"$current_lang\"> " .
@@ -1021,7 +1035,7 @@ sub Start_Description_Tag_Handler {
         #
         elsif ( ! defined($expected_description_languages{$current_lang}) ) {
             $expected_languages = join(", ", keys(%expected_description_languages));
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Invalid") .
                           " <description xml:lang=\"$current_lang\" " .
@@ -1039,7 +1053,7 @@ sub Start_Description_Tag_Handler {
         #
         # Missing language attribute
         #
-        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+        Record_Result("TP_PW_OD_DD", $self->current_line,
                       $self->current_column, $self->original_string,
                       String_Value("Missing xml:lang in") . " <description>");
     }
@@ -1084,7 +1098,7 @@ sub End_Description_Tag_Handler {
             print "Description = \"$saved_text\"\n" if $debug;
         }
         else {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing text in") . " <description>");
         }
@@ -1104,7 +1118,7 @@ sub End_Description_Tag_Handler {
         $heading_table_ptr = $definitions_and_terms_headings{$current_lang};
         $saved_text = lc($saved_text);
         if ( defined($$lang_table_ptr{$saved_text}) ) {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Duplicate description") .
                           " \"$saved_text\" " .
@@ -1168,14 +1182,14 @@ sub Start_Heading_Tag_Handler {
         # Do we have a value for the heading id ?
         #
         if ( $heading_id eq "" ) {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing text in") . " <heading id=\"\">");
             $heading_id = $missing_heading_id;
         }
     }
     else {
-        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+        Record_Result("TP_PW_OD_DD", $self->current_line,
                       $self->current_column, $self->original_string,
                       String_Value("Missing") . " \"id\" " .
                       String_Value("in") . " <heading>");
@@ -1186,7 +1200,8 @@ sub Start_Heading_Tag_Handler {
     # Create dictionary object
     #
     if ( ! defined($$current_dictionary{$heading_id}) ) {
-        $dictionary_object = open_data_dictionary_object->new($heading_id);
+        $dictionary_object = open_data_dictionary_object->new();
+        $dictionary_object->id($heading_id);
     }
 }
 
@@ -1210,7 +1225,7 @@ sub End_Heading_Tag_Handler {
     # Did we find a description in the heading ?
     #
     if ( scalar(keys(%found_description_languages)) == 0 ) {
-        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+        Record_Result("TP_PW_OD_DD", $self->current_line,
                       $self->current_column, $self->original_string,
                       "<description> " . String_Value("not found in") .
                       " <heading id=\"$heading_id\">");
@@ -1221,7 +1236,7 @@ sub End_Heading_Tag_Handler {
     #
     foreach $lang (@required_description_languages) {
         if ( ! defined($found_description_languages{$lang}) ) {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing description for required language") .
                           " xml:lang=\"$lang\" " . String_Value("in") .
@@ -1236,7 +1251,7 @@ sub End_Heading_Tag_Handler {
     #
     foreach $lang (keys(%expected_description_languages)) {
         if ( ! defined($found_description_languages{$lang}) ) {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing description for expected language") .
                           " xml:lang=\"$lang\" " . String_Value("in") .
@@ -1255,14 +1270,16 @@ sub End_Heading_Tag_Handler {
         foreach $lang (keys(%found_label_languages)) {
             $label = $found_label_languages{$lang};
             print "Save dictionary object for label $label\n" if $debug;
-            $new_dictionary_object = open_data_dictionary_object->new($label);
+            $new_dictionary_object = open_data_dictionary_object->new();
+            $new_dictionary_object->term($label);
+            $new_dictionary_object->id($dictionary_object->id());
             $new_dictionary_object->regex($dictionary_object->regex());
             $new_dictionary_object->condition($dictionary_object->condition());
             $$current_dictionary{$label} = $new_dictionary_object;
         }
     }
     else {
-        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+        Record_Result("TP_PW_OD_DD", $self->current_line,
                       $self->current_column, $self->original_string,
                       String_Value("label not found in") . " <heading id=\"\">");
     }
@@ -1313,7 +1330,7 @@ sub End_Headings_Tag_Handler {
     #
     print "End headings tag, contains $heading_count heading tags\n" if $debug;
     if ( $heading_count == 0 ) {
-        Record_Result("TP_PW_OD_XML_1", $self->current_line,
+        Record_Result("TP_PW_OD_DD", $self->current_line,
                       $self->current_column, $self->original_string,
                       String_Value("No") . " <heading> " .
                       String_Value("found in") . " <headings>");
@@ -1359,7 +1376,7 @@ sub Start_Label_Tag_Handler {
         # Was a language specified ?
         #
         if ( $current_label_language ne "unknown" ) {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Multiple") .
                           " <label xml:lang=\"$current_label_language\"> " .
@@ -1367,7 +1384,7 @@ sub Start_Label_Tag_Handler {
                           " <heading id=\"$heading_id\">");
         }
         else {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Multiple") .
                           " <label> " .
@@ -1423,7 +1440,7 @@ sub End_Label_Tag_Handler {
             # Have we already seen this term/heading ?
             #
             if ( defined($term_location{$saved_text}) ) {
-                Record_Result("TP_PW_OD_XML_1", $self->current_line,
+                Record_Result("TP_PW_OD_DD", $self->current_line,
                               $self->current_column, $self->original_string,
                               String_Value("Duplicate label") .
                               " \"$saved_text\" " .
@@ -1438,9 +1455,16 @@ sub End_Label_Tag_Handler {
                 $term_location{$saved_text} = $self->current_line . ":" .
                                               $self->current_column;
             }
+            
+            #
+            # Save term
+            #
+            if ( defined($dictionary_object) ) {
+                $dictionary_object->term($saved_text);
+            }
         }
         else {
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing text in") . " <label>");
         }
@@ -1513,9 +1537,16 @@ sub End_Related_Resource_Tag_Handler {
             #
             # Missing value
             #
-            Record_Result("TP_PW_OD_XML_1", $self->current_line,
+            Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing text in") . " <related_resource>");
+        }
+
+        #
+        # Save the related resource in the current dictionary object
+        #
+        if ( defined($dictionary_object) ) {
+            $dictionary_object->related_resource($saved_text);
         }
     }
 
@@ -1754,7 +1785,7 @@ sub Open_Data_XML_Dictionary_Check_Dictionary {
     if ( ! $eval_output ) {
         $eval_output = $@;
         $eval_output =~ s/ at [\w:\/\.]*Parser.pm line \d*.*$//g;
-        Record_Result("OD_3", -1, 0, "$eval_output",
+        Record_Result("OD_VAL", -1, 0, "$eval_output",
                       String_Value("Fails validation"));
     }
 
@@ -1777,72 +1808,9 @@ sub Open_Data_XML_Dictionary_Check_Dictionary {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("crawler", "open_data_dictionary_object",
-                          "open_data_testcases", "tqa_result_object",
-                          "url_check");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
