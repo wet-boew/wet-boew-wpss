@@ -33,6 +33,7 @@
 #     Set_Crawler_HTTP_401_Callback
 #     Set_Crawler_Login_Logout
 #     Set_Crawler_URL_Ignore_Patterns
+#     Crawler_Remove_Temporary_Files
 #
 # Terms and Conditions of Use
 # 
@@ -88,6 +89,14 @@ use File::Temp qw/ tempfile tempdir /;
 use File::Path qw(make_path remove_tree);
 use IO::Socket::SSL qw( SSL_VERIFY_NONE );
 
+#
+# Use WPSS_Tool program modules
+#
+use crawler_phantomjs;
+use LWP::RobotUA::Cached;
+use textcat;
+use url_check;
+
 #***********************************************************************
 #
 # Export package globals
@@ -118,7 +127,8 @@ BEGIN {
                   Set_Crawler_HTTP_401_Callback
                   Set_Crawler_Login_Logout
                   Crawler_Set_Proxy
-                  Set_Crawler_URL_Ignore_Patterns);
+                  Set_Crawler_URL_Ignore_Patterns
+                  Crawler_Remove_Temporary_Files);
     $VERSION = "1.0";
 }
 
@@ -135,7 +145,7 @@ my ($http_response_callback_function, $login_callback_function);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef, @login_url_patterns);
 my ($login_form_name, $http_401_callback_function, %http_401_credentials);
 my ($login_domain_e, $login_domain_f, $accepted_content_encodings);
-my (%domain_prod_dev_map, %domain_dev_prod_map, $RobotUA_cache_dir, $tmp);
+my (%domain_prod_dev_map, %domain_dev_prod_map, $RobotUA_cache_dir);
 my ($login_interstitial_count, $logout_interstitial_count, $user_agent_hostname);
 my ($charset, $lwp_user_agent, $content_length, $phantomjs_cookie_file);
 
@@ -997,24 +1007,14 @@ sub Create_User_Agents {
     }
     
     #
-    # Does the cache exist ?
+    # Create cache directory
     #
-    if ( -d $RobotUA_cache_dir ) {
-        #
-        # Remove files
-        #
-        print "Remove existing cache content from $RobotUA_cache_dir\n" if $debug;
-        remove_tree($RobotUA_cache_dir) ||
-          die "Error: Failed to remove cache content from $RobotUA_cache_dir\n";
+    if ( ! -d $RobotUA_cache_dir ) {
+        print "Create disk cache at $RobotUA_cache_dir\n" if $debug;
+        mkdir($RobotUA_cache_dir, 0755) ||
+          die "Error: Failed to create cache directory $RobotUA_cache_dir\n";
     }
     
-    #
-    # Create disk cache
-    #
-    print "Create disk cache at $RobotUA_cache_dir\n" if $debug;
-    mkdir($RobotUA_cache_dir, 0755) ||
-      die "Error: Failed to create cache directory $RobotUA_cache_dir\n";
-
     #
     # Setup user agent to handle HTTP requests
     #
@@ -3833,6 +3833,57 @@ sub Crawl_Site {
 
 #***********************************************************************
 #
+# Name: Crawler_Remove_Temporary_Files
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function removes any temporary files that may have been
+# created by this module.
+#
+#***********************************************************************
+sub Crawler_Remove_Temporary_Files {
+
+    my ($error, $diag, $file, $message);
+    
+    #
+    # Stop any PhantomJS server that may be running
+    #
+    Crawler_Phantomjs_Stop_Markup_Server();
+
+    #
+    # Clear and remove any cache content for PhantomJS
+    #
+    Crawler_Phantomjs_Clear_Cache();
+    
+    #
+    # Remove any RobotsUA cache
+    #
+    if ( -d $RobotUA_cache_dir ) {
+        print "Remove disk cache $RobotUA_cache_dir\n" if $debug;
+        remove_tree($RobotUA_cache_dir, {error => \$error});
+
+        #
+        # Check for possible errors
+        #
+        if ( @$error ) {
+            print "Error: Failed to remove_tree $RobotUA_cache_dir\n";
+            for $diag (@$error) {
+                ($file, $message) = %$diag;
+                if ($file eq '') {
+                    print "general error: $message\n";
+                }
+                else {
+                    print "problem unlinking $file: $message\n";
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Import_Packages
 #
 # Parameters: none
@@ -3846,8 +3897,7 @@ sub Crawl_Site {
 sub Import_Packages {
 
     my ($package);
-    my (@package_list) = ("extract_links", "textcat", "url_check",
-                          "crawler_phantomjs", "LWP/RobotUA/Cached");
+    my (@package_list) = ("extract_links");
 
     #
     # Import packages, we don't use a 'use' statement as these packages
@@ -3895,26 +3945,22 @@ if ( $program_dir eq "." ) {
 }
 
 #
+# Get a new temporary file for the PhantomJS cookie jar
+#
+(undef, $phantomjs_cookie_file) = tempfile("WPSS_TOOL_phantomjs_cookies_XXXXXXXXXX",
+                                           OPEN => 0,
+                                           SUFFIX => '.txt',
+                                           TMPDIR => 1);
+
+#
+# Create temporary directory for Robots agent cache
+#
+$RobotUA_cache_dir = tempdir("WPSS_TOOL_RobotUA_cache_XXXXXXXXXX", TMPDIR => 1);
+
+#
 # Import required packages
 #
 Import_Packages;
-
-#
-# Get path for cache and cookie jars
-#
-if ( $^O =~ /MSWin32/ ) {
-    #
-    # Windows.
-    #
-    $tmp = $ENV{"TMP"};
-} else {
-    #
-    # Not Windows.
-    #
-    $tmp = $ENV{"HOME"};
-}
-$RobotUA_cache_dir = "$tmp/wpss_tool_RobotUA_cache";
-$phantomjs_cookie_file = "$tmp/phantomjs_cookies.txt";
 
 #
 # Return true to indicate we loaded successfully
