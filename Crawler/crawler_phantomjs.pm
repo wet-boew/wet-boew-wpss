@@ -2,9 +2,9 @@
 #
 # Name:   crawler_phantomjs.pm
 #
-# $Revision: 91 $
+# $Revision: 133 $
 # $URL: svn://10.36.20.203/Crawler/Tools/crawler_phantomjs.pm $
-# $Date: 2016-11-15 09:03:45 -0500 (Tue, 15 Nov 2016) $
+# $Date: 2016-12-05 15:26:37 -0500 (Mon, 05 Dec 2016) $
 #
 # Description:
 #
@@ -14,6 +14,7 @@
 #     Crawler_Phantomjs_Clear_Cache
 #     Crawler_Phantomjs_Config
 #     Crawler_Phantomjs_Debug
+#     Crawler_Phantomjs_Stop_Markup_Server
 #     Crawler_Phantomjs_Page_Markup
 #
 # Terms and Conditions of Use
@@ -67,6 +68,7 @@ BEGIN {
     @EXPORT  = qw(Crawler_Phantomjs_Clear_Cache
                   Crawler_Phantomjs_Config
                   Crawler_Phantomjs_Debug
+                  Crawler_Phantomjs_Stop_Markup_Server
                   Crawler_Phantomjs_Page_Markup
                   );
     $VERSION = "1.0";
@@ -195,7 +197,7 @@ sub Crawler_Phantomjs_Config {
 
 #***********************************************************************
 #
-# Name: Stop_Markup_Server
+# Name: Crawler_Phantomjs_Stop_Markup_Server
 #
 # Parameters: none
 #
@@ -204,7 +206,7 @@ sub Crawler_Phantomjs_Config {
 #   This function stops the markup server process.
 #
 #***********************************************************************
-sub Stop_Markup_Server {
+sub Crawler_Phantomjs_Stop_Markup_Server {
 
     my ($req, $user_agent, $resp, $url);
 
@@ -240,7 +242,7 @@ sub Start_Markup_Server {
     #
     # Stop any server that may be running
     #
-    Stop_Markup_Server();
+    Crawler_Phantomjs_Stop_Markup_Server();
     
     #
     # Pass debug flag to markup server
@@ -555,38 +557,6 @@ sub Crawler_Phantomjs_Page_Markup {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ();
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -644,11 +614,6 @@ if ( $^O =~ /MSWin32/ ) {
 # Remove any existing cache
 #
 Crawler_Phantomjs_Clear_Cache("");
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Remove any stdout or stderr files
