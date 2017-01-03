@@ -52,6 +52,10 @@ use File::Basename;
 use URI::URL;
 use File::Temp qw/ tempfile tempdir /;
 
+#
+# Use WPSS_Tool program modules
+#
+use extract_links;
 
 #***********************************************************************
 #
@@ -247,39 +251,6 @@ sub PDF_Extract_Links {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("extract_links");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -333,11 +304,6 @@ if ( $^O =~ /MSWin32/ ) {
     #
     $pdftohtml_cmnd = "$program_dir/bin/pdftohtml";
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

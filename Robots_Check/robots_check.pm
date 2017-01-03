@@ -51,6 +51,11 @@ use strict;
 use URI;
 use File::Basename;
 
+#
+# Use WPSS_Tool program modules
+#
+use tqa_result_object;
+
 #***********************************************************************
 #
 # Export package globals
@@ -73,9 +78,6 @@ BEGIN {
 # File Local variable declarations
 #
 #***********************************************************************
-
-my (@paths, $this_path, $program_dir, $program_name, $paths);
-
 my ($debug) = 0;
 
 #
@@ -504,46 +506,9 @@ sub Robots_Check {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
