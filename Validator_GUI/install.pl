@@ -47,12 +47,15 @@
 
 use strict;
 use File::Basename;
+use Cwd;
 use Sys::Hostname;
-use Win32::TieRegistry( Delimiter=>"#", ArrayValues=>0 );
+#use Win32::TieRegistry( Delimiter=>"#", ArrayValues=>0 );
+use Win32::TieRegistry;
 use LWP::UserAgent;
 use HTTP::Headers;
 use ExtUtils::Installed;
 use File::Temp qw/ tempfile/;
+use Archive::Zip;
 
 #***********************************************************************
 #
@@ -61,7 +64,7 @@ use File::Temp qw/ tempfile/;
 #***********************************************************************
 
 my (@paths, $this_path, $program_dir, $program_name, $paths);
-my ($line, $perl_install);
+my ($line, $perl_install, $python_path, $is_windows);
 my ($debug) = 0;
 my ($uninstall) = 0;
 my ($pause_before_exit) = 1;
@@ -76,7 +79,6 @@ my %string_table_en = (
     "install Win32::GUI complete","Win32::GUI package install complete",
     "installing Win32::GUI","Installing Win32::GUI package",
     "complete WPSS Validation Installation","Press <return> complete WPSS Validation Installation",
-    "Failed to register installation","Warning: Failed to register installation",
 );
 
 my %string_table_fr = (
@@ -183,18 +185,20 @@ sub Set_Language {
     #
     # Get the registry key for language setting of the current user
     #
-    $pound= $Registry->Delimiter("/");
-    if ( $key= $Registry->{"HKEY_CURRENT_USER/Control Panel/International/"} ) {
+    if ( $is_windows ) {
+        $pound = $Registry->Delimiter("/");
+        if ( $key= $Registry->{"HKEY_CURRENT_USER/Control Panel/International/"} ) {
 
-        #
-        # Look for the Language item
-        #
-        if ( $data= $key->{"/sLanguage"} ) {
             #
-            # Is the value one of the French possibilities ?
+            # Look for the Language item
             #
-            if ( $data =~ /^FR/i ) {
-                $string_table = \%string_table_fr;
+            if ( $data= $key->{"/sLanguage"} ) {
+                #
+                # Is the value one of the French possibilities ?
+                #
+                if ( $data =~ /^FR/i ) {
+                    $string_table = \%string_table_fr;
+                }
             }
         }
     }
@@ -281,6 +285,402 @@ sub Write_Log_Header {
 
 #**********************************************************************
 #
+# Name: Install_Setuptools_Python_Module
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function installs the setuptools module.
+#
+#**********************************************************************
+sub Install_Setuptools_Python_Module {
+
+    my ($output, $python_output, $zip_file);
+
+    #
+    # Extract the setuptools module
+    #
+    chdir("$program_dir/python/");
+    $zip_file = Archive::Zip->new("setuptools-29.0.1.zip");
+    $zip_file->extractTree();
+
+    #
+    # Build the setuptools module
+    #
+    Write_To_Log("Build python module 'setuptools'");
+    chdir("$program_dir/python/setuptools-29.0.1");
+    print "setup.py build setuptools\n";
+    Write_To_Log("setup.py build");
+    if ( $is_windows ) {
+        $python_output = `.\\setup.py build 2>\&1`;
+    }
+    else {
+        $python_output = `python setup.py build 2>\&1`;
+    }
+
+    #
+    # Was the build phase successful ?
+    #
+    if ( ($python_output =~ /Error/i) &&
+          ( ! ($python_output =~ /Copying/i) ) ) {
+        print "\n*****\n";
+        print "setup.py build failed for setuptools\n";
+        print "\n*****\n";
+        Write_To_Log("setup.py build failed for setuptools, output = $python_output");
+        Exit_With_Pause(1);
+    }
+    else {
+        Write_To_Log("build setuptools complete");
+        Write_To_Log("Output = $python_output");
+    }
+
+    #
+    # Install the setuptools module
+    #
+    Write_To_Log("Install python module 'setuptools'");
+    print "setup.py install setuptools\n";
+    Write_To_Log("setup.py install --root $program_dir\\python");
+    if ( $is_windows ) {
+        $python_output = `.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
+    }
+    else {
+        $python_output = `python setup.py install --root \"$program_dir/python\" 2>\&1`;
+    }
+
+    #
+    # Was the build phase successful ?
+    #
+    if ( ($python_output =~ /Error/i) &&
+          ( ! ($python_output =~ /Copying/i) ) ) {
+        print "\n*****\n";
+        print "setup.py install --root $program_dir\\python failed for setuptools\n";
+        print "\n*****\n";
+        Write_To_Log("setup.py install --root $program_dir\\python failed for setuptools, output = $python_output");
+        Exit_With_Pause(1);
+    }
+    else {
+        Write_To_Log("install setuptools complete");
+        Write_To_Log("Output = $python_output");
+    }
+    
+    #
+    # Check python module.
+    #
+    Write_To_Log("Test install of python module 'setuptools'");
+    chdir($program_dir);
+    unlink("test$$.py");
+    open(PYTHON, ">test$$.py");
+    print PYTHON "from setuptools import setup\n";
+    print PYTHON "print 'pass'\n";
+    close(PYTHON);
+    if ( $is_windows ) {
+        $python_output = `set PYTHONPATH=$python_path\&.\\test$$.py 2>\&1`;
+    }
+    else {
+        $python_output = `export PYTHONPATH=\"$python_path\";python test$$.py 2>\&1`;
+    }
+    unlink("test$$.py");
+
+    #
+    # Was the module found ?
+    #
+    Write_To_Log("Python module test setuptools output $python_output");
+    if ( ($python_output =~ /No module named setuptools/i) ||
+         ( ! ($python_output =~ /pass/i) ) ) {
+        Write_To_Log("Python module setuptools not found");
+        Write_To_Log("Failed install.pl");
+        Exit_With_Pause(1);
+    }
+}
+
+#**********************************************************************
+#
+# Name: Install_Functools32_Python_Module
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function installs the functools32 module, which is used
+# by the jsonschema module.
+#
+#**********************************************************************
+sub Install_Functools32_Python_Module {
+
+    my ($output, $python_output, $zip_file);
+
+    #
+    # Extract the functools32 module
+    #
+    chdir("$program_dir/python/");
+    $zip_file = Archive::Zip->new("functools32-3.2.3-2.zip");
+    $zip_file->extractTree();
+
+    #
+    # Build the functools32 module
+    #
+    Write_To_Log("Build python module 'functools32'");
+    chdir("$program_dir/python/functools32-3.2.3-2");
+    print "setup.py build functools32\n";
+    Write_To_Log("set PYTHONPATH=$python_path\&setup.py build");
+    if ( $is_windows ) {
+        $python_output = `set PYTHONPATH=$python_path\&.\\setup.py build 2>\&1`;
+    }
+    else {
+        $python_output = `export PYTHONPATH=\"$python_path\";python setup.py build 2>\&1`;
+    }
+
+    #
+    # Was the build phase successful ?
+    #
+    if ( ($python_output =~ /Error/i) &&
+          ( ! ($python_output =~ /Copying/i) ) ) {
+        print "\n*****\n";
+        print "setup.py build failed for functools32\n";
+        print "\n*****\n";
+        Write_To_Log("setup.py build failed for functools32, output = $python_output");
+        Exit_With_Pause(1);
+    }
+    else {
+        Write_To_Log("build functools32 complete");
+        Write_To_Log("Output = $python_output");
+    }
+
+    #
+    # Install the functools32 module
+    #
+    Write_To_Log("Install python module 'functools32'");
+    print "setup.py install functools32\n";
+    Write_To_Log("set PYTHONPATH=$python_path\&setup.py install --root $program_dir\\python");
+    if ( $is_windows ) {
+        $python_output = `set PYTHONPATH=$python_path\&.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
+    }
+    else {
+        $python_output = `export PYTHONPATH=\"$python_path\";python setup.py install --root \"$program_dir/python\" 2>\&1`;
+    }
+
+    #
+    # Was the build phase successful ?
+    #
+    if ( ($python_output =~ /Error/i) &&
+          ( ! ($python_output =~ /Copying/i) ) ) {
+        print "\n*****\n";
+        print "setup.py install --root $program_dir\\python failed for functools32\n";
+        print "\n*****\n";
+        Write_To_Log("setup.py install --root $program_dir\\python failed for functools32, output = $python_output");
+        Exit_With_Pause(1);
+    }
+    else {
+        Write_To_Log("install functools32 complete");
+        Write_To_Log("Output = $python_output");
+    }
+}
+
+#**********************************************************************
+#
+# Name: Install_Jsonschema_Python_Module
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function installs the jsonschema module.
+#
+#**********************************************************************
+sub Install_Jsonschema_Python_Module {
+
+    my ($output, $python_output, $zip_file);
+
+    #
+    # Extract the jsonschema module
+    #
+    chdir("$program_dir/python/");
+    $zip_file = Archive::Zip->new("jsonschema-2.5.1.zip");
+    $zip_file->extractTree();
+
+    #
+    # Build the jsonschema module
+    #
+    Write_To_Log("Build python module 'jsonschema'");
+    chdir("$program_dir/python/jsonschema-2.5.1");
+    print "setup.py build jsonschema\n";
+    Write_To_Log("set PYTHONPATH=$python_path\&setup.py build");
+    if ( $is_windows ) {
+        $python_output = `set PYTHONPATH=$python_path\&.\\setup.py build 2>\&1`;
+    }
+    else {
+        $python_output = `export PYTHONPATH=\"$python_path\";python setup.py build 2>\&1`;
+    }
+
+    #
+    # Was the build phase successful ?
+    #
+    if ( ($python_output =~ /Error/i) &&
+          ( ! ($python_output =~ /Copying/i) ) ) {
+        print "\n*****\n";
+        print "setup.py build failed for jsonschema\n";
+        print "\n*****\n";
+        Write_To_Log("setup.py build failed for jsonschema, output = $python_output");
+        Exit_With_Pause(1);
+    }
+    else {
+        Write_To_Log("build jsonschema complete");
+        Write_To_Log("Output = $python_output");
+    }
+
+    #
+    # Install the jsonschema module
+    #
+    Write_To_Log("Install python module 'jsonschema'");
+    print "setup.py install jsonschema\n";
+    Write_To_Log("set PYTHONPATH=$python_path\&setup.py install --root $program_dir\\python");
+    if ( $is_windows ) {
+        $python_output = `set PYTHONPATH=$python_path\&.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
+    }
+    else {
+        $python_output = `export PYTHONPATH=\"$python_path\";python setup.py install --root \"$program_dir/python\" 2>\&1`;
+    }
+
+    #
+    # Was the build phase successful ?
+    #
+    if ( ($python_output =~ /Error/i) &&
+          ( ! ($python_output =~ /Copying/i) ) ) {
+        print "\n*****\n";
+        print "setup.py install --root $program_dir\\python failed for jsonschema\n";
+        print "\n*****\n";
+        Write_To_Log("setup.py install --root $program_dir\\python failed for jsonschema, output = $python_output");
+        Exit_With_Pause(1);
+    }
+    else {
+        Write_To_Log("install jsonschema complete");
+        Write_To_Log("Output = $python_output");
+    }
+    
+    #
+    # jsonschema requires the functools32 module
+    #
+    Install_Functools32_Python_Module();
+
+    #
+    # Check python module jsonschema.
+    #
+    Write_To_Log("Test install of python module 'jsonschema'");
+    chdir($program_dir);
+    unlink("test$$.py");
+    open(PYTHON, ">test$$.py");
+    print PYTHON "import jsonschema\n";
+    print PYTHON "print 'pass'\n";
+    close(PYTHON);
+    if ( $is_windows ) {
+        $python_output = `set PYTHONPATH=$python_path\&.\\test$$.py 2>\&1`;
+    }
+    else {
+        $python_output = `export PYTHONPATH=\"$python_path\";python test$$.py 2>\&1`;
+    }
+    unlink("test$$.py");
+
+    #
+    # Was the module found ?
+    #
+    Write_To_Log("Python module test output $python_output");
+    if ( ($python_output =~ /No module named jsonschema/i) ||
+         ( ! ($python_output =~ /pass/i) ) ) {
+        Write_To_Log("Python module jsonschema not found");
+        Write_To_Log("Failed install.pl");
+        Exit_With_Pause(1);
+    }
+}
+
+#**********************************************************************
+#
+# Name: Check_Python_Modules
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function checks to see if required Python modules
+# are installed.
+#
+#**********************************************************************
+sub Check_Python_Modules {
+
+    my ($module, $python_output);
+
+    #
+    # Check for required python modules
+    #
+    Write_To_Log("Check python modules");
+    print "Check python modules\n";
+
+    #
+    # Check python module setuptools.
+    #
+    Write_To_Log("Check python module 'setuptools'");
+    chdir($program_dir);
+    unlink("test$$.py");
+    open(PYTHON, ">test$$.py");
+    print PYTHON "\n";
+    print PYTHON "from setuptools import setup\n";
+    print PYTHON "print 'pass'\n";
+    close(PYTHON);
+    if ( $is_windows ) {
+        $python_output = `set PYTHONPATH=$python_path\&.\\test$$.py 2>\&1`;
+    }
+    else {
+        $python_output = `export PYTHONPATH=\"$python_path\";python test$$.py 2>\&1`;
+    }
+    unlink("test$$.py");
+
+    #
+    # Does python module setup exist?
+    #
+    Write_To_Log("Python module 'setuptools' test output $python_output");
+    if ( ($python_output =~ /No module named setuptools/i) ||
+         ( ! ($python_output =~ /pass/i) ) ) {
+
+        #
+        # Install the setuptools module
+        #
+        Install_Setuptools_Python_Module();
+    }
+
+    #
+    # Check python module jsonschema.
+    #
+    Write_To_Log("Check python module 'jsonschema'");
+    chdir($program_dir);
+    unlink("test$$.py");
+    open(PYTHON, ">test$$.py");
+    print PYTHON "import jsonschema\n";
+    print PYTHON "print 'pass'\n";
+    close(PYTHON);
+    if ( $is_windows ) {
+        $python_output = `set PYTHONPATH=$python_path\&.\\test$$.py 2>\&1`;
+    }
+    else {
+        $python_output = `export PYTHONPATH=\"$python_path\";python test$$.py 2>\&1`;
+    }
+    unlink("test$$.py");
+
+    #
+    # Does python module jsonschema exist?
+    #
+    Write_To_Log("Python module 'jsonschema' test output $python_output");
+    if ( ($python_output =~ /No module named jsonschema/i) ||
+         ( ! ($python_output =~ /pass/i) ) ) {
+         
+        #
+        # Install the jsonschema module
+        #
+        Install_Jsonschema_Python_Module();
+    }
+}
+
+#**********************************************************************
+#
 # Name: Check_Python
 #
 # Parameters: none
@@ -299,7 +699,12 @@ sub Check_Python {
     #
     Write_To_Log("Check python installation");
     print "Test python installation\n";
-    $assoc_output = `assoc .py`;
+    if ( $is_windows ) {
+        $assoc_output = `assoc .py`;
+    }
+    else {
+        $assoc_output = ".py=";
+    }
 
     #
     # Do we have an association for .py files ?
@@ -323,7 +728,12 @@ sub Check_Python {
         print PYTHON "   print 'fail, version greater than 3.0.0'\n";
         print PYTHON "print sys.version_info\n";
         close(PYTHON);
-        $python_output = `.\\test$$.py`;
+        if ( $is_windows ) {
+            $python_output = `.\\test$$.py 2>\&1`;
+        }
+        else {
+            $python_output = `python test$$.py 2>\&1`;
+        }
         unlink("test$$.py");
 
         #
@@ -353,6 +763,22 @@ sub Check_Python {
         print "\n*****\n";
         Exit_With_Pause(1);
     }
+
+    #
+    # Set path to local python packages
+    #
+    if ( $is_windows ) {
+        $python_path = "$program_dir\\python\\Program Files\\python27\\Lib\\site-packages";
+    }
+    else {
+        $python_path = "$program_dir/python/usr/local/lib/python2.7/dist-packages";
+    }
+    Write_To_Log("PYTHONPATH = $python_path");
+
+    #
+    # Check for specific python modules
+    #
+    Check_Python_Modules();
 }
 
 #**********************************************************************
@@ -374,7 +800,12 @@ sub Check_Perl {
     #
     Write_To_Log("Check Perl version");
     print "Check Perl version\n";
-    $version = `perl.exe --version`;
+    if ( $is_windows ) {
+        $version = `perl.exe --version`;
+    }
+    else {
+        $version = `perl --version`;
+    }
     Write_To_Log("  Version = $version");
 
     #
@@ -805,6 +1236,13 @@ if ( $program_dir eq "." ) {
 }
 
 #
+# If directory is '.', get the current working directory
+#
+if ( $program_dir eq "." ) {
+    $program_dir = getcwd();
+}
+
+#
 # Process command-line options
 #
 foreach (@ARGV) {
@@ -816,6 +1254,20 @@ foreach (@ARGV) {
     }
 }
 
+#
+# Is this a Windows or Unix platform
+#
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $is_windows = 1;
+} else {
+    #
+    # Not Windows.
+    #
+    $is_windows = 0;
+}
 #
 # Get the language of this system
 #
@@ -850,8 +1302,10 @@ if ($uninstall){
 
     #
     # Install the Win32::GUI module
-    # 
-    Install_Win32_GUI();
+    #
+    if ( $is_windows ) {
+        Install_Win32_GUI();
+    }
 
     #
     # Create supporting directories
