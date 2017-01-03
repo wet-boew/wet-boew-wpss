@@ -43,6 +43,7 @@
 #     Validator_GUI_Open_Data_Setup
 #     Validator_GUI_Runtime_Error_Callback
 #     Validator_GUI_Remove_Temporary_Files
+#     Validator_GUI_Config
 #
 # Terms and Conditions of Use
 # 
@@ -89,6 +90,12 @@ use File::Basename;
 use Text::CSV;
 use Term::ReadKey;
 
+#
+# Use WPSS_Tool program modules
+#
+use tqa_result_object;
+use validator_xml;
+
 #***********************************************************************
 #
 # Export package globals
@@ -128,6 +135,7 @@ BEGIN {
                   Validator_GUI_Open_Data_Setup
                   Validator_GUI_Runtime_Error_Callback
                   Validator_GUI_Remove_Temporary_Files
+                  Validator_GUI_Config
                   );
     $VERSION = "1.0";
 }
@@ -235,8 +243,6 @@ my %string_table_fr = (
 );
 
 my ($string_table);
-
-my (@package_list) = ("tqa_result_object", "validator_xml");
 
 #***********************************************************************
 #
@@ -467,6 +473,14 @@ sub Print_TQA_Result_to_CSV {
     my ($tab_label, $result_object) = @_;
 
     my (@fields, $status);
+    
+    #
+    # Do we have a results file name prefix ?
+    #
+    if ( ! defined($results_file_name) || ($results_file_name eq "") ) {
+        print "No results file name prefix defined\n" if $debug;
+        return;
+    }
 
     #
     # Do we have a CSV file yet ?
@@ -3047,33 +3061,18 @@ sub Validator_GUI_Runtime_Error_Callback {
 
 #***********************************************************************
 #
-# Name: Import_Packages
+# Name: Validator_GUI_Config
 #
-# Parameters: none
+# Parameters: config - configuration items
 #
 # Description:
 #
-#   This function imports any required packages that cannot
-# be handled via use statements.
+#   This function sets a number of configuration paramters in the GUI.
 #
 #***********************************************************************
-sub Import_Packages {
+sub Validator_GUI_Config {
+    my (%config) = @_;
 
-    my ($package);
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
 }
 
 #***********************************************************************
@@ -3105,11 +3104,6 @@ if ( $program_dir eq "." ) {
         }
     }
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Handle STDERR & STDOUT output

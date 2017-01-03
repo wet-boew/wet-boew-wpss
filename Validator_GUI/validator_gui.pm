@@ -41,6 +41,7 @@
 #     Validator_GUI_Open_Data_Setup
 #     Validator_GUI_Runtime_Error_Callback
 #     Validator_GUI_Remove_Temporary_Files
+#     Validator_GUI_Config
 #
 # Exported functions - these are required by the Win32::GUI package
 # and should not be used by anyone else.
@@ -108,6 +109,12 @@ use Text::CSV;
 #
 #use Win32::IE::Mechanize;
 
+#
+# Use WPSS_Tool program modules
+#
+use crawler;
+use tqa_result_object;
+use validator_xml;
 
 #***********************************************************************
 #
@@ -157,6 +164,7 @@ BEGIN {
                   Validator_GUI_Main_Resize
                   Validator_GUI_Main_Terminate
                   Validator_GUI_Results_Terminate
+                  Validator_GUI_Config
                   );
     $VERSION = "1.0";
 }
@@ -439,8 +447,6 @@ my %string_table_fr = (
 
 my ($string_table) = \%string_table_en;
 
-my (@package_list) = ("tqa_result_object", "validator_xml", "crawler");
-
 #
 #***********************************************************************
 # Configuration items
@@ -448,7 +454,7 @@ my (@package_list) = ("tqa_result_object", "validator_xml", "crawler");
 #
 
 #
-# Maximum number of characters for direct HTML input and URL list
+# Default maximum number of characters for direct HTML input and URL list
 #
 my ($GUI_DIRECT_HTML_SIZE) = 100000;
 my ($GUI_URL_LIST_SIZE) = 100000;
@@ -1756,19 +1762,21 @@ sub GUI_Do_URL_List_Click {
 sub Get_Field_Value {
     my ($tab_strip, $field_name) = @_;
 
-    my ($value);
+    my ($value) = "";
 
     #
     # Get the field value from the form field and remove leading or trailing
     # whitespace.
     #
-    $value = $tab_strip->$field_name->Text();
-    if ( defined($value) ) {
-        $value =~ s/\s+$//g;
-        $value =~ s/\/$//g;
-    }
-    else {
-        $value = "";
+    if ( defined($field_name) && ($field_name ne "") ) {
+        $value = $tab_strip->$field_name->Text();
+        if ( defined($value) ) {
+            $value =~ s/\s+$//g;
+            $value =~ s/\/$//g;
+        }
+        else {
+            $value = "";
+        }
     }
 
     #
@@ -3163,7 +3171,8 @@ sub GUI_Do_Load_URL_List_from_File_Click {
                 #
                 # Is this line a configuration option line ?
                 #
-                if ( defined($site_configuration_fields{$field_name}) ) {
+                if ( defined($site_configuration_fields{$field_name} &&
+                     ($site_configuration_fields{$field_name} ne "")) ) {
                     #
                     # Load value into main dialog
                     #
@@ -4052,7 +4061,8 @@ sub Load_Site_Config {
                 #
                 # Check configuration field name
                 #
-                if ( defined($site_configuration_fields{$field_name}) ) {
+                if ( defined($site_configuration_fields{$field_name}) &&
+                     ($site_configuration_fields{$field_name} ne "") ) {
                     #
                     # Load value into main dialog
                     #
@@ -4186,9 +4196,11 @@ sub Save_Site_Config {
             # Save each configuration value
             #
             foreach $field_name (sort keys %site_configuration_fields) {
-                $tab_field_name = $site_configuration_fields{$field_name};
-                $value = $main_window->ConfigTabs->$tab_field_name->Text();
-                print FILE "$field_name $value\n";
+                if ( $site_configuration_fields{$field_name} ne "" ) {
+                    $tab_field_name = $site_configuration_fields{$field_name};
+                    $value = $main_window->ConfigTabs->$tab_field_name->Text();
+                    print FILE "$field_name $value\n";
+                }
             }
             
             #
@@ -5404,7 +5416,8 @@ sub Load_Open_Data_Config {
                 #
                 # Check configuration field name
                 #
-                if ( defined($site_configuration_fields{$field_name}) ) {
+                if ( defined($site_configuration_fields{$field_name}) &&
+                     ($site_configuration_fields{$field_name} ne "") ) {
                     #
                     # Load value into main dialog
                     #
@@ -5555,9 +5568,11 @@ sub Save_Open_Data_Config {
             # Save each configuration value
             #
             foreach $field_name (sort keys %report_options_field_names) {
-                $tab_field_name = $report_options_field_names{$field_name};
-                $value = $main_window->ConfigTabs->$tab_field_name->Text();
-                print FILE "$field_name $value\n";
+                if ( $report_options_field_names{$field_name} ne "" ) {
+                    $tab_field_name = $report_options_field_names{$field_name};
+                    $value = $main_window->ConfigTabs->$tab_field_name->Text();
+                    print FILE "$field_name $value\n";
+                }
             }
 
             #
@@ -6093,32 +6108,29 @@ sub Validator_GUI_Runtime_Error_Callback {
 
 #***********************************************************************
 #
-# Name: Import_Packages
+# Name: Validator_GUI_Config
 #
-# Parameters: none
+# Parameters: config - configuration items
 #
 # Description:
 #
-#   This function imports any required packages that cannot
-# be handled via use statements.
+#   This function sets a number of configuration paramters in the GUI.
 #
 #***********************************************************************
-sub Import_Packages {
-
-    my ($package);
+sub Validator_GUI_Config {
+    my (%config) = @_;
 
     #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
+    # Do we have a direct HTML buffer size?
     #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
+    if ( defined($config{"GUI_DIRECT_HTML_SIZE"}) ) {
+        $GUI_DIRECT_HTML_SIZE = $config{"GUI_DIRECT_HTML_SIZE"};
+    }
+    #
+    # Do we have a URL list buffer size?
+    #
+    if ( defined($config{"GUI_URL_LIST_SIZE"}) ) {
+        $GUI_URL_LIST_SIZE = $config{"GUI_URL_LIST_SIZE"};
     }
 }
 
@@ -6157,11 +6169,6 @@ if ( $program_dir eq "." ) {
         }
     }
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Redirect STDERR and STDOUT to a file so it isn't lost when 
