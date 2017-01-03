@@ -62,6 +62,14 @@ use URI::URL;
 use File::Basename;
 use CSS;
 
+#
+# Use WPSS_Tool program modules
+#
+use css_extract_links;
+use image_details;
+use tqa_result_object;
+use tqa_testcases;
+
 #***********************************************************************
 #
 # Export package globals
@@ -96,7 +104,6 @@ BEGIN {
 
 my ($debug) = 0;
 my (%testcase_data, $foreground_color, $background_color);
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my (%css_check_profile_map, $current_css_check_profile, $current_url);
 my ($results_list_addr, %url_css_styles_cache, %url_css_styles_hits);
@@ -1699,71 +1706,9 @@ sub CSS_Check_Check_Styled_Text {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("image_details", "css_extract_links",
-                          "tqa_result_object", "tqa_testcases");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

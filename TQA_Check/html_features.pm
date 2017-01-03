@@ -55,6 +55,12 @@ use strict;
 use HTML::Parser;
 use File::Basename;
 
+#
+# Use WPSS_Tool program modules
+#
+use content_section_object;
+use metadata;
+use metadata_result_object;
 
 #***********************************************************************
 #
@@ -83,7 +89,6 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%html_feature_line_no, %html_feature_column_no, %html_feature_count);
 my ($current_html_feature_profile, %html_feature_profile_map);
 my (%html_feature_metadata_profile_map, $script_tag_type, $have_text_handler);
@@ -1037,72 +1042,9 @@ sub HTML_Features_Check_Links {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("metadata", "metadata_result_object",
-                          "content_section_object");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully

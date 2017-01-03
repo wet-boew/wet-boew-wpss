@@ -56,6 +56,15 @@ use File::Basename;
 use Image::ExifTool ':Public';
 use File::Temp qw/ tempfile tempdir /;
 
+#
+# Use WPSS_Tool program modules
+#
+use language_map;
+use pdf_files;
+use tqa_result_object;
+use tqa_testcases;
+use url_check;
+
 #***********************************************************************
 #
 # Export package globals
@@ -978,40 +987,6 @@ sub PDF_Check_Features {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_testcases", "language_map",
-                          "tqa_result_object", "pdf_files",
-                          "url_check");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
@@ -1054,11 +1029,6 @@ if ( $^O =~ /MSWin32/ ) {
     #
     $pdf_checker_cmnd = "python \"$program_dir/bin/pdfchecker/pdfchecker.py\" 2>\&1";
 }
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
