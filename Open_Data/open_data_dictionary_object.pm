@@ -18,7 +18,10 @@
 # Class Methods
 #    new - create new object instance
 #    condition - get/set data condition value
+#    id - get/set the id value
 #    regex - get/set data regex value
+#    related_resource - get/set related resource value
+#    type - get/set the type value
 #    term - get/set term value
 #
 # Terms and Conditions of Use
@@ -103,7 +106,6 @@ sub Open_Data_Dictionary_Object_Debug {
 # Name: new
 #
 # Parameters: href - href of link
-#             term - term for dictionary
 #
 # Description:
 #
@@ -112,7 +114,7 @@ sub Open_Data_Dictionary_Object_Debug {
 #
 #********************************************************
 sub new {
-    my ($class, $term) = @_;
+    my ($class) = @_;
     
     my ($self) = {};
 
@@ -120,23 +122,17 @@ sub new {
     # Bless the reference as a open_data_dictionary_object class item
     #
     bless $self, $class;
-    
-    #
-    # Save arguments as object fields
-    #
-    $self->{"term"} = $term;
 
     #
     # Initialize object fields
     #
     $self->{"condition"} = "";
+    $self->{"id"} = "";
     $self->{"regex"} = "";
-
-    #
-    # Print object details
-    #
-    print "New open data dictionary object, $term\n" if $debug;
-
+    $self->{"related_resource"} = "";
+    $self->{"term"} = "";
+    $self->{"type"} = "";
+    
     #
     # Return reference to object.
     #
@@ -174,6 +170,35 @@ sub condition {
 
 #********************************************************
 #
+# Name: id
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the id
+# attribute of the data dictionary object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub id {
+    my ($self, $value) = @_;
+
+    #
+    # Was an id value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"id"} = $value;
+    }
+    else {
+        return($self->{"id"});
+    }
+}
+
+#********************************************************
+#
 # Name: regex
 #
 # Parameters: self - class reference
@@ -198,6 +223,64 @@ sub regex {
     }
     else {
         return($self->{"regex"});
+    }
+}
+
+#********************************************************
+#
+# Name: related_resource
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the related_resource
+# attribute of the data dictionary object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub related_resource {
+    my ($self, $value) = @_;
+
+    #
+    # Was a regex related_resource supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"related_resource"} = $value;
+    }
+    else {
+        return($self->{"related_resource"});
+    }
+}
+
+#********************************************************
+#
+# Name: type
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the type
+# attribute of the data dictionary object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub type {
+    my ($self, $value) = @_;
+
+    #
+    # Was a type value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"type"} = $value;
+    }
+    else {
+        return($self->{"type"});
     }
 }
 
