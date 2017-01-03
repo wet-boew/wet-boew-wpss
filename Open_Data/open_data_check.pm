@@ -59,10 +59,20 @@ package open_data_check;
 
 use strict;
 use Encode;
-use File::Basename;
 use Archive::Zip qw(:ERROR_CODES);
 use JSON;
 
+#
+# Use WPSS_Tool program modules
+#
+use crawler;
+use open_data_csv;
+use open_data_json;
+use open_data_testcases;
+use open_data_txt;
+use open_data_xml;
+use tqa_result_object;
+use url_check;
 
 #***********************************************************************
 #
@@ -98,14 +108,13 @@ BEGIN {
 
 my ($debug) = 0;
 my (%testcase_data, %open_data_profile_map);
-my (@paths, $this_path, $program_dir, $program_name, $paths);
-
 my ($current_open_data_profile, $current_url, $results_list_addr);
 my ($current_open_data_profile_name, %testcase_data);
 my (@supporting_doc_url, %expected_row_count, %first_url_count);
 my ($last_headings_list, %expected_column_count);
 
 my ($max_error_message_string) = 2048;
+my ($max_unzipped_file_size) = 0;
 
 #
 # Status values
@@ -132,7 +141,10 @@ my %string_table_en = (
     "Invalid mime-type for data dictionary", "Invalid mime-type for data dictionary",
     "Invalid mime-type for data file", "Invalid mime-type for data file",
     "Invalid mime-type for description", "Invalid mime-type for description",
+    "Missing dataset description field", "Missing dataset description field",
+    "Missing dataset description file types", "Missing dataset description file types",
     "Multiple file types in ZIP",      "Multiple file types in ZIP",
+    "Uncompressed file size exceeds expected maximum size", "Uncompressed file size exceeds expected maximum size",
 );
 
 #
@@ -155,7 +167,10 @@ my %string_table_fr = (
     "Invalid mime-type for data dictionary", "Invalid type MIME pour le dictionnaire de donnée",
     "Invalid mime-type for data file", "Invalid type MIME pour le jeu de donnée",
     "Invalid mime-type for description", "Invalid mime-type pour description",
+    "Missing dataset description field", "Champ de description de dataset manquant",
+    "Missing dataset description file types", "Types de fichiers de description de jeu de données manquants",
     "Multiple file types in ZIP",      "Plusieurs types de fichiers dans un fichier ZIP",
+    "Uncompressed file size exceeds expected maximum size", "La taille du fichier non compressé dépasse la taille maximale prévue",
 );
 
 #
@@ -327,7 +342,7 @@ sub Set_Open_Data_Check_Testcase_Data {
     #
     # Is this data for supporting files ?
     #
-    if ( $testcase eq "OD_3" ) {
+    if ( $testcase eq "OD_VAL" ) {
         ($type, $value) = split(/\s/, $data, 2);
 
         #
@@ -339,6 +354,23 @@ sub Set_Open_Data_Check_Testcase_Data {
             #
             push(@supporting_doc_url, $value);
         }
+    }
+    #
+    # Maximum file size for unzipped files
+    #
+    elsif ( $testcase eq "TP_PW_OD_DATA" ) {
+        ($type, $value) = split(/\s/, $data, 2);
+
+        #
+        # Is this a file size limit ?
+        #
+        if ( defined($value) && ($type eq "MAX_FILE_SIZE") ) {
+            #
+            # Save limit
+            #
+            $max_unzipped_file_size = $value;
+        }
+
     }
     else {
         #
@@ -521,7 +553,7 @@ sub Check_Content_Encoding {
             # Not UTF 8 content
             #
             $output =  eval { decode('utf8', $content, Encode::FB_WARN);};
-            Record_Result("OD_2", 0, -1, "$output",
+            Record_Result("OD_ENC", 0, -1, "$output",
                           String_Value("Character encoding is not UTF-8"));
         }
     }
@@ -643,7 +675,7 @@ sub Check_Dictionary_URL {
         #
         # Unexpected mime-type for a dictionary.
         #
-        Record_Result("OD_3", -1, -1, "",
+        Record_Result("OD_URL", -1, -1, "",
                       String_Value("Invalid mime-type for data dictionary")
                        . " \"" . $mime_type . "\"");
     }
@@ -726,6 +758,15 @@ sub Check_Data_File_URL {
         #
         $mime_type = "";
     }
+    
+    #
+    # Is this a file name?
+    #
+    if ( ! -f "$filename" ) {
+        print STDERR "Error: Path is not a file in Check_Data_File_URL\n";
+        print STDERR " --> $filename\n";
+        exit(1);
+    }
 
     #
     # Is this a CSV file ?
@@ -784,7 +825,7 @@ sub Check_Data_File_URL {
             # (or pseudo English) URL's row count
             #
             if ( $row_count != $expected_row_count{$eng_url} ) {
-                Record_Result("OD_CSV_1", -1, -1, "",
+                Record_Result("OD_DATA", -1, -1, "",
                               String_Value("Inconsistent row count, found") .
                               $row_count .
                               String_Value("expecting") .
@@ -806,8 +847,8 @@ sub Check_Data_File_URL {
             # Compare this URL's column count to the English
             # (or pseudo English) URL's count count
             #
-            if ( $row_count != $expected_row_count{$eng_url} ) {
-                Record_Result("OD_CSV_1", -1, -1, "",
+            if ( $column_count != $expected_column_count{$eng_url} ) {
+                Record_Result("OD_DATA", -1, -1, "",
                               String_Value("Inconsistent column count, found") .
                               $column_count .
                               String_Value("expecting") .
@@ -868,7 +909,7 @@ sub Check_Data_File_URL {
         if ( ($mime_type =~ /application\/zip/) ) {
             ($base, $mime_type) = $url =~ /(.*)\.(.*)$/; 
         }
-        Record_Result("OD_3", -1, -1, "", 
+        Record_Result("OD_URL", -1, -1, "",
                       String_Value("Invalid mime-type for data file") .
         " \"" . $mime_type . "\"");
     }
@@ -1018,7 +1059,7 @@ sub Check_Format_and_Mime_Type_File_Suffix {
         #
         if ( ! $consistent ) {
             print "Format, mime-type are inconsistent\n" if $debug;
-            Record_Result("OD_1", -1, -1, "",
+            Record_Result("OD_URL", -1, -1, "",
                   String_Value("Inconsistent format, mime-type file suffix") .
                                " format = \"$format\"" .
                                " mime-type = \"$mime_type\"" .
@@ -1096,7 +1137,7 @@ sub Check_API_URL {
             #
             # Unexpected mime-type for API
             #
-            Record_Result("OD_3", -1, -1, "",
+            Record_Result("OD_URL", -1, -1, "",
                           String_Value("Invalid mime-type for API")
                            . " \"" . $mime_type . "\"");
         }
@@ -1169,12 +1210,12 @@ sub Is_Supporting_File {
         # Failed to get url
         #
         if ( defined($resp) ) {
-            Record_Result("OD_1", -1, -1, "",
+            Record_Result("OD_URL", -1, -1, "",
                           String_Value("Dataset URL unavailable") .
                           " : " . $resp->status_line);
         }
         else {
-            Record_Result("OD_1", -1, -1, "",
+            Record_Result("OD_URL", -1, -1, "",
                           String_Value("Dataset URL unavailable"));
         }
     }
@@ -1211,7 +1252,8 @@ sub Open_Data_Check {
     my ($url, $format, $profile, $data_file_type, $resp, $filename,
         $dictionary) = @_;
 
-    my (@tqa_results_list, $result_object, @other_results, $tcid);
+    my (@tqa_results_list, $result_object, @other_results, $tcid, $file_size);
+    my ($header, $mime_type);
 
     #
     # Do we have a valid profile ?
@@ -1243,6 +1285,44 @@ sub Open_Data_Check {
         #
         print "No tests handled by this module\n" if $debug;
         return(@tqa_results_list);
+    }
+    
+    #
+    # Check file size
+    #
+    if ( $filename ne "" ) {
+        #
+        # If this is part of a ZIP file, the size check is skipped as the
+        # file is already compressed.
+        #
+        $header = $resp->headers;
+        $mime_type = $header->content_type;
+        if ( ($mime_type =~ /application\/zip/) ||
+             ($url =~ /\.zip:.+$/i) ) {
+            print "Skip size check, content is already compressed\n" if $debug;
+        }
+        #
+        # Do we have a maximum file size limit?
+        #
+        elsif ( $max_unzipped_file_size == 0 ) {
+            print "Skip size check, no maximum file size limit set\n" if $debug;
+        }
+        else {
+            #
+            # Get the size of the file
+            #
+            $file_size = -s "$filename";
+            print "File size = $file_size\n" if $debug;
+            
+            #
+            # Is the size greater than the expected maximum ?
+            #
+            if ( $file_size > $max_unzipped_file_size ) {
+                Record_Result("TP_PW_OD_DATA", -1, -1, "",
+                              String_Value("Uncompressed file size exceeds expected maximum size") .
+                              " $file_size > $max_unzipped_file_size");
+            }
+        }
     }
     
     #
@@ -1392,7 +1472,7 @@ sub Open_Data_Check_Zip_Content {
     if ( $zip_status != AZ_OK ) {
         print "Error reading archive, status = $zip_status\n" if $debug;
         undef($zip);
-        Record_Result("OD_3", -1, -1, "",
+        Record_Result("OD_VAL", -1, -1, "",
                       String_Value("Error in reading ZIP, status =")
                        . " $zip_status");
     }
@@ -1418,7 +1498,7 @@ sub Open_Data_Check_Zip_Content {
         # Did we get more than 1 suffix ?
         #
         if ( keys(%file_types) > 1 ) {
-            Record_Result("TP_PW_OD_ZIP_1", -1, -1, "",
+            Record_Result("TP_PW_OD_DATA", -1, -1, "",
                           String_Value("Multiple file types in ZIP") . 
                           " \"" . join(", ", keys(%file_types)) . "\"");
         }
@@ -1483,7 +1563,7 @@ sub Check_Open_Data_Description_URL {
         if ( defined($resp) ) {
             $message .= " : " . $resp->status_line;
         }
-        Record_Result("OD_1", -1, -1, "", $message);
+        Record_Result("OD_URL", -1, -1, "", $message);
     }
     else {
         #
@@ -1544,7 +1624,7 @@ sub Read_JSON_Open_Data_Description {
     if ( ! $eval_output ) {
         print "JSON parse failed => $eval_output\n" if $debug;
         $eval_output =~ s/ at \S* line \d*$//g;
-        Record_Result("OD_3", -1, 0, "$eval_output",
+        Record_Result("OD_VAL", -1, 0, "$eval_output",
                       String_Value("Fails validation"));
         $have_error = 1;
     }
@@ -1556,7 +1636,7 @@ sub Read_JSON_Open_Data_Description {
         #
         # Missing "result" field
         #
-        Record_Result("OD_3", -1, -1, "",
+        Record_Result("OD_VAL", -1, -1, "",
                       String_Value("Missing dataset description field") .
                       " \"result\"");
         $have_error = 1;
@@ -1570,7 +1650,7 @@ sub Read_JSON_Open_Data_Description {
         #
         $ref_type = ref $result;
         if ( $ref_type ne "HASH" ) {
-            Record_Result("OD_3", -1, -1, "",
+            Record_Result("OD_VAL", -1, -1, "",
                           String_Value("Invalid dataset description field type") .
                           " \"$ref_type\" " . String_Value("for") .
                           " \"result\"");
@@ -1585,7 +1665,7 @@ sub Read_JSON_Open_Data_Description {
         #
         # Missing "resources" field
         #
-        Record_Result("OD_3", -1, -1, "",
+        Record_Result("OD_VAL", -1, -1, "",
                       String_Value("Missing dataset description field") .
                       " \"resources\"");
         $have_error = 1;
@@ -1599,7 +1679,7 @@ sub Read_JSON_Open_Data_Description {
         #
         $ref_type = ref $resources;
         if ( $ref_type ne "ARRAY" ) {
-            Record_Result("OD_3", -1, -1, "",
+            Record_Result("OD_VAL", -1, -1, "",
                           String_Value("Invalid dataset description field type") .
                           " \"$ref_type\" " . String_Value("for") .
                           " \"resources\"");
@@ -1624,7 +1704,26 @@ sub Read_JSON_Open_Data_Description {
                $url = $$value{"url"};
                print "Dataset URL # $i, type = $type, format = $format, url = $url\n" if $debug;
                $i++;
-                       
+               
+               #
+               # Do we have a type, format and URL ?
+               #
+               if ( (! defined($type)) || ($type eq "") ) {
+                    Record_Result("OD_VAL", -1, -1, "",
+                                  String_Value("Missing dataset description field") .
+                                  " \"type\"");
+               }
+               if ( (! defined($format)) || ($format eq "") ) {
+                    Record_Result("OD_VAL", -1, -1, "",
+                                  String_Value("Missing dataset description field") .
+                                  " \"format\"");
+               }
+               if ( (! defined($url)) || ($url eq "") ) {
+                    Record_Result("OD_VAL", -1, -1, "",
+                                  String_Value("Missing dataset description field") .
+                                  " \"url\"");
+               }
+
                #
                # Save dataset URL based on type.
                #
@@ -1657,6 +1756,26 @@ sub Read_JSON_Open_Data_Description {
                    $dataset_urls{"DATA"} .= "$format\t$url\n";
                }
            }
+        }
+        
+        #
+        # Are there any data dictionaries specified in the
+        # dataset files?
+        #
+        if ( ! defined($dataset_urls{"DICTIONARY"}) ) {
+            Record_Result("TP_PW_OD_DATA", -1, -1, "",
+                          String_Value("Missing dataset description file types") .
+                          " \"Data Dictionary\"");
+        }
+
+        #
+        # Are there any data files specified in the
+        # dataset files?
+        #
+        if ( ! defined($dataset_urls{"DATA"}) ) {
+            Record_Result("TP_PW_OD_DATA", -1, -1, "",
+                          String_Value("Missing dataset description file types") .
+                          " \"Dataset\"");
         }
     }
 
@@ -1742,7 +1861,7 @@ sub Open_Data_Check_Read_JSON_Description {
             # Unexpected mime-type for description URL
             #
             print "Invalid mime-type for description URL \"$mime_type\"\n" if $debug;
-            Record_Result("OD_3", -1, -1, "",
+            Record_Result("OD_URL", -1, -1, "",
                           String_Value("Invalid mime-type for description")
                            . " \"" . $mime_type . "\"");
         }
@@ -1874,73 +1993,9 @@ sub Open_Data_Check_Get_Row_Column_Counts {
 
 #***********************************************************************
 #
-# Name: Import_Packages
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function imports any required packages that cannot
-# be handled via use statements.
-#
-#***********************************************************************
-sub Import_Packages {
-
-    my ($package);
-    my (@package_list) = ("tqa_result_object", "open_data_csv",
-                          "open_data_txt", "open_data_xml",
-                          "open_data_json", "url_check",
-                          "open_data_testcases", "crawler");
-
-    #
-    # Import packages, we don't use a 'use' statement as these packages
-    # may not be in the INC path.
-    #
-    foreach $package (@package_list) {
-        #
-        # Import the package routines.
-        #
-        if ( ! defined($INC{$package}) ) {
-            require "$package.pm";
-        }
-        $package->import();
-    }
-}
-
-#***********************************************************************
-#
 # Mainline
 #
 #***********************************************************************
-
-#
-# Get our program directory, where we find supporting files
-#
-$program_dir  = dirname($0);
-$program_name = basename($0);
-
-#
-# If directory is '.', search the PATH to see where we were found
-#
-if ( $program_dir eq "." ) {
-    $paths = $ENV{"PATH"};
-    @paths = split( /:/, $paths );
-
-    #
-    # Loop through path until we find ourselves
-    #
-    foreach $this_path (@paths) {
-        if ( -x "$this_path/$program_name" ) {
-            $program_dir = $this_path;
-            last;
-        }
-    }
-}
-
-#
-# Import required packages
-#
-Import_Packages;
 
 #
 # Return true to indicate we loaded successfully
