@@ -117,7 +117,20 @@ sub Exit_With_Pause {
     # Do we wait for the user to press enter ?
     #
     if ( $pause_before_exit ) {
-       print "Press <enter> to exit install.pl\n";
+        #
+        # Did install fail ?
+        #
+        if ( $status != 0 ) {
+            print "\n";
+            print "Failed install.pl\n";
+            print "Check $program_dir/logs/install.log for details\n";
+            print "\n";
+        }
+        
+        #
+        # Wait for user
+        #
+        print "Press <enter> to exit install.pl\n";
         $input = <STDIN>;
     }
 
@@ -285,6 +298,65 @@ sub Write_Log_Header {
 
 #**********************************************************************
 #
+# Name: Check_Java
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function checks the verion of Java that is installed.
+#
+#**********************************************************************
+sub Check_Java {
+    my ($version, $lead, $trail, $version_number);
+    my ($major, $minor, $maint);
+
+    #
+    # Get the output of java -version
+    #
+    Write_To_Log("Check Java version");
+    print "Check Java version\n";
+    if ( $is_windows ) {
+        $version = `java -version 2>\&1`;
+    }
+    else {
+        $version = `java -version 2>\&1`;
+    }
+    Write_To_Log("  Version = $version");
+    
+    #
+    # Try to get the version number from the version output
+    #
+    ($lead, $version_number, $trail) = $version =~ /^(.* version ")(\d+\.\d+\.\d+)(.*)$/m;
+    Write_To_Log("  Version number = $version_number");
+    if ( defined($version_number) ) {
+        ($major, $minor, $maint) = $version_number =~ /^(\d+)\.(\d+)\.(\d+)$/;
+        Write_To_Log("  Version major = $major, Minor = $minor, Maintenance = $maint");
+    }
+    else {
+        $major = 0;
+        $minor = 0;
+    }
+
+    #
+    # Is this verions 8 (major = 1, minor = 8) or greater ?
+    #
+    if ( ($major == 1) && ($minor >= 8) ) {
+        #
+        # Have Java 8
+        #
+    }
+    else {
+        Write_To_Log("Unsupported Java version $version");
+        print "\n*****\n";
+        print "Unsupported Java version $version\n";
+        print "\n*****\n";
+        Exit_With_Pause(1);
+    }
+}
+
+#**********************************************************************
+#
 # Name: Install_Setuptools_Python_Module
 #
 # Parameters: none
@@ -375,10 +447,10 @@ sub Install_Setuptools_Python_Module {
     print PYTHON "print 'pass'\n";
     close(PYTHON);
     if ( $is_windows ) {
-        $python_output = `set PYTHONPATH=$python_path\&.\\test$$.py 2>\&1`;
+        $python_output = `.\\test$$.py 2>\&1`;
     }
     else {
-        $python_output = `export PYTHONPATH=\"$python_path\";python test$$.py 2>\&1`;
+        $python_output = `python test$$.py 2>\&1`;
     }
     unlink("test$$.py");
 
@@ -388,6 +460,9 @@ sub Install_Setuptools_Python_Module {
     Write_To_Log("Python module test setuptools output $python_output");
     if ( ($python_output =~ /No module named setuptools/i) ||
          ( ! ($python_output =~ /pass/i) ) ) {
+        print "\n*****\n";
+        print "Python module setuptools not found\n";
+        print "\n*****\n";
         Write_To_Log("Python module setuptools not found");
         Write_To_Log("Failed install.pl");
         Exit_With_Pause(1);
@@ -423,12 +498,12 @@ sub Install_Functools32_Python_Module {
     Write_To_Log("Build python module 'functools32'");
     chdir("$program_dir/python/functools32-3.2.3-2");
     print "setup.py build functools32\n";
-    Write_To_Log("set PYTHONPATH=$python_path\&setup.py build");
+    Write_To_Log("setup.py build");
     if ( $is_windows ) {
-        $python_output = `set PYTHONPATH=$python_path\&.\\setup.py build 2>\&1`;
+        $python_output = `.\\setup.py build 2>\&1`;
     }
     else {
-        $python_output = `export PYTHONPATH=\"$python_path\";python setup.py build 2>\&1`;
+        $python_output = `python setup.py build 2>\&1`;
     }
 
     #
@@ -452,12 +527,12 @@ sub Install_Functools32_Python_Module {
     #
     Write_To_Log("Install python module 'functools32'");
     print "setup.py install functools32\n";
-    Write_To_Log("set PYTHONPATH=$python_path\&setup.py install --root $program_dir\\python");
+    Write_To_Log("setup.py install --root $program_dir\\python");
     if ( $is_windows ) {
-        $python_output = `set PYTHONPATH=$python_path\&.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
+        $python_output = `.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
     }
     else {
-        $python_output = `export PYTHONPATH=\"$python_path\";python setup.py install --root \"$program_dir/python\" 2>\&1`;
+        $python_output = `python setup.py install --root \"$program_dir/python\" 2>\&1`;
     }
 
     #
@@ -505,18 +580,29 @@ sub Install_Jsonschema_Python_Module {
     Write_To_Log("Build python module 'jsonschema'");
     chdir("$program_dir/python/jsonschema-2.5.1");
     print "setup.py build jsonschema\n";
-    Write_To_Log("set PYTHONPATH=$python_path\&setup.py build");
+    Write_To_Log("setup.py build");
     if ( $is_windows ) {
-        $python_output = `set PYTHONPATH=$python_path\&.\\setup.py build 2>\&1`;
+        $python_output = `.\\setup.py build 2>\&1`;
     }
     else {
-        $python_output = `export PYTHONPATH=\"$python_path\";python setup.py build 2>\&1`;
+        $python_output = `python setup.py build 2>\&1`;
     }
 
     #
+    # Was there an error when trying to download supporting packages
+    #
+    if ( $python_output =~ /Download error on https/i ) {
+        print "\n*****\n";
+        print "setup.py build failed for jsonschema\n";
+        print "Failed to download supporting modules, check Internet access\n";
+        print "\n*****\n";
+        Write_To_Log("setup.py build failed for jsonschema, output = $python_output");
+        Exit_With_Pause(1);
+    }
+    #
     # Was the build phase successful ?
     #
-    if ( ($python_output =~ /Error/i) &&
+    elsif ( ($python_output =~ /Error/i) &&
           ( ! ($python_output =~ /Copying/i) ) ) {
         print "\n*****\n";
         print "setup.py build failed for jsonschema\n";
@@ -534,12 +620,12 @@ sub Install_Jsonschema_Python_Module {
     #
     Write_To_Log("Install python module 'jsonschema'");
     print "setup.py install jsonschema\n";
-    Write_To_Log("set PYTHONPATH=$python_path\&setup.py install --root $program_dir\\python");
+    Write_To_Log("setup.py install --root $program_dir\\python");
     if ( $is_windows ) {
-        $python_output = `set PYTHONPATH=$python_path\&.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
+        $python_output = `.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
     }
     else {
-        $python_output = `export PYTHONPATH=\"$python_path\";python setup.py install --root \"$program_dir/python\" 2>\&1`;
+        $python_output = `python setup.py install --root \"$program_dir/python\" 2>\&1`;
     }
 
     #
@@ -574,10 +660,10 @@ sub Install_Jsonschema_Python_Module {
     print PYTHON "print 'pass'\n";
     close(PYTHON);
     if ( $is_windows ) {
-        $python_output = `set PYTHONPATH=$python_path\&.\\test$$.py 2>\&1`;
+        $python_output = `.\\test$$.py 2>\&1`;
     }
     else {
-        $python_output = `export PYTHONPATH=\"$python_path\";python test$$.py 2>\&1`;
+        $python_output = `python test$$.py 2>\&1`;
     }
     unlink("test$$.py");
 
@@ -587,6 +673,9 @@ sub Install_Jsonschema_Python_Module {
     Write_To_Log("Python module test output $python_output");
     if ( ($python_output =~ /No module named jsonschema/i) ||
          ( ! ($python_output =~ /pass/i) ) ) {
+        print "\n*****\n";
+        print "Python module jsonschema not found\n";
+        print "\n*****\n";
         Write_To_Log("Python module jsonschema not found");
         Write_To_Log("Failed install.pl");
         Exit_With_Pause(1);
@@ -627,10 +716,10 @@ sub Check_Python_Modules {
     print PYTHON "print 'pass'\n";
     close(PYTHON);
     if ( $is_windows ) {
-        $python_output = `set PYTHONPATH=$python_path\&.\\test$$.py 2>\&1`;
+        $python_output = `.\\test$$.py 2>\&1`;
     }
     else {
-        $python_output = `export PYTHONPATH=\"$python_path\";python test$$.py 2>\&1`;
+        $python_output = `python test$$.py 2>\&1`;
     }
     unlink("test$$.py");
 
@@ -658,10 +747,10 @@ sub Check_Python_Modules {
     print PYTHON "print 'pass'\n";
     close(PYTHON);
     if ( $is_windows ) {
-        $python_output = `set PYTHONPATH=$python_path\&.\\test$$.py 2>\&1`;
+        $python_output = `.\\test$$.py 2>\&1`;
     }
     else {
-        $python_output = `export PYTHONPATH=\"$python_path\";python test$$.py 2>\&1`;
+        $python_output = `python test$$.py 2>\&1`;
     }
     unlink("test$$.py");
 
@@ -763,17 +852,49 @@ sub Check_Python {
         print "\n*****\n";
         Exit_With_Pause(1);
     }
+    
+    #
+    # Get the directory path that python is installed in
+    #
+    unlink("test$$.py");
+    open(PYTHON, ">test$$.py");
+    print PYTHON "import os\n";
+    print PYTHON "import sys\n";
+    print PYTHON "print os.path.dirname(sys.executable)\n";
+    close(PYTHON);
+    if ( $is_windows ) {
+        $python_output = `.\\test$$.py 2>\&1`;
+    }
+    else {
+        $python_output = `python test$$.py 2>\&1`;
+    }
+    unlink("test$$.py");
+    Write_To_Log("Python installation path");
+    Write_To_Log("  $python_output");
 
     #
     # Set path to local python packages
     #
+    chop($python_output);
     if ( $is_windows ) {
-        $python_path = "$program_dir\\python\\Program Files\\python27\\Lib\\site-packages";
+        $python_output =~ s/^[A-Z]://ig;
+        $python_path = "$program_dir\\python" . "$python_output\\Lib\\site-packages";
     }
     else {
         $python_path = "$program_dir/python/usr/local/lib/python2.7/dist-packages";
     }
-    Write_To_Log("PYTHONPATH = $python_path");
+    Write_To_Log("python_path = $python_path");
+    
+    #
+    # Set PYTHONPATH environment variable
+    #
+    if ( defined($ENV{"PYTHONPATH"}) ) {
+        $ENV{"PYTHONPATH"} .= ";$python_path";
+    }
+    else {
+        $ENV{"PYTHONPATH"} = "$python_path";
+    }
+    Write_To_Log("PYTHONPATH environment variable = " . $ENV{"PYTHONPATH"});
 
     #
     # Check for specific python modules
@@ -1290,6 +1411,11 @@ if ($uninstall){
     #
     Delete_Everything();
 }else{
+    #
+    # Check for Java version
+    #
+    Check_Java();
+
     #
     # Check for Python
     #
