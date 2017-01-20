@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision: 7598 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_config.txt $
-# $Date: 2016-06-17 10:45:41 -0400 (Fri, 17 Jun 2016) $
+# $Revision: 234 $
+# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_config.txt $
+# $Date: 2017-01-12 13:43:35 -0500 (Thu, 12 Jan 2017) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -52,38 +52,52 @@ Open_Data_Check_Profile_fra DO TPSGC
 
 #
 # Testcase id
-# Open Data files
+# Common Open Data testcases
 #
-tcid OD_1
-tcid OD_2
-tcid OD_3
-tcid OD_CSV_1
-tcid OD_TXT_1
-tcid OD_XML_1
+tcid OD_URL
+tcid OD_ENC
+tcid OD_VAL
+tcid OD_DATA
 
 #
-# PWGSC Open Data
+# PWGSC Open Data testcases
 #
 tcid TP_PW_OD_BOM
-tcid TP_PW_OD_CSV_1
-tcid TP_PW_OD_XML_1
-tcid TP_PW_OD_ZIP_1
+tcid TP_PW_OD_DATA
+tcid TP_PW_OD_DD
 
 #
 # Testcase data
 #
 
 #
+# Maximum file size before requiring compression (50Mb)
+#
+Testcase_Data TP_PW_OD_DATA MAX_FILE_SIZE 50000000
+
+#
 # Supporting file URL pattern
 #
-Testcase_Data OD_3 SUPPORT_URL support
-Testcase_Data OD_3 SUPPORT_URL soutien
+Testcase_Data OD_VAL SUPPORT_URL support
+Testcase_Data OD_VAL SUPPORT_URL soutien
+
+#
+# Alternate format data file name pattern
+#
+Testcase_Data OD_URL ALTERNATE_DATA - Alternate Format
+Testcase_Data OD_URL ALTERNATE_DATA - Format de remplacement
+
+#
+# Data dictionary file name pattern
+#
+Testcase_Data OD_URL DICTIONARY Data Dictionary
+Testcase_Data OD_URL DICTIONARY Dictionnaire de données
 
 #
 # XML Data dictionary required languages for description tag
 #
-Testcase_Data TP_PW_OD_XML_1 REQUIRED_LANG en
-Testcase_Data TP_PW_OD_XML_1 REQUIRED_LANG fr
+Testcase_Data TP_PW_OD_DATA REQUIRED_LANG en
+Testcase_Data TP_PW_OD_DATA REQUIRED_LANG fr
 
 #
 #***********************************************************************
@@ -97,14 +111,30 @@ Open_Data_Check_Profile_fra Commun
 
 #
 # Testcase id
-# Open Data file
+# Common Open Data testcases
 #
-tcid OD_1
-tcid OD_2
-tcid OD_3
-tcid OD_CSV_1
-tcid OD_TXT_1
-tcid OD_XML_1
+tcid OD_URL
+tcid OD_ENC
+tcid OD_VAL
+tcid OD_DATA
+
+#
+# Supporting file URL pattern
+#
+Testcase_Data OD_VAL SUPPORT_URL support
+Testcase_Data OD_VAL SUPPORT_URL soutien
+
+#
+# Alternate format data file name pattern
+#
+Testcase_Data OD_URL ALTERNATE_DATA_NAME - Alternate Format
+Testcase_Data OD_URL ALTERNATE_DATA_NAME - Format de remplacement
+
+#
+# Data dictionary file name
+#
+Testcase_Data OD_URL DICTIONARY_NAME Data Dictionary
+Testcase_Data OD_URL DICTIONARY_NAME Dictionnaire de données
 
 #
 #***********************************************************************
@@ -114,7 +144,7 @@ tcid OD_XML_1
 #***********************************************************************
 #
 
-#testcase_data OD_1
+#testcase_data OD_URL
 
 
 #
