@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 7604 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_check.pm $
-# $Date: 2016-06-22 10:46:52 -0400 (Wed, 22 Jun 2016) $
+# $Revision: 243 $
+# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_check.pm $
+# $Date: 2017-01-20 10:52:09 -0500 (Fri, 20 Jan 2017) $
 #
 # Description:
 #
@@ -112,6 +112,7 @@ my ($current_open_data_profile, $current_url, $results_list_addr);
 my ($current_open_data_profile_name, %testcase_data);
 my (@supporting_doc_url, %expected_row_count, %first_url_count);
 my ($last_headings_list, %expected_column_count);
+my (@data_dictionary_file_name, @alternate_data_file_name);
 
 my ($max_error_message_string) = 2048;
 my ($max_unzipped_file_size) = 0;
@@ -340,7 +341,7 @@ sub Set_Open_Data_Check_Testcase_Data {
     my ($type, $value);
     
     #
-    # Is this data for supporting files ?
+    # Is this a URL pattern for supporting files ?
     #
     if ( $testcase eq "OD_VAL" ) {
         ($type, $value) = split(/\s/, $data, 2);
@@ -353,6 +354,32 @@ sub Set_Open_Data_Check_Testcase_Data {
             # Save pattern in list
             #
             push(@supporting_doc_url, $value);
+        }
+    }
+    #
+    # Is this name pattern for data dictionary or alternate format
+    # data file?
+    #
+    if ( $testcase eq "OD_URL" ) {
+        ($type, $value) = split(/\s/, $data, 2);
+
+        #
+        # An alternate format data file name pattern ?
+        #
+        if ( defined($value) && ($type eq "ALTERNATE_DATA_NAME") ) {
+            #
+            # Save pattern in list
+            #
+            push(@alternate_data_file_name, $value);
+        }
+        #
+        # A data dictionary file name ?
+        #
+        elsif ( defined($value) && ($type eq "DICTIONARY_NAME") ) {
+            #
+            # Save name in list
+            #
+            push(@data_dictionary_file_name, $value);
         }
     }
     #
@@ -1288,6 +1315,23 @@ sub Open_Data_Check {
     }
     
     #
+    # Do we have a file to check or is the dataset file a broken link?
+    #
+    if ( (! defined($resp)) || (! $resp->is_success) ) {
+        print "Broken link to dataset file\n" if $debug;
+        if ( defined($resp) ) {
+            Record_Result("OD_URL", -1, -1, "",
+                          String_Value("Dataset URL unavailable") .
+                          " : " . $resp->status_line);
+        }
+        else {
+            Record_Result("OD_URL", -1, -1, "",
+                          String_Value("Dataset URL unavailable"));
+        }
+        return(@tqa_results_list);
+    }
+
+    #
     # Check file size
     #
     if ( $filename ne "" ) {
@@ -1343,6 +1387,16 @@ sub Open_Data_Check {
         # Check dictionary content
         #
         Check_Dictionary_URL($url, $format, $resp, $filename, $dictionary);
+    }
+
+    #
+    # Is this an alternate format data file
+    #
+    elsif ( $data_file_type =~ /ALTERNATE_DATA/i ) {
+        #
+        # No additional checks are necessary
+        #
+        print "Alternate format data file\n" if $debug;
     }
 
     #
@@ -1594,6 +1648,7 @@ sub Read_JSON_Open_Data_Description {
     my (%dataset_urls) = ();
     my ($ref, $result, $resources, $value, $url, $type, $name);
     my ($eval_output, $i, $ref_type, $format, $content, $line);
+    my ($pattern, $alternate);
     my ($have_error) = 0;
 
     #
@@ -1739,21 +1794,41 @@ sub Read_JSON_Open_Data_Description {
                        $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
                    }
                    #
-                   # Check for name Data Dictionary or Dictionnaire de données
-                   #
-                   elsif ( ($name eq "Data Dictionary") ||
-                           ($name eq "Dictionnaire de données") ) {
-                       $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
-                   }
-                   #
                    # Is the format HTML, then assume it is a supporting document
                    #
                    elsif ( $format eq "HTML" ) {
                        $dataset_urls{"RESOURCE"} .= "$format\t$url\n";
                    }
+                   #
+                   # Check for name Data Dictionary or Dictionnaire de données
+                   #
+                   else {
+                       foreach $pattern (@data_dictionary_file_name) {
+                           if ( $name eq $pattern ) {
+                               $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
+                           }
+                       }
+                   }
                }
                elsif ( ($type eq "file") || ($type eq "dataset") ) {
-                   $dataset_urls{"DATA"} .= "$format\t$url\n";
+                   #
+                   # Check for possible alternate format data file
+                   #
+                   $alternate = 0;
+                   foreach $pattern (@alternate_data_file_name) {
+                       if ( $name =~ /$pattern/ ) {
+                           $dataset_urls{"ALTERNATE_DATA"} .= "$format\t$url\n";
+                           $alternate = 1;
+                       }
+                   }
+
+                   #
+                   # If the file is not an alternate format, it is a primary
+                   # formate data file
+                   #
+                   if ( ! $alternate ) {
+                      $dataset_urls{"DATA"} .= "$format\t$url\n";
+                   }
                }
            }
         }
@@ -1835,6 +1910,23 @@ sub Open_Data_Check_Read_JSON_Description {
         # No tests handled by this module
         #
         print "No tests handled by this module\n" if $debug;
+        return(@tqa_results_list);
+    }
+
+    #
+    # Do we have a file to check or is the dataset file a broken link?
+    #
+    if ( (! defined($resp)) || (! $resp->is_success) ) {
+        print "Broken link to dataset file\n" if $debug;
+        if ( defined($resp) ) {
+            Record_Result("OD_URL", -1, -1, "",
+                          String_Value("Dataset URL unavailable") .
+                          " : " . $resp->status_line);
+        }
+        else {
+            Record_Result("OD_URL", -1, -1, "",
+                          String_Value("Dataset URL unavailable"));
+        }
         return(@tqa_results_list);
     }
 
