@@ -2922,6 +2922,16 @@ sub Validator_GUI_Start {
         if ( defined($crawl_depth) ) {
             $crawl_details{"crawl_depth"} = $crawl_depth;
         }
+        
+        #
+        # Was a results file name specified?
+        #
+        if ( defined($results_file_name) ) {
+            #
+            # Remove any exist results CSV file
+            #
+            unlink($results_file_name . "_rslt.csv");
+        }
 
         #
         # Doing a site crawl
@@ -2938,6 +2948,16 @@ sub Validator_GUI_Start {
         ($urls, %report_options) = Read_URL_File($url_file);
 
         #
+        # Was a results file name specified?
+        #
+        if ( defined($results_file_name) ) {
+            #
+            # Remove any exist results CSV file
+            #
+            unlink($results_file_name . "_rslt.csv");
+        }
+
+        #
         # Analyse the list of URLs
         #
         Run_URL_List_Callback($urls, %report_options);
@@ -2952,6 +2972,16 @@ sub Validator_GUI_Start {
         ($content, %report_options) = Read_HTML_File($html_file);
 
         #
+        # Was a results file name specified?
+        #
+        if ( defined($results_file_name) ) {
+            #
+            # Remove any exist results CSV file
+            #
+            unlink($results_file_name . "_rslt.csv");
+        }
+
+        #
         # Analyse the block of HTML code
         #
         Run_Direct_HTML_Input_Callback($content, %report_options);
@@ -2964,6 +2994,16 @@ sub Validator_GUI_Start {
         # Get list of URLs from the file and reporting options
         #
         ($dataset_urls, %report_options) = Read_Open_Data_File($open_data_file);
+
+        #
+        # Was a results file name specified?
+        #
+        if ( defined($results_file_name) ) {
+            #
+            # Remove any exist results CSV file
+            #
+            unlink($results_file_name . "_rslt.csv");
+        }
 
         #
         # Analyse the dataset URLs
