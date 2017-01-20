@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 7627 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2016-07-15 08:23:18 -0400 (Fri, 15 Jul 2016) $
+# $Revision: 233 $
+# $URL: svn://10.36.20.203/Validator_GUI/Tools/validator_gui.pm $
+# $Date: 2017-01-12 13:40:37 -0500 (Thu, 12 Jan 2017) $
 #
 # Description:
 #
@@ -2185,6 +2185,7 @@ sub Results_Save_As {
             #
             # Save CSV results
             #
+            unlink($filename . "_rslt.csv");
             if ( defined($csv_results_file_name) ) {
                 print "Copy results CSV\n" if $debug;
                 copy($csv_results_file_name, $filename . "_rslt.csv");
@@ -5266,19 +5267,19 @@ sub GUI_Do_Open_Data_Click {
     $value = $main_window->ConfigTabs->$tab_field_name->Text();
     $dataset_urls{"DATA"} = $value;
 
-#    #
-#    # Get resource URL list
-#    #
-#    $tab_field_name = "resource_files$open_data_tabid";
-#    $value = $main_window->ConfigTabs->$tab_field_name->Text();
-#    $dataset_urls{"RESOURCE"} = $value;
-
     #
-    # Get API URL list
+    # Get resource URL list
     #
-    $tab_field_name = "api$open_data_tabid";
+    $tab_field_name = "resource_files$open_data_tabid";
     $value = $main_window->ConfigTabs->$tab_field_name->Text();
-    $dataset_urls{"API"} = $value;
+    $dataset_urls{"RESOURCE"} = $value;
+
+#    #
+#    # Get API URL list
+#    #
+#    $tab_field_name = "api$open_data_tabid";
+#    $value = $main_window->ConfigTabs->$tab_field_name->Text();
+#    $dataset_urls{"API"} = $value;
 
     #
     # Show the results window and clear any text.
@@ -5506,10 +5507,10 @@ sub Load_Open_Data_Config {
             $main_window->ConfigTabs->$name->Text("$dictionary_list");
             $name = "data_files$open_data_tabid";
             $main_window->ConfigTabs->$name->Text("$data_list");
-#            $name = "resource_files$open_data_tabid";
-#            $main_window->ConfigTabs->$name->Text("$resource_list");
-            $name = "api$open_data_tabid";
-            $main_window->ConfigTabs->$name->Text("$api_list");
+            $name = "resource_files$open_data_tabid";
+            $main_window->ConfigTabs->$name->Text("$resource_list");
+#            $name = "api$open_data_tabid";
+#            $main_window->ConfigTabs->$name->Text("$api_list");
 
             #
             # Update the results page
@@ -5602,23 +5603,23 @@ sub Save_Open_Data_Config {
                 print FILE "DATA $_\n";
             }
 
-#            #
-#            # Get resource URL list
-#            #
-#            $tab_field_name = "resource_files$open_data_tabid";
-#            $value = $main_window->ConfigTabs->$tab_field_name->Text();
-#            foreach (split(/\n/, $value)) {
-#                print FILE "RESOURCE $_\n";
-#            }
-
             #
-            # Get API URL list
+            # Get resource URL list
             #
-            $tab_field_name = "api$open_data_tabid";
+            $tab_field_name = "resource_files$open_data_tabid";
             $value = $main_window->ConfigTabs->$tab_field_name->Text();
             foreach (split(/\n/, $value)) {
-                print FILE "API $_\n";
+                print FILE "RESOURCE $_\n";
             }
+
+#            #
+#            # Get API URL list
+#            #
+#            $tab_field_name = "api$open_data_tabid";
+#            $value = $main_window->ConfigTabs->$tab_field_name->Text();
+#            foreach (split(/\n/, $value)) {
+#                print FILE "API $_\n";
+#            }
 
             close(FILE);
         }
@@ -5755,55 +5756,22 @@ sub Add_Open_Data_Fields {
     #
     $main_window->ConfigTabs->$datafile_field_name->SetLimitText(10000);
 
-#    #
-#    # Add label text
-#    #
-#    $main_window->ConfigTabs->AddLabel(
-#        -name => "Label_Resource" . $tabid,
-#        -text => String_Value("Resource Files"),
-#        -pos => [20,$current_pos],
-#    );
-#    $current_pos += 15;
-    
-#    #
-#    # Add scrolling text field for resource file URL list
-#    #
-#    $resource_field_name = "resource_files$tabid";
-#    $main_window->ConfigTabs->AddTextfield(
-#        -name => $resource_field_name,
-#        -pos => [5,$current_pos],
-#        -size => [$w - 40,$h],
-#        -multiline => 1,
-#        -hscroll   => 1,
-#        -vscroll   => 1,
-#        -autohscroll => 1,
-#        -autovscroll => 1,
-#        -keepselection => 1,
-#        -wantreturn => 1,
-#    );
-#    $current_pos += $h + 15;
-#
-#    #
-#    # Set maximum size for text area
-#    #
-#    $main_window->ConfigTabs->$resource_field_name->SetLimitText(10000);
-
     #
     # Add label text
     #
     $main_window->ConfigTabs->AddLabel(
-        -name => "Label_API" . $tabid,
-        -text => String_Value("API URLs"),
+        -name => "Label_Resource" . $tabid,
+        -text => String_Value("Resource Files"),
         -pos => [20,$current_pos],
     );
     $current_pos += 15;
 
     #
-    # Add scrolling text field for API URL list
+    # Add scrolling text field for resource file URL list
     #
-    $api_field_name = "api$tabid";
+    $resource_field_name = "resource_files$tabid";
     $main_window->ConfigTabs->AddTextfield(
-        -name => $api_field_name,
+        -name => $resource_field_name,
         -pos => [5,$current_pos],
         -size => [$w - 40,$h],
         -multiline => 1,
@@ -5819,7 +5787,40 @@ sub Add_Open_Data_Fields {
     #
     # Set maximum size for text area
     #
-    $main_window->ConfigTabs->$api_field_name->SetLimitText(10000);
+    $main_window->ConfigTabs->$resource_field_name->SetLimitText(10000);
+
+#    #
+#    # Add label text
+#    #
+#    $main_window->ConfigTabs->AddLabel(
+#        -name => "Label_API" . $tabid,
+#        -text => String_Value("API URLs"),
+#        -pos => [20,$current_pos],
+#    );
+#    $current_pos += 15;
+#
+#    #
+#    # Add scrolling text field for API URL list
+#    #
+#    $api_field_name = "api$tabid";
+#    $main_window->ConfigTabs->AddTextfield(
+#        -name => $api_field_name,
+#        -pos => [5,$current_pos],
+#        -size => [$w - 40,$h],
+#        -multiline => 1,
+#        -hscroll   => 1,
+#        -vscroll   => 1,
+#        -autohscroll => 1,
+#        -autovscroll => 1,
+#        -keepselection => 1,
+#        -wantreturn => 1,
+#    );
+#    $current_pos += $h + 15;
+#
+#    #
+#    # Set maximum size for text area
+#    #
+#    $main_window->ConfigTabs->$api_field_name->SetLimitText(10000);
 
     #
     # Add button to reset fields
@@ -5836,8 +5837,8 @@ sub Add_Open_Data_Fields {
                             $main_window->ConfigTabs->$description_field_name->Text("");
                             $main_window->ConfigTabs->$dictionary_field_name->Text("");
                             $main_window->ConfigTabs->$datafile_field_name->Text("");
-#                            $main_window->ConfigTabs->$resource_field_name->Text("");
-                            $main_window->ConfigTabs->$api_field_name->Text("");
+                            $main_window->ConfigTabs->$resource_field_name->Text("");
+#                            $main_window->ConfigTabs->$api_field_name->Text("");
                           }
     );
 
