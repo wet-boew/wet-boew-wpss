@@ -434,7 +434,9 @@ sub CSV_Check {
         # Create a temporary file for the CSV content.
         #
         print "Create temporary CSV file\n" if $debug;
-        ($csv_file, $csv_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.csv');
+        ($csv_file, $csv_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                                               SUFFIX => '.csv',
+                                               TMPDIR => 1);
         if ( ! defined($csv_file) ) {
             print "Error: Failed to create temporary file in CSV_Check\n";
             return(@tqa_results_list);
