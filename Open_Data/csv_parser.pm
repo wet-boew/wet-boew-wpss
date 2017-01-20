@@ -2,9 +2,9 @@
 #
 # Name: csv_parser.pm
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 236 $
+# $URL: svn://10.36.20.203/Open_Data/Tools/csv_parser.pm $
+# $Date: 2017-01-13 08:18:16 -0500 (Fri, 13 Jan 2017) $
 #
 # Description:
 #
@@ -96,7 +96,7 @@ my %string_table_en = (
     "Invalid character following quoted field", "Invalid character following quoted field. Expecting comma or end of line, found",
     "Line",                          "Line",
     "Quoted field not closed before end-of-file", "Quoted field not closed before end-of-file",
-    "Quoted field started at",       "Quoted field started at",
+    "Quoted field started at",       "Quoted field started at (line:column)",
     "Row",                           "Row",
     );
 
@@ -107,7 +107,7 @@ my %string_table_fr = (
     "Invalid character following quoted field", "Caractère non valide qui suit champ cité. Expecting virgule ou fin de ligne, a trouvé",
     "Line",                          "Ligne",
     "Quoted field not closed before end-of-file", "Champ Cité pas fermé avant la fin de fichier",
-    "Quoted field started at",       "Chaîne entre guillemets a commencé à",
+    "Quoted field started at",       "Chaîne entre guillemets a commencé à (la ligne:colonne)",
     "Row",                           "Rangée",
     );
 
