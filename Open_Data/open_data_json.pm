@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 7174 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Open_Data/Tools/open_data_json.pm $
-# $Date: 2015-06-05 10:51:57 -0400 (Fri, 05 Jun 2015) $
+# $Revision: 244 $
+# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_json.pm $
+# $Date: 2017-01-20 10:53:26 -0500 (Fri, 20 Jan 2017) $
 #
 # Description:
 #
@@ -55,6 +55,7 @@ use strict;
 use URI::URL;
 use File::Basename;
 use JSON;
+use File::Temp qw/ tempfile tempdir /;
 
 #
 # Use WPSS_Tool program modules
@@ -94,6 +95,7 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%testcase_data, $results_list_addr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count, $python_path, $json_schema_validator);
+my ($filename, $python_file, $python_output);
 
 my ($max_error_message_string)= 2048;
 my ($runtime_error_reported) = 0;
@@ -713,20 +715,47 @@ if ( $program_dir eq "." ) {
 }
 
 #
+# Get the directory path that python is installed in
+#
+($python_file, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                              SUFFIX => '.py',
+                              TMPDIR => 1);
+print $python_file "import os\n";
+print $python_file "import sys\n";
+print $python_file "print os.path.dirname(sys.executable)\n";
+close($python_file);
+
+#
 # Generate path the the JSON schema validator
 #
 if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
-    $python_path = "$program_dir\\python\\Program Files\\python27\\Lib\\site-packages";
-    $json_schema_validator = "set PYTHONPATH=$python_path\&.\\bin\\json_schema_validator.py";
+    $python_output = `$filename 2>\&1`;
+    $python_output =~ s/^[A-Z]://ig;
+    chop($python_output);
+    $python_path = "$program_dir\\python" . "$python_output\\Lib\\site-packages";
+    $json_schema_validator = ".\\bin\\json_schema_validator.py";
 } else {
     #
     # Not Windows.
     #
+    $python_output = `python $filename 2>\&1`;
+    chop($python_output);
     $python_path = "$program_dir/python/usr/local/lib/python2.7/dist-packages";
-    $json_schema_validator = "export PYTHONPATH=\"$python_path\";python bin/json_schema_validator.py";
+    $json_schema_validator = "python bin/json_schema_validator.py";
+}
+unlink($filename);
+
+#
+# Set PYTHONPATH environment variable
+#
+if ( defined($ENV{"PYTHONPATH"}) ) {
+    $ENV{"PYTHONPATH"} .= ";$python_path";
+}
+else {
+    $ENV{"PYTHONPATH"} = "$python_path";
 }
 
 #
