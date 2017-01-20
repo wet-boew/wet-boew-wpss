@@ -86,6 +86,7 @@ use Win32::TieRegistry;
 use HTML::Entities;
 use Archive::Zip;
 use File::Temp qw/ tempfile tempdir /;
+use Digest::SHA;
 
 #
 # Use WPSS_Tool program modules
@@ -311,11 +312,12 @@ my (%open_data_check_profile_map, @open_data_check_profiles);
 my ($open_data_profile_label, $open_data_check_profile);
 my (%open_data_error_url_count, %open_data_error_instance_count);
 my ($open_data_testcase_url_help_file_name, %open_data_dictionary);
-my (@open_data_file_types) = ("DICTIONARY", "DATA", "RESOURCE", "API");
+my (@open_data_file_types) = ("DICTIONARY", "DATA", "RESOURCE", "API",
+                              "ALTERNATE_DATA");
 my (%open_data_check_profiles_languages);
-my (@open_data_file_details_fields) = ("type", "url", "mime-type", "size",
-                                       "component size", "rows", "columns",
-                                       "headings");
+my (@open_data_file_details_fields) = ("type", "url", "mime-type", "sha1 checksum",
+                                       "size", "component size", "rows",
+                                       "columns", "headings");
 
 #
 # Document Features variables
@@ -8750,14 +8752,14 @@ sub Perform_Open_Data_Check {
 
     my ($contents, $zip, @members, $member_name, $header, $mime_type);
     my (@results, $member_url, $member, $filename, $t, $size, $h);
-    my ($rows, $cols);
+    my ($rows, $cols, $sha, $checksum);
 
     #
     # Check for possible ZIP content (a zip file containing the
     # open data files).
     #
     print "Perform_Open_Data_Check check for content\n" if $debug;
-    if ( defined($resp) &&  $resp->is_success ) {
+    if ( defined($resp) && $resp->is_success ) {
         $header = $resp->headers;
         $mime_type = $header->content_type;
     }
@@ -8813,7 +8815,18 @@ sub Perform_Open_Data_Check {
         $size = -s $filename;
         $t = $url;
         $t =~ s/"/""/g;
-        print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",$size,,,,\r\n";
+
+        #
+        # Compute SHA-1 checksum for this file
+        #
+        $sha = Digest::SHA->new("SHA-1");
+        $sha->addfile($filename);
+        $checksum = $sha->hexdigest;
+
+        #
+        # Add file details to CSV
+        #
+        print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",\"$checksum\",$size,,,,\r\n";
 
         #
         # Process each member of the zip archive
@@ -8849,7 +8862,7 @@ sub Perform_Open_Data_Check {
                 # Create a URL for the member of the ZIP
                 #
                 $member_url = "$url:$member_name";
-                push(@all_urls, "DATA $member_url");
+                push(@all_urls, "$data_file_type $member_url");
                 $document_count{$crawled_urls_tab}++;
                 Validator_GUI_Start_URL($crawled_urls_tab, $member_url, "", 0,
                                         $document_count{$crawled_urls_tab});
@@ -8876,7 +8889,18 @@ sub Perform_Open_Data_Check {
                     $rows = "";
                     $cols = "";
                 }
-                print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",,$size,$rows,$cols,\"$h\"\r\n";
+
+                #
+                # Compute SHA-1 checksum for this file
+                #
+                $sha = Digest::SHA->new("SHA-1");
+                $sha->addfile($filename);
+                $checksum = $sha->hexdigest;
+
+                #
+                # Add file details to CSV
+                #
+                print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",\"$checksum\",,$size,$rows,$cols,\"$h\"\r\n";
                 
                 #
                 # Remove temporary file
@@ -8903,7 +8927,7 @@ sub Perform_Open_Data_Check {
         # usage statistics
         #
         if ( $monitoring ) {
-            Print_Resource_Usage($url, "after",
+            Print_Resource_Usage($url, "before",
                                  $document_count{$crawled_urls_tab});
         }
 
@@ -8911,7 +8935,7 @@ sub Perform_Open_Data_Check {
         # Treat URL as a single open data file
         #
         print "Single open data file\n" if $debug;
-        if ( defined($resp) ) {
+        if ( defined($resp) && $resp->is_success ) {
             $filename = $resp->header("WPSS-Content-File");
         }
         else {
@@ -8934,8 +8958,21 @@ sub Perform_Open_Data_Check {
         #
         # Get file details
         #
-        $filename = $resp->header("WPSS-Content-File");
-        $size = -s $filename;
+        if ( defined($resp) && $resp->is_success ) {
+            $filename = $resp->header("WPSS-Content-File");
+            $size = -s $filename;
+
+            #
+            # Compute SHA-1 checksum for this file
+            #
+            $sha = Digest::SHA->new("SHA-1");
+            $sha->addfile($filename);
+            $checksum = $sha->hexdigest;
+        }
+        else {
+            $size = 0;
+            $checksum = "";
+        }
         $t = $url;
         $t =~ s/"/""/g;
         $h = Open_Data_Check_Get_Headings_List($url);
@@ -8945,13 +8982,17 @@ sub Perform_Open_Data_Check {
             $rows = "";
             $cols = "";
         }
-        print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",$size,,$rows,$cols,\"$h\"\r\n";
+
+        #
+        # Add file details to CSV
+        #
+        print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",\"$checksum\",$size,,$rows,$cols,\"$h\"\r\n";
     }
 
     #
     # Remove URL content file
     #
-    if ( defined($resp) ) {
+    if ( defined($resp) && $resp->is_success ) {
         $filename = $resp->header("WPSS-Content-File");
         print "Remove content file $filename\n" if $debug;
         if ( ! unlink($filename) ) {
@@ -8978,7 +9019,7 @@ sub Open_Data_Callback {
 
     my (@url_list, $i, $key, $value, $resp_url, $resp, $header, $content);
     my ($data_file_type, $item, $format, $url, $tab, @results, $filename);
-    my ($language, $mime_type, $error, $t, $size);
+    my ($language, $mime_type, $error, $t, $size, $checksum, $sha);
 
     #
     # Initialize tool global variables
@@ -9070,28 +9111,58 @@ sub Open_Data_Callback {
         #
         # Get the file details
         #
-        if ( defined($resp) &&  $resp->is_success ) {
+        if ( defined($resp) && $resp->is_success ) {
             $header = $resp->headers;
             $mime_type = $header->content_type;
+            $filename = $resp->header("WPSS-Content-File");
+            $size = -s $filename;
+            $t = $url;
+            $t =~ s/"/""/g;
+
+            #
+            # Compute SHA-1 checksum for this file
+            #
+            $sha = Digest::SHA->new("SHA-1");
+            $sha->addfile($filename);
+            $checksum = $sha->hexdigest;
         }
         else {
             #
             # Unknown mime-type
             #
             $mime_type = "";
+            $filename = "";
+            $size = 0;
+            $checksum = "";
         }
-        $filename = $resp->header("WPSS-Content-File");
-        $size = -s $filename;
-        $t = $url;
-        $t =~ s/"/""/g;
-        print $files_details_fh "DESCRIPTION,\"$t\",\"$mime_type\",$size,,,,\r\n";
+
+        #
+        # Add file details to CSV
+        #
+        print $files_details_fh "DESCRIPTION,\"$t\",\"$mime_type\",\"$checksum\",$size,,,,\r\n";
 
         #
         # Print URL
         #
         $document_count{$crawled_urls_tab}++;
-        Validator_GUI_Start_URL($crawled_urls_tab, $url, "", 0,
-                                $document_count{$crawled_urls_tab});
+        if ( defined($resp) && ($resp->is_success) ) {
+            Validator_GUI_Start_URL($crawled_urls_tab, $url, "", 0,
+                                    $document_count{$crawled_urls_tab});
+        }
+        else {
+            #
+            # Error getting open data URL
+            #
+            if ( defined($resp) ) {
+                $error = String_Value("HTTP Error") . " " . $resp->status_line;
+            }
+            else {
+                $error = String_Value("Malformed URL");
+            }
+            Validator_GUI_Print_URL_Error($crawled_urls_tab, $url,
+                                          $document_count{$crawled_urls_tab},
+                                          $error);
+        }
 
         #
         # If we are doing process monitoring, print out some resource
@@ -9128,8 +9199,10 @@ sub Open_Data_Callback {
         #
         # Remove URL content file
         #
-        print "Remove content file $filename\n" if $debug;
-        unlink($filename);
+        if ( $filename ne "" ) {
+            print "Remove content file $filename\n" if $debug;
+            unlink($filename);
+        }
     }
 
     #
@@ -9184,17 +9257,23 @@ sub Open_Data_Callback {
                 #
                 # Did we get the page ?
                 #
+                $document_count{$crawled_urls_tab}++;
                 if ( defined($resp) && ($resp->is_success) ) {
                     #
                     # Get the uncompressed response content
                     #
                     Crawler_Uncompress_Content_File($resp);
+
+                    #
+                    # Print URL
+                    #
+                    Validator_GUI_Start_URL($crawled_urls_tab, $url, "", 0,
+                                            $document_count{$crawled_urls_tab});
                 }
                 else {
                     #
                     # Error getting open data URL
                     #
-                    $document_count{$crawled_urls_tab}++;
                     if ( defined($resp) ) {
                         $error = String_Value("HTTP Error") . " " .
                                               $resp->status_line;
@@ -9205,20 +9284,8 @@ sub Open_Data_Callback {
                     Validator_GUI_Print_URL_Error($crawled_urls_tab, $url,
                                                   $document_count{$crawled_urls_tab},
                                                   $error);
-
-                    #
-                    # Go to the next URL in the list
-                    #
-                    next;
                 }
 
-                #
-                # Print URL
-                #
-                $document_count{$crawled_urls_tab}++;
-                Validator_GUI_Start_URL($crawled_urls_tab, $url, "", 0,
-                                        $document_count{$crawled_urls_tab});
-                                        
                 #
                 # Get mime-type for content
                 #
@@ -9264,7 +9331,18 @@ sub Open_Data_Callback {
                     $size = -s $filename;
                     $t = $url;
                     $t =~ s/"/""/g;
-                    print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",$size,,,,\r\n";
+
+                    #
+                    # Compute SHA-1 checksum for this file
+                    #
+                    $sha = Digest::SHA->new("SHA-1");
+                    $sha->addfile($filename);
+                    $checksum = $sha->hexdigest;
+
+                    #
+                    # Add file details to CSV
+                    #
+                    print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",\"$checksum\",$size,,,,\r\n";
                 }
                 else {
                     #
@@ -9276,16 +9354,21 @@ sub Open_Data_Callback {
                 }
 
                 #
-                # Extract the content file name from HTTP::Response object
+                # Remove the temporary content file if we have one
                 #
-                $filename = $resp->header("WPSS-Content-File");
+                if ( defined($resp) && $resp->is_success ) {
+                    #
+                    # Extract the content file name from HTTP::Response object
+                    #
+                    $filename = $resp->header("WPSS-Content-File");
 
-                #
-                # Remove URL content file
-                #
-                if ( defined($filename) && ($filename ne "") ) {
-                    print "Remove content file $filename\n" if $debug;
-                    unlink($filename);
+                    #
+                    # Remove URL content file
+                    #
+                    if ( defined($filename) && ($filename ne "") ) {
+                        print "Remove content file $filename\n" if $debug;
+                        unlink($filename);
+                    }
                 }
             }
         }
