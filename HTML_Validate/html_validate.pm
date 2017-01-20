@@ -84,7 +84,7 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
 my ($doctype_label, $doctype_version, $doctype_class, $html5_validate_jar);
-my ($java_options);
+my ($java_options, $version);
 my ($runtime_error_reported) = 0;
 
 my ($debug) = 0;
@@ -762,7 +762,17 @@ if ( $^O =~ /MSWin32/ ) {
     #
     $validate_cmnd = ".\\bin\\win_validate.pl";
     $html5_validate_jar = ".\\lib\\vnu.jar";
-    $java_options = "-Xss512k";
+    
+    #
+    # Is this 64 bit? if so we need a larger stack
+    #
+    $version = `java -version 2>\&1`;
+    if ( $version =~ /64-bit/im ) {
+        $java_options = "-Xss1024k";
+    }
+    else {
+        $java_options = "-Xss512k";
+    }
 } else {
     #
     # Not Windows.
