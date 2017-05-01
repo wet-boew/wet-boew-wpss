@@ -2,9 +2,9 @@
 //
 // Name: markup_server.js
 //
-// $Revision: 92 $
+// $Revision: 301 $
 // $URL: svn://10.36.20.203/Crawler/Tools/markup_server.js $
-// $Date: 2016-11-15 09:05:40 -0500 (Tue, 15 Nov 2016) $
+// $Date: 2017-03-15 12:59:37 -0400 (Wed, 15 Mar 2017) $
 //
 // Synopsis: phantomjs markup_server.js <port> -debug
 //
@@ -243,7 +243,7 @@ function doRender() {
 //
 // ************************************************************
 phantom.onError = function(msg, trace) {
-    var msgStack = ['PHANTOM ERROR: ' + msg];
+    var msgStack = [msg];
     if (trace && trace.length) {
         msgStack.push('TRACE:');
         trace.forEach(function(t) {
@@ -252,8 +252,9 @@ phantom.onError = function(msg, trace) {
     }
 
     // Pint out error message, stack trace and exit the program
+    console.out('PHANTOM ERROR:');
+    console.out('URL = ' + url);
     console.out(msgStack.join('\n'));
-    phantom.exit(1);
 };
 
 // ************************************************************
@@ -328,7 +329,7 @@ page.onResourceError = function(resourceError) {
 //
 // ************************************************************
 page.onError = function(msg, trace) {
-    var msgStack = ['ERROR: ' + msg];
+    var msgStack = [msg];
 
     // If there is a traceback stack, include each item in the message stack
     if (trace && trace.length) {
@@ -339,8 +340,9 @@ page.onError = function(msg, trace) {
     }
 
     // Print error message and traceback
+    console.out('Javascript ERROR:');
+    console.out('URL = ' + url);
     console.out(msgStack.join('\n'));
-    phantom.exit(1);
 };
 
 // ************************************************************
