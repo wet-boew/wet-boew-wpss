@@ -210,8 +210,7 @@ sub EPUB_Validate_Content {
     my ($this_url, $resp, $content) = @_;
 
     my (@results_list, $epub_file, $fh, $zip, $zip_status, $header);
-    my ($validator_output, $result_object, $epub_url, $pattern);
-    my (@tmp_files);
+    my ($validator_output, $result_object, $epub_url, $pattern, $file_name);
 
     #
     # Do we have any content ?
@@ -247,14 +246,6 @@ sub EPUB_Validate_Content {
         print "Validator output = $validator_output\n" if $debug;
         
         #
-        # Remove any temporary image files that may be left
-        # behind by the epub validator
-        #
-        @tmp_files = glob "'$temp_folder/img*.*'";
-        print "Temporary files " . join(", ", @tmp_files) . "\n" if $debug;
-        unlink(@tmp_files);
-            
-        #
         # Strip out the temporary file name from the validator output.
         # This avoids confusion since the file name does not match the
         # URL for the EPUB.
@@ -263,6 +254,8 @@ sub EPUB_Validate_Content {
         $pattern = $epub_file;
         $pattern =~ s/\\/\//g;
         $validator_output =~ s/$pattern/$epub_url/g;
+        $pattern = basename($epub_file);
+        $validator_output =~ s/\/$pattern//g;
 
         #
         # Did validation fail ?
