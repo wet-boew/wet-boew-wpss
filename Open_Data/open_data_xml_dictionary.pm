@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml_dictionary.pm
 #
-# $Revision: 178 $
+# $Revision: 351 $
 # $URL: svn://10.36.20.203/Open_Data/Tools/open_data_xml_dictionary.pm $
-# $Date: 2016-12-21 08:49:50 -0500 (Wed, 21 Dec 2016) $
+# $Date: 2017-04-25 14:53:54 -0400 (Tue, 25 Apr 2017) $
 #
 # Description:
 #
@@ -451,7 +451,7 @@ sub Print_Error {
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column,, $text, $error_string ) = @_;
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
     my ($result_object);
 

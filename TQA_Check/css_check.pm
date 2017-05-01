@@ -415,7 +415,7 @@ sub Print_Error {
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column,, $text, $error_string ) = @_;
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
     my ($result_object);
 
