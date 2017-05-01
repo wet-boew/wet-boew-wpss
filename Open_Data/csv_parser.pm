@@ -2,9 +2,9 @@
 #
 # Name: csv_parser.pm
 #
-# $Revision: 236 $
+# $Revision: 268 $
 # $URL: svn://10.36.20.203/Open_Data/Tools/csv_parser.pm $
-# $Date: 2017-01-13 08:18:16 -0500 (Fri, 13 Jan 2017) $
+# $Date: 2017-02-06 15:42:30 -0500 (Mon, 06 Feb 2017) $
 #
 # Description:
 #
@@ -476,6 +476,18 @@ sub getrow {
                         }
                     }
                     #
+                    # Are we at end of file?
+                    #
+                    elsif ( CORE::eof($io) ) {
+                        #
+                        # End of file, quoted field and row are ended.
+                        #
+                        $in_quoted_field = 0;
+                        $end_of_row = 1;
+                        print "End of file found\n" if $debug;
+                        last;
+                    }
+                    #
                     # Invalid character following quoted field value
                     #
                     else {
@@ -485,7 +497,7 @@ sub getrow {
                         }
                         else {
                             $message = String_Value("Invalid character following quoted field") .
-                                       "\"$next_char\", ord(" . ord($next_char) . ")\n";
+                                       " \"$next_char\", ord(" . ord($next_char) . ")\n";
 
                         }
                         $message .= String_Value("Row") . " = " . $self->{"row_no"} . " " .
@@ -682,11 +694,24 @@ sub getrow {
             }
         }
     }
-
+    
     #
-    # Return reference to field array
+    # Did we just have an end of file (i.e. no fields found)
     #
-    return(\@fields);
+    if ( $self->{"eof"} && (@fields == 0) ) {
+        #
+        # Decrement row count as this isn't a real row.
+        # Return undefined to indicate there is no row
+        #
+        $self->{"row_no"}--;
+        return(undef);
+    }
+    else {
+        #
+        # Return reference to field array
+        #
+        return(\@fields);
+    }
 }
 
 #********************************************************
