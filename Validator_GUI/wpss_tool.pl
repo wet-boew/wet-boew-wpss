@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 7617 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2016-07-06 06:02:23 -0400 (Wed, 06 Jul 2016) $
+# $Revision: 360 $
+# $URL: svn://10.36.20.203/Validator_GUI/Tools/wpss_tool.pl $
+# $Date: 2017-04-28 10:51:18 -0400 (Fri, 28 Apr 2017) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -99,6 +99,7 @@ use crawler;
 use css_check;
 use css_validate;
 use dept_check;
+use epub_check;
 use epub_validate;
 use extract_anchors;
 use extract_links;
@@ -3883,12 +3884,6 @@ sub HTTP_Response_Callback {
             $web_page_details_values{"url"} = $url;
             $web_page_details_values{"lang"} = "";
             $web_page_details_values{"content size"} = length($content);
-
-            #
-            # Perform TQA check of EPUB content
-            #
-#            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
-
 
             #
             # Perform EPUB checks
@@ -8586,6 +8581,209 @@ sub Perform_Link_Check {
 
 #***********************************************************************
 #
+# Name: Record_EPUB_Accessibility_Check_Results
+#
+# Parameters: url - dataset file URL
+#             results - list of testcase results
+#
+# Description:
+#
+#   This function records EPUB accessibility checks results.
+#
+#***********************************************************************
+sub Record_EPUB_Accessibility_Check_Results {
+    my ($url, @results) = @_;
+
+
+    my ($url_status, $status, $result_object);
+    my (%local_tqa_error_url_count);
+
+    #
+    # Check EPUB accessibility results
+    #
+    print "Record EPUB accessibility check results\n" if $debug;
+    $url_status = $tool_success;
+    foreach $result_object (@results) {
+        if ( $result_object->status != $tool_success ) {
+            #
+            # EPUB accessibility error, we can stop looking for more errors
+            #
+            $url_status = $tool_error;
+            last;
+        }
+    }
+
+    #
+    # Increment document & error counters
+    #
+    Increment_Counts_and_Print_URL($acc_tab, $url,
+                                   ($url_status == $tool_error));
+
+    #
+    # Print results if it is a failure.
+    #
+    if ( ($url_status == $tool_error) && ( ! $report_passes_only ) ) {
+        #
+        # Print failures
+        #
+        foreach $result_object (@results) {
+            $status = $result_object->status;
+            if ( defined($status) && ($status != 0) ) {
+                    #
+                    # Increment error instance count
+                    #
+                    if ( ! defined($tqa_error_instance_count{$result_object->description}) ) {
+                        $tqa_error_instance_count{$result_object->description} = 1;
+                    }
+                    else {
+                        $tqa_error_instance_count{$result_object->description}++;
+                    }
+
+                    #
+                    # Set URL error count
+                    #
+                    $local_tqa_error_url_count{$result_object->description} = 1;
+
+                    #
+                    # Print error
+                    #
+                    Validator_GUI_Print_TQA_Result($acc_tab, $result_object);
+            }
+        }
+
+        #
+        # Add blank line in report
+        #
+        Validator_GUI_Update_Results($acc_tab, "");
+    }
+
+    #
+    # Set global URL error count
+    #
+    foreach (keys %local_tqa_error_url_count) {
+        $tqa_error_url_count{$_}++;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Perform_EPUB_Accessibility_Check
+#
+# Parameters: url - document URL
+#             content - content pointer
+#             language - URL language
+#             mime_type - content mime-type
+#             resp - HTTP::Response object
+#
+# Description:
+#
+#   This function performs a number of accessibility QA tests on EPUB content.
+#
+#***********************************************************************
+sub Perform_EPUB_Accessibility_Check {
+    my ($url, $content, $language, $mime_type, $resp) = @_;
+
+    my (@tqa_results_list, $result_object, $pattern);
+    my ($results_list_addr, $opf_file_name, $epub_uncompressed_dir);
+    my ($epub_opf_object, $file_count, $list_item, $manifest_list);
+    my ($file_name);
+
+    #
+    # Do we want to skip accessibility checking of this document ?
+    #
+    print "Perform_EPUB_Accessibility_Check on URL\n  --> $url\n" if $debug;
+    foreach $pattern (@tqa_url_skip_patterns) {
+        if ( $url =~ /$pattern/i ) {
+            print "Skipping accessibility check on $url, matches pattern $pattern\n" if $debug;
+            return;
+        }
+    }
+
+    #
+    # Tell TQA Check module whether or not documents have
+    # valid markup.
+    #
+    Set_TQA_Check_Valid_Markup($url, %is_valid_markup);
+
+    #
+    # Check the complete EPUB document
+    #
+    @tqa_results_list = TQA_Check($url, $language, $tqa_check_profile,
+                                  $mime_type, $resp, $content, \@links);
+
+    #
+    # Get the container.xml OPF file, it contains the details of
+    # the rest of the EPUB files.
+    #
+    ($results_list_addr, $opf_file_name, $epub_uncompressed_dir) =
+        EPUB_Check_Get_OPF_File($url, $resp, $tqa_check_profile, $content);
+
+    #
+    # Merge results with the full list of results
+    #
+    foreach $result_object (@$results_list_addr) {
+        push(@tqa_results_list, );
+    }
+
+    #
+    # Record results
+    #
+    Record_EPUB_Accessibility_Check_Results($url, @tqa_results_list);
+
+    #
+    # Parse the OPF container file to get the other EPUB files details
+    #
+    ($results_list_addr, $epub_opf_object) = EPUB_Check_OPF_Parse($url,
+                                                       $epub_uncompressed_dir,
+                                                       $opf_file_name,
+                                                       $tqa_check_profile);
+
+    #
+    # Record results
+    #
+    $file_count = 1;
+    Validator_GUI_Start_URL($crawled_urls_tab, "$url:$opf_file_name", "",
+                            0, $document_count{$crawled_urls_tab} . ".$file_count");
+    Record_EPUB_Accessibility_Check_Results("$url:$opf_file_name",
+                                            @$results_list_addr);
+    Validator_GUI_End_URL($crawled_urls_tab, "$url:$opf_file_name", "", 0);
+
+    #
+    # Check each of the EPUB content files for accessibility checks
+    #
+    if ( defined($epub_opf_object) ) {
+        $manifest_list = $epub_opf_object->manifest();
+        for $list_item (@$manifest_list) {
+            #
+            # Increment found count and get the file name
+            #
+            $file_count++;
+            $file_name = $list_item->href();
+            Validator_GUI_Start_URL($crawled_urls_tab, "$url:$file_name", "",
+                                    0, $document_count{$crawled_urls_tab} . ".$file_count");
+
+            #
+            # Perform accessibility checks on this file
+            #
+            @tqa_results_list = ();
+                                    
+            #
+            # Record accessibility results
+            #
+            Record_EPUB_Accessibility_Check_Results("$url:$opf_file_name",
+                                                    @tqa_results_list);
+            Validator_GUI_End_URL($crawled_urls_tab, "$url:$file_name", "", 0);
+        }
+    }
+
+    #
+    # Cleanup temporary files from EPUB file
+    #
+    EPUB_Check_Cleanup($epub_uncompressed_dir);
+}
+
+#***********************************************************************
+#
 # Name: Perform_EPUB_Check
 #
 # Parameters: url - EPUB URL
@@ -8602,9 +8800,8 @@ sub Perform_Link_Check {
 sub Perform_EPUB_Check {
     my ($url, $content, $language, $mime_type, $resp) = @_;
 
-    my ($zip, @members, $member_name, $header, $result_object);
-    my (@results, $member_url, $member, $filename, $epub_file);
-
+    my ($epub_file);
+    
     #
     # Perform checks on an EPUB document
     #
@@ -8620,15 +8817,10 @@ sub Perform_EPUB_Check {
     }
 
     #
-    # Get the EPUB content file name.  This field was set by the
-    # EPUB validation routine epub_validate.pm:EPUB_Validate_Content.
+    # Perform accessibility checks on the EPUB document
     #
-    $epub_file = $resp->header("WPSS-Content-File");
-
-    #
-    # Perform accessibility checks on the complete EPUB document
-    #
-    Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+    Perform_EPUB_Accessibility_Check($url, \$content, $language,
+                                     $mime_type, $resp);
 
     #
     # If we are doing process monitoring, print out some resource
@@ -8642,9 +8834,12 @@ sub Perform_EPUB_Check {
     #
     # Remove local epub file
     #
-    print "Remove epub file $epub_file\n" if $debug;
-    if ( ! unlink($epub_file) ) {
-        print "Error, failed to remove EPUB file $epub_file\n" if $debug;
+    if ( defined($resp) && (defined($resp->header("WPSS-Content-File"))) ) {
+        $epub_file = $resp->header("WPSS-Content-File");
+        print "Remove epub file $epub_file\n" if $debug;
+        if ( ! unlink($epub_file) ) {
+            print "Error, failed to remove EPUB file $epub_file\n" if $debug;
+        }
     }
 }
 
@@ -8988,17 +9183,6 @@ sub Perform_Open_Data_Check {
         #
         print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",\"$checksum\",$size,,$rows,$cols,\"$h\"\r\n";
     }
-
-    #
-    # Remove URL content file
-    #
-    if ( defined($resp) && $resp->is_success ) {
-        $filename = $resp->header("WPSS-Content-File");
-        print "Remove content file $filename\n" if $debug;
-        if ( ! unlink($filename) ) {
-            print "Error, failed to remove URL content file $filename\n" if $debug;
-        }
-    }
 }
 
 #***********************************************************************
@@ -9020,6 +9204,7 @@ sub Open_Data_Callback {
     my (@url_list, $i, $key, $value, $resp_url, $resp, $header, $content);
     my ($data_file_type, $item, $format, $url, $tab, @results, $filename);
     my ($language, $mime_type, $error, $t, $size, $checksum, $sha);
+    my ($sec, $min, $hour, $mday, $mon, $year, $date);
 
     #
     # Initialize tool global variables
@@ -9088,6 +9273,11 @@ sub Open_Data_Callback {
     # Get TQA Check profile name
     #
     $tqa_check_profile = $report_options{$tqa_profile_label};
+    
+    #
+    # Get Link Check profile name
+    #
+    $link_check_profile = $report_options{$link_check_profile_label};
 
     #
     # Report header
@@ -9105,6 +9295,38 @@ sub Open_Data_Callback {
         $url = $$dataset_urls{"DESCRIPTION"};
         print "Process open data description url $url\n" if $debug;
         ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
+
+        #
+        # Did we get the description URL?
+        #
+        if ( (! defined($resp)) || (! $resp->is_success) ) {
+            if ( defined($resp) ) {
+                $error = String_Value("HTTP Error") . " " .
+                                      $resp->status_line;
+            }
+            else {
+                $error = String_Value("Malformed URL");
+            }
+            Validator_GUI_Print_URL_Error($crawled_urls_tab, $url, 1,
+                                          $error);
+
+            #
+            # Get current time/date
+            #
+            ($sec, $min, $hour, $mday, $mon, $year) = (localtime)[0,1,2,3,4,5];
+            $mon++;
+            $year += 1900;
+            $date = sprintf("%02d:%02d:%02d %4d/%02d/%02d", $hour, $min, $sec,
+                            $year, $mon, $mday);
+
+            Validator_GUI_End_Analysis($crawled_urls_tab, $date,
+                                       String_Value("Analysis terminated"));
+            return();
+        }
+        
+        #
+        # Uncompress the content, if needed
+        #
         Crawler_Uncompress_Content_File($resp);
         push(@all_urls, "DESCRIPTION $url");
         
@@ -9315,12 +9537,18 @@ sub Open_Data_Callback {
                     #
                     # Perform mark-up validation
                     #
+                    push(@all_urls, "HTML $url");
                     Perform_Markup_Validation($url, $mime_type, $resp, \$content);
+
+                    #
+                    # Perform Link check
+                    #
+                    Perform_Link_Check($url, $mime_type, $resp, \$content,
+                                       $language, \$content);
 
                     #
                     # Perform TQA check
                     #
-                    push(@all_urls, "HTML $url");
                     Perform_TQA_Check($url, \$content, $language, $mime_type,
                                       $resp);
 
@@ -9389,15 +9617,21 @@ sub Open_Data_Callback {
     }
     else {
         #
-        # Check dataset consistency (e.g. matching English & French files)
+        # Do we have any data files?
         #
-        @results = Open_Data_Check_Dataset_Files($open_data_check_profile,
-                                                 $dataset_urls);
+        if ( defined($$dataset_urls{"DATA"}) ) {
+            #
+            # Check dataset consistency (e.g. matching English & French files)
+            #
+            @url_list = split(/\n+/, $$dataset_urls{"DATA"});
+            @results = Open_Data_Check_Dataset_Data_Files($open_data_check_profile,
+                                                          \@url_list);
 
-        #
-        # Record results
-        #
-        Record_Open_Data_Check_Results("", @results);
+            #
+            # Record results
+            #
+            Record_Open_Data_Check_Results("", @results);
+        }
     }
 
     #
@@ -9687,25 +9921,29 @@ sub Setup_Open_Data_Tool_GUI {
     $open_data_profile_label = String_Value("Open Data Testcase Profile");
     $tqa_profile_label = String_Value("ACC Testcase Profile");
     $markup_validate_profile_label = String_Value("Markup Validation Profile");
+    $link_check_profile_label = String_Value("Link Check Profile");
 
     #
     # Set testcase profile options
     #
     %report_options = ($open_data_profile_label, \@open_data_check_profiles,
                        $tqa_profile_label,       \@tqa_check_profiles,
-                       $markup_validate_profile_label, \@markup_validate_profiles);
+                       $markup_validate_profile_label, \@markup_validate_profiles,
+                       $link_check_profile_label, \@link_check_profiles,);
 
     #
     # Set labels for testcase profile options.
     #
     %report_options_labels = ("open_data_profile", $open_data_profile_label,
                               "tqa_profile", $tqa_profile_label,
-                              "markup_validate_profile", $markup_validate_profile_label);
+                              "markup_validate_profile", $markup_validate_profile_label,
+                              "link_profile", $link_check_profile_label);
 
     %report_options_values_languages = (
                     "open_data_profile", \%open_data_check_profiles_languages,
                     "tqa_profile", \%tqa_check_profiles_languages,
                     "wa_profile", \%wa_check_profiles_languages,
+                    "link_profile", \%link_check_profiles_languages,
                     "markup_validate_profile", \%markup_validate_profiles_languages);
 
     #
@@ -9733,6 +9971,8 @@ sub Setup_Open_Data_Tool_GUI {
     $results_file_suffixes{$open_data_tab} = "od";
     $validation_tab = String_Value("Validation");
     $results_file_suffixes{$validation_tab} = "val";
+    $link_tab = String_Value("Link");
+    $results_file_suffixes{$link_tab} = "link";
     $acc_tab = String_Value("ACC");
     $results_file_suffixes{$acc_tab} = "acc";
     $doc_list_tab = String_Value("Document List");
@@ -9756,6 +9996,7 @@ sub Setup_Open_Data_Tool_GUI {
     Validator_GUI_Add_Results_Tab($crawled_urls_tab);
     Validator_GUI_Add_Results_Tab($open_data_tab);
     Validator_GUI_Add_Results_Tab($validation_tab);
+    Validator_GUI_Add_Results_Tab($link_tab);
     Validator_GUI_Add_Results_Tab($acc_tab);
     Validator_GUI_Add_Results_Tab($doc_list_tab);
 
