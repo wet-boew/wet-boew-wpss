@@ -651,6 +651,7 @@ sub CSS_Validate_Extract_CSS_From_HTML {
     #
     # Return extracted CSS content.
     #
+    $extracted_css_content =~ s/^\s*//g;
     return ($extracted_css_content);
 }
 
