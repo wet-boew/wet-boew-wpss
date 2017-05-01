@@ -18,6 +18,10 @@
 #     Set_EPUB_Check_Testcase_Data
 #     Set_EPUB_Check_Test_Profile
 #     EPUB_Check
+#     EPUB_Check_Manifest_File
+#     EPUB_Check_Get_OPF_File
+#     EPUB_Check_OPF_Parse
+#     EPUB_Check_Cleanup
 #
 # Terms and Conditions of Use
 #
@@ -59,6 +63,8 @@ use XML::Parser;
 #
 # Use WPSS_Tool program modules
 #
+use epub_opf_parse;
+use epub_parse;
 use tqa_result_object;
 use tqa_testcases;
 
@@ -78,6 +84,10 @@ BEGIN {
                   Set_EPUB_Check_Testcase_Data
                   Set_EPUB_Check_Test_Profile
                   EPUB_Check
+                  EPUB_Check_Manifest_File
+                  EPUB_Check_Get_OPF_File
+                  EPUB_Check_OPF_Parse
+                  EPUB_Check_Cleanup
                   );
     $VERSION = "1.0";
 }
@@ -135,6 +145,12 @@ sub Set_EPUB_Check_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+    
+    #
+    # Set debug flag in supporting modules
+    #
+    Set_EPUB_OPF_Parse_Debug($debug);
+    Set_EPUB_Parse_Debug($debug);
 }
 
 #**********************************************************************
@@ -164,6 +180,12 @@ sub Set_EPUB_Check_Language {
         #
         $string_table = \%string_table_en;
     }
+    
+    #
+    # Set language in supporting modules
+    #
+    Set_EPUB_OPF_Parse_Language($language);
+    Set_EPUB_Parse_Language($language);
 }
 
 #***********************************************************************
@@ -252,6 +274,12 @@ sub Set_EPUB_Check_Testcase_Data {
     # Copy the data into the table
     #
     $testcase_data{$testcase} = $data;
+    
+    #
+    # Set testcase data in supporting modules
+    #
+    Set_EPUB_OPF_Parse_Testcase_Data($testcase, $data);
+    Set_EPUB_Parse_Testcase_Data($testcase, $data);
 }
 
 #***********************************************************************
@@ -279,6 +307,11 @@ sub Set_EPUB_Check_Test_Profile {
     print "Set_EPUB_Check_Test_Profile, profile = $profile\n" if $debug;
     %local_epub_checks = %$epub_checks;
     $epub_check_profile_map{$profile} = \%local_epub_checks;
+    
+    #
+    # Set profile in supporting modules
+    #
+    Set_EPUB_Parse_Test_Profile($profile, $epub_checks);
 }
 
 #***********************************************************************
@@ -344,7 +377,7 @@ sub Print_Error {
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column,, $text, $error_string ) = @_;
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
     my ($result_object);
 
@@ -376,24 +409,24 @@ sub Record_Result {
 # Parameters: this_url - a URL
 #             language - URL language
 #             profile - testcase profile
-#             content - XML content pointer
+#             content - EPUB content pointer
 #
 # Description:
 #
-#   This function runs a number of technical QA checks on XML content.
+#   This function runs a number of technical QA checks on EPUB content.
 #
 #***********************************************************************
 sub EPUB_Check {
     my ($this_url, $language, $profile, $content) = @_;
 
-    my (@tqa_results_list, $result_object, @feed_results, @ttml_results);
+    my (@tqa_results_list, $result_object);
 
     #
     # Do we have a valid profile ?
     #
     print "EPUB_Check: Checking URL $this_url, lanugage = $language, profile = $profile\n" if $debug;
     if ( ! defined($epub_check_profile_map{$profile}) ) {
-        print "EPUB_Check: Unknown XML testcase profile passed $profile\n";
+        print "EPUB_Check: Unknown testcase profile passed $profile\n";
         return(@tqa_results_list);
     }
 
@@ -405,7 +438,7 @@ sub EPUB_Check {
     }
     else {
         #
-        # Doesn't look like a URL.  Could be just a block of XML
+        # Doesn't look like a URL.  Could be just a block of content
         # from the standalone validator which does not have a URL.
         #
         $current_url = "";
@@ -418,7 +451,7 @@ sub EPUB_Check {
 
     #
     # Check to see if we were told that this document is not
-    # valid XML
+    # a valid EPUB
     #
     if ( $is_valid_markup == 0 ) {
         Record_Result("WCAG_2.0-G134", -1, 0, "",
@@ -450,6 +483,168 @@ sub EPUB_Check {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: EPUB_Check_Manifest_File
+#
+# Parameters: this_url - a URL
+#             language - URL language
+#             profile - testcase profile
+#             file_name - path to file
+#             epub_uncompressed_dir
+#
+# Description:
+#
+#   This function runs a number of technical QA checks on EPUB content.
+#
+#***********************************************************************
+sub EPUB_Check_Manifest_File {
+    my ($this_url, $language, $profile, $content) = @_;
+
+    my (@tqa_results_list, $result_object);
+
+    #
+    # Do we have a valid profile ?
+    #
+    print "EPUB_Check_Manifest_File Checking URL $this_url, lanugage = $language, profile = $profile\n" if $debug;
+    if ( ! defined($epub_check_profile_map{$profile}) ) {
+        print "EPUB_Check: Unknown testcase profile passed $profile\n";
+        return(@tqa_results_list);
+    }
+
+    #
+    # Save URL in global variable
+    #
+    if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
+        $current_url = $this_url;
+    }
+    else {
+        #
+        # Doesn't look like a URL.  Could be just a block of content
+        # from the standalone validator which does not have a URL.
+        #
+        $current_url = "";
+    }
+
+    #
+    # Initialize the test case pass/fail table.
+    #
+    Initialize_Test_Results($profile, \@tqa_results_list);
+
+    #
+    # Check to see if we were told that this document is not
+    # a valid EPUB
+    #
+    if ( $is_valid_markup == 0 ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Fails validation"));
+    }
+
+    #
+    # Did we get any content ?
+    #
+    if ( length($$content) > 0 ) {
+    }
+    else {
+        print "No content passed to EPUB_Check\n" if $debug;
+    }
+
+    #
+    # Print testcase information
+    #
+    if ( $debug ) {
+        print "EPUB_Check results\n";
+        foreach $result_object (@tqa_results_list) {
+            print "Testcase: " . $result_object->testcase;
+            print "  status   = " . $result_object->status . "\n";
+            print "  message  = " . $result_object->message . "\n";
+        }
+    }
+
+    #
+    # Return list of results
+    #
+    return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: EPUB_Check_Get_OPF_File
+#
+# Parameters: this_url - a URL
+#             resp - HTTP::Response object
+#             profile - testcase profile
+#             content - EPUB content pointer
+#
+# Description:
+#
+#   This function parses an EPUB file and returns the name of
+# the OPF package file.
+#
+#***********************************************************************
+sub EPUB_Check_Get_OPF_File {
+    my ($this_url, $resp, $profile, $content) = @_;
+    
+    my ($results_list_addr, $opf_file_name, $epub_uncompressed_dir);
+    
+    #
+    # Call EPUB Parse function to get the OPF container file name
+    #
+    ($results_list_addr, $opf_file_name, $epub_uncompressed_dir) =
+        EPUB_Parse_Get_OPF_File($this_url, $resp, $profile, $content);
+    return($results_list_addr, $opf_file_name, $epub_uncompressed_dir);
+}
+
+#***********************************************************************
+#
+# Name: EPUB_Check_OPF_Parse
+#
+# Parameters: this_url - a URL
+#             epub_uncompressed_dir - directory containing EPUB files
+#             filename - name of OPF file
+#             profile - testcase profile
+#
+# Description:
+#
+#   This function parses an EPUB OPF file and returns an object
+# containing the core details.
+#
+#***********************************************************************
+sub EPUB_Check_OPF_Parse {
+    my ($this_url, $epub_uncompressed_dir, $filename, $profile) = @_;
+    
+    my ($results_list_addr, $epub_opf_object);
+    
+    #
+    # Call EPUB OPF Parse function to get the EPUB package details
+    #
+    ($results_list_addr, $epub_opf_object) = EPUB_OPF_Parse($this_url,
+                                                            $epub_uncompressed_dir,
+                                                            $filename, $profile);
+    return($results_list_addr, $epub_opf_object);
+}
+
+#***********************************************************************
+#
+# Name: EPUB_Check_Cleanup
+#
+# Parameters: epub_uncompressed_dir - directory
+#
+# Description:
+#
+#   This function cleans up any temporary files or directories created
+# by this module.
+#
+#***********************************************************************
+sub EPUB_Check_Cleanup {
+    my ($epub_uncompressed_dir) = @_;
+
+    #
+    # Call on EPUB Parse Cleanup to remove temporary files
+    #
+    EPUB_Parse_Cleanup($epub_uncompressed_dir);
 }
 
 #***********************************************************************
