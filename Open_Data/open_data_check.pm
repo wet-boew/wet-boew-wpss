@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 243 $
+# $Revision: 357 $
 # $URL: svn://10.36.20.203/Open_Data/Tools/open_data_check.pm $
-# $Date: 2017-01-20 10:52:09 -0500 (Fri, 20 Jan 2017) $
+# $Date: 2017-04-28 10:48:19 -0400 (Fri, 28 Apr 2017) $
 #
 # Description:
 #
@@ -21,7 +21,7 @@
 #     Open_Data_Check
 #     Open_Data_Check_Zip_Content
 #     Open_Data_Check_Read_JSON_Description
-#     Open_Data_Check_Dataset_Files
+#     Open_Data_Check_Dataset_Data_Files
 #     Open_Data_Check_Get_Headings_List
 #     Open_Data_Check_Get_Row_Column_Counts
 #
@@ -66,6 +66,8 @@ use JSON;
 # Use WPSS_Tool program modules
 #
 use crawler;
+use data_file_object;
+use language_map;
 use open_data_csv;
 use open_data_json;
 use open_data_testcases;
@@ -93,7 +95,7 @@ BEGIN {
                   Open_Data_Check
                   Open_Data_Check_Zip_Content
                   Open_Data_Check_Read_JSON_Description
-                  Open_Data_Check_Dataset_Files
+                  Open_Data_Check_Dataset_Data_Files
                   Open_Data_Check_Get_Headings_List
                   Open_Data_Check_Get_Row_Column_Counts
                   );
@@ -111,11 +113,21 @@ my (%testcase_data, %open_data_profile_map);
 my ($current_open_data_profile, $current_url, $results_list_addr);
 my ($current_open_data_profile_name, %testcase_data);
 my (@supporting_doc_url, %expected_row_count, %first_url_count);
-my ($last_headings_list, %expected_column_count);
+my (%expected_column_count);
 my (@data_dictionary_file_name, @alternate_data_file_name);
+my (@data_file_required_lang, %data_file_objects);
 
 my ($max_error_message_string) = 2048;
 my ($max_unzipped_file_size) = 0;
+
+#
+# Data file object attribute names (use the same names as used for
+# CSV data files as in some cases we compare attributes between CSV
+# and JSON data files)
+#
+my ($column_count_attribute) = "Column Count";
+my ($row_count_attribute) = "Row Count";
+my ($column_list_attribute) = "Column List";
 
 #
 # Status values
@@ -129,22 +141,37 @@ my %string_table_en = (
     "API URL unavailable",             "API URL unavailable",
     "as found in",                     " as found in ",
     "Character encoding is not UTF-8", "Character encoding is not UTF-8",
+    "Column count mismatch, found",    "Column count mismatch, found",
+    "Column sum mismatch for column",  "Column sum mismatch for column",
+    "Column type mismatch for column", "Column type mismatch for column",
+    "Data array item count",           "Data array item count",
+    "Data array item count mismatch, found", "Data array item count mismatch, found",
+    "Data array item field count mismatch, found", "Data array item field count mismatch, found",
     "Dataset URL unavailable",         "Dataset URL unavailable",
+    "en",                              "English",
     "expecting",                       " expecting ",
     "Error in reading ZIP, status =",  "Error in reading ZIP, status =",
     "Fails validation",                "Fails validation",
     "for",                             "for",
-    "Inconsistent column count, found", "Inconsistent column count, found ",
+    "found",                           "found",
+    "fr",                              "French",
+    "have",                            "have",
+    "in",                              "in",
     "Inconsistent format and mime-type", "Inconsistent format and mime-type",
-    "Inconsistent row count, found",   "Inconsistent row count, found ",
     "Invalid dataset description field type", "Invalid dataset description field type",
     "Invalid mime-type for API",       "Invalid mime-type for API",
     "Invalid mime-type for data dictionary", "Invalid mime-type for data dictionary",
     "Invalid mime-type for data file", "Invalid mime-type for data file",
     "Invalid mime-type for description", "Invalid mime-type for description",
+    "Language specific dataset file count mismatch, found", "Language specific dataset file count mismatch, found",
+    "Missing CSV data file format for JSON-CSV format", "Missing CSV data file format for JSON-CSV format",
     "Missing dataset description field", "Missing dataset description field",
     "Missing dataset description file types", "Missing dataset description file types",
+    "Missing required language data file", "Missing required language data file",
     "Multiple file types in ZIP",      "Multiple file types in ZIP",
+    "Non blank cell count mismatch for column", "Non blank cell count mismatch for column",
+    "Not equal to data row count",     "Not equal to data row count",
+    "Row count mismatch, found",       "Row count mismatch, found ",
     "Uncompressed file size exceeds expected maximum size", "Uncompressed file size exceeds expected maximum size",
 );
 
@@ -155,22 +182,37 @@ my %string_table_fr = (
     "API URL unavailable",             "URL du API disponible",
     "as found in",                     " que l'on trouve dans ",
     "Character encoding is not UTF-8", "L'encodage des caractères ne pas UTF-8",
+    "Column count mismatch, found",    "Incompatibilité du comptage des colonnes, trouvée",
+    "Column sum mismatch for column",  "Incompatibilité de somme de colonne pour la colonne",
+    "Column type mismatch for column", "Incompatibilité du type de colonne pour la colonne",
+    "Data array item count",           "Nombre d'éléments du tableau de données",
+    "Data array item count mismatch, found", "L'incompatibilité du nombre d'éléments de tableau de données, trouvé",
+    "Data array item field count mismatch, found", "Le décalage du nombre de champs de l'élément de tableau de données n'a pas été trouvé",
     "Dataset URL unavailable",         "URL du jeu de données disponible",
+    "en",                              "anglais",
     "expecting",                       " expectant ",
     "Error in reading ZIP, status =",  "Erreur de lecture fichier ZIP, status =",
     "Fails validation",                "Échoue la validation",
     "for",                             "pour",
-    "Inconsistent column count, found", "Nombre de colonnes incompatibles, trouvé ",
+    "found",                           "trouver",
+    "fr",                              "français",
+    "have",                            "avoir",
+    "in",                              "dans",
     "Inconsistent format and mime-type", "Les valeurs de format et de type MIME sont incompatibles",
-    "Inconsistent row count, found",   "Nombre de lignes incompatibles, trouvé ",
     "Invalid dataset description field type", "Invalide type de champ de description de données",
     "Invalid mime-type for API",       "Invalid type MIME pour API",
     "Invalid mime-type for data dictionary", "Invalid type MIME pour le dictionnaire de donnée",
     "Invalid mime-type for data file", "Invalid type MIME pour le jeu de donnée",
     "Invalid mime-type for description", "Invalid mime-type pour description",
+    "Language specific dataset file count mismatch, found", "Décomposition du nombre de fichiers de dataset spécifique au langage trouvé",
+    "Missing CSV data file format for JSON-CSV format", "Le format de fichier de données CSV manquant pour le format JSON-CSV",
     "Missing dataset description field", "Champ de description de dataset manquant",
     "Missing dataset description file types", "Types de fichiers de description de jeu de données manquants",
+    "Missing required language data file", "Fichier de données de langue requise manquant",
     "Multiple file types in ZIP",      "Plusieurs types de fichiers dans un fichier ZIP",
+    "Non blank cell count mismatch for column", "Incompatibilité du nombre de cellules non vierges pour la colonne",
+    "Not equal to data row count",     "Pas égal au nombre de lignes de données",
+    "Row count mismatch, found",       "Incompatibilité du nombre de lignes, trouvée",
     "Uncompressed file size exceeds expected maximum size", "La taille du fichier non compressé dépasse la taille maximale prévue",
 );
 
@@ -245,6 +287,7 @@ sub Set_Open_Data_Check_Debug {
     Set_Open_Data_TXT_Debug($debug);
     Set_Open_Data_XML_Debug($debug);
     Set_Open_Data_Testcase_Debug($debug);
+    Set_Data_File_Object_Debug($debug);
 }
 
 #**********************************************************************
@@ -397,7 +440,15 @@ sub Set_Open_Data_Check_Testcase_Data {
             #
             $max_unzipped_file_size = $value;
         }
-
+        #
+        # A data file required language ?
+        #
+        elsif ( defined($value) && ($type eq "REQUIRED_LANG") ) {
+            #
+            # Save name in list
+            #
+            push(@data_file_required_lang, $value);
+        }
     }
     else {
         #
@@ -548,6 +599,7 @@ sub Record_Result {
 # Name: Check_Content_Encoding
 #
 # Parameters: filename - file containing content
+#             data_file_object - a data file object pointer
 #
 # Description:
 #
@@ -555,7 +607,7 @@ sub Record_Result {
 #
 #***********************************************************************
 sub Check_Content_Encoding {
-    my ($filename) = @_;
+    my ($filename, $data_file_object) = @_;
 
     my ($output, $content);
 
@@ -570,7 +622,10 @@ sub Check_Content_Encoding {
         # Does the string look like UTF-8 ?
         #
         if ( eval { utf8::is_utf8($content); } ) {
-                print "UTF-8 content\n" if $debug;
+            print "Check_Content_Encoding: UTF-8 content\n" if $debug;
+            if ( defined($data_file_object) ) {
+                $data_file_object->encoding("UTF-8");
+            }
         }
         #
         # Try decoding it as UTF-8
@@ -594,6 +649,7 @@ sub Check_Content_Encoding {
 # Name: Check_Encoding
 #
 # Parameters: resp - HTTP response object
+#             data_file_object - a data file object pointer
 #             filename - file containing content
 #
 # Description:
@@ -603,17 +659,20 @@ sub Check_Content_Encoding {
 #
 #***********************************************************************
 sub Check_Encoding {
-    my ($resp, $filename) = @_;
+    my ($resp, $data_file_object, $filename) = @_;
 
     #
     # Does the HTTP response object indicate the content is UTF-8
     #
     if ( ($resp->header('Content-Type') =~ /charset=UTF-8/i) ||
          ($resp->header('X-Meta-Charset') =~ /UTF-8/i) ) {
-        print "UTF-8 content\n" if $debug;
+        print "Check_Encoding: UTF-8 content\n" if $debug;
+        if ( defined($data_file_object) ) {
+            $data_file_object->encoding("UTF-8");
+        }
     }
     else {
-        Check_Content_Encoding($filename);
+        Check_Content_Encoding($filename, $data_file_object);
     }
 }
 
@@ -637,7 +696,7 @@ sub Check_Encoding {
 sub Check_Dictionary_URL {
     my ($url, $format, $resp, $filename, $dictionary) = @_;
 
-    my ($result_object, @other_results, $header, $mime_type);
+    my ($result_object, @other_results, $header, $mime_type, $data_file_object);
 
     #
     # Data dictionary files are expected to be either XML or TXT
@@ -664,7 +723,7 @@ sub Check_Dictionary_URL {
     #
     # Check for UTF-8 encoding
     #
-    Check_Encoding($resp, $filename);
+    Check_Encoding($resp, $data_file_object, $filename);
 
     #
     # Is this a plain text file ?
@@ -721,6 +780,7 @@ sub Check_Dictionary_URL {
 # Name: Check_Resource_URL
 #
 # Parameters: url - open data file URL
+#             format - optional content format
 #             resp - HTTP::Response object
 #             filename - content pointer
 #             dictionary - address of a hash table for data dictionary
@@ -731,14 +791,47 @@ sub Check_Dictionary_URL {
 #
 #***********************************************************************
 sub Check_Resource_URL {
-    my ($url, $resp, $content, $dictionary) = @_;
+    my ($url, $format, $resp, $content, $dictionary) = @_;
 
+    my ($header, $mime_type, $data_file_object);
+
+    #
+    # Get the mime-type of the resource file
+    #
     print "Check_Resource_URL\n" if $debug;
+    if ( defined($resp) &&  $resp->is_success ) {
+        $header = $resp->headers;
+        $mime_type = $header->content_type;
+    }
+    elsif ( ! $resp->is_success ) {
+        #
+        # Don't have a valid dataset URL
+        #
+        return;
+    }
+    else {
+        #
+        # Unknown mime-type
+        #
+        $mime_type = "";
+    }
 
     #
     # Check for UTF-8 encoding
     #
-    Check_Encoding($resp, $content);
+    if ( ($mime_type =~ /text\/html/) ||
+         ($format =~ /^html$/i) ||
+         ($url =~ /\.html$/i) ||
+         ($mime_type =~ /text\/plain/) ||
+         ($format =~ /^txt$/i) ||
+         ($url =~ /\.txt$/i) ||
+         ($mime_type =~ /application\/xhtml\+xml/) ||
+         ($mime_type =~ /application\/xml/) ||
+         ($mime_type =~ /text\/xml/) ||
+         ($format =~ /^xml$/i) ||
+         ($url =~ /\.xml$/i) ) {
+        Check_Encoding($resp, $data_file_object, $content);
+    }
 }
 
 #***********************************************************************
@@ -754,7 +847,7 @@ sub Check_Resource_URL {
 # Description:
 #
 #   This function checks a data file.  It checks that 
-#     - the content type is XML or CSV
+#     - the content type is CSV, JSON or XML
 #     - Some content specific checks
 #
 #***********************************************************************
@@ -762,7 +855,7 @@ sub Check_Data_File_URL {
     my ($url, $format, $resp, $filename, $dictionary) = @_;
 
     my ($result_object, @other_results, $header, $mime_type, $base);
-    my ($row_count, $column_count, $eng_url);
+    my ($data_file_object, $lang);
 
     #
     # Data files are expected to be either XML or CSV
@@ -787,6 +880,11 @@ sub Check_Data_File_URL {
     }
     
     #
+    # Get the language of the URL
+    #
+    $lang = URL_Check_GET_URL_Language($url);
+
+    #
     # Is this a file name?
     #
     if ( ! -f "$filename" ) {
@@ -803,87 +901,26 @@ sub Check_Data_File_URL {
          ($format =~ /^csv$/i) ||
          ($url =~ /\.csv$/i) ) {
         #
+        # CSV file type
+        #
+        $data_file_object = data_file_object->new($url, "CSV");
+        $data_file_object->lang($lang);
+        $data_file_objects{$url} = $data_file_object;
+
+        #
         # Check for UTF-8 encoding
         #
         print "CSV data file\n" if $debug;
-        Check_Encoding($resp, $filename);
+        Check_Encoding($resp, $data_file_object, $filename);
 
         #
         # Check CSV data file
         #
-        @other_results = Open_Data_CSV_Check_Data($url,
+        @other_results = Open_Data_CSV_Check_Data($url, $data_file_object,
                                                   $current_open_data_profile_name,
                                                   $filename,
                                                   $dictionary);
 
-        #
-        # Record the number of rows and columns found
-        #
-        $row_count = Open_Data_CSV_Check_Get_Row_Count($url);
-        $column_count = Open_Data_CSV_Check_Get_Column_Count($url);
-        
-        #
-        # Record the list of headings found
-        #
-        $last_headings_list = Open_Data_CSV_Check_Get_Headings_List($url);
-
-        #
-        # Convert URL to an English URL (if there is a language specfied
-        # in the directory path or file name).
-        #
-        $eng_url = URL_Check_Get_English_URL($url);
-        
-        #
-        # Did we find an English URL equivalent ?
-        #
-        if ( $eng_url ne "" ) {
-            #
-            # Do we have a row count for the English URL ?
-            # If we don't there may be no English URL, if this
-            # is the case use this URL as the pseudo English URL
-            #
-            if ( ! defined($expected_row_count{$eng_url}) ) {
-                $expected_row_count{$eng_url} = $row_count;
-                $first_url_count{$eng_url} = $url;
-            }
-
-            #
-            # Compare this URL's row count to the English
-            # (or pseudo English) URL's row count
-            #
-            if ( $row_count != $expected_row_count{$eng_url} ) {
-                Record_Result("OD_DATA", -1, -1, "",
-                              String_Value("Inconsistent row count, found") .
-                              $row_count .
-                              String_Value("expecting") .
-                              $expected_row_count{$eng_url} .
-                              String_Value("as found in") .
-                              $first_url_count{$eng_url});
-            }
-
-            #
-            # Do we have a column count for the English URL ?
-            # If we don't there may be no English URL, if this
-            # is the case use this URL as the pseudo English URL
-            #
-            if ( ! defined($expected_column_count{$eng_url}) ) {
-                $expected_column_count{$eng_url} = $column_count;
-            }
-
-            #
-            # Compare this URL's column count to the English
-            # (or pseudo English) URL's count count
-            #
-            if ( $column_count != $expected_column_count{$eng_url} ) {
-                Record_Result("OD_DATA", -1, -1, "",
-                              String_Value("Inconsistent column count, found") .
-                              $column_count .
-                              String_Value("expecting") .
-                              $expected_column_count{$eng_url} .
-                              String_Value("as found in") .
-                              $first_url_count{$eng_url});
-            }
-        }
     }
     #
     # Is this a JSON file ?
@@ -892,15 +929,22 @@ sub Check_Data_File_URL {
             ($format =~ /^json$/i) ||
             ($url =~ /\.json$/i) ) {
         #
+        # JSON file type
+        #
+        $data_file_object = data_file_object->new($url, "JSON");
+        $data_file_object->lang($lang);
+        $data_file_objects{$url} = $data_file_object;
+
+        #
         # Check for UTF-8 encoding
         #
-        Check_Encoding($resp, $filename);
+        Check_Encoding($resp, $data_file_object, $filename);
 
         #
         # Check JSON data file
         #
         print "JSON data file\n" if $debug;
-        @other_results = Open_Data_JSON_Check_Data($url,
+        @other_results = Open_Data_JSON_Check_Data($url, $data_file_object,
                                                    $current_open_data_profile_name,
                                                    $filename,
                                                    $dictionary);
@@ -914,9 +958,16 @@ sub Check_Data_File_URL {
             ($format =~ /^xml$/i) ||
             ($url =~ /\.xml$/i) ) {
         #
+        # XML file type
+        #
+        $data_file_object = data_file_object->new($url, "XML");
+        $data_file_object->lang($lang);
+        $data_file_objects{$url} = $data_file_object;
+
+        #
         # Check for UTF-8 encoding
         #
-        Check_Encoding($resp, $filename);
+        Check_Encoding($resp, $data_file_object, $filename);
 
         #
         # Check XML data file
@@ -1113,7 +1164,7 @@ sub Check_Format_and_Mime_Type_File_Suffix {
 sub Check_API_URL {
     my ($url, $resp, $filename) = @_;
 
-    my ($result_object, @other_results, $header, $mime_type);
+    my ($result_object, @other_results, $header, $mime_type, $data_file_object);
 
     #
     # Data dictionary files are expected to be either XML or TXT
@@ -1129,15 +1180,21 @@ sub Check_API_URL {
         #
         if ( $mime_type =~ /application\/json/i ) {
             #
+            # JSON file type
+            #
+            $data_file_object = data_file_object->new($url, "JSON");
+            $data_file_objects{$url} = $data_file_object;
+
+            #
             # Check for UTF-8 encoding
             #
-            Check_Encoding($resp, $filename);
+            Check_Encoding($resp, $data_file_object, $filename);
 
             #
             # Check JSON API
             #
             print "JSON API URL\n" if $debug;
-            @other_results = Open_Data_JSON_Check_API($url,
+            @other_results = Open_Data_JSON_Check_API($url, $data_file_object,
                                                $current_open_data_profile_name,
                                                       $filename);
         }
@@ -1148,16 +1205,22 @@ sub Check_API_URL {
                 ($mime_type =~ /application\/xml/) ||
                 ($mime_type =~ /text\/xml/) ) {
             #
+            # XML file type
+            #
+            $data_file_object = data_file_object->new($url, "XML");
+            $data_file_objects{$url} = $data_file_object;
+
+            #
             # Check for UTF-8 encoding
             #
-            Check_Encoding($resp, $filename);
+            Check_Encoding($resp, $data_file_object, $filename);
 
             #
             # Check XML API
             #
             print "XML API URL\n" if $debug;
             @other_results = Open_Data_XML_Check_API($url,
-                                               $current_open_data_profile_name,
+                                                     $current_open_data_profile_name,
                                                      $filename);
         }
         else {
@@ -1296,11 +1359,6 @@ sub Open_Data_Check {
     #
     Initialize_Test_Results($profile, \@tqa_results_list);
     $current_url = $url;
-    
-    #
-    # Clear last headings list variable
-    #
-    $last_headings_list = "";
 
     #
     # Are any of the testcases defined in this module
@@ -1416,7 +1474,7 @@ sub Open_Data_Check {
         #
         # Check resource content
         #
-        Check_Resource_URL($url, $resp, $filename, $dictionary);
+        Check_Resource_URL($url, $format, $resp, $filename, $dictionary);
     }
 
     #
@@ -1426,7 +1484,7 @@ sub Open_Data_Check {
         #
         # Check API content
         #
-        Check_API_URL($url, $resp,$filename);
+        Check_API_URL($url, $resp, $filename);
     }
     
     #
@@ -1603,7 +1661,7 @@ sub Open_Data_Check_Zip_Content {
 sub Check_Open_Data_Description_URL {
     my ($url, $resp, $filename) = @_;
 
-    my ($message);
+    my ($message, $data_file_object);
 
     #
     # Check unsuccessful GET operation
@@ -1623,7 +1681,7 @@ sub Check_Open_Data_Description_URL {
         #
         # Check for UTF-8 encoding
         #
-        Check_Encoding($resp, $filename);
+        Check_Encoding($resp, $data_file_object, $filename);
     }
 }
 
@@ -1967,30 +2025,518 @@ sub Open_Data_Check_Read_JSON_Description {
 
 #***********************************************************************
 #
-# Name: Open_Data_Check_Dataset_Files
+# Name: Check_Data_File_Languages
+#
+# Parameters: url_lang_map - hash table of data file URLs
+#
+# Description:
+#
+#   This function performs checks data files to see if there
+# are language specific variants (e.g. English and French).  It
+# checks to see that all required languages are present.
+#
+#***********************************************************************
+sub Check_Data_File_Languages {
+    my (%url_lang_map) = @_;
+
+    my (@url_list, $list_item, $url, $eng_url);
+    my ($expected_lang_count, $lang_count, $lang_item_addr);
+    my (%url_file_langs, $url_lang, $url_lang3, $lang_string);
+
+    #
+    # Check each entry in the URL language map
+    #
+    print "Check_Data_File_Languages\n" if $debug;
+    foreach $eng_url (sort(keys(%url_lang_map))) {
+        #
+        # How mang language versions of the URL do we have?
+        #
+        $lang_item_addr = $url_lang_map{$eng_url};
+        $lang_count = @$lang_item_addr;
+        $current_url = $eng_url;
+
+        #
+        # Do we have an expected language count? If it is not
+        # defined, use this (the first) URL's count as the expected
+        # count.
+        #
+        if ( ! defined($expected_lang_count) ) {
+            $expected_lang_count = $lang_count;
+        }
+        #
+        # Does the language count match the expected language count?
+        #
+        elsif ( $lang_count != $expected_lang_count ) {
+            Record_Result("OD_URL", -1, -1, "",
+                          String_Value("Language specific dataset file count mismatch, found") .
+                          " $lang_count " .
+                          String_Value("expecting") .
+                          "$expected_lang_count\n" .
+                          String_Value("have") . " " .
+                          join(", ", @$lang_item_addr));
+        }
+
+        #
+        # If we have more than 0 language variants, check for required languages.
+        #
+        if ( $lang_count > 0 ) {
+            #
+            # Get the language of the language map key.
+            #
+            $url_lang = URL_Check_GET_URL_Language($eng_url);
+
+            #
+            # If we got a language, check the languages for all versions
+            #
+            if ( $url_lang ne "" ) {
+                #
+                # Get the languages for all versions of the data file
+                #
+                print "Check required URL languages\n" if $debug;
+                print "Have " . scalar(@$lang_item_addr) . " language variants\n" if $debug;
+                %url_file_langs = ();
+                $url_file_langs{$url_lang} = $eng_url;
+                foreach $url (@$lang_item_addr) {
+                    $url_lang = URL_Check_GET_URL_Language($url);
+                    print "Got URL language $url_lang for $url\n" if $debug;
+                    $url_file_langs{$url_lang} = $url;
+                }
+
+                #
+                # Check for the required versions
+                #
+                foreach $url_lang (@data_file_required_lang) {
+                    #
+                    # Check for URL matching either 2 character language
+                    # code or 3 character code.
+                    #
+                    $url_lang3 = ISO_639_2_Language_Code($url_lang);
+                    if ( (! defined($url_file_langs{$url_lang})) &&
+                         (! defined($url_file_langs{$url_lang3}))  ) {
+                        #
+                        # Convert language code into a string
+                        #
+                        if ( defined($$string_table{$url_lang}) ) {
+                            $lang_string = $$string_table{$url_lang};
+                        }
+                        else {
+                            $lang_string = $url_lang;
+                        }
+                        Record_Result("TP_PW_OD_DATA", -1, -1, "",
+                              String_Value("Missing required language data file") .
+                              " \"$lang_string\" " . String_Value("have") .
+                              " $eng_url");
+                    }
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_CSV_Data_File_Content
+#
+# Parameters: url_lang_map - hash table of data file URLs
+#
+# Description:
+#
+#   This function performs checks on CSV data files to see if there
+# are language specific variants (e.g. English and French).  For each
+# language variant of the CSV file, it checks the content
+#   if row count is the same
+#   if the column count is the same
+#   if the column types (e.g. numeric, text) are the same
+#   for numeric columns, if the sum of the content is the same
+#
+#***********************************************************************
+sub Check_CSV_Data_File_Content {
+    my (%url_lang_map) = @_;
+
+    my (@url_list, $list_item, $url, $eng_url);
+    my ($lang_count, $lang_item_addr, $lang_data_file_object);
+    my ($data_file_object, $rows, $cols, $eng_rows, $eng_cols);
+    my ($column_objects, $eng_column_objects);
+    my ($col_obj, $eng_col_obj, $i);
+
+    #
+    # Check each entry in the URL language map
+    #
+    print "Check_CSV_Data_File_Content\n" if $debug;
+    foreach $eng_url (sort(keys(%url_lang_map))) {
+        #
+        # How many language versions of the URL do we have?
+        #
+        print "Checking English URL $eng_url\n" if $debug;
+        $lang_item_addr = $url_lang_map{$eng_url};
+        $lang_count = @$lang_item_addr;
+        
+        #
+        # Do we have more than 1 language?
+        #
+        if ( $lang_count < 2 ) {
+            print "Skip check, only have $lang_count language versions\n" if $debug;
+            next;
+        }
+
+        #
+        # Get the data file object
+        #
+        if ( ! defined($data_file_objects{$eng_url}) ) {
+            next;
+        }
+
+        #
+        # See if this is a CSV data file
+        #
+        $data_file_object = $data_file_objects{$eng_url};
+        if ( $data_file_object->type() ne "CSV" ) {
+            #
+            # Skip non-CSV file
+            #
+            print "Skip non-CSV file, type is " . $data_file_object->type() .
+                  "\n" if $debug;
+            next;
+        }
+
+        #
+        # Get the row & column counts from the English URL
+        #
+        ($eng_rows, $eng_cols) = Open_Data_CSV_Check_Get_Row_Column_Counts($data_file_object);
+        
+        #
+        # Get the column object list
+        #
+        $eng_column_objects = Open_Data_CSV_Check_Get_Column_Object_List($data_file_object);
+
+        #
+        # Now check all other language variants to see if the
+        # row and column counts match
+        #
+        print "Check " . scalar(@$lang_item_addr) . " language variants\n" if $debug;
+        foreach $url (@$lang_item_addr) {
+            #
+            # Get data file object for this URL
+            #
+            print "Check language variant $url\n" if $debug;
+            $current_url = $url;
+            if ( ! defined($data_file_objects{$url}) ) {
+                next;
+            }
+            $lang_data_file_object = $data_file_objects{$url};
+            ($rows, $cols) = Open_Data_CSV_Check_Get_Row_Column_Counts($lang_data_file_object);
+
+            #
+            # Get the column object list
+            #
+            $column_objects = Open_Data_CSV_Check_Get_Column_Object_List($lang_data_file_object);
+
+            #
+            # Compare this URL's row count to the English
+            # URL's row count
+            #
+            if ( $rows != $eng_rows ) {
+                Record_Result("OD_DATA", -1, -1, "",
+                              String_Value("Row count mismatch, found") .
+                              "$rows " . String_Value("in") . " $url\n" .
+                              String_Value("expecting") .
+                              $eng_rows . String_Value("as found in") .
+                              $eng_url);
+            }
+
+            #
+            # Compare this URL's column count to the English
+            # URL's column count
+            #
+            if ( $cols != $eng_cols ) {
+                Record_Result("OD_DATA", -1, -1, "",
+                              String_Value("Column count mismatch, found") .
+                              "$cols " . String_Value("in") . " $url\n" .
+                              String_Value("expecting") .
+                              $eng_cols . String_Value("as found in") .
+                              $eng_url);
+            }
+            else {
+                #
+                # Number of columns match, now check the column types
+                # (e.g. numeric, text).
+                #
+                for ($i = 0; $i < $cols; $i++) {
+                    #
+                    # Get the column objects
+                    #
+                    $eng_col_obj = $$eng_column_objects[$i];
+                    $col_obj = $$column_objects[$i];
+                    
+                    #
+                    # Do the column types match?
+                    #
+                    print "Column types for column $i, " .
+                           $col_obj->type() . " and " .
+                           $eng_col_obj->type() . "\n";
+                    if ( $col_obj->type() ne $eng_col_obj->type() ) {
+                         Record_Result("OD_DATA", -1, -1, "",
+                                      String_Value("Column type mismatch for column") .
+                                      " " . $col_obj->heading() . " (" . ($i + 1) . ") \n " .
+                                      String_Value("found") . " " . $col_obj->type() .
+                                      " " . String_Value("in") . " $url\n" .
+                                      String_Value("expecting") .
+                                      $eng_col_obj->type() .
+                                      String_Value("as found in") . $eng_url);
+                    }
+                    else {
+                        #
+                        # Do the number of non-blank cells match?
+                        #
+                        print "Column non-blank cell count for column $i, " .
+                               $col_obj->non_blank_cell_count() . " and " .
+                               $eng_col_obj->non_blank_cell_count() . "\n";
+                        if ( $col_obj->non_blank_cell_count() != $eng_col_obj->non_blank_cell_count() ) {
+                            Record_Result("OD_DATA", -1, -1, "",
+                                          String_Value("Non blank cell count mismatch for column") .
+                                          " " . $col_obj->heading() . " (" . ($i + 1) . ") \n " .
+                                          String_Value("found") . " " . $col_obj->non_blank_cell_count() .
+                                          " " . String_Value("in") . " $url\n" .
+                                          String_Value("expecting") .
+                                          $eng_col_obj->non_blank_cell_count() .
+                                          String_Value("as found in") . $eng_url);
+                        }
+                    }
+                    
+                    #
+                    # Is this a numeric column type?
+                    #
+                    if ( $col_obj->type() eq "numeric" ) {
+                        #
+                        # Do the column sums match?
+                        #
+                        print "Column sum for column $i, " .
+                               $col_obj->sum() . " and " .
+                               $eng_col_obj->sum() . "\n";
+                        if ( $col_obj->sum() != $eng_col_obj->sum() ) {
+                              Record_Result("OD_DATA", -1, -1, "",
+                                            String_Value("Column sum mismatch for column") .
+                                            " " . $col_obj->heading() . " (" . ($i + 1) . ") \n " .
+                                            String_Value("found") . " " . $col_obj->sum() .
+                                            " " . String_Value("in") . " $url\n" .
+                                            String_Value("expecting") .
+                                            $eng_col_obj->sum() .
+                                            String_Value("as found in") . $eng_url);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_JSON_CSV_Data_File_Content
+#
+# Parameters: url_list - address of list of urls
+#             url_lang_map - hash table of data file URLs
+#
+# Description:
+#
+#   This function performs checks on JSON-CSV data files to see if there
+# are language specific variants (e.g. English and French).  For each
+# language variant of the CSV file, it checks the content
+#   if the data array item count is the same
+#   if the data array item field count is the same
+# It also checks to see there is a CSV format for each JSON-CSV file
+# (CSV is the primary formay, JSON-CSV is an alternate).  If both
+# a CSV and JSON-CSV exist, it checks to see if the number of
+# rows in the CSV matches the number of items in the JSON-CSV
+# data array.
+#
+#***********************************************************************
+sub Check_JSON_CSV_Data_File_Content {
+    my ($url_list, %url_lang_map) = @_;
+
+    my (@url_list, $list_item, $url, $eng_url);
+    my ($lang_count, $lang_item_addr, $lang_data_file_object);
+    my ($data_file_object, $items, $fields, $eng_items, $eng_fields);
+    my ($col_obj, $eng_col_obj, $i, $csv_url, %url_map);
+    my ($csv_data_file_object, $csv_rows);
+    
+    #
+    # Create a hash table of all URLs
+    #
+    print "Check_JSON_CSV_Data_File_Content\n" if $debug;
+    foreach $url (@$url_list) {
+        $url =~ s/[\n\r]$//g;
+        print "Add \"$url\" to url map\n" if $debug;
+        $url_map{$url} = 1;
+    }
+
+    #
+    # Check each entry in the URL language map
+    #
+    foreach $eng_url (sort(keys(%url_lang_map))) {
+        #
+        # How many language versions of the URL do we have?
+        #
+        print "Checking English URL $eng_url\n" if $debug;
+        $lang_item_addr = $url_lang_map{$eng_url};
+        $lang_count = @$lang_item_addr;
+
+        #
+        # Get the data file object
+        #
+        if ( ! defined($data_file_objects{$eng_url}) ) {
+            next;
+        }
+
+        #
+        # See if this is a JSON-CSV data file
+        #
+        $data_file_object = $data_file_objects{$eng_url};
+        if ( ($data_file_object->type() eq "JSON") &&
+             ($data_file_object->format() eq "JSON-CSV") ) {
+            #
+            # Have JSON-CSV data file
+            #
+            print "Found JSON-CSV data file $eng_url\n" if $debug;
+        }
+        else {
+            #
+            # Skip non-JSON-CSV file
+            #
+            print "Skip non-JSON-CSV file, type is " . $data_file_object->type() .
+                  " format is " . $data_file_object->format() ."\n" if $debug;
+            next;
+        }
+
+        #
+        # Get the data array item and field counts from the English URL
+        #
+        $eng_items = $data_file_object->attribute($row_count_attribute);
+        $eng_fields = $data_file_object->attribute($column_count_attribute);
+
+        #
+        # Now check all other language variants to see if the
+        # data array item and field counts match
+        #
+        print "Check " . scalar(@$lang_item_addr) . " language variants\n" if $debug;
+        foreach $url (@$lang_item_addr) {
+            #
+            # Get data file object for this URL
+            #
+            $current_url = $url;
+            print "Check language variant $url\n" if $debug;
+            if ( ! defined($data_file_objects{$url}) ) {
+                next;
+            }
+            $lang_data_file_object = $data_file_objects{$url};
+            $items = $lang_data_file_object->attribute($row_count_attribute);
+            $fields = $lang_data_file_object->attribute($column_count_attribute);
+
+            #
+            # Compare this URL's data array item count to the English
+            # URL's data array item count
+            #
+            print "Compare item count $items against expected count $eng_items\n" if $debug;
+            if ( $items != $eng_items ) {
+                Record_Result("OD_DATA", -1, -1, "",
+                              String_Value("Data array item count mismatch, found") .
+                              " $items " . String_Value("in") . " $url\n" .
+                              String_Value("expecting") .
+                              $eng_items . String_Value("as found in") .
+                              $eng_url);
+            }
+
+            #
+            # Compare this URL's data array item field count to the English
+            # URL's data array item field count
+            #
+            print "Compare item field count $fields against expected field count $eng_fields\n" if $debug;
+            if ( $fields != $eng_fields ) {
+                Record_Result("OD_DATA", -1, -1, "",
+                              String_Value("Data array item field count mismatch, found") .
+                              " $fields " . String_Value("in") . " $url\n" .
+                              String_Value("expecting") .
+                              $eng_fields . String_Value("as found in") .
+                              $eng_url);
+            }
+
+            #
+            # Do we have a CSV equivalent for this JSON-CSV ?
+            #
+            $csv_url = $url;
+            $csv_url =~ s/\.json$/.csv/;
+            print "Check for CSV url \"$csv_url\"\n" if $debug;
+            if ( defined($url_map{$csv_url}) ) {
+                #
+                # Does the row count for the CSV match the data array count
+                # for the JSON-CSV file?
+                #
+                print "Have CSV file for this JSON-CSV file\n" if $debug;
+                if ( defined($data_file_objects{$csv_url}) ) {
+                    $csv_data_file_object = $data_file_objects{$csv_url};
+                    $csv_rows = $csv_data_file_object->attribute($row_count_attribute);
+                    
+                    #
+                    # Decrement the CSV rows as we expect there to be a
+                    # header row.  The JSON-CSV file does not contain
+                    # a header row.
+                    #
+                    $csv_rows--;
+                    
+                    #
+                    # Compare row count and item count
+                    #
+                    print "JSON-CSV items $items, CSV data rows $csv_rows\n" if $debug;
+                    if ( $items != $csv_rows ) {
+                        Record_Result("OD_DATA", -1, -1, "",
+                                      String_Value("Data array item count") .
+                                      " $items " . String_Value("in") .
+                                      " JSON-CSV $url\n" .
+                                      String_Value("Not equal to data row count") .
+                                      " $csv_rows " . String_Value("in") .
+                                      " CSV $csv_url");
+                    }
+                }
+            }
+            else {
+                #
+                # Missing CSV version of data file
+                #
+                print "Missing CSV version of file\n" if $debug;
+                Record_Result("OD_DATA", -1, -1, "",
+                              String_Value("Missing CSV data file format for JSON-CSV format") .
+                              " $url\n" . String_Value("expecting") . "$csv_url");
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Check_Dataset_Data_Files
 #
 # Parameters: profile - testcase profile
-#             dataset_urls - address of hash table
+#             url_list - address of list of urls
 #
 # Description:
 #
 #   This function performs checks on the dataset files as a
 # collection.  It checks for language specific files (e.g. has a
 # language suffix). It checks for the presence of a file for
-# each language, it checks for a match in the number of rows of
-# CSV data files.
+# each language.
 #
 #***********************************************************************
-sub Open_Data_Check_Dataset_Files {
-    my ($profile, $dataset_urls) = @_;
+sub Open_Data_Check_Dataset_Data_Files {
+    my ($profile, $url_list) = @_;
 
-    my (@tqa_results_list, $result_object, $data_file_type, $urls_string);
-    my (@url_list, $list_item, $format, $url, $eng_url);
+    my (@tqa_results_list, @url_list, $list_item, $format, $url, $eng_url);
+    my (%url_lang_map, $lang_item_addr);
+
 
     #
     # Do we have a valid profile ?
     #
-    print "Open_Data_Check_Dataset_Files profile = $profile\n" if $debug;
+    print "Open_Data_Check_Dataset_Data_Files profile = $profile\n" if $debug;
     if ( ! defined($open_data_profile_map{$profile}) ) {
         print "Unknown Open Data testcase profile passed $profile\n" if $debug;
         return(@tqa_results_list);
@@ -2014,32 +2560,71 @@ sub Open_Data_Check_Dataset_Files {
     }
 
     #
-    # Check each data set URL type
+    # Process the list of URLs
     #
-    while ( ($data_file_type, $urls_string) = each %$dataset_urls ) {
-        print "Check data type $data_file_type\n" if $debug;
-        @url_list = split(/\n+/, $urls_string);
-
+    foreach $list_item (@$url_list) {
         #
-        # Process the list of URLs
+        # The URL may include a format specifier (e.g. CSV)
         #
-        foreach $list_item (@url_list) {
-            #
-            # The URL may include a format specifier (e.g. CSV)
-            #
-            ($format, $url) = split(/\t/, $list_item);
-            if ( ! defined($url) ) {
-                $url = $list_item;
-            }
+        ($format, $url) = split(/\t/, $list_item);
+        if ( ! defined($url) ) {
+            $url = $list_item;
+        }
+        $url =~ s/[\s\n\r]*$//g;
+        $url =~ s/^[\s\n\r]*//g;
+        
+        #
+        # Skip empty item
+        #
+        if ( $url =~ /^$/ ) {
+            next;
+        }
             
+        #
+        # Get English version of this URL (assuming it has a
+        # language component).
+        #
+        $eng_url = URL_Check_Get_English_URL($url);
+        if ( $eng_url eq "" ) {
+            $eng_url = $url;
+        }
+        print "URL = $url, English URL = $eng_url\n" if $debug;
+            
+        #
+        # Save this URL in the url language map if it is not the
+        # English URL.  The map is indexed by the English URL.
+        #
+        if ( ! defined($url_lang_map{$eng_url}) ) {
+            my (@url_map_list) = ($url);
+            $url_lang_map{$eng_url} = \@url_map_list;
+            print "Create new language map indexed by $eng_url\n" if $debug;
+        }
+        else {
             #
-            # Get English version of this URL (assuming it has a
-            # language component).
+            # Add this URL to the list of URLs
             #
-            $eng_url = URL_Check_Get_English_URL($url);
+            my ($url_map_list_addr);
+            $url_map_list_addr = $url_lang_map{$eng_url};
+            push(@$url_map_list_addr, $url);
+            print "Add to language map indexed by $eng_url url $url\n" if $debug;
         }
     }
     
+    #
+    # Check for matching language counts and required languages
+    #
+    Check_Data_File_Languages(%url_lang_map);
+    
+    #
+    # Check CSV file content for rows/column matches and other content checks
+    #
+    Check_CSV_Data_File_Content(%url_lang_map);
+
+    #
+    # Check JSON-CSV file content for item/field matches and other content checks
+    #
+    Check_JSON_CSV_Data_File_Content($url_list, %url_lang_map);
+
     #
     # Return results
     #
@@ -2078,9 +2663,21 @@ sub Open_Data_Check_Get_Headings_List {
 #***********************************************************************
 sub Open_Data_Check_Get_Row_Column_Counts {
     my ($this_url) = @_;
-
-    return(Open_Data_CSV_Check_Get_Row_Count($this_url),
-           Open_Data_CSV_Check_Get_Column_Count($this_url));
+    
+    my ($data_file_object, $rows, $columns);
+    
+    #
+    # Get data file object for this URL
+    #
+    if ( defined($data_file_objects{$this_url}) ) {
+        $data_file_object = $data_file_objects{$this_url};
+        ($rows, $columns) = Open_Data_CSV_Check_Get_Row_Column_Counts($data_file_object);
+    }
+        
+    #
+    # Return the row and column counts
+    #
+    return($rows, $columns);
 }
 
 #***********************************************************************
