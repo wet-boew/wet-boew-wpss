@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 233 $
+# $Revision: 276 $
 # $URL: svn://10.36.20.203/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2017-01-12 13:40:37 -0500 (Thu, 12 Jan 2017) $
+# $Date: 2017-02-10 15:33:10 -0500 (Fri, 10 Feb 2017) $
 #
 # Description:
 #
@@ -192,7 +192,7 @@ my (%report_options_config_options, %url_401_user, %url_401_password);
 my ($process_pdf, $runtime_error_callback, $enable_generated_markup);
 my ($testcase_profile_groups_label, $testcase_profile_groups_names);
 my ($testcase_profile_groups_values, %report_options_values);
-my ($testcase_profile_groups_config_option);
+my ($testcase_profile_groups_config_option, $profile_directory);
 
 my ($csv_results_fh, $csv_results_file_name, $csv_object);
 my (@csv_results_fields) = ("type", "url", "testcase", "description", "line_no",
@@ -3112,12 +3112,20 @@ sub GUI_Do_Load_URL_List_from_File_Click {
     my ($valid_value, $got_group_profile);
 
     #
+    # Did we load a file previously? If not use
+    # the profiles folder as the location to look for profile files.
+    #
+    if ( ! defined($profile_directory) ) {
+        $profile_directory = "$program_dir\\profiles";
+    }
+
+    #
     # Get name of file to read configuration from
     #
     $filename = Win32::GUI::GetOpenFileName(
                    -owner  => $main_window,
                    -title  => "Load URL List",
-                   -directory => "$program_dir\\profiles",
+                   -directory => $profile_directory,
                    -file   => "",
                    -filter => [
                        'Text file (*.txt)' => '*.txt',
@@ -3246,6 +3254,13 @@ sub GUI_Do_Load_URL_List_from_File_Click {
                 #
                 Select_Testcase_Profile_Group();
             }
+
+            #
+            # Get the directory portion of the profile file.  We will
+            # use this directory as the starting point for subsequent
+            # profile loads.
+            #
+            $profile_directory = dirname($filename);
 
             #
             # Set URL list in main window
@@ -3996,12 +4011,20 @@ sub Load_Site_Config {
     my ($valid_value, $got_group_profile);
 
     #
+    # Did we load a file previously? If not use
+    # the profiles folder as the location to look for profile files.
+    #
+    if ( ! defined($profile_directory) ) {
+        $profile_directory = "$program_dir\\profiles";
+    }
+    
+    #
     # Get name of file to read configuration from
     #
     $filename = Win32::GUI::GetOpenFileName(
                    -owner  => $main_window,
                    -title  => String_Value("Load Config"),
-                   -directory => "$program_dir\\profiles",
+                   -directory => $profile_directory,
                    -file   => "",
                    -filter => [
                        'Text file (*.txt)' => '*.txt',
@@ -4134,7 +4157,7 @@ sub Load_Site_Config {
                 }
             }
             close(FILE);
-            
+
             #
             # Did we find a group profile value ?
             #
@@ -4144,6 +4167,13 @@ sub Load_Site_Config {
                 #
                 Select_Testcase_Profile_Group();
             }
+
+            #
+            # Get the directory portion of the profile file.  We will
+            # use this directory as the starting point for subsequent
+            # profile loads.
+            #
+            $profile_directory = dirname($filename);
         }
         else {
             Error_Message_Popup("Failed to open site configuration file $filename");
@@ -5353,12 +5383,20 @@ sub Load_Open_Data_Config {
     my ($description_url, $valid_value, $got_group_profile);
 
     #
+    # Did we load a file previously? If not use
+    # the profiles folder as the location to look for profile files.
+    #
+    if ( ! defined($profile_directory) ) {
+        $profile_directory = "$program_dir\\profiles";
+    }
+
+    #
     # Get name of file to read configuration from
     #
     $filename = Win32::GUI::GetOpenFileName(
                    -owner  => $main_window,
                    -title  => String_Value("Load Config"),
-                   -directory => "$program_dir\\profiles",
+                   -directory => $profile_directory,
                    -file   => "",
                    -filter => [
                        'Text file (*.txt)' => '*.txt',
@@ -5497,6 +5535,13 @@ sub Load_Open_Data_Config {
                 #
                 Select_Testcase_Profile_Group();
             }
+
+            #
+            # Get the directory portion of the profile file.  We will
+            # use this directory as the starting point for subsequent
+            # profile loads.
+            #
+            $profile_directory = dirname($filename);
 
             #
             # Set URL lists in main window
