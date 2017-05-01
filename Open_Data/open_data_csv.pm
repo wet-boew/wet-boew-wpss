@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 234 $
+# $Revision: 355 $
 # $URL: svn://10.36.20.203/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2017-01-12 13:43:35 -0500 (Thu, 12 Jan 2017) $
+# $Date: 2017-04-28 10:44:43 -0400 (Fri, 28 Apr 2017) $
 #
 # Description:
 #
@@ -17,9 +17,9 @@
 #     Set_Open_Data_CSV_Testcase_Data
 #     Set_Open_Data_CSV_Test_Profile
 #     Open_Data_CSV_Check_Data
-#     Open_Data_CSV_Check_Get_Row_Count
-#     Open_Data_CSV_Check_Get_Column_Count
 #     Open_Data_CSV_Check_Get_Headings_List
+#     Open_Data_CSV_Check_Get_Row_Column_Counts
+#     Open_Data_CSV_Check_Get_Column_Object_List
 #
 # Terms and Conditions of Use
 #
@@ -65,6 +65,7 @@ use Encode;
 #
 # Use WPSS_Tool program modules
 #
+use csv_column_object;
 use csv_parser;
 use open_data_testcases;
 use tqa_result_object;
@@ -84,9 +85,9 @@ BEGIN {
                   Set_Open_Data_CSV_Testcase_Data
                   Set_Open_Data_CSV_Test_Profile
                   Open_Data_CSV_Check_Data
-                  Open_Data_CSV_Check_Get_Row_Count
-                  Open_Data_CSV_Check_Get_Column_Count
                   Open_Data_CSV_Check_Get_Headings_List
+                  Open_Data_CSV_Check_Get_Row_Column_Counts
+                  Open_Data_CSV_Check_Get_Column_Object_List
                   );
     $VERSION = "1.0";
 }
@@ -98,13 +99,20 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (%testcase_data, $results_list_addr, $last_csv_row_count);
+my (%testcase_data, $results_list_addr);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
-my ($csv_validator, $last_csv_headings_list, $last_csv_column_count);
+my ($csv_validator, $last_csv_headings_list);
 
 my ($max_error_message_string)= 2048;
 my ($runtime_error_reported) = 0;
+
+#
+# Data file object attribute names
+#
+my ($column_count_attribute) = "Column Count";
+my ($row_count_attribute) = "Row Count";
+my ($column_list_attribute) = "Column List";
 
 #
 # Status values
@@ -116,19 +124,32 @@ my ($check_fail)       = 1;
 #
 my %string_table_en = (
     "and",                           "and",
+    "At line number",                "At line number",
     "Column",                        "Column",
     "csv-validator failed",          "csv-validator failed",
     "Data pattern",                  "Data pattern",
     "Duplicate column header",       "Duplicate column header",
     "Duplicate content in columns",  "Duplicate content in columns",
     "Duplicate row content, first instance at", "Duplicate row content, first instance at row",
+    "Empty line as first line of multi-line field", "Empty line as first line of multi-line field",
+    "Expected a heading after 2 blank lines", "Expected a heading after 2 blank lines",
     "expecting",                     "expecting",
     "failed for value",              "failed for value",
+    "found",                         "found",
+    "Found an ordered list item in an unordered list", "Found an ordered list item in an unordered list",
+    "Found an unordered list item in an ordered list", "Found an unordered list item in an ordered list",
     "Found at",                      "Found at",
-    "Inconsistent number of fields, found", "Inconsistent number of fields, found ",
+    "Heading must be a single line", "Heading must be a single line",
+    "Inconsistent list item prefix, found", "Inconsistent list item prefix, found",
+    "Inconsistent number of fields, found", "Inconsistent number of fields, found",
+    "List item prefix character found for list of 1 item", "List item prefix character found for list of 1 item",
+    "List item value",               "List item value",
     "Missing header row",            "Missing header row",
     "Missing header row terms",      "Missing header row terms",
+    "Missing list item prefix character", "Missing list item prefix character",
     "Missing UTF-8 BOM",             "Missing UTF-8 BOM",
+    "More than 1 blank line between list items", "More than 1 blank line between list items",
+    "No blank line between list items", "No blank line between list items",
     "No content in file",            "No content in file",
     "No content in row",             "No content in row",
     "Parse error in line",           "Parse error in line",
@@ -137,19 +158,32 @@ my %string_table_en = (
 
 my %string_table_fr = (
     "and",                           "et",
+    "At line number",                "Au numéro de ligne",
     "Column",                        "Colonne",
     "csv-validator failed",          "csv-validator a échoué",
     "Data pattern",                  "Modèle de données",
-    "Duplicate column header",       "Duplicate tête de colonne",
+    "Duplicate column header",       "En-tête de colonne en double",
     "Duplicate content in columns",  "Dupliquer le contenu dans les colonnes",
+    "Empty line as first line of multi-line field", "Ligne vide comme première ligne de champ multi-lignes",
     "Duplicate row content, first instance at", "Dupliquer le contenu en ligne, première instance à ligne",
+    "Expected a heading after 2 blank lines", "Attendu un en-tête après 2 lignes vides",
     "expecting",                     "expectant",
     "failed for value",              "a échoué pour la valeur",
+    "found",                         "trouver",
+    "Found an ordered list item in an unordered list", "Trouver un élément de liste ordonnée dans une liste non ordonnée",
+    "Found an unordered list item in an ordered list", "Trouver un élément de liste non ordonnée dans une liste ordonnée",
     "Found at",                      "Trouvé à",
-    "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté ",
+    "Heading must be a single line", "Le titre doit être une seule ligne",
+    "Inconsistent list item prefix, found", "Préfixe d'élément de liste incompatible, trouvé",
+    "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté",
+    "List item value",               "Valeur de l'élément de liste",
+    "List item prefix character found for list of 1 item", "Caractère de préfixe d'élément de liste trouvé pour la liste de 1 élément",
     "Missing header row",            "Manquant lignes d'en-tête",
     "Missing header row terms",      "Manquant termes de lignes d'en-tête",
+    "Missing list item prefix character", "Caractère de préfixe d'élément de liste manquant",
     "Missing UTF-8 BOM",             "Manquant UTF-8 BOM",
+    "More than 1 blank line between list items", "Plus d'une ligne vide entre les éléments de la liste",
+    "No blank line between list items", "Pas de ligne vide entre les éléments de la liste",
     "No content in file",            "Aucun contenu dans fichier",
     "No content in row",             "Aucun contenu dans ligne",
     "Parse error in line",           "Parse error en ligne",
@@ -184,6 +218,7 @@ sub Set_Open_Data_CSV_Debug {
     # Set debug flag in supporting modules
     #
     CSV_Parser_Debug($debug);
+    Set_CSV_Column_Object_Debug($debug);
 }
 
 #**********************************************************************
@@ -318,12 +353,6 @@ sub Initialize_Test_Results {
     #
     $current_open_data_profile = $open_data_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
-    
-    #
-    # Initialize global variables
-    #
-    $last_csv_row_count = 0;
-    $last_csv_column_count = 0;
 }
 
 #***********************************************************************
@@ -367,7 +396,7 @@ sub Print_Error {
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column,, $text, $error_string ) = @_;
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
     my ($result_object);
 
@@ -514,13 +543,13 @@ sub Check_First_Data_Row {
 #
 # Name: Check_UTF8_BOM
 #
-# Parameters: tcsv_file - CSV file object
+# Parameters: csv_file - CSV file object
 #
 # Description:
 #
 #   This function reads the passed file object and checks to see
-# if a UTF-8 BOM is present.  If one is, the current reading position
-# is set to just after the BOM.  The avoids parsing errors with the
+# if a UTF-8 BOM is present.  If one is found, the current reading position
+# is set to just after the BOM.  This avoids parsing errors with the
 # file.
 #
 # UTF-8 BOM = $EF $BB $BF
@@ -558,7 +587,7 @@ sub Check_UTF8_BOM {
         #
         # Set reading position at character 3
         #
-        print "Skip over BOM xFEBBBF\n" if $debug;
+        print "Skip over BOM xEFBBBF\n" if $debug;
         seek($csv_file, 3, 0);
         $line = $csv_file->getline();
         print "line = \"$line\"\n" if $debug;
@@ -788,9 +817,479 @@ sub Run_CSV_Validator {
 
 #***********************************************************************
 #
+# Name: Check_List_Length
+#
+# Parameters: line - the row from the CSV file
+#             line_no - the line number from the CSV file
+#             field_number - the field number
+#             list_item_count - The coiunt of the number of items in the list
+#             list_item - The current list item
+#
+# Description:
+#
+#   This function checks the number of list items in the last list. A
+# list of 1 item must not include a list item prefix character.
+#
+#***********************************************************************
+sub Check_List_Length {
+    my ($line, $line_no, $field_number, $list_item_count, $list_item) = @_;
+
+    #
+    # If we had only 1 item in the list, we do not need a list
+    # item prefix character.
+    #
+    if ( $list_item_count == 1 ) {
+        print "Unnecessary list item prefix found for list of 1 item\n" if $debug;
+        Record_Result("OD_DATA", $line_no, $field_number, $line,
+                      String_Value("List item prefix character found for list of 1 item") .
+                      " \"$list_item\"");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Multi_Line_Field
+#
+# Parameters: line - the row from the CSV file
+#             line_no - the line number from the CSV file
+#             field - The entire content of the field
+#             field_number - the field number
+#             lines - The lines of text in the field
+#
+# Description:
+#
+#   This function checks fields the contains multiple lines of text.
+# It checks:
+#   if the first line is empty or contains only blanks
+#   if there are any headings, paragraphs or lists in the text
+#
+#***********************************************************************
+sub Check_Multi_Line_Field {
+    my ($line, $line_no, $field, $field_number, @lines) = @_;
+
+    my ($single_line, $i, $in_list, $list_item_prefix, $list_item_count);
+    my ($item_prefix, $blank_line_count, $in_list_item, $list_item);
+    my ($last_list_item, $list_type, $in_paragraph, $last_line);
+    my ($expect_heading);
+
+    #
+    # Is the first line an empty line, or consist of
+    # white space only?
+    #
+    print "Check_Multi_Line_Field line $line_no, column $field_number\n" if $debug;
+    print "Field contains " . scalar(@lines) . " lines\n" if $debug;
+    if ( $lines[0] =~ /^\s*$/ ) {
+        #
+        # Does the rest of the field contain characters other than
+        # white space, newline or carriage return?
+        #
+        $single_line = $field;
+        $single_line =~ s/\s|\n|\r//g;
+        if ( $single_line ne "" ) {
+            Record_Result("OD_DATA", $line_no, $field_number, $line,
+                          String_Value("Empty line as first line of multi-line field") .
+                          " #$field_number \"$field\"");
+            return;
+        }
+    }
+    
+    #
+    # Does the text appear to be a list ?
+    #
+    $in_list = 0;
+    $in_list_item = 0;
+    $list_item_prefix = "";
+    $list_item_count = 0;
+    $blank_line_count = 0;
+    $list_item = "";
+    $last_list_item = "";
+    $list_type = "";
+    $in_paragraph = 0;
+    $expect_heading = 0;
+    for ($i = 0; $i < @lines; $i++) {
+        #
+        # Get this line from the multi-line field value
+        $single_line = $lines[$i];
+        print "Line # $i \"$single_line\"\n" if $debug;
+        
+        #
+        # Is this a blank line?
+        #
+        if ( $single_line =~ /^\s*$/ ) {
+            #
+            # Increment blank line count.  Clear in list item and in
+            # paragraph flags.
+            #
+            $blank_line_count++;
+            $in_list_item = 0;
+            $in_paragraph = 0;
+            
+            #
+            # If the blank line count is 2, we should expect a heading
+            #
+            if ( $blank_line_count == 2 ) {
+                $expect_heading = 1;
+            }
+            
+            #
+            # Clear the last line of text
+            #
+            $last_line = "";
+            next;
+        }
+        #
+        # Is this an unordered list item? (i.e. starts with a dash,
+        # asterisk or bullet).
+        #
+        elsif ( $single_line =~ /^\s*([\-\*])\s+[^\s]+.*$/ ) {
+            #
+            # Are we expecing a heading (previous 2 lines were blank)
+            #
+            if ( $expect_heading ) {
+                print "Expecting a heading, found a list\n" if $debug;
+                Record_Result("OD_DATA", $line_no, $field_number, $line,
+                              String_Value("Expected a heading after 2 blank lines") .
+                              " " . String_Value("At line number") .
+                              " " . ($i + 1) . ". " .
+                              String_Value("found") . " \"$single_line\"");
+
+                #
+                # Clear heading flag and to to next line
+                #
+                $expect_heading = 0;
+            }
+            
+            #
+            # Found an unordered list, do we already have a list? and
+            # is it ordered?
+            #
+            print "Found unordered list item\n" if $debug;
+            if ( ($list_type ne "") && ($list_type eq "ordered") ) {
+                print "Found an unordered list item in an ordered list\n" if $debug;
+                Record_Result("OD_DATA", $line_no, $field_number, $line,
+                              String_Value("Found an unordered list item in an ordered list") .
+                              " " . String_Value("At line number") .
+                              " " . ($i + 1) . ". " .
+                              String_Value("List item value") . " \"$single_line\"");
+                next;
+            }
+            elsif ( $list_type eq "" ) {
+                $list_type = "unordered";
+            }
+            
+            #
+            # Get the list item prefix character
+            #
+            ($item_prefix) = $single_line =~ /^\s*([\-\*])\s+[^\s]+.*$/io;
+            
+            #
+            # Are we already inside a list? If so there should be
+            # one blank line between list items
+            #
+            if ( $in_list ) {
+                if ( $blank_line_count == 0 ) {
+                    print "No blank line between list items\n" if $debug;
+                    Record_Result("OD_DATA", $line_no, $field_number, $line,
+                                  String_Value("No blank line between list items") .
+                                  " " . String_Value("At line number") .
+                                  " " . ($i + 1) . ". " .
+                                  String_Value("List item value") . " \"$single_line\"");
+                }
+                elsif ( $blank_line_count == 2 ) {
+                    #
+                    # Only check if blank line count is 2.  If it is more than
+                    # 2, we would report an error for each blank line.
+                    #
+                    print "Have $blank_line_count blank lines between list items\n" if $debug;
+                    Record_Result("OD_DATA", $line_no, $field_number, $line,
+                                  String_Value("More than 1 blank line between list items") .
+                                  " " . String_Value("At line number") .
+                                  " " . ($i + 1) . ". " .
+                                  String_Value("List item value") . " \"$single_line\"");
+                }
+            }
+
+            #
+            # We are in a list and list item.  Increment list item count and
+            # reset blank line count.
+            #
+            $in_list = 1;
+            $list_item_count++;
+            $blank_line_count = 0;
+            $in_list_item = 1;
+            
+            #
+            # Set the last item content
+            #
+            if ( $list_item_count == 1 ) {
+                $last_list_item = "";
+            }
+            else {
+                $last_list_item = $list_item;
+            }
+        }
+        #
+        # Is this an ordered list item? (i.e. starts with a number,
+        # letter or roman numeral).
+        #
+        # Note: The roman numberal list test is limited to I to XXXIX
+        #       (1 to 39 items) to make the pattern easier.
+        #
+        elsif ( ($single_line =~ /^\s*(\d+[\.\)])\s+[^\s]+.*$/) ||
+                ($single_line =~ /^\s*([A-Z]+[\.\)])\s+[^\s]+.*$/i) ||
+                ($single_line =~ /^\s*([ivx]+[\.\)])\s+[^\s]+.*$/i) ) {
+            #
+            # Are we expecing a heading (previous 2 lines were blank)
+            #
+            if ( $expect_heading ) {
+                print "Expecting a heading, found a list\n" if $debug;
+                Record_Result("OD_DATA", $line_no, $field_number, $line,
+                              String_Value("Expected a heading after 2 blank lines") .
+                              " " . String_Value("At line number") .
+                              " " . ($i + 1) . ". " .
+                              String_Value("found") . " \"$single_line\"");
+
+                #
+                # Clear heading flag and to to next line
+                #
+                $expect_heading = 0;
+            }
+
+            #
+            # Found an ordered list, do we already have a list? and
+            # is it unordered?
+            #
+            print "Found ordered list item\n" if $debug;
+            if ( ($list_type ne "") && ($list_type eq "unordered") ) {
+                print "Found an ordered list item in an unordered list\n" if $debug;
+                Record_Result("OD_DATA", $line_no, $field_number, $line,
+                              String_Value("Found an ordered list item in an unordered list") .
+                              " " . String_Value("At line number") .
+                              " " . ($i + 1) . ". " .
+                              String_Value("List item value") . " \"$single_line\"");
+                next;
+            }
+            elsif ( $list_type eq "" ) {
+                $list_type = "ordered";
+            }
+
+            #
+            # Get the list item prefix characters. Try numbered list first
+            #
+            $item_prefix = "";
+            if ( $single_line =~ /^\s*(\d+[\.\)])\s+[^\s]+.*$/ ) {
+                $item_prefix = "digits";
+            }
+
+            #
+            # Try lettered list.
+            #
+            if ( $single_line =~ /^\s*([A-Z]+[\.\)])\s+[^\s]+.*$/ ) {
+                $item_prefix = "letters";
+            }
+
+            #
+            # Try roman numeral list.
+            #
+            if ( $single_line =~ /^\s*([ivx]+[\.\)])\s+[^\s]+.*$/ ) {
+                $item_prefix = "roman";
+            }
+            print "List item prefix type is $item_prefix\n" if $debug;
+
+            #
+            # Are we already inside a list? If so there should be
+            # one blank line between list items
+            #
+            if ( $in_list ) {
+                if ( $blank_line_count == 0 ) {
+                    print "No blank line between list items\n" if $debug;
+                    Record_Result("OD_DATA", $line_no, $field_number, $line,
+                                  String_Value("No blank line between list items") .
+                                  " " . String_Value("At line number") .
+                                  " " . ($i + 1) . ". " .
+                                  String_Value("List item value") . " \"$single_line\"");
+                }
+                elsif ( $blank_line_count == 2 ) {
+                    #
+                    # Only check if blank line count is 2.  If it is more than
+                    # 2, we would report an error for each blank line.
+                    #
+                    print "Have $blank_line_count blank lines between list items\n" if $debug;
+                    Record_Result("OD_DATA", $line_no, $field_number, $line,
+                                  String_Value("More than 1 blank line between list items") .
+                                  " " . String_Value("At line number") .
+                                  " " . ($i + 1) . ". " .
+                                  String_Value("List item value") . " \"$single_line\"");
+                }
+            }
+
+            #
+            # We are in a list and list item.  Increment list item count and
+            # reset blank line count.
+            #
+            $in_list = 1;
+            $list_item_count++;
+            $blank_line_count = 0;
+            $in_list_item = 1;
+
+            #
+            # Set the last item content
+            #
+            if ( $list_item_count == 1 ) {
+                $last_list_item = "";
+            }
+            else {
+                $last_list_item = $list_item;
+            }
+        }
+        else {
+            #
+            # If we are in a list item, appeand this text to the list item
+            #
+            if ( $in_list_item ) {
+                $list_item .= "\n$single_line";
+                next;
+            }
+            #
+            # Are we inside of a list ?
+            #
+            elsif ( $in_list ) {
+                #
+                # Not in a list item, but in a list.  The list has ended,
+                # this text may be a heading or the beginning of a paragraph.
+                #
+                $in_list = 0;
+                $list_type = "";
+                print "End of list encountered\n" if $debug;
+                Check_List_Length($line, $line_no, $field_number,
+                                  $list_item_count, $list_item);
+            }
+            #
+            # Was the last line text also? If so we are inside a paragraph
+            #
+            elsif ( $last_line ne "" ) {
+                #
+                # Are we expecing a heading (previous 2 lines were blank)
+                #
+                if ( $expect_heading ) {
+                    print "Expecting a heading, found a paragraph\n" if $debug;
+                    Record_Result("OD_DATA", $line_no, $field_number, $line,
+                                  String_Value("Heading must be a single line") .
+                                  ", " . String_Value("found") .
+                                  " \n\"$last_line\n$single_line\"\n" .
+                                  String_Value("At line number") .
+                                  " " . ($i + 1));
+
+                    #
+                    # Clear heading flag
+                    #
+                    $expect_heading = 0;
+                }
+
+                #
+                # Inside a paragraph
+                #
+                $in_paragraph = 1;
+            }
+            else {
+                #
+                # Not in a list, ignore this line of text.
+                #
+            }
+            
+            #
+            # Save this line of text and clean the blank line count
+            #
+            $last_line = $single_line;
+            $blank_line_count = 0;
+        }
+        
+        #
+        # If this is the first list item, set the list item prefix character
+        #
+        if ( $in_list_item && ($list_item_count == 1) ) {
+            $list_item_prefix = $item_prefix;
+            print "Start of list, item prefix is \"$item_prefix\"\n" if $debug;
+        }
+        #
+        # Not first list item, check that this item prefix matches the
+        # expected list item prefix.
+        #
+        elsif ( $in_list_item && ($item_prefix ne $list_item_prefix) ) {
+            print "Inconsistent list item prefix at item #$list_item_count, expecting \"$list_item_prefix\" found \"$item_prefix\"\n" if $debug;
+            Record_Result("OD_DATA", $line_no, $field_number, $line,
+                          String_Value("Inconsistent list item prefix, found") .
+                          " \"$item_prefix\" " . String_Value("expecting") .
+                          " \"$list_item_prefix\". " .
+                          String_Value("At line number") .
+                          " " . ($i + 1) . ". " .
+                          String_Value("List item value") . " \"$single_line\"");
+        }
+    }
+    
+    #
+    # Are we still in a list? (list is the only content in the field).
+    # Check the number of list items, if we have only 1, we don't
+    # need a list item prefix character.
+    #
+    if ( $in_list ) {
+        print "Field only contains a list with $list_item_count items using prefix \"$list_item_prefix\"\n" if $debug;
+        
+        #
+        # If we had only 1 item in the list, we do not need a list
+        # item prefix character.
+        #
+        Check_List_Length($line, $line_no, $field_number,
+                          $list_item_count, $list_item);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Single_Line_Field
+#
+# Parameters: line - the row from the CSV file
+#             line_no - the line number from the CSV file
+#             field - The entire content of the field
+#             field_number - the field number
+#
+# Description:
+#
+#   This function checks fields the contains single lines of text.
+# It checks:
+#   if a list item prefix appears on the line
+#
+#***********************************************************************
+sub Check_Single_Line_Field {
+    my ($line, $line_no, $field, $field_number) = @_;
+
+    my ($single_line, $i, $in_list, $list_item_prefix, $list_item_count);
+    my ($item_prefix, $blank_line_count, $in_list_item, $list_item);
+    my ($last_list_item);
+
+    #
+    # Is this an unordered list item? (i.e. starts with a dash,
+    # asterisk or bullet).
+    #
+    print "Check_Single_Line_Field line $line_no, column $field_number\n" if $debug;
+    if ( $field =~ /^\s*([\-\*])\s+[^\s]+.*$/ ) {
+        #
+        # Get the list item prefix character
+        #
+        ($item_prefix) = $field =~ /^\s*([\-\*])\s+[^\s]+.*$/io;
+        print "Unnecessary list item prefix found for list of 1 items\n" if $debug;
+            Record_Result("OD_DATA", $line_no, $field_number, $line,
+                          String_Value("List item prefix character found for list of 1 item") .
+                          " \"$field\"");
+    }
+}
+
+#***********************************************************************
+#
 # Name: Open_Data_CSV_Check_Data
 #
 # Parameters: this_url - a URL
+#             data_file_object - a data file object pointer
 #             profile - testcase profile
 #             filename - CSV content file
 #             dictionary - address of a hash table for data dictionary
@@ -801,16 +1300,17 @@ sub Run_CSV_Validator {
 #
 #***********************************************************************
 sub Open_Data_CSV_Check_Data {
-    my ($this_url, $profile, $filename, $dictionary) = @_;
+    my ($this_url, $data_file_object, $profile, $filename, $dictionary) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($line, @fields, $line_no, $status, $found_fields, $field_count);
     my ($csv_file, $csv_file_name, $rows, $message, $content);
     my ($row_content, $eval_output, @headings, $i, $regex, $heading, $data);
-    my ($have_regex, $have_bom, %row_checksum, $checksum);
+    my ($have_bom, %row_checksum, $checksum);
     my (%duplicate_columns, %duplicate_columns_flag, $j, $this_field);
     my ($duplicate_columns_ptr, $duplicate_column_list, $other_heading);
-    my (%blank_zero_column_flag, $parse_error_reported);
+    my (%blank_zero_column_flag, $parse_error_reported, @lines);
+    my (@cvs_columns, $column_object);
 
     #
     # Do we have a valid profile ?
@@ -841,6 +1341,11 @@ sub Open_Data_CSV_Check_Data {
     Initialize_Test_Results($profile, \@tqa_results_list);
 
     #
+    # Save the list of CSV column heading objects for this URL
+    #
+    $data_file_object->attribute($column_list_attribute, \@cvs_columns);
+
+    #
     # Open the CSV file for reading.
     #
     print "Open CSV file $filename\n" if $debug;
@@ -869,7 +1374,7 @@ sub Open_Data_CSV_Check_Data {
     $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
     $line_no = 0;
     $parse_error_reported = 0;
-    while ( $eval_output && defined($rows) && ( ! $parser->eof()) ) {
+    while ( $eval_output && defined($rows) ) {
         #
         # Increment record/line number
         #
@@ -897,6 +1402,44 @@ sub Open_Data_CSV_Check_Data {
         }
 
         #
+        # Check each field to see if it is a multi-line fields with the
+        # first line being either empty or containg white space only.
+        # If the first line is white space, some spreadsheet programs
+        # (e.g. Excel) may display the cell as being empty, leading the
+        # user to believe there is no content in the cell.
+        #
+        $line = join(",",@fields);
+        $field_count = @fields;
+        for ($i = 0; $i < $field_count; $i++) {
+            #
+            # Split the field value on newline
+            #
+            @lines = split(/\n/, $fields[$i]);
+            #print "Field # $i, value = \"" . $fields[$i] . "\"\n" if $debug;
+
+            #
+            # Do we have exactly 1 line in this field?
+            #
+            if ( @lines == 1 ) {
+                #
+                # Perform single-line field content checks
+                #
+                Check_Single_Line_Field($line, $line_no, $fields[$i],
+                                        ($i + 1));
+            }
+            #
+            # Do we have more than 1 line in this field?
+            #
+            elsif ( @lines > 1 ) {
+                #
+                # Perform multi-line field content checks
+                #
+                Check_Multi_Line_Field($line, $line_no, $fields[$i],
+                                       ($i + 1), @lines);
+            }
+        }
+
+        #
         # Is this the first row ? If so check for a possible heading
         # row (i.e. the field values are the dictionary terms)
         #
@@ -906,39 +1449,42 @@ sub Open_Data_CSV_Check_Data {
             #
             # Set the number of expected fields
             #
-            $field_count = @fields;
-            $last_csv_column_count = $field_count;
             print "Expected fields count = $field_count\n" if $debug;
+            $data_file_object->attribute($column_count_attribute, $field_count);
+
             
             #
             # Initialize the blank/zero column flag. This is used to track
             # whether or not the column contains any non-blank/non-zero data.
+            # Create csv_column objects to track the column content type,
+            # and the number of non blank cells.
             #
             for ($i = 0; $i < $field_count; $i++) {
                 $blank_zero_column_flag{$i} = 1;
+                
+                #
+                # Do we have a column heading?
+                #
+                if ( defined($headings[$i]) ) {
+                    $heading = $headings[$i];
+                    $heading = $heading->term;
+                }
+                else {
+                    $heading = "Column " . ($i + 1);
+                }
+                
+                #
+                # Create a column object
+                #
+                $column_object = csv_column_object->new($heading);
+                push(@cvs_columns, $column_object);
             }
             
             #
             # If we did find a heading row, skip to the next (data) row
             #
-            $have_regex = 0;
             if ( @headings > 0 ) {
                 print "Have headings\n" if $debug;
-                
-                #
-                # Do any of the headings have data regular expression patterns ?
-                #
-                foreach $heading (@headings) {
-                    $regex = $heading->regex();
-                    if ( $regex ne "" ) {
-                        $have_regex = 1;
-                        last;
-                    }
-                }
-
-                #
-                # Get next line from the CSV file
-                #
                 $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
                 next;
             }
@@ -984,13 +1530,81 @@ sub Open_Data_CSV_Check_Data {
             next;
         }
         #
-        # Do we have data regular expressions ? If so check data quality
+        # Check data quality, content type and blank cells.
+        # We don't do the checks for the first row in case it
+        # is a heading row (and we have no data dictionary, so we
+        # are unable to detect it as a heading row).
         #
-        elsif ( $have_regex ) {
-            for ($i = 0; $i < @headings; $i++) {
-                $heading = $headings[$i];
+        elsif ( $line_no > 1 ) {
+            for ($i = 0; $i < $field_count; $i++) {
+                #
+                # Get the data value and the column object.
+                #
                 $data = $fields[$i];
-                $regex = $heading->regex();
+                $column_object = $cvs_columns[$i];
+                
+                #
+                # Does this appear to be numeric data (integer)?
+                #
+                if ( $data =~ /^\s*\-?\d+\s*$/ ) {
+                    if ( $column_object->type() eq "" ) {
+                        $column_object->type("numeric");
+                    }
+
+                    #
+                    # Add the current value to the column sum.
+                    #
+                    if ( $column_object->type() eq "numeric" ) {
+                        $column_object->sum($data);
+                    }
+                }
+                #
+                # Does this appear to be numeric data (float)?
+                #
+                elsif ( $data =~ /^\s*\-?\d*\.\d+\s*$/ ) {
+                    if ( $column_object->type() eq "" ) {
+                        $column_object->type("numeric");
+                    }
+
+                    #
+                    # Add the current value to the column sum.
+                    #
+                    if ( $column_object->type() eq "numeric" ) {
+                        $column_object->sum($data);
+                    }
+                }
+                #
+                # Blank field, skip it.
+                #
+                elsif ( $data =~ /^[\s\n\r]*$/ ) {
+                }
+                #
+                # Text field
+                #
+                else {
+                    $column_object->increment_non_blank_cell_count();
+                    $column_object->type("text");
+                }
+                print "Column data = \"$data\", type = " . $column_object->type() .
+                      "\n" if $debug;
+                
+                #
+                # If the cell is not blank, increment the non-blank count
+                #
+                if ( ! ($data =~ /^[\s\n\r]*$/) ) {
+                    $column_object->increment_non_blank_cell_count();
+                }
+
+                #
+                # Do we have a heading object for this field?
+                #
+                if ( defined($headings[$i]) ) {
+                    $heading = $headings[$i];
+                    $regex = $heading->regex();
+                }
+                else {
+                    $regex = "";
+                }
                 
                 #
                 # Do we have a regular expression pattern for this heading ?
@@ -1132,7 +1746,6 @@ sub Open_Data_CSV_Check_Data {
     #
     # Did we get a runtime error ?
     #
-    $last_csv_row_count = $line_no;
     if ( (! $eval_output) && (! $parse_error_reported) ) {
         print STDERR "parser->getrow fail, eval_output = \"$@\"\n";
         print "parser->getrow fail, eval_output = \"$@\"\n" if $debug;
@@ -1160,6 +1773,11 @@ sub Open_Data_CSV_Check_Data {
         Record_Result("OD_VAL", -1, 0, "", String_Value("No content in file"));
     }
     close($csv_file);
+    
+    #
+    # Save the row count
+    #
+    $data_file_object->attribute($row_count_attribute, $line_no);
     
     #
     # Check columns for duplicates, only if we have at least 10 rows of data
@@ -1252,69 +1870,13 @@ sub Open_Data_CSV_Check_Data {
 
 #***********************************************************************
 #
-# Name: Open_Data_CSV_Check_Get_Row_Count
-#
-# Parameters: this_url - a URL
-#
-# Description:
-#
-#   This function runs the number of rows found in the last CSV file
-# analysed.
-#
-#***********************************************************************
-sub Open_Data_CSV_Check_Get_Row_Count {
-    my ($this_url) = @_;
-
-    #
-    # Check that the last URL process matches the one requested
-    #
-    if ( $this_url eq $current_url ) {
-        print "Open_Data_CSV_Check_Get_Row_Count url = $this_url, row count = $last_csv_row_count\n" if $debug;
-        return($last_csv_row_count);
-    }
-    else {
-        print "Error: Open_Data_CSV_Check_Get_Row_Count url = $this_url, current_url = $current_url\n"if $debug;
-        return(-1);
-    }
-}
-
-#***********************************************************************
-#
-# Name: Open_Data_CSV_Check_Get_Column_Count
-#
-# Parameters: this_url - a URL
-#
-# Description:
-#
-#   This function runs the number of columns found in the last CSV file
-# analysed.
-#
-#***********************************************************************
-sub Open_Data_CSV_Check_Get_Column_Count {
-    my ($this_url) = @_;
-
-    #
-    # Check that the last URL process matches the one requested
-    #
-    if ( $this_url eq $current_url ) {
-        print "Open_Data_CSV_Check_Get_Column_Count url = $this_url, row count = $last_csv_row_count\n" if $debug;
-        return($last_csv_column_count);
-    }
-    else {
-        print "Error: Open_Data_CSV_Check_Get_Column_Count url = $this_url, current_url = $current_url\n"if $debug;
-        return(-1);
-    }
-}
-
-#***********************************************************************
-#
 # Name: Open_Data_CSV_Check_Get_Headings_List
 #
 # Parameters: this_url - a URL
 #
 # Description:
 #
-#   This function runs the headings lsit found in the last CSV file
+#   This function returns the headings list found in the last CSV file
 # analysed.
 #
 #***********************************************************************
@@ -1329,9 +1891,57 @@ sub Open_Data_CSV_Check_Get_Headings_List {
         return($last_csv_headings_list);
     }
     else {
-        print "Error: Open_Data_CSV_Check_Get_Headings_List url = $this_url, current_url = $current_url\n"if $debug;
         return("");
     }
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_CSV_Check_Get_Row_Column_Counts
+#
+# Parameters: data_file_object - a data_file_object pointer
+#
+# Description:
+#
+#   This function returns the number of rows and columns
+# found in a CSV file.
+#
+#***********************************************************************
+sub Open_Data_CSV_Check_Get_Row_Column_Counts {
+    my ($data_file_object) = @_;
+
+    my ($rows, $columns) = (0, 0);
+
+    #
+    # Get the row and column coiunt attributes
+    #
+    $columns = $data_file_object->attribute($column_count_attribute);
+    $rows = $data_file_object->attribute($row_count_attribute);
+    return($rows, $columns);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_CSV_Check_Get_Column_Object_List
+#
+# Parameters: data_file_object - a data_file_object pointer
+#
+# Description:
+#
+#   This function returns the list of column objects for the specified
+# data file object.
+#
+#***********************************************************************
+sub Open_Data_CSV_Check_Get_Column_Object_List {
+    my ($data_file_object) = @_;
+
+    my ($column_list);
+
+    #
+    # Get the column list attribute
+    #
+    $column_list = $data_file_object->attribute($column_list_attribute);
+    return($column_list);
 }
 
 #***********************************************************************
