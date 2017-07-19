@@ -149,60 +149,60 @@ my ($metadata_error)        = 1;
 # String table for error strings.
 #
 my %string_table_en = (
-    "Year", "Year ",
-    "out of range 1900-2100", " out of range 1900-2100",
-    "Month", "Month ",
-    "out of range 1-12", " out of range 1-12",
-    "Date", "Date ",
-    "out of range 1-31", " out of range 1-31",
-    "Date value", "Date value ",
-    "not in YYYY-MM-DD format", " not in YYYY-MM-DD format",
-    "Email address", "Email address ",
-    "is not valid", " is not valid",
-    "Invalid term", "Invalid term(s) ",
-    "Missing tag", "Missing tag: ",
-    "Missing content", "Missing content: ",
+    "and",             "and",
+    "date",            "date ",
+    "Date",            "Date ",
+    "Date after",      "Date after",
+    "Date prior to",   "Date prior to",
+    "Date value",      "Date value ",
+    "do not match",    "do not match",
+    "Email address",   "Email address ",
+    "for scheme",      " for scheme",
+    "for attribute",   " for attribute ",
     "Invalid content", "Invalid content: ",
-    "Invalid scheme", "Invalid scheme: ",
-    "and",            "and",
-    "do not match", "do not match",
-    "Metadata tag", "Metadata tag",
-    "for scheme", " for scheme",
-    "for attribute", " for attribute ",
-    "and", "and",
-    "Date after", "Date after",
-    "Date prior to", "Date prior to",
-    "date", "date ",
+    "Invalid scheme",  "Invalid scheme: ",
+    "Invalid separator for terms, found comma, expecting semicolon", "Invalid separator for terms, found comma, expecting semicolon",
+    "Invalid term",    "Invalid term(s) ",
+    "is not valid",    " is not valid",
+    "Metadata tag",    "Metadata tag",
+    "Missing content", "Missing content: ",
+    "Missing tag",     "Missing tag: ",
+    "Month",           "Month ",
+    "not in YYYY-MM-DD format", " not in YYYY-MM-DD format",
+    "out of range 1-12", " out of range 1-12",
+    "out of range 1-31", " out of range 1-31",
+    "out of range 1900-2100", " out of range 1900-2100",
+    "Year",           "Year ",
     );
 
 #
 # String table for error strings (French).
 #
 my %string_table_fr = (
-    "Year", "Année ",
-    "out of range 1900-2100", " hors de portée 1900-2000",
-    "Month", "Mois ",
-    "out of range 1-12", " hors de portée 1-12",
-    "Date", "Date ",
-    "out of range 1-31", " hors de portée 1-31",
-    "Date value", "Valeur à la date ",
-    "not in YYYY-MM-DD format", " pas au format AAAA-MM-DD",
-    "Email address", "Adresse e-mail ",
-    "is not valid", " n'est pas valide",
-    "Invalid term", "Invalides terme ",
-    "Missing tag", "Manquants balise: ",
-    "Missing content", "Manque de contenu: ",
+    "and",            "et",
+    "date",           "date ",
+    "Date",           "Date ",
+    "Date after",     "Date après",
+    "Date prior to",  "Date antérieure à",
+    "Date value",     "Valeur à la date ",
+    "do not match",   "ne correspondent pas",
+    "Email address",  "Adresse e-mail ",
+    "for attribute",  " pour attribute ",
+    "for scheme",     " pour scheme",
     "Invalid content", "Contenu non valide: ",
     "Invalid scheme", "Scheme non valide: ",
-    "and",            "et",
-    "do not match", "ne correspondent pas",
-    "Metadata tag", "Balise de métadonnées",
-    "for scheme", " pour scheme",
-    "for attribute", " pour attribute ",
-    "and", "et",
-    "Date after", "Date après",
-    "Date prior to", "Date antérieure à",
-    "date", "date ", 
+    "Invalid separator for terms, found comma, expecting semicolon", "Séparateur invalide pour les termes, trouvé virgule, en attendant un point-virgule",
+    "Invalid term",   "Invalides terme ",
+    "is not valid",   " n'est pas valide",
+    "Missing content", "Manque de contenu: ",
+    "Metadata tag",   "Balise de métadonnées",
+    "Missing tag",    "Manquants balise: ",
+    "Month",          "Mois ",
+    "not in YYYY-MM-DD format", " pas au format AAAA-MM-DD",
+    "out of range 1-12", " hors de portée 1-12",
+    "out of range 1-31", " hors de portée 1-31",
+    "out of range 1900-2100", " hors de portée 1900-2000",
+    "Year",           "Année ",
     );
 
 #
@@ -1017,6 +1017,21 @@ sub DC_Subject_Content_Check {
         # No thesaurus or not English or French
         #
         print "Not English or French language ($language) or no thesaurus for dc.subject scheme $scheme\n" if $debug;
+        return($status, $message);
+    }
+    
+    #
+    # Check for a comma in the content.  The separator is supposed to
+    # be a semicolon.
+    #
+    if ( index($content, ",") != -1 ) {
+        $status = $metadata_error;
+        $message = String_Value("Invalid separator for terms, found comma, expecting semicolon");
+        print "$message\n" if $debug;
+
+        #
+        # Return status
+        #
         return($status, $message);
     }
 
