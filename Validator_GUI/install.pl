@@ -960,6 +960,40 @@ sub Check_Perl {
             Exit_With_Pause(1);
         }
     }
+    elsif ( $version =~ /This is perl/i ) {
+        #
+        # Check major and minor version numbers
+        #
+        ($major, $minor) = $] =~ /^(\d+)\.(\d\d\d).*$/;
+        Write_To_Log("Perl $major.$minor installed on system");
+        if ( $major != 5 ) {
+            Write_To_Log("Unsupported Perl version $major.$minor");
+            print "\n*****\n";
+            print "Unsupported Perl version $major.$minor\n";
+            print "\n*****\n";
+            Exit_With_Pause(1);
+        }
+        elsif ( $minor < 18 ) {
+            Write_To_Log("Unsupported Perl version $major.$minor");
+            print "\n*****\n";
+            print "Unsupported Perl version $major.$minor\n";
+            print "\n*****\n";
+            Exit_With_Pause(1);
+        }
+        
+        #
+        # Check for possible 64 bit installation.  The Win32::GUI
+        # module will not install on a 64 bit installation.
+        #
+        if ( $version =~ /MSWin32-x64/i ) {
+            Write_To_Log("Unsupported 64 bit Perl installation");
+            print "\n*****\n";
+            print "Unsupported Perl 64 bit Perl installation\n";
+            print "  Version = $version\n";
+            print "\n*****\n";
+            Exit_With_Pause(1);
+        }
+    }
     else {
         $perl_install = "";
     }
