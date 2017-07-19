@@ -2,9 +2,9 @@
 //
 // Name: markup_server.js
 //
-// $Revision: 301 $
+// $Revision: 390 $
 // $URL: svn://10.36.20.203/Crawler/Tools/markup_server.js $
-// $Date: 2017-03-15 12:59:37 -0400 (Wed, 15 Mar 2017) $
+// $Date: 2017-07-04 13:41:20 -0400 (Tue, 04 Jul 2017) $
 //
 // Synopsis: phantomjs markup_server.js <port> -debug
 //
@@ -60,7 +60,7 @@ var resourceWait = 500,
     forcedRenderTimeout,
     renderTimeout,
     get_pageTimeout,
-    t,
+    t, n,
     start_time, now,
     arg,
     arg_count,
@@ -514,16 +514,20 @@ service = server.listen(port, function(request, response) {
 
     // Are we getting a web page
     if (parser.pathname === '/GET') {
-        // Get the query string, it contains the URL to get.
-        url = parser.search;
-
         // Look for a url, page_image and get_computed_styles variable in the query string
-        url = getParameterByName('url', parser.href);
         page_image_file_name = getParameterByName('page_image', parser.href);
         get_computed_styles = getParameterByName('get_computed_styles', parser.href);
+        url = parser.href;
+        n = url.indexOf("url=");
+        if (n === -1) {
+            url = "";
+        } else {
+            url = url.substring(n + 4);
+        }
         if (debug === 1) {
-            console.log('Get url = ' + url + ' get_computed_styles ' +
-                get_computed_styles + ' page_image = ' + page_image_file_name);
+            console.log('Get url = ' + url);
+            console.log('    get_computed_styles ' + get_computed_styles);
+            console.log('    page_image = ' + page_image_file_name);
         }
 
         // Did we find a URL parameter?
