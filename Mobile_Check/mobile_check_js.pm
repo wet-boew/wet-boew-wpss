@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check_js.pm
 #
-# $Revision: 167 $
+# $Revision: 386 $
 # $URL: svn://10.36.20.203/Mobile_Check/Tools/mobile_check_js.pm $
-# $Date: 2016-12-21 08:15:44 -0500 (Wed, 21 Dec 2016) $
+# $Date: 2017-07-04 13:36:30 -0400 (Tue, 04 Jul 2017) $
 #
 # Description:
 #
@@ -100,15 +100,15 @@ my ($check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
-    "Comment percentage",            "Comment percentage",
+    "Comment percentage",            "JavaScript comment percentage",
     "exceeds maximum",               "exceeds maximum",
-    "Whitespace percentage",         "Whitespace percentage",
+    "Whitespace percentage",         "JavaScript whitespace percentage",
     );
 
 my %string_table_fr = (
-    "Comment percentage",            "Pourcentage de commentaires de code",
+    "Comment percentage",            "Pourcentage de commentaires de code dans JavaScript",
     "exceeds maximum",               "supérieure maximale",
-    "Whitespace percentage",         "Pourcentage de caractères d'espacement",
+    "Whitespace percentage",         "Pourcentage de caractères d'espacement dans JavaScript",
     );
 
 #
