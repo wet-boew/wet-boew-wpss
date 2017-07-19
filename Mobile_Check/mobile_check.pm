@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 167 $
+# $Revision: 391 $
 # $URL: svn://10.36.20.203/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2016-12-21 08:15:44 -0500 (Wed, 21 Dec 2016) $
+# $Date: 2017-07-04 13:42:07 -0400 (Tue, 04 Jul 2017) $
 #
 # Description:
 #
@@ -147,6 +147,7 @@ my %string_table_en = (
     "JS link found in <head>",       "JavaScript link found in <head>",
     "JS link not near end of <body>",   "JavaScript link not near end of <body>",
     "link count",                    "link count",
+    "Mime type of favicon is not image", "Mime type of favicon is not image",
     "No content in supporting file", "No content in supporting file",
     "No Etag or Last-Modified header field", "No Etag or Last-Modified header field",
     "No Expires or Cache-Control header field", "No Expires or Cache-Control header field.",
@@ -172,6 +173,7 @@ my %string_table_fr = (
     "JS link found in <head>",       "lien JavaScript qui se trouve dans la balise <head>",
     "JS link not near end of <body>",   "lien javascript pas vers la fin de la balise <body>",
     "link count",                    "nombre de liens",
+    "Mime type of favicon is not image", "Mime type de favicon n'est pas image",
     "No content in supporting file", "Aucun contenu dans le fichier de support",
     "No Etag or Last-Modified header field", "Aucune Etag ou un champ d'en-tête de Last-Modified",
     "No Expires or Cache-Control header field", "Aucune Expire ou un champ d'en-tête de Cache-Control.",
@@ -936,9 +938,10 @@ sub Check_Favicon_Link {
 
     my ($section, $list_addr, $link, $resp, %attr, $favicon_url);
     my ($protocol, $domain, $file_path, $query, $new_url, $size);
+    my ($header, $mime_type, @favicon_list);
 
     #
-    # Check links in head section for a favicon/shortcut icon
+    # Check links in head section for a favicon/shortcut icons.
     #
     print "Check_Favicon_Link\n" if $debug;
     if ( defined($$link_sets{"HEAD"}) ) {
@@ -968,10 +971,11 @@ sub Check_Favicon_Link {
                 print "Found link, rel = \"" . $attr{"rel"} . "\"\n" if $debug;
                 if ( defined($attr{"rel"}) &&
                      (($attr{"rel"} =~ /^shortcut icon$/i) ||
-                      ($attr{"rel"} =~ /^icon$/i))  ) {
-                    print "Found favicon\n" if $debug;
+                      ($attr{"rel"} =~ /^icon$/i) ||
+                      ($attr{"rel"} =~ /^apple-touch-icon$/i)) ) {
                     $favicon_url = $link->abs_url;
-                    last;
+                    print "Found favicon $favicon_url\n" if $debug;
+                    push(@favicon_list, $favicon_url);
                 }
             }
         }
@@ -980,51 +984,72 @@ sub Check_Favicon_Link {
     #
     # Did we find a favicon URL ?
     #
-    if ( ! defined($favicon_url) ) {
+    if ( @favicon_list == 0 ) {
         #
         # No favicon specified, use domain/favicon.ico as the default
         #
         ($protocol, $domain, $file_path, $query, $new_url) = URL_Check_Parse_URL($url);
         $favicon_url = $protocol . $domain . "/favicon.ico";
+        push(@favicon_list, $favicon_url);
     }
         
     #
-    # Get the favicon URL if we have not already seen it
+    # Check all favicons
     #
-    print "Check favicon $favicon_url\n" if $debug;
-    if ( ! defined($favicon_urls{$favicon_url}) ) {
-        ($new_url, $resp) = Crawler_Get_HTTP_Response($favicon_url, $url);
-        $favicon_urls{$favicon_url} = $favicon_url;
-        
+    foreach $favicon_url (@favicon_list) {
         #
-        # Is this a broken link ?
+        # Get the favicon URL if we have not already seen it
         #
         print "Check favicon $favicon_url\n" if $debug;
-        if ( defined($resp) && ($resp->code == 404) ) {
-            Record_Result("FAVICON", -1, -1, "",
-                          String_Value("Broken link to favicon") .
-                          " \"$favicon_url\"");
-        }
-        elsif ( defined($resp) ) {
-            #
-            # Is the favicon cacheable ?
-            #
-            Check_Expires_Cache_Control_Header($favicon_url, "FAVICON",
-                                               " " . String_Value("Favicon URL") .
-                                               " $favicon_url",
-                                               $resp);
+        if ( ! defined($favicon_urls{$favicon_url}) ) {
+            print "Get favicon\n" if $debug;
+            ($new_url, $resp) = Crawler_Get_HTTP_Response($favicon_url, $url);
+            $favicon_urls{$favicon_url} = $favicon_url;
         
             #
-            # Check size of favicon
+            # Is this a broken link ?
             #
-            $size = length($resp->content);
-            if ( defined($favicon_size) && ($size > $favicon_size) ) {
+            if ( defined($resp) && ($resp->code == 404) ) {
+                Record_Result("FAVICON", -1, -1, "",
+                              String_Value("Broken link to favicon") .
+                              " \"$favicon_url\"");
+            }
+            elsif ( defined($resp) ) {
+                #
+                # Is the mime-type of the favicon set to image?
+                #
+                $header = $resp->headers;
+                $mime_type = $header->content_type;
+                if ( defined($mime_type) && ($mime_type =~ /^image\/.*$/) ) {
+                    print "Have mime type of $mime_type\n" if $debug;
+                }
+                else {
+                    print "Mime type is not image $mime_type\n" if $debug;
                     Record_Result("FAVICON", -1, -1, "",
-                                  String_Value("Favicon image size") .
-                                  " $size " .
-                                  String_Value("for") . " $favicon_url " .
-                                  String_Value("exceeds maximum acceptable value") .
-                                  " $favicon_size");
+                                  String_Value("Mime type of favicon is not image") .
+                                  " mime-type=\"$mime_type\", favicon=\"$favicon_url\"");
+                }
+        
+                #
+                # Is the favicon cacheable ?
+                #
+                Check_Expires_Cache_Control_Header($favicon_url, "FAVICON",
+                                                   " " . String_Value("Favicon URL") .
+                                                   " $favicon_url",
+                                                   $resp);
+        
+                #
+                # Check size of favicon
+                #
+                $size = length($resp->content);
+                if ( defined($favicon_size) && ($size > $favicon_size) ) {
+                        Record_Result("FAVICON", -1, -1, "",
+                                      String_Value("Favicon image size") .
+                                      " $size " .
+                                      String_Value("for") . " $favicon_url " .
+                                      String_Value("exceeds maximum acceptable value") .
+                                      " $favicon_size");
+                }
             }
         }
     }
