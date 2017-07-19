@@ -665,7 +665,7 @@ my (%non_word_boundary_tag) = (
 # Set of tags who's text is not included in it's containers text
 #
 my (%tag_content_not_included_in_parent) = (
-    "summary", 1,
+#    "summary", 1,
 );
 
 #
