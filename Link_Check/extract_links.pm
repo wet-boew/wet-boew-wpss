@@ -2733,7 +2733,7 @@ sub End_Handler {
 sub HTML_Extract_Links {
     my ( $this_url, $this_base, $this_lang, $content ) = @_;
 
-    my ( $parser, $i, @link_objects, $link );
+    my ($parser, $i, @link_objects, $link, $link_addr, $subsection_name);
 
     #
     # Save addresses of link object array in a global variable.
@@ -2783,6 +2783,34 @@ sub HTML_Extract_Links {
     # Parse the content.
     #
     $parser->parse($$content);
+
+    #
+    # Print out each sections link set
+    #
+    if ( $debug ) {
+        foreach $subsection_name (sort(keys %subsection_links)) {
+            print "Extract_Links::HTML_Extract_Links, subsection = $subsection_name\n";
+            if ( defined($subsection_links{$subsection_name}) ) {
+                $link_addr = $subsection_links{$subsection_name};
+
+                #
+                # Print list of links returned
+                #
+                foreach (@$link_addr) {
+                    print "Link at Line/column: " . $_->line_no . ":" . $_->column_no .
+                          " type = " . $_->link_type .
+                          " lang = " . $_->lang . "\n";
+                    print "  Anchor = \"" . $_->anchor .
+                          "\" alt = \"" . $_->alt .
+                          "\" href = " .
+                          $_->abs_url . "\n";
+                    print "  modified_content = " . $_->modified_content .
+                          "  generated_content = " . $_->generated_content .
+                          "\n";
+                }
+            }
+        }
+    }
 
     #
     # Return array of link objects
@@ -2881,6 +2909,7 @@ sub Extract_Links_From_HTML {
         #
         # Get links for original markup
         #
+        print "Extract links from original markup\n" if $debug;
         @links = HTML_Extract_Links($url, $base, $lang, $content);
         %saved_subsection_links = %subsection_links;
 
@@ -2910,6 +2939,7 @@ sub Extract_Links_From_HTML {
         # the conditional code fails and corrupts the HTML input.
         #
         %subsection_links = ();
+        print "Extract links from modified (removed conditional comments) markup\n" if $debug;
         @other_links = HTML_Extract_Links($url, $base, $lang,
                                           \$modified_content);
 
@@ -2967,6 +2997,35 @@ sub Extract_Links_From_HTML {
             # Save modified content list of links
             #
             @links = @other_links;
+            Update_Link_Subsection_Lists(@links);
+
+            #
+            # Print out each sections link set
+            #
+            if ( $debug ) {
+                foreach $subsection_name (sort(keys %subsection_links)) {
+                    print "Extract_Links_From_HTML, after merging original and modified content links, subsection = $subsection_name\n";
+                    if ( defined($subsection_links{$subsection_name}) ) {
+                        $link_addr = $subsection_links{$subsection_name};
+
+                        #
+                        # Print list of links returned
+                        #
+                        foreach (@$link_addr) {
+                            print "Link at Line/column: " . $_->line_no . ":" . $_->column_no .
+                                  " type = " . $_->link_type .
+                                  " lang = " . $_->lang . "\n";
+                            print "  Anchor = \"" . $_->anchor .
+                                  "\" alt = \"" . $_->alt .
+                                  "\" href = " .
+                                  $_->abs_url . "\n";
+                            print "  modified_content = " . $_->modified_content .
+                                  "  generated_content = " . $_->generated_content .
+                                  "\n";
+                        }
+                    }
+                }
+            }
         }
         else {
             #
@@ -3018,8 +3077,8 @@ sub Extract_Links_From_HTML {
             # those links.  If we have fewer links it is possible that the
             # generated content was corrupt.
             #
-            if ( @other_links > @links ) {
-                print "Use links from generated content\n" if $debug;
+            print "Merge links from generated content\n" if $debug;
+            if ( @other_links > 0 ) {
                 #
                 # Create a union of the original content links and the
                 # generated content links.
@@ -3042,12 +3101,10 @@ sub Extract_Links_From_HTML {
                     print "Original content link  # $ol " . $olink->abs_url . "\n" if $debug;
                     print "Generated content link # $gl " . $glink->abs_url . "\n" if $debug;
                     if ( $olink->abs_url eq $glink->abs_url ) {
-                        $mlink = $glink;
-                        $mlink->generated_content(0);
-                        push(@merged_links, $mlink);
+                        push(@merged_links, $olink);
                         $ol++;
                         $gl++;
-                        print "Add to merged list\n" if $debug;
+                        print "Add to merged list: original link\n" if $debug;
                     }
                     else {
                         #
@@ -3077,7 +3134,7 @@ sub Extract_Links_From_HTML {
                                 $mlink->generated_content(1);
                                 push(@merged_links, $mlink);
                                 $gl++;
-                                print "Add to merged list generated content link # $j " . $mlink->abs_url . "\n" if $debug;
+                                print "Add to merged list: generated content link # $j " . $mlink->abs_url . "\n" if $debug;
                             }
                         }
                         else {
@@ -3105,7 +3162,7 @@ sub Extract_Links_From_HTML {
                                     $mlink = $links[$j];
                                     push(@merged_links, $mlink);
                                     $ol++;
-                                    print "Add to merged list original content link # $j " . $mlink->abs_url . "\n" if $debug;
+                                    print "Add to merged list: original content link # $j " . $mlink->abs_url . "\n" if $debug;
                                 }
                             }
                             else {
@@ -3170,12 +3227,41 @@ sub Extract_Links_From_HTML {
                 #
                 @links = @merged_links;
                 Update_Link_Subsection_Lists(@links);
+
+                #
+                # Print out each sections link set
+                #
+                if ( $debug ) {
+                    foreach $subsection_name (sort(keys %subsection_links)) {
+                        print "Extract_Links_From_HTML, after merging original and generated content links, subsection = $subsection_name\n";
+                        if ( defined($subsection_links{$subsection_name}) ) {
+                            $link_addr = $subsection_links{$subsection_name};
+
+                            #
+                            # Print list of links returned
+                            #
+                            foreach (@$link_addr) {
+                                print "Link at Line/column: " . $_->line_no . ":" . $_->column_no .
+                                      " type = " . $_->link_type .
+                                      " lang = " . $_->lang . "\n";
+                                print "  Anchor = \"" . $_->anchor .
+                                      "\" alt = \"" . $_->alt .
+                                      "\" href = " .
+                                      $_->abs_url . "\n";
+                                print "  modified_content = " . $_->modified_content .
+                                      "  generated_content = " . $_->generated_content .
+                                      "\n";
+                            }
+                        }
+                    }
+                }
             }
             else {
                 #
                 # Restore the set of subsection links that were saved
                 # after the first call to HTML_Extract_Links
                 #
+                print "No links found in generated content\n" if $debug;
                 %subsection_links = %saved_subsection_links;
             }
         }
