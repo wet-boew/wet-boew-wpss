@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check_css.pm
 #
-# $Revision: 167 $
+# $Revision: 386 $
 # $URL: svn://10.36.20.203/Mobile_Check/Tools/mobile_check_css.pm $
-# $Date: 2016-12-21 08:15:44 -0500 (Wed, 21 Dec 2016) $
+# $Date: 2017-07-04 13:36:30 -0400 (Tue, 04 Jul 2017) $
 #
 # Description:
 #
@@ -102,14 +102,14 @@ my ($check_fail)       = 1;
 my %string_table_en = (
     "Comment percentage",            "Comment percentage",
     "exceeds maximum acceptable value", "exceeds maximum acceptable value",
-    "Whitespace percentage",         "Whitespace percentage",
+    "Whitespace percentage",         "CSS whitespace percentage",
     "\@import found in CSS",         "\@import found in CSS",
     );
 
 my %string_table_fr = (
     "Comment percentage",            "Pourcentage de commentaires de code",
     "exceeds maximum acceptable value", "dépasse la valeur maximale acceptable",
-    "Whitespace percentage",         "Pourcentage de caractères d'espacement",
+    "Whitespace percentage",         "Pourcentage de caractères d'espacement dans CSS",
     "\@import found in CSS",         "\@import trouvé en CSS",
     );
 
