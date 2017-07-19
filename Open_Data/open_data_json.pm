@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 356 $
+# $Revision: 413 $
 # $URL: svn://10.36.20.203/Open_Data/Tools/open_data_json.pm $
-# $Date: 2017-04-28 10:47:23 -0400 (Fri, 28 Apr 2017) $
+# $Date: 2017-07-18 08:25:49 -0400 (Tue, 18 Jul 2017) $
 #
 # Description:
 #
@@ -18,6 +18,8 @@
 #     Set_Open_Data_JSON_Test_Profile
 #     Open_Data_JSON_Check_API
 #     Open_Data_JSON_Check_Data
+#     Open_Data_JSON_Read_Data
+#     Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes
 #
 # Terms and Conditions of Use
 #
@@ -83,6 +85,8 @@ BEGIN {
                   Set_Open_Data_JSON_Test_Profile
                   Open_Data_JSON_Check_API
                   Open_Data_JSON_Check_Data
+                  Open_Data_JSON_Read_Data
+                  Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes
                   );
     $VERSION = "1.0";
 }
@@ -124,14 +128,18 @@ my %string_table_en = (
     "Broken link in Schema",       "Broken link in \"\$Schema\":",
     "Data pattern",                "Data pattern",
     "Duplicate data array content, first instance at", "Duplicate data array content, first instance at index",
+    "Duplicate JSON-CSV data item field name", "Duplicate JSON-CSV data item field name",
     "expecting",                   "expecting",
     "Fails validation",            "Fails validation",
     "failed for value",            "failed for value",
     "Field",                       "Field",
+    "Inconsistent name for field", "Inconsistent name for field",
     "Inconsistent number of fields, found", "Inconsistent number of fields, found",
     "Invalid Schema specification in JSON file", "Invalid Schema specification in JSON file",
     "Invalid URL in Schema",       "Invalid URL in \"\$Schema\":",
+    "JSON-CSV item field name not in data dictionary", "JSON-CSV item field name not in data dictionary",
     "json_schema_validator failed", "json_schema_validator failed",
+    "Missing module or improper installation", "Missing module or improper installation",
     "Missing Schema value",        "Missing Schema value",
     "Missing UTF-8 BOM or charset=utf-8", "Missing UTF-8 BOM or charset=utf-8",
     "No content in API",           "No content in API",
@@ -144,14 +152,18 @@ my %string_table_fr = (
     "Broken link in Schema",       "Lien brisé dans \"\$Schema\":",
     "Data pattern",                "Modèle de données",
     "Duplicate data array content, first instance at", "Dupliquer le contenu du tableau de données, première instance à l'index",
+    "Duplicate JSON-CSV data item field name", "Dupliquer le nom du champ de l'élément de données JSON-CSV",
     "expecting",                   "expectant",
     "Fails validation",            "Échoue la validation",
     "failed for value",            "a échoué pour la valeur",
     "Field",                       "Champ",
+    "Inconsistent name for field", "Nom incohérent pour le champ",
     "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté",
     "Invalid Schema specification in JSON file", "Spécification de schéma non valide dans le fichier JSON",
     "Invalid URL in Schema",       "URL non valide dans \"\$Schema\":",
+    "JSON-CSV item field name not in data dictionary", "Nom du champ d'élément JSON-CSV non dans le dictionnaire de données",
     "json_schema_validator failed", "json_schema_validator a échoué",
+    "Missing module or improper installation", "Module manquant ou installation incorrecte",
     "Missing Schema value",        "Valeur du schéma manquant",
     "Missing UTF-8 BOM or charset=utf-8", "Manquant UTF-8 BOM ou charset=utf-8",
     "No content in API",           "Aucun contenu dans API",
@@ -183,6 +195,11 @@ sub Set_Open_Data_JSON_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+
+    #
+    # Set debug flag in supporting modules
+    #
+    Set_CSV_Column_Object_Debug($debug);
 }
 
 #**********************************************************************
@@ -367,7 +384,9 @@ sub Record_Result {
     #
     # Is this testcase included in the profile
     #
-    if ( defined($testcase) && defined($$current_open_data_profile{$testcase}) ) {
+    if ( defined($testcase) &&
+         defined($$current_open_data_profile{$testcase}) &&
+         defined($results_list_addr) ) {
         #
         # Create result object and save details
         #
@@ -686,6 +705,19 @@ sub Validate_JSON_Against_Schema {
         if ( $output =~ /Validation Passed/i ) {
             print "Validation passed\n" if $debug;
         }
+        #
+        # Do we have an error indicating that the supporting Python modules
+        # are missing?
+        #
+        elsif ( $output =~ /ImportError: No module named/i ) {
+            print "Missing Python module\n" if $debug;
+            Record_Result("OD_VAL", -1, -1, "",
+                          String_Value("Missing module or improper installation") .
+                          "\n\"$output\"");
+        }
+        #
+        # Check for an error in the schema file
+        #
         elsif ( $output =~ /Schema Error/i ) {
             print "Schema Error\n" if $debug;
             Record_Result("OD_VAL", -1, -1, "",
@@ -693,6 +725,9 @@ sub Validate_JSON_Against_Schema {
                           " Schema: $schema_url\n" .
                           " \"$output\"");
         }
+        #
+        # Check for a JSON validation error
+        #
         elsif ( $output =~ /Validation Error/i ) {
             print "Validation Error\n" if $debug;
             Record_Result("OD_VAL", -1, -1, "",
@@ -828,7 +863,88 @@ sub Check_JSON_Schema {
 
 #***********************************************************************
 #
-# Name: Check_JSON_Data
+# Name: Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes
+#
+# Parameters: hash_ref - pointer to hash table
+#             parent - parent JSON field name
+#             row_number - the row number in the data array.
+#             record_errors - flag to indicate if we are recording errors
+#
+# Description:
+#
+#   This function gets all the leaf nodes from a hash table representation
+# of a JSON-CSV object.  A leaf node is a hash table key/value that does
+# not contain the address of another hash table.  If a key/value pair
+# does reference a hash table, this function is called recursively to
+# get the leaf nodes of that sub hash table.  The function returns
+# a hash table of field names and data values.
+#
+#***********************************************************************
+sub Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes {
+    my ($hash_ref, $parent, $row_number, $record_errors) = @_;
+    
+    my ($key, $value, $ref_type, %leaf_nodes, %sub_leaf_nodes, $node);
+    
+    #
+    # Check all key/value pars of the supplied hash table reference
+    #
+    print "Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes from parent $parent\n" if $debug;
+    foreach $key (sort(keys(%$hash_ref))) {
+        #
+        # Is the value an object (hash reference)?
+        #
+        $value = $$hash_ref{$key};
+        $ref_type = ref $value;
+        print "Key $key, ref type = $ref_type\n" if $debug;
+        if ( $ref_type eq "HASH" ) {
+            #
+            # Value is a hash table, have to get the the leaf nodes from
+            # this sub hash table also.
+            #
+            %sub_leaf_nodes = Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes($value,
+                                                      "$parent.$key",
+                                                      $row_number, $record_errors);
+            
+            #
+            # Add sub leaf nodes to the leaf node list
+            #
+            foreach $node (keys(%sub_leaf_nodes)) {
+                #
+                # Do we already have this leaf node ?
+                #
+                if ( defined($leaf_nodes{"$node"}) ) {
+                    if ( $record_errors ) {
+                        Record_Result("OD_DATA", $row_number, 0, "",
+                                      String_Value("Duplicate JSON-CSV data item field name") .
+                                      " \"$node\"");
+                    }
+                }
+                else {
+                    #
+                    # Add filed name and value to the hash table
+                    #
+                    $leaf_nodes{"$node"} = $sub_leaf_nodes{"$node"};
+                }
+            }
+        }
+        else {
+            #
+            # Not a sub hash table, must be a leaf node
+            #
+            print "Have leaf node $key at $parent.$key, value = $value\n" if $debug;
+            $leaf_nodes{"$key"} = $value;
+        }
+    }
+    
+    #
+    # Return hash table of leaf nodes
+    #
+    return(%leaf_nodes);
+}
+
+#***********************************************************************
+#
+# Name: Check_JSON_CSV_Data
 #
 # Parameters: this_url - a URL
 #             data_file_object - a data file object pointer
@@ -837,8 +953,8 @@ sub Check_JSON_Schema {
 #
 # Description:
 #
-#   This function checks to see if the data appears to be a
-# JSON CSV file (i.e. contains a data array of objects).
+#   This function checks a JSON CSV file (i.e. the JSON file
+# contains a data array of objects).
 #
 #  { "$schema": "<schema url>",
 #    "data": [{
@@ -851,96 +967,110 @@ sub Check_JSON_Schema {
 #            ]
 #  }
 #
-# If it is a JSON CSV, it checks each of the data array items.
+# It checks each of the data array items to ensure consistency.
 # The items are expected to contain objects that have fields that
 # match data dictionary entries. The field values are checked
 # against any regular expressions specified for data dictionary
 # headings.
 #
 #***********************************************************************
-sub Check_JSON_Data {
+sub Check_JSON_CSV_Data {
     my ($this_url, $data_file_object, $filename, $ref) = @_;
 
-    my ($data, $ref_type, $heading, $regex, $item, $i);
+    my ($data, $ref_type, $heading, $regex, $item, $i, $j);
     my ($key, $value, $field_count, $expected_field_count);
-    my (%data_checksum, $checksum);
+    my (%data_checksum, $checksum, $column_object, @json_csv_columns);
+    my (%leaf_nodes, @expected_leaf_nodes, @leaf_node_names);
+    my (%column_objects);
 
     #
-    # Check for a "data" name/value object in the JSON data
+    # Get the data array and first object item in the array
     #
-    print "Check_JSON_Data\n" if $debug;
-    if ( ! defined($$ref{'data'}) ) {
-        #
-        # No data field, does not appear to be a JSON CSV file
-        #
-        print "No data field found, skip JSON data checks\n" if $debug;
-        return;
-    }
-    
-    #
-    # Found a data field
-    #
+    print "Check_JSON_CSV_Data\n" if $debug;
     $data = $$ref{'data'};
+    $item = $$data[0];
 
     #
-    # Is this an array object?
+    # Get the leaf nodes from this hash table, this will be the
+    # expected set of headings for all entries in the data array.
     #
-    $ref_type = ref $data;
-    if ( $ref_type eq "ARRAY" ) {
+    %leaf_nodes = Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes($item, "data", 1, 1);
+    @expected_leaf_nodes = sort(keys(%leaf_nodes));
+    $expected_field_count = @expected_leaf_nodes;
+    $data_file_object->attribute($column_count_attribute, $expected_field_count);
+    print "Expected leaf node count is $expected_field_count\n" if $debug;
+
+    #
+    # Create a column object to track this JSON-CSV column
+    #
+    foreach $key (@expected_leaf_nodes) {
         #
-        # Found a data array, are each of the items in the array
-        # an object (Perl hash)?
+        # Does this key match a data dictionary heading ?
         #
-        $item = $$data[0];
-        $ref_type = ref $item;
-        print "Data ref type = $ref_type\n" if $debug;
-        if ( $ref_type eq "HASH" ) {
-            #
-            # Appears to be a JSON-CSV file, that is CSV data encoded in
-            # JSON syntax.
-            #
-            print "Found data array field, assuming content is JSON-CSV format\n" if $debug;
-            $data_file_object->format("JSON-CSV");
+        if ( defined($$dictionary_ptr{$key}) ) {
+            $column_object = csv_column_object->new($key);
+            push(@json_csv_columns, $column_object);
+            $column_objects{$key} = $column_object;
         }
         else {
             #
-            # Not a JSON-CSV data file
+            # No data dictionary term for this field
             #
-            print "data array items are not objects (hash) type = $ref_type, skip JSON-CSV data checks\n" if $debug;
-            return;
+            Record_Result("TP_PW_OD_DATA", 1, 0, "",
+                          String_Value("JSON-CSV item field name not in data dictionary") .
+                          " \"$key\"");
         }
-    }
-    else {
-        #
-        # Not a JSON-CSV data file
-        #
-        print "data is not an array type = $ref_type, skip JSON-CSV data checks\n" if $debug;
-        return;
     }
 
     #
-    # Check each item in the array for field/value pairs
+    # Save the list of JSON-CSV column heading objects for this URL
+    #
+    $data_file_object->attribute($column_list_attribute, \@json_csv_columns);
+
+    #
+    # Check each item in the array for
+    #  consistent number of field/value pairs
+    #  consistent field names
     #
     for ($i = 0; $i < @$data; $i++) {
         $item = $$data[$i];
-        
+
         #
         # Is the item an object (hash reference)?
         #
         $ref_type = ref $item;
-        print "Data ref type = $ref_type\n" if $debug;
+        print "Data item $i ref type = $ref_type\n" if $debug;
         if ( $ref_type eq "HASH" ) {
+            #
+            # Get the list of leaf nodes, these are expected to be the CSV
+            # column/valie pairs.
+            #
+            %leaf_nodes = Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes($item,
+                                                         "data", ($i + 1), 1);
+
             #
             # Check for a consistent number of fields in each array element.
             # If this is the first array element, use it's field count
             # as the expected field count.
             #
-            $field_count = keys(%$item);
-            if ( $i == 0 ) {
-                $expected_field_count = $field_count;
-                $data_file_object->attribute($column_count_attribute, $field_count);
+            @leaf_node_names = sort(keys(%leaf_nodes));
+            $field_count = @leaf_node_names;
+            print "Have $field_count leaf nodes\n" if $debug;
+            if ( $field_count == $expected_field_count ) {
+                #
+                # Field count matches, do leaf nodes match?
+                #
+                for ($j = 0; $j < $field_count; $j++) {
+                    if ( $leaf_node_names[$j] ne $expected_leaf_nodes[$j] ) {
+                        Record_Result("OD_DATA", ($i + 1), 0, "",
+                                      String_Value("Inconsistent name for field") .
+                                      " # $j \"" . $leaf_node_names[$j] . "\" " .
+                                      String_Value("expecting") . " \"" .
+                                      $expected_leaf_nodes[$j] . "\"");
+                    }
+                }
             }
-            elsif ( $field_count != $expected_field_count ) {
+            else {
                 Record_Result("OD_DATA", ($i + 1), 0, "",
                               String_Value("Inconsistent number of fields, found") .
                               " $field_count " . String_Value("expecting") .
@@ -948,39 +1078,97 @@ sub Check_JSON_Data {
             }
 
             #
-            # Check each item in the hash for a match with a data
+            # Check each item in the leaf nodes for a match with a data
             # dictionary term.
             #
-            while ( ($key, $value) = each %$item ) {
+            while ( ($key, $value) = each %leaf_nodes ) {
                 #
-                # Does this key match a data dictionary heading ?
+                # Get the column object for this field
                 #
-                if ( defined($$dictionary_ptr{$key}) ) {
-                    print "Found field for dictionary heading tag $key, value \"$value\"\n" if $debug;
+                if ( ! defined($column_objects{$key}) ) {
+                    #
+                    # No column object, error will already have been reported.
+                    #
+                    print "No column object for field $key\n" if $debug;
+                    next;
+                }
+                print "Check field $key, value \"$value\"\n" if $debug;
+                $column_object = $column_objects{$key};
+
+                #
+                # Does this appear to be numeric data (integer)?
+                #
+                if ( $value =~ /^\s*\-?\d+\s*$/ ) {
+                    if ( $column_object->type() eq "" ) {
+                        $column_object->type("numeric");
+                    }
 
                     #
-                    # Do we have a regular expression for this heading ?
+                    # Add the current value to the column sum.
                     #
-                    $heading = $$dictionary_ptr{$key};
-                    $regex = $heading->regex();
+                    if ( $column_object->type() eq "numeric" ) {
+                        $column_object->sum($value);
+                    }
+                }
+                #
+                # Does this appear to be numeric data (float)?
+                #
+                elsif ( $value =~ /^\s*\-?\d*\.\d+\s*$/ ) {
+                    if ( $column_object->type() eq "" ) {
+                        $column_object->type("numeric");
+                    }
 
-                    if ( $regex ne "" ) {
+                    #
+                    # Add the current value to the column sum.
+                    #
+                    if ( $column_object->type() eq "numeric" ) {
+                        $column_object->sum($value);
+                    }
+                }
+                #
+                # Blank field, skip it.
+                #
+                elsif ( $value =~ /^[\s\n\r]*$/ ) {
+                }
+                #
+                # Text field
+                #
+                else {
+                    $column_object->increment_non_blank_cell_count();
+                    $column_object->type("text");
+                }
+                print "Column data = \"$value\", type = " . $column_object->type() .
+                      "\n" if $debug;
+
+                #
+                # If the cell is not blank, increment the non-blank count
+                #
+                if ( ! ($value =~ /^[\s\n\r]*$/) ) {
+                    $column_object->increment_non_blank_cell_count();
+                }
+
+                #
+                # Do we have a regular expression for this heading ?
+                #
+                $heading = $$dictionary_ptr{$key};
+                $regex = $heading->regex();
+
+                if ( $regex ne "" ) {
+                    #
+                    # Run the regular expression against the content
+                    #
+                    if ( ! ($value =~ qr/$regex/) ) {
                         #
-                        # Run the regular expression against the content
+                        # Regular expression pattern fails
                         #
-                        if ( ! ($value =~ qr/$regex/) ) {
-                            #
-                            # Regular expression pattern fails
-                            #
-                            print "Regular expression failed for heading $key, regex = $regex, data = $value\n" if $debug;
-                            Record_Result("OD_DATA", ($i + 1), -1, "",
-                                          String_Value("Data pattern") .
-                                          " \"$regex\" " .
-                                          String_Value("failed for value") .
-                                          " \"$value\" " .
-                                          String_Value("Field") . " \"" .
-                                          $heading->term() . "\"");
-                        }
+                        print "Regular expression failed for heading $key, regex = $regex, data = $value\n" if $debug;
+                        Record_Result("OD_DATA", ($i + 1), -1, "",
+                                      String_Value("Data pattern") .
+                                      " \"$regex\" " .
+                                      String_Value("failed for value") .
+                                      " \"$value\" " .
+                                      String_Value("Field") . " \"" .
+                                      $heading->term() . "\"");
                     }
                 }
             }
@@ -1017,6 +1205,97 @@ sub Check_JSON_Data {
     # Save the data array item count
     #
     $data_file_object->attribute($row_count_attribute, scalar(@$data));
+}
+
+#***********************************************************************
+#
+# Name: Check_JSON_Data
+#
+# Parameters: this_url - a URL
+#             data_file_object - a data file object pointer
+#             filename - JSON content file
+#             ref - reference to the decoded JSON
+#
+# Description:
+#
+#   This function checks the JSON data.  It check to see if the
+# data appears to be a JSON CSV file (i.e. contains a data array
+# of objects).
+#
+#  { "$schema": "<schema url>",
+#    "data": [{
+#              "field 1": "Value 1",
+#              "field 2": "Value 2",
+#                ....
+#              "field n": "Value n"
+#             }
+#             ...
+#            ]
+#  }
+#
+# If it is a JSON CSV, checks are made on the data items and
+# fields.  If it is not a JSON CSV, no additional checks are
+# performed.
+#
+#***********************************************************************
+sub Check_JSON_Data {
+    my ($this_url, $data_file_object, $filename, $ref) = @_;
+
+    my ($data, $ref_type, $item);
+
+    #
+    # Check for a "data" name/value object in the JSON data
+    #
+    print "Check_JSON_Data, check for data field\n" if $debug;
+    if ( defined($$ref{'data'}) ) {
+        #
+        # Is the data field an array object?
+        #
+        $data = $$ref{'data'};
+        $ref_type = ref $data;
+        print "Found data field in JSON, check for ARRAY type, ref type = $ref_type\n" if $debug;
+        if ( $ref_type eq "ARRAY" ) {
+            #
+            # Found a data array, are each of the items in the array
+            # an object (Perl hash)?
+            #
+            $item = $$data[0];
+            $ref_type = ref $item;
+            print "Found data ARRAY, check for HASH item type, ref type = $ref_type\n" if $debug;
+            if ( $ref_type eq "HASH" ) {
+                #
+                # Appears to be a JSON-CSV file, that is CSV data encoded in
+                # JSON syntax.
+                #
+                print "Found data array item as an object (hash), assuming content is JSON-CSV format\n" if $debug;
+                $data_file_object->format("JSON-CSV");
+
+                #
+                # Perform JSON-CSV data checks
+                #
+                Check_JSON_CSV_Data($this_url, $data_file_object, $filename,
+                                    $ref);
+            }
+            else {
+                #
+                # Not a JSON-CSV data file
+                #
+                print "data array items are not objects (hash) type = $ref_type, skip JSON-CSV data checks\n" if $debug;
+            }
+        }
+        else {
+            #
+            # Not a JSON-CSV data file
+            #
+            print "data is not an array type = $ref_type, skip JSON-CSV data checks\n" if $debug;
+        }
+    }
+    else {
+        #
+        # No data field, does not appear to be a JSON CSV file
+        #
+        print "No data field found, skip JSON-CSV data checks\n" if $debug;
+    }
 }
 
 #***********************************************************************
@@ -1155,6 +1434,104 @@ sub Open_Data_JSON_Check_Data {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_JSON_Read_Data
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function reads JSON data from the specified URL and returns
+# a reference to the decoded JSON.
+#
+#***********************************************************************
+sub Open_Data_JSON_Read_Data {
+    my ($this_url) = @_;
+
+    my ($filename, $eval_output, $ref, $resp_url, $resp, $data_file_object);
+    my ($fh, $have_bom, $content, $line);
+
+    #
+    # Get the JSON data file.
+    #
+    undef $results_list_addr;
+    print "Open_Data_JSON_Read_Data: Get JSON URL $this_url\n" if $debug;
+    ($resp_url, $resp) = Crawler_Get_HTTP_Response($this_url, "");
+    
+    #
+    # Did we get the URL?
+    #
+    if ( defined($resp) && ($resp->is_success) ) {
+        #
+        # Get the name of the file contaning the content
+        #
+        $filename = $resp->header("WPSS-Content-File");
+    }
+    else {
+        print "Error trying to get URL\n" if $debug;
+        return($ref);
+    }
+    
+    #
+    # Open the JSON file
+    #
+    open($fh, "$filename") ||
+        die "Open_Data_JSON_Read_Data Failed to open $filename for reading\n";
+    binmode $fh;
+
+    #
+    # Check for UTF-8 BOM (Byte Order Mark) at the top of the
+    # file.
+    #
+    $have_bom = Check_UTF8_BOM($fh, $data_file_object);
+
+    #
+    # Read the content
+    #
+    $content = "";
+    while ( $line = <$fh> ) {
+        $content .= $line;
+    }
+    close($fh);
+
+    #
+    # Replace the file contents with the same contents minus any BOM
+    #
+    if ( $have_bom ) {
+        unlink($filename);
+        open($fh, "> $filename") ||
+           die "Open_Data_JSON_Read_Data Failed to open $filename for writing\n";
+        binmode $fh;
+        print $fh $content;
+        close($fh);
+    }
+
+    #
+    # Did we get any content ?
+    #
+    if ( length($content) == 0 ) {
+        print "No content passed in $this_url\n" if $debug;
+    }
+    else {
+        #
+        # Parse the content.
+        #
+        print " Content length = " . length($content) . "\n" if $debug;
+        if ( ! eval { $ref = decode_json($content); 1 } ) {
+            $eval_output = $@;
+            $eval_output =~ s/ at \S* line \d*\.$//g;
+            print "Error in decoding JSON \"$eval_output\"\n" if $debug;
+        }
+    }
+
+    #
+    # Return reference to Perl JSON structure
+    #
+    unlink($filename);
+    return($ref);
 }
 
 #***********************************************************************

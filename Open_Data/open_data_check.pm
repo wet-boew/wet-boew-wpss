@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 357 $
+# $Revision: 412 $
 # $URL: svn://10.36.20.203/Open_Data/Tools/open_data_check.pm $
-# $Date: 2017-04-28 10:48:19 -0400 (Fri, 28 Apr 2017) $
+# $Date: 2017-07-18 08:24:14 -0400 (Tue, 18 Jul 2017) $
 #
 # Description:
 #
@@ -142,10 +142,12 @@ my %string_table_en = (
     "as found in",                     " as found in ",
     "Character encoding is not UTF-8", "Character encoding is not UTF-8",
     "Column count mismatch, found",    "Column count mismatch, found",
+    "Column headings found in",        "Column headings found in",
     "Column sum mismatch for column",  "Column sum mismatch for column",
     "Column type mismatch for column", "Column type mismatch for column",
     "Data array item count",           "Data array item count",
     "Data array item count mismatch, found", "Data array item count mismatch, found",
+    "Data array item field count",     "Data array item field count",
     "Data array item field count mismatch, found", "Data array item field count mismatch, found",
     "Dataset URL unavailable",         "Dataset URL unavailable",
     "en",                              "English",
@@ -165,13 +167,18 @@ my %string_table_en = (
     "Invalid mime-type for description", "Invalid mime-type for description",
     "Language specific dataset file count mismatch, found", "Language specific dataset file count mismatch, found",
     "Missing CSV data file format for JSON-CSV format", "Missing CSV data file format for JSON-CSV format",
+    "Missing data array item fields",    "Missing data array item fields",
     "Missing dataset description field", "Missing dataset description field",
     "Missing dataset description file types", "Missing dataset description file types",
     "Missing required language data file", "Missing required language data file",
     "Multiple file types in ZIP",      "Multiple file types in ZIP",
     "Non blank cell count mismatch for column", "Non blank cell count mismatch for column",
+    "Non blank cell count mismatch for JSON-CSV field/CSV column", "Non blank cell count mismatch for JSON-CSV field/CSV column",
+    "Not equal to data column count",  "Not equal to data column count",
     "Not equal to data row count",     "Not equal to data row count",
     "Row count mismatch, found",       "Row count mismatch, found ",
+    "Sum mismatch for numeric JSON-CSV field/CSV column", "Sum mismatch for numeric JSON-CSV field/CSV column",
+    "Type mismatch for JSON-CSV field/CSV column", "Type mismatch for JSON-CSV field/CSV column",
     "Uncompressed file size exceeds expected maximum size", "Uncompressed file size exceeds expected maximum size",
 );
 
@@ -183,10 +190,12 @@ my %string_table_fr = (
     "as found in",                     " que l'on trouve dans ",
     "Character encoding is not UTF-8", "L'encodage des caractères ne pas UTF-8",
     "Column count mismatch, found",    "Incompatibilité du comptage des colonnes, trouvée",
+    "Column headings found in",        "Les en-têtes de colonne trouvés dans",
     "Column sum mismatch for column",  "Incompatibilité de somme de colonne pour la colonne",
     "Column type mismatch for column", "Incompatibilité du type de colonne pour la colonne",
     "Data array item count",           "Nombre d'éléments du tableau de données",
     "Data array item count mismatch, found", "L'incompatibilité du nombre d'éléments de tableau de données, trouvé",
+    "Data array item field count",     "Nombre de champs de l'élément de données",
     "Data array item field count mismatch, found", "Le décalage du nombre de champs de l'élément de tableau de données n'a pas été trouvé",
     "Dataset URL unavailable",         "URL du jeu de données disponible",
     "en",                              "anglais",
@@ -206,13 +215,18 @@ my %string_table_fr = (
     "Invalid mime-type for description", "Invalid mime-type pour description",
     "Language specific dataset file count mismatch, found", "Décomposition du nombre de fichiers de dataset spécifique au langage trouvé",
     "Missing CSV data file format for JSON-CSV format", "Le format de fichier de données CSV manquant pour le format JSON-CSV",
+    "Missing data array item fields",    "Champs d'élément du tableau de données manquant",
     "Missing dataset description field", "Champ de description de dataset manquant",
     "Missing dataset description file types", "Types de fichiers de description de jeu de données manquants",
     "Missing required language data file", "Fichier de données de langue requise manquant",
     "Multiple file types in ZIP",      "Plusieurs types de fichiers dans un fichier ZIP",
     "Non blank cell count mismatch for column", "Incompatibilité du nombre de cellules non vierges pour la colonne",
+    "Non blank cell count mismatch for JSON-CSV field/CSV column", "Incompatibilité non vide de cellules pour JSON-CSV field / CSV column",
+    "Not equal to data column count",  "Pas égal au nombre de colonnes de données",
     "Not equal to data row count",     "Pas égal au nombre de lignes de données",
     "Row count mismatch, found",       "Incompatibilité du nombre de lignes, trouvée",
+    "Sum mismatch for numeric JSON-CSV field/CSV column", "Incompatibilité de somme pour la colonne numériques JSON-CSV / CSV",
+    "Type mismatch for JSON-CSV field/CSV column", "Type incompatibilité pour le champ JSON-CSV / colonne CSV",
     "Uncompressed file size exceeds expected maximum size", "La taille du fichier non compressé dépasse la taille maximale prévue",
 );
 
@@ -2165,24 +2179,11 @@ sub Check_CSV_Data_File_Content {
     print "Check_CSV_Data_File_Content\n" if $debug;
     foreach $eng_url (sort(keys(%url_lang_map))) {
         #
-        # How many language versions of the URL do we have?
-        #
-        print "Checking English URL $eng_url\n" if $debug;
-        $lang_item_addr = $url_lang_map{$eng_url};
-        $lang_count = @$lang_item_addr;
-        
-        #
-        # Do we have more than 1 language?
-        #
-        if ( $lang_count < 2 ) {
-            print "Skip check, only have $lang_count language versions\n" if $debug;
-            next;
-        }
-
-        #
         # Get the data file object
         #
+        print "Checking English URL $eng_url\n" if $debug;
         if ( ! defined($data_file_objects{$eng_url}) ) {
+            print "No data file object\n" if $debug;
             next;
         }
 
@@ -2196,6 +2197,20 @@ sub Check_CSV_Data_File_Content {
             #
             print "Skip non-CSV file, type is " . $data_file_object->type() .
                   "\n" if $debug;
+            next;
+        }
+
+        #
+        # How many language versions of the URL do we have?
+        #
+        $lang_item_addr = $url_lang_map{$eng_url};
+        $lang_count = @$lang_item_addr;
+        
+        #
+        # Do we have more than 1 language?
+        #
+        if ( $lang_count < 2 ) {
+            print "Skip check, only have $lang_count language versions\n" if $debug;
             next;
         }
 
@@ -2273,11 +2288,11 @@ sub Check_CSV_Data_File_Content {
                     #
                     print "Column types for column $i, " .
                            $col_obj->type() . " and " .
-                           $eng_col_obj->type() . "\n";
+                           $eng_col_obj->type() . "\n" if $debug;
                     if ( $col_obj->type() ne $eng_col_obj->type() ) {
                          Record_Result("OD_DATA", -1, -1, "",
                                       String_Value("Column type mismatch for column") .
-                                      " " . $col_obj->heading() . " (" . ($i + 1) . ") \n " .
+                                      " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
                                       String_Value("found") . " " . $col_obj->type() .
                                       " " . String_Value("in") . " $url\n" .
                                       String_Value("expecting") .
@@ -2290,11 +2305,11 @@ sub Check_CSV_Data_File_Content {
                         #
                         print "Column non-blank cell count for column $i, " .
                                $col_obj->non_blank_cell_count() . " and " .
-                               $eng_col_obj->non_blank_cell_count() . "\n";
+                               $eng_col_obj->non_blank_cell_count() . "\n" if $debug;
                         if ( $col_obj->non_blank_cell_count() != $eng_col_obj->non_blank_cell_count() ) {
                             Record_Result("OD_DATA", -1, -1, "",
                                           String_Value("Non blank cell count mismatch for column") .
-                                          " " . $col_obj->heading() . " (" . ($i + 1) . ") \n " .
+                                          " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
                                           String_Value("found") . " " . $col_obj->non_blank_cell_count() .
                                           " " . String_Value("in") . " $url\n" .
                                           String_Value("expecting") .
@@ -2312,11 +2327,11 @@ sub Check_CSV_Data_File_Content {
                         #
                         print "Column sum for column $i, " .
                                $col_obj->sum() . " and " .
-                               $eng_col_obj->sum() . "\n";
+                               $eng_col_obj->sum() . "\n" if $debug;
                         if ( $col_obj->sum() != $eng_col_obj->sum() ) {
                               Record_Result("OD_DATA", -1, -1, "",
                                             String_Value("Column sum mismatch for column") .
-                                            " " . $col_obj->heading() . " (" . ($i + 1) . ") \n " .
+                                            " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
                                             String_Value("found") . " " . $col_obj->sum() .
                                             " " . String_Value("in") . " $url\n" .
                                             String_Value("expecting") .
@@ -2330,6 +2345,228 @@ sub Check_CSV_Data_File_Content {
     }
 }
 
+#***********************************************************************
+#
+# Name: Compare_CSV_JSON_CSV_Data_File_Content
+#
+# Parameters: json_url - URL of JSON-CSV data file
+#             csv_url - URL of CSV data file
+#
+# Description:
+#
+#   This function compares the attributes of a CSV file to a JSON-CSV.
+# It checks that:
+#  - the number of rows in the CSV matches the number of items in the JSON-CSV
+#  - the number of JSON-CSV leaf nodes matches the CSV column count
+#  - the JSON-CSV leaf node field names match the CSV column headings
+#  - the type of data (e.g. numeric) for JSON-CSV fields matches the
+#    type for the corresponding CSV column
+#  - the sum of numeric field values for JSON-CSV fields matches the
+#    sum for the corresponding CSV column
+#  - the number of non-blank field values for JSON-CSV fields matches the
+#    number of non-blank cells for the corresponding CSV column
+#
+#***********************************************************************
+sub Compare_CSV_JSON_CSV_Data_File_Content {
+    my ($json_url, $csv_url) = @_;
+
+    my ($csv_data_file_object, $csv_rows, $csv_columns, $csv_columns_list);
+    my ($content_error, $json_data_file_object, $items, $fields);
+    my ($fields_list, $missing_csv_headings, $csv_heading, $json_field);
+    my (%heading_match, $field, @other_results, $result_object, $json_data);
+
+    #
+    # Get the row/column(field) attributes for the JSON-CSV data file
+    #
+    print "Compare_CSV_JSON_CSV_Data_File_Content\n" if $debug;
+    $json_data_file_object = $data_file_objects{$json_url};
+    $items = $json_data_file_object->attribute($row_count_attribute);
+    $fields = $json_data_file_object->attribute($column_count_attribute);
+    $fields_list = $json_data_file_object->attribute($column_list_attribute);
+
+    #
+    # Get the row/column attributes for the CSV data file
+    #
+    $csv_data_file_object = $data_file_objects{$csv_url};
+    $csv_rows = $csv_data_file_object->attribute($row_count_attribute);
+    $csv_columns = $csv_data_file_object->attribute($column_count_attribute);
+    $csv_columns_list = $csv_data_file_object->attribute($column_list_attribute);
+    $content_error = 0;
+
+    #
+    # Decrement the CSV rows as we expect there to be a
+    # header row.  The JSON-CSV file does not contain
+    # a header row.
+    #
+    $csv_rows--;
+
+    #
+    # Compare CSV row count and JSON object item count
+    #
+    print "JSON-CSV items $items, CSV data rows $csv_rows\n" if $debug;
+    if ( $items != $csv_rows ) {
+        Record_Result("OD_DATA", -1, -1, "",
+                      String_Value("Data array item count") .
+                      " $items " . String_Value("in") .
+                      " JSON-CSV $json_url\n" .
+                      String_Value("Not equal to data row count") .
+                      " $csv_rows " . String_Value("in") .
+                      " CSV $csv_url");
+        $content_error = 1;
+    }
+
+    #
+    # Compare the CSV column count and the JSON object
+    # item field count
+    #
+    print "JSON-CSV item fields $fields, CSV data columns $csv_columns\n" if $debug;
+    if ( $fields != $csv_columns ) {
+        Record_Result("OD_DATA", -1, -1, "",
+                      String_Value("Data array item field count") .
+                      " $fields " . String_Value("in") .
+                      " JSON-CSV $json_url\n" .
+                      String_Value("Not equal to data column count") .
+                      " $csv_columns " . String_Value("in") .
+                      " CSV $csv_url");
+        $content_error = 1;
+    }
+
+    #
+    # Check the CSV column headers against the leaf nodes of
+    # the JSON-CSV.  The leaf nodes are expected to match the
+    # column headers.
+    #
+    $missing_csv_headings = "";
+    print "Check JSON-CSV field names against CSV column headings\n" if $debug;
+    foreach $csv_heading (@$csv_columns_list) {
+        #
+        # Initialize matching flag
+        #
+        $heading_match{$csv_heading->heading()} = 0;
+        print "Check for heading \"" . $csv_heading->heading() . "\"\n" if $debug;
+
+        #
+        # Check the JSON-CSV fields for a matching header.
+        # There is no requirement that the order of the
+        # JSON-CSV fields match the CSV headings.
+        #
+        undef($json_field);
+        foreach $field (@$fields_list) {
+            if ( $field->heading() eq $csv_heading->heading() ) {
+                $heading_match{$csv_heading->heading()} = 1;
+                $json_field = $field;
+                print "JSON field found matching CSV heading\n" if $debug;
+                last;
+            }
+        }
+
+        #
+        # Did we find the CSV column in the JSON object
+        # field list?
+        #
+        if ( ! $heading_match{$csv_heading->heading()} ) {
+            $missing_csv_headings .= "\"" . $csv_heading->heading() . "\" ";
+            
+            #
+            # Skip subsequent column/field checks as we don't have a match
+            #
+            print "No CSV column/JSON-CSV field match, skip content checks\n" if $debug;
+            next;
+        }
+        
+        #
+        # Compare column data type to JSON-CSV field type
+        #
+        print "Compare JSON-CSV field type " . $json_field->type() .
+              " to CSV column type " . $csv_heading->type() . "\n" if $debug;
+        if ( $json_field->type() ne $csv_heading->type() ) {
+            Record_Result("OD_DATA", -1, -1, "",
+                          String_Value("Type mismatch for JSON-CSV field/CSV column") .
+                          " " . $json_field->heading() . "\n" .
+                          String_Value("found") . " " . $json_field->type() .
+                          " " . String_Value("in") . " $json_url\n" .
+                          String_Value("expecting") .
+                          $csv_heading->type() .
+                          String_Value("as found in") . $csv_url);
+        }
+        else {
+            #
+            # Compare non-blank CSV column cell count to non-blank
+            # JSON-CSV field count
+            #
+            print "Compare non-blank JSON-CSV field count " . $json_field->non_blank_cell_count() .
+                  " to non-blank CSV cell count " . $csv_heading->non_blank_cell_count() . "\n" if $debug;
+            if ( $json_field->non_blank_cell_count() != $csv_heading->non_blank_cell_count() ) {
+                Record_Result("OD_DATA", -1, -1, "",
+                              String_Value("Non blank cell count mismatch for JSON-CSV field/CSV column") .
+                              " " . $json_field->heading() . "\n" .
+                              String_Value("found") . " " . $json_field->non_blank_cell_count() .
+                              " " . String_Value("in") . " $json_url\n" .
+                              String_Value("expecting") .
+                              $csv_heading->non_blank_cell_count() .
+                              String_Value("as found in") . $csv_url);
+            }
+
+            #
+            # Compare numeric CSV column sum to JSON-CSV field sum
+            #
+            if ( $json_field->type() eq "numeric" ) {
+                print "Compare numeric JSON-CSV field sum " . $json_field->sum() .
+                      " to numeric CSV cell sum " . $csv_heading->sum() . "\n" if $debug;
+                if ( $json_field->sum() != $csv_heading->sum() ) {
+                    Record_Result("OD_DATA", -1, -1, "",
+                                  String_Value("Sum mismatch for numeric JSON-CSV field/CSV column") .
+                                  " " . $json_field->heading() . "\n" .
+                                  String_Value("found") . " " . $json_field->sum() .
+                                  " " . String_Value("in") . " $json_url\n" .
+                                  String_Value("expecting") .
+                                  $csv_heading->sum() .
+                                  String_Value("as found in") . $csv_url);
+                }
+            }
+        }
+    }
+
+    #
+    # Did we detect any missing CSV column headings?
+    #
+    if ( $missing_csv_headings ne "" ) {
+        Record_Result("OD_DATA", -1, -1, "",
+                      String_Value("Missing data array item fields") .
+                      " $missing_csv_headings " . String_Value("in") .
+                      " JSON-CSV $json_url\n" .
+                      String_Value("Column headings found in") .
+                      " CSV $csv_url");
+        $content_error = 1;
+    }
+
+    #
+    # Check the content of the JSON and CSV versions of
+    # the data files. The JSON-CSV data array content is expected
+    # to match the CSV content (i.e. rows in the same order).
+    #
+    if ( ! $content_error ) {
+        #
+        # Read the JSON content
+        #
+        $json_data = Open_Data_JSON_Read_Data($json_url);
+        
+        #
+        # Compare the JSON data and the CSV data
+        #
+        @other_results = Open_Data_CSV_Compare_JSON_CSV($json_data, $json_url,
+                                                        $csv_url,
+                                                        $current_open_data_profile_name);
+        
+        #
+        # Merge the JSON-CSV and CSV data comparison results with
+        # the main testcase results.
+        #
+        foreach $result_object (@other_results) {
+            push (@$results_list_addr, $result_object);
+        }
+    }
+}
 #***********************************************************************
 #
 # Name: Check_JSON_CSV_Data_File_Content
@@ -2354,17 +2591,30 @@ sub Check_CSV_Data_File_Content {
 sub Check_JSON_CSV_Data_File_Content {
     my ($url_list, %url_lang_map) = @_;
 
-    my (@url_list, $list_item, $url, $eng_url);
+    my (@url_list, $list_item, $url, $eng_url, $format, $item);
     my ($lang_count, $lang_item_addr, $lang_data_file_object);
     my ($data_file_object, $items, $fields, $eng_items, $eng_fields);
     my ($col_obj, $eng_col_obj, $i, $csv_url, %url_map);
-    my ($csv_data_file_object, $csv_rows);
+    my ($csv_data_file_object, $csv_rows, $json_data, $fields_list);
+    my ($csv_columns, $csv_columns_list, %heading_match, $csv_heading);
+    my ($json_field, $missing_csv_headings, $content_error);
     
     #
     # Create a hash table of all URLs
     #
     print "Check_JSON_CSV_Data_File_Content\n" if $debug;
-    foreach $url (@$url_list) {
+    foreach $item (@$url_list) {
+        #
+        # The URL may include a format specifier (e.g. CSV)
+        #
+        ($format, $url) = split(/\t/, $item);
+        if ( ! defined($url) ) {
+            $url = $item;
+        }
+
+        #
+        # Remove any trailing newline
+        #
         $url =~ s/[\n\r]$//g;
         print "Add \"$url\" to url map\n" if $debug;
         $url_map{$url} = 1;
@@ -2375,16 +2625,11 @@ sub Check_JSON_CSV_Data_File_Content {
     #
     foreach $eng_url (sort(keys(%url_lang_map))) {
         #
-        # How many language versions of the URL do we have?
-        #
-        print "Checking English URL $eng_url\n" if $debug;
-        $lang_item_addr = $url_lang_map{$eng_url};
-        $lang_count = @$lang_item_addr;
-
-        #
         # Get the data file object
         #
+        print "Checking English URL $eng_url\n" if $debug;
         if ( ! defined($data_file_objects{$eng_url}) ) {
+            print "No data file object\n" if $debug;
             next;
         }
 
@@ -2409,6 +2654,12 @@ sub Check_JSON_CSV_Data_File_Content {
         }
 
         #
+        # How many language versions of the URL do we have?
+        #
+        $lang_item_addr = $url_lang_map{$eng_url};
+        $lang_count = @$lang_item_addr;
+
+        #
         # Get the data array item and field counts from the English URL
         #
         $eng_items = $data_file_object->attribute($row_count_attribute);
@@ -2431,10 +2682,12 @@ sub Check_JSON_CSV_Data_File_Content {
             $lang_data_file_object = $data_file_objects{$url};
             $items = $lang_data_file_object->attribute($row_count_attribute);
             $fields = $lang_data_file_object->attribute($column_count_attribute);
+            $fields_list = $lang_data_file_object->attribute($column_list_attribute);
 
             #
             # Compare this URL's data array item count to the English
-            # URL's data array item count
+            # URL's data array item count.  All language variants of the
+            # data file are expected to have the same number of items.
             #
             print "Compare item count $items against expected count $eng_items\n" if $debug;
             if ( $items != $eng_items ) {
@@ -2448,7 +2701,8 @@ sub Check_JSON_CSV_Data_File_Content {
 
             #
             # Compare this URL's data array item field count to the English
-            # URL's data array item field count
+            # URL's data array item field count.  All language variants of the
+            # data file are expected to have the same number of fields.
             #
             print "Compare item field count $fields against expected field count $eng_fields\n" if $debug;
             if ( $fields != $eng_fields ) {
@@ -2469,33 +2723,13 @@ sub Check_JSON_CSV_Data_File_Content {
             if ( defined($url_map{$csv_url}) ) {
                 #
                 # Does the row count for the CSV match the data array count
-                # for the JSON-CSV file?
+                # for the JSON-CSV file?.  The CSV and the JSON-CSV are
+                # expected to contain the same data, therefore the data row
+                # count should match the item count.
                 #
                 print "Have CSV file for this JSON-CSV file\n" if $debug;
                 if ( defined($data_file_objects{$csv_url}) ) {
-                    $csv_data_file_object = $data_file_objects{$csv_url};
-                    $csv_rows = $csv_data_file_object->attribute($row_count_attribute);
-                    
-                    #
-                    # Decrement the CSV rows as we expect there to be a
-                    # header row.  The JSON-CSV file does not contain
-                    # a header row.
-                    #
-                    $csv_rows--;
-                    
-                    #
-                    # Compare row count and item count
-                    #
-                    print "JSON-CSV items $items, CSV data rows $csv_rows\n" if $debug;
-                    if ( $items != $csv_rows ) {
-                        Record_Result("OD_DATA", -1, -1, "",
-                                      String_Value("Data array item count") .
-                                      " $items " . String_Value("in") .
-                                      " JSON-CSV $url\n" .
-                                      String_Value("Not equal to data row count") .
-                                      " $csv_rows " . String_Value("in") .
-                                      " CSV $csv_url");
-                    }
+                    Compare_CSV_JSON_CSV_Data_File_Content($url, $csv_url);
                 }
             }
             else {
@@ -2503,7 +2737,7 @@ sub Check_JSON_CSV_Data_File_Content {
                 # Missing CSV version of data file
                 #
                 print "Missing CSV version of file\n" if $debug;
-                Record_Result("OD_DATA", -1, -1, "",
+                Record_Result("TP_PW_OD_DATA", -1, -1, "",
                               String_Value("Missing CSV data file format for JSON-CSV format") .
                               " $url\n" . String_Value("expecting") . "$csv_url");
             }
@@ -2521,9 +2755,11 @@ sub Check_JSON_CSV_Data_File_Content {
 # Description:
 #
 #   This function performs checks on the dataset files as a
-# collection.  It checks for language specific files (e.g. has a
-# language suffix). It checks for the presence of a file for
-# each language.
+# collection.  It checks for
+#  - language specific files (e.g. has a language suffix).
+#  - the presence of a file for each language.
+#  - consistent content in different formats of the same data file
+#    (e.g. CSV and JSON).
 #
 #***********************************************************************
 sub Open_Data_Check_Dataset_Data_Files {
@@ -2531,7 +2767,6 @@ sub Open_Data_Check_Dataset_Data_Files {
 
     my (@tqa_results_list, @url_list, $list_item, $format, $url, $eng_url);
     my (%url_lang_map, $lang_item_addr);
-
 
     #
     # Do we have a valid profile ?

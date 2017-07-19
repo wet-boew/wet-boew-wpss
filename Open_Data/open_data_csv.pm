@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 355 $
+# $Revision: 411 $
 # $URL: svn://10.36.20.203/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2017-04-28 10:44:43 -0400 (Fri, 28 Apr 2017) $
+# $Date: 2017-07-17 15:58:09 -0400 (Mon, 17 Jul 2017) $
 #
 # Description:
 #
@@ -20,6 +20,7 @@
 #     Open_Data_CSV_Check_Get_Headings_List
 #     Open_Data_CSV_Check_Get_Row_Column_Counts
 #     Open_Data_CSV_Check_Get_Column_Object_List
+#     Open_Data_CSV_Compare_JSON_CSV
 #
 # Terms and Conditions of Use
 #
@@ -65,9 +66,11 @@ use Encode;
 #
 # Use WPSS_Tool program modules
 #
+use crawler;
 use csv_column_object;
 use csv_parser;
 use open_data_testcases;
+use open_data_json;
 use tqa_result_object;
 
 #***********************************************************************
@@ -88,6 +91,7 @@ BEGIN {
                   Open_Data_CSV_Check_Get_Headings_List
                   Open_Data_CSV_Check_Get_Row_Column_Counts
                   Open_Data_CSV_Check_Get_Column_Object_List
+                  Open_Data_CSV_Compare_JSON_CSV
                   );
     $VERSION = "1.0";
 }
@@ -126,6 +130,7 @@ my %string_table_en = (
     "and",                           "and",
     "At line number",                "At line number",
     "Column",                        "Column",
+    "CSV and JSON-CSV values do not match for column", "CSV and JSON-CSV values do not match for column",
     "csv-validator failed",          "csv-validator failed",
     "Data pattern",                  "Data pattern",
     "Duplicate column header",       "Duplicate column header",
@@ -153,6 +158,7 @@ my %string_table_en = (
     "No content in file",            "No content in file",
     "No content in row",             "No content in row",
     "Parse error in line",           "Parse error in line",
+    "row",                           "row",
     "Runtime Error",                 "Runtime Error",
     );
 
@@ -160,6 +166,7 @@ my %string_table_fr = (
     "and",                           "et",
     "At line number",                "Au numéro de ligne",
     "Column",                        "Colonne",
+    "CSV and JSON-CSV values do not match for column", "Les valeurs CSV et JSON-CSV ne correspondent pas à la colonne",
     "csv-validator failed",          "csv-validator a échoué",
     "Data pattern",                  "Modèle de données",
     "Duplicate column header",       "En-tête de colonne en double",
@@ -187,6 +194,7 @@ my %string_table_fr = (
     "No content in file",            "Aucun contenu dans fichier",
     "No content in row",             "Aucun contenu dans ligne",
     "Parse error in line",           "Parse error en ligne",
+    "row",                           "ligne",
     "Runtime Error",                 "Erreur D'Exécution",
     );
 
@@ -648,7 +656,7 @@ sub Run_CSV_Validator {
         print "Run_CSV_Validator\n" if $debug;
 
         #
-        # Construct a cvs-validator schema file with the
+        # Construct a csv-validator schema file with the
         # column conditions.
         #
         ($csvs_fh, $csvs_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
@@ -1310,7 +1318,7 @@ sub Open_Data_CSV_Check_Data {
     my (%duplicate_columns, %duplicate_columns_flag, $j, $this_field);
     my ($duplicate_columns_ptr, $duplicate_column_list, $other_heading);
     my (%blank_zero_column_flag, $parse_error_reported, @lines);
-    my (@cvs_columns, $column_object);
+    my (@csv_columns, $column_object);
 
     #
     # Do we have a valid profile ?
@@ -1343,7 +1351,7 @@ sub Open_Data_CSV_Check_Data {
     #
     # Save the list of CSV column heading objects for this URL
     #
-    $data_file_object->attribute($column_list_attribute, \@cvs_columns);
+    $data_file_object->attribute($column_list_attribute, \@csv_columns);
 
     #
     # Open the CSV file for reading.
@@ -1477,7 +1485,7 @@ sub Open_Data_CSV_Check_Data {
                 # Create a column object
                 #
                 $column_object = csv_column_object->new($heading);
-                push(@cvs_columns, $column_object);
+                push(@csv_columns, $column_object);
             }
             
             #
@@ -1541,7 +1549,7 @@ sub Open_Data_CSV_Check_Data {
                 # Get the data value and the column object.
                 #
                 $data = $fields[$i];
-                $column_object = $cvs_columns[$i];
+                $column_object = $csv_columns[$i];
                 
                 #
                 # Does this appear to be numeric data (integer)?
@@ -1610,7 +1618,7 @@ sub Open_Data_CSV_Check_Data {
                 # Do we have a regular expression pattern for this heading ?
                 #
                 if ( $regex ne "" ) {
-                    # print "Check \"$data\" against regular expression $regex\n" if $debug;
+                    print "Check against regular expression $regex\n" if $debug;
                     if ( ! ($data =~ qr/$regex/) ) {
                         #
                         # Regular expression pattern fails
@@ -1944,6 +1952,188 @@ sub Open_Data_CSV_Check_Get_Column_Object_List {
     return($column_list);
 }
 
+#***********************************************************************
+#
+# Name: Open_Data_CSV_Compare_JSON_CSV
+#
+# Parameters: json_data - pointer to JSON-CSV data structure
+#             json_url - URL of JSON-CSV data file
+#             csv_url - URL of CSV data file
+#             profile - testcase profile
+#
+# Description:
+#
+#   This function reads the CSV file and compares the data values
+# in the CSV fields to the values in the JSON-CSV data structure.
+# CSV and JSON-CSV versions of a data file are expected to have the
+# same values.  The order of rows from the CSV file and the
+# order of data array elements in the JSON-CSV are expected to match.
+#
+#***********************************************************************
+sub Open_Data_CSV_Compare_JSON_CSV {
+    my ($json_data, $json_url, $csv_url, $profile) = @_;
+    
+    my (@tqa_results_list, $resp_url, $resp, $filename, $csv_file);
+    my ($have_bom, $parser, $eval_output, $rows, $line_no);
+    my (@headings, $heading, $csv_value, $json_value, $data);
+    my ($data_array_item, %json_csv_values, $i);
+    
+    #
+    # Do we have a valid profile ?
+    #
+    print "Open_Data_CSV_Compare_JSON_CSV: Checking\nCSV URL $csv_url\nJSON-CSV URL $json_url\nprofile = $profile\n" if $debug;
+    if ( ! defined($open_data_profile_map{$profile}) ) {
+        print "Open_Data_CSV_Compare_JSON_CSV: Unknown CSV testcase profile passed $profile\n";
+        return(@tqa_results_list);
+    }
+
+    #
+    # Save URL in global variable
+    #
+    if ( ($json_url =~ /^http/i) || ($json_url =~ /^file/i) ) {
+        $current_url = $json_url;
+    }
+    else {
+        #
+        # Doesn't look like a URL.  Could be just a block of CSV
+        # from the standalone validator which does not have a URL.
+        #
+        $current_url = "";
+    }
+
+    #
+    # Initialize the test case pass/fail table.
+    #
+    Initialize_Test_Results($profile, \@tqa_results_list);
+    
+    #
+    # Get the JSON data file.
+    #
+    print "Open_Data_CSV_Compare_JSON_CSV: Get CSV URL $csv_url\n" if $debug;
+    ($resp_url, $resp) = Crawler_Get_HTTP_Response($csv_url, "");
+
+    #
+    # Did we get the URL?
+    #
+    if ( defined($resp) && ($resp->is_success) ) {
+        #
+        # Get the name of the file contaning the content
+        #
+        $filename = $resp->header("WPSS-Content-File");
+    }
+    else {
+        print "Error trying to get URL\n" if $debug;
+        return(@tqa_results_list);
+    }
+    
+    #
+    # Open the CSV file for reading.
+    #
+    print "Open CSV file $filename\n" if $debug;
+    open($csv_file, "$filename") ||
+        die "Open_Data_CSV_Compare_JSON_CSV: Failed to open $filename for reading\n";
+    binmode $csv_file;
+
+    #
+    # Check for UTF-8 BOM (Byte Order Mark) at the top of the
+    # file
+    #
+    $have_bom = Check_UTF8_BOM($csv_file);
+
+    #
+    # Create a document parser
+    #
+    $parser = csv_parser->new();
+    if ( ! defined($parser) ) {
+        print STDERR "Error: Failed to create CSV parser in Open_Data_CSV_Compare_JSON_CSV\n";
+        unlink($filename);
+        return(@tqa_results_list);
+    }
+    
+    #
+    # Get the address of the data array from the JSON-CSV structure
+    #
+    print "Get address of data array from JSON-CSV\n" if $debug;
+    $data = $$json_data{'data'};
+
+    #
+    # Parse each line/record of the content
+    #
+    $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
+    $line_no = 0;
+    while ( $eval_output && defined($rows) ) {
+        #
+        # Increment record/line number
+        #
+        $line_no++;
+        
+        #
+        # Is this the first row? It is expected to be a header row.
+        # Get the heading labels.
+        #
+        if ( $line_no == 1 ) {
+            @headings = @$rows;
+        }
+        #
+        # This is a data row.
+        #
+        else {
+            #
+            # Get the JSON-CSV data array item and the leaf nodes of the
+            # item. The array is indexed starting at 0, and there is no
+            # "heading" row, so we must reduce the CSV line number by 2 to
+            # get the data array item.
+            #
+            print "Check CSV data row $line_no againstJSON-CSV array item " .
+                  ($line_no - 2) . "\n" if $debug;
+            $data_array_item = $$data[($line_no - 2)];
+            %json_csv_values = Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes($data_array_item,
+                                                         "data", ($line_no - 2),
+                                                         0);
+
+            #
+            # Check each CSV cell value in this row against the
+            # corresponding JSON-CSV data array item
+            #
+            for ($i = 0; $i < @headings; $i++) {
+                $csv_value = $$rows[$i];
+                $heading = $headings[$i];
+                
+                #
+                # Get the json_csv value.  We don't have to worry about a
+                # missing field as that would have been checked in either the
+                # open_data_json.pm module or the open_data_check.pm module.
+                #
+                if ( defined($json_csv_values{$heading}) ) {
+                    #
+                    # Do the values match?
+                    #
+                    if ( $csv_value ne $json_csv_values{$heading} ) {
+                        print "Error: CSV and JSON-CSV values do not match\n" if $debug;
+                        Record_Result("OD_DATA", $line_no, ($i + 1), "",
+                                      String_Value("CSV and JSON-CSV values do not match for column") .
+                                      " \"$heading\" (# " . ($i + 1) . ")\n" .
+                                      " CSV      = \"" . $csv_value . "\"\n" .
+                                      " JSON-CSV = \"" . $json_csv_values{$heading} . "\"\n" .
+                                      " CSV URL = $csv_url\n JSON-CSV URL = $json_url" );
+                    }
+                }
+            }
+        }
+
+        #
+        # Get next line from the CSV file
+        #
+        $eval_output = eval { $rows = $parser->getrow($csv_file); 1 };
+    }
+    
+    #
+    # Return the list of testcase results
+    #
+    unlink($filename);
+    return(@tqa_results_list);
+}
+        
 #***********************************************************************
 #
 # Mainline
