@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 360 $
+# $Revision: 415 $
 # $URL: svn://10.36.20.203/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2017-04-28 10:51:18 -0400 (Fri, 28 Apr 2017) $
+# $Date: 2017-07-18 08:28:20 -0400 (Tue, 18 Jul 2017) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -2985,7 +2985,7 @@ sub Check_Debug_File {
     #
     if ( ! $command_line_debug ) {
         #
-        # Do we have the debug file ? If so turn on debugging
+        # Do we have the debug file ? If so turn on debuging
         # and redirect stdout & stderr to files.
         #
         if ( -f "$program_dir/debug.txt" ) {
@@ -9626,6 +9626,7 @@ sub Open_Data_Callback {
             @url_list = split(/\n+/, $$dataset_urls{"DATA"});
             @results = Open_Data_Check_Dataset_Data_Files($open_data_check_profile,
                                                           \@url_list);
+
 
             #
             # Record results
