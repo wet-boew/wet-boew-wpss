@@ -157,6 +157,7 @@ my ($link_check_broken_anchor)    = 6;
 my ($link_check_ipv4_link)        = 7;
 my ($link_check_soft_404)         = 8;
 my ($link_check_access_denied)    = 9;
+my ($link_check_bad_image_mime_type) = 10;
 
 #
 # String table for error strings.
@@ -210,6 +211,7 @@ my (%link_status_message_map) = (
     $link_check_ipv4_link, "IPV4_LINK",
     $link_check_soft_404, "SOFT_404",
     $link_check_access_denied, "ACCESS_DENIED",
+    $link_check_bad_image_mime_type, "BAD_IMAGE_MIME_TYPE",
 );
 
 #
@@ -217,6 +219,7 @@ my (%link_status_message_map) = (
 #
 my (%testcase_description_en) = (
     "ACCESS_DENIED",      "Access denied link",
+    "BAD_IMAGE_MIME_TYPE", "Invalid image mime-type",
     "BAD_NETWORKSCOPE",   "Bad networkscope link",
     "BROKEN",             "Broken link",
     "BROKEN_ANCHOR",      "Broken anchor",
@@ -229,6 +232,7 @@ my (%testcase_description_en) = (
 
 my (%testcase_description_fr) = (
     "ACCESS_DENIED",      "Accès refusé lien",
+    "BAD_IMAGE_MIME_TYPE", "Mime-type d'image invalide",
     "BAD_NETWORKSCOPE",   "Lien portée de réseau erronée",
     "BROKEN",             "Lien brisé",
     "BROKEN_ANCHOR",      "Point d'ancrage brisé",
@@ -2013,6 +2017,7 @@ sub Link_Checker_Get_Link_Status {
             #
             $visited_url_http_status{$request_url} = $link_check_success;
             $visited_url_http_resp{$request_url} = $resp;
+            $title = $link->url_title;
             if ( $is_broken_link ) {
                 $visited_url_status{$this_link} = $link_check_broken;
                 $visited_url_http_status{$request_url} = $link_check_broken;
@@ -2037,22 +2042,16 @@ sub Link_Checker_Get_Link_Status {
             # Check for soft 404 page, a page whose content looks like
             # a 404 Not Found page but with a 200(Ok) status code
             #
-            else {
+            elsif ( ($title =~ /Error 404/i) ||
+                    ($title =~ /Erreur 404/i) ||
+                    ($title =~ /Page Not Found/i) ||
+                    ($title =~ /Page non trouv/i) ) {
                 #
-                # Look for 404 type of message in title
+                # Looks like a 404 error message page
                 #
-                $title =  $link->url_title;
-                if ( ($title =~ /Error 404/i) ||
-                     ($title =~ /Erreur 404/i) ||
-                     ($title =~ /Page Not Found/i) ||
-                     ($title =~ /Page non trouv/i) ) {
-                    #
-                    # Looks like a 404 error message page
-                    #
-                    print "Soft 404 page found\n" if $debug;
-                    $visited_url_status{$this_link} = $link_check_soft_404;
-                    $visited_url_http_status{$request_url} = $link_check_soft_404;
-                }
+                print "Soft 404 page found\n" if $debug;
+                $visited_url_status{$this_link} = $link_check_soft_404;
+                $visited_url_http_status{$request_url} = $link_check_soft_404;
             }
         }
         else {
@@ -2301,6 +2300,7 @@ sub Link_Checker {
     my ($domain, $referer_networkscope, $is_firewall_blocked);
     my ($link_check_status, $link, $resp, $header, $cache_link, $resp_url);
     my ($request_url, @link_results_list, $do_tests, $tcid, $do_ipv4_check);
+    my (%attr);
 
     #
     # Regardless whether we plan to do link checking or not, check
@@ -2467,6 +2467,48 @@ sub Link_Checker {
                           $link->line_no, $link->column_no,
                           $link->source_line,
                           "href= " . $link->href);
+        }
+
+        #
+        # Check image links to see if the mime-type of the link
+        # is image/*.
+        #
+        if ( ($link->link_type() eq "img") && ($link_check_status != $link_check_broken) ) {
+            print "Check mime-type of img link\n" if $debug;
+            if ( ! ($link->mime_type() =~ /^image\/.*$/) ) {
+                print "Mime type is not valid for image " . $link->mime_type() . "\n" if $debug;
+                Record_Result("BAD_IMAGE_MIME_TYPE", $link->line_no,
+                              $link->column_no, $link->source_line,
+                              "mime-type=\"" . $link->mime_type() . "\"");
+                $link_check_status = $link_check_bad_image_mime_type;
+            }
+        }
+        #
+        # Check <link> type links that are favicons to see if the mime-type
+        # of the image is image/*.
+        #
+        elsif ( ($link->link_type() eq "link") && ($link_check_status != $link_check_broken) ) {
+            #
+            # Get <link> tag attributes
+            #
+            %attr = $link->attr();
+
+            #
+            # Do we have a rel attribute
+            #
+            if ( defined($attr{"rel"}) &&
+                 (($attr{"rel"} =~ /^shortcut icon$/i) ||
+                  ($attr{"rel"} =~ /^icon$/i) ||
+                  ($attr{"rel"} =~ /^apple-touch-icon$/i)) ) {
+                print "Check mime-type of favicon link\n" if $debug;
+                if ( ! ($link->mime_type() =~ /^image\/.*$/) ) {
+                    print "Mime type is not valid for image " . $link->mime_type() . "\n" if $debug;
+                    Record_Result("BAD_IMAGE_MIME_TYPE", $link->line_no,
+                                  $link->column_no, $link->source_line,
+                                  "mime-type=\"" . $link->mime_type() . "\"");
+                    $link_check_status = $link_check_bad_image_mime_type;
+                }
+            }
         }
 
         #
