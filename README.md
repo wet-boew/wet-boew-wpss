@@ -1,4 +1,4 @@
-## Web and Open Data Validator version 6.4.0
+## Web and Open Data Validator version 6.5.0
 
 The Web and Open Data Validator provides web developers and quality assurance testers the ability to perform a number of web site, web page validation and Open data validation tasks at one time.
 
@@ -7,68 +7,58 @@ The Web and Open Data Validator provides web developers and quality assurance te
 Web Tool
 
 ```
-- Don't exit PhantomJS when there is a Javascript error, this can cause
-  error dialogs to appear on Windows systems, which stalls the program.
+- Check the mime-type of image links and favicon to ensure that it is an image 
+  mime-type - BAD_IMAGE_MIME_TYPE
+- Correct bug in URL parsing in PhantomJS user agent that caused some URLs to be truncated 
+  when sent to web servers.
+- Update HTML5 validator to version 17.7.0.
+- Check for invalid separator for dc.subject terms - Metadata
+
 ```
 
 Open Data_Tool
 
 ```
-- Check for only whitespace as first line of a multi-line field in a CSV data file - OD_DATA
-- Add link checking for supporting documentation HTML files.
-- Check CSV text fields for possible WCAG 2.0 plain text technique accessibility 
-   errors (e.g. lists in cells) - OD_DATA
-- Check that there is the same number of language specific data files in a dataset - OD_URL
-- Check that CSV column content types (e.g. numeric, text) match for all language 
-   variations of a data file - OD_DATA
-- Check that the sum of numeric CSV column values match for all language variations 
-   of a data file - OD_DATA
-- Check that the number of non-blank cells of CSV columns match for all language 
-   variations of a data file - OD_DATA
+- Check for missing module when running JSON schema validator - OD_VAL
+- Check for CSV version for each JSON-CSV data file - TP_PW_OD_DATA
+- Check that each item in the JSON-CSV data array have the same number and fields and 
+  same field names - OD_DATA
+- Check that all data items match for JSON-CSV and CSV variants of data files - OD_DATA
 ```
 
-Version 6.4.0 contains the following updates and additions
+Version 6.5.0 contains the following updates and additions
 
 ## Web
 
 ```
-- Don't exit PhantomJS when there is a Javascript error, this can cause
-  error dialogs to appear on Windows systems, which stalls the program.
-- Update EPUB validator to version 4.0.2.
-- Additional EPUB file checks (container.xml, OPF file) - WCAG_2.0-G134
+- Check the mime-type of image links and favicon to ensure that it is an image 
+  mime-type - BAD_IMAGE_MIME_TYPE
+- Correct bug in URL parsing in PhantomJS user agent that caused some URLs to be truncated 
+  when sent to web servers.
+- Correct merging of links from original, modified and generated HTML markup.
+- Update HTML5 validator to version 17.7.0.
+- Check for invalid separator for dc.subject terms - Metadata
+- Check for 64 bit Perl installation.  The Win32::GUI module will not install on a 64 bit 
+  Perl installation.  
 ```
 
 ## Open Data
 
 ```
-- Check for only whitespace as first line of a multi-line field in a
-  CSV data file - OD_DATA
-- Add link checking for supporting documentation HTML files.
-- Check for UTF-8 encoding of resource files of type text, HTML and XML
-  only - OD_ENC
-- Allow for multiple schema specifications in JSON data - OD_VAL
-- Check CSV text fields for possible WCAG 2.0 plain text technique
-  accessibility errors (e.g. lists in cells) - OD_DATA
-- Check that there is the same number of language specific data files
-  in a dataset - OD_URL
-- Check that if there are language specific data files, that all
-  required languages (e.g. English, French) are found - TP_PW_OD_DATA
-- Check that CSV column content types (e.g. numeric, text) match
-  for all language variations of a data file - OD_DATA
-- Check that the sum of numeric CSV column values match for all
-  language variations of a data file - OD_DATA
-- Check that the number of non-blank cells of CSV columns match
-  for all language variations of a data file - OD_DATA
-- Check for $schemaExtension field for the specification of schema
-  extensions that the JSON data file must comply to. - OD_VAL
-- Check for BOM (Byte Order Mark) or HTTP::Response charset to
-  specify UTF-8 encoding for JSON files - OD_ENC
-- Check that data array items in JSON-CSV files contain the same
-  number of fields  - OD_DATA
-- Check that there are no duplicate data array items in JSON-CSV
-  files - OD_DATA
-- Check for a CSV file for each JSON-CSV file and that the number
-  of data array items matches the CSV data row count - OD_DATA
+- Check for missing module when running JSON schema validator - OD_VAL
+- Check for CSV version for each JSON-CSV data file - TP_PW_OD_DATA
+- Check that language variations of JSON-CSV data files have the same number of rows 
+  and same fields - OD_DATA
+- Check that CSV and JSON-CSV data files have the same number of data rows - OD_DATA
+- Check that each item in the JSON-CSV data array have the same number and fields and 
+  same field names - OD_DATA
+- Check that CSV column headings and JSON-CSV data item field names match in JSON-CSV and 
+  CSV variants of data files - OD_DATA
+- Check that CSV column types and JSON-CSV data item field types match in JSON-CSV and 
+  CSV variants of data files - OD_DATA
+- Check that numeric CSV column sums and numeric JSON-CSV data field values match in 
+  SON-CSV and CSV variants of data files - OD_DATA
+- Check that all data items match for JSON-CSV and CSV variants of data files - OD_DATA
 ```
 
 ## Web and Open Data Validator Installer
@@ -88,4 +78,4 @@ The WPSS_Tool has been tested on the following platforms
 - Windows 7 (32 bit), Strawberry Perl 5.18 (32 bit), Python 2.7.6
 
 The WPSS Tool installer is available as a release in this repository
-- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.4.0/WPSS_Tool.exe
+- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.5.0/WPSS_Tool.exe
