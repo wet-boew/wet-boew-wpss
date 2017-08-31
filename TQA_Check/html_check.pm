@@ -155,7 +155,7 @@ my (%tqa_check_profile_map, $current_tqa_check_profile,
     %video_track_kind_map, $found_content_after_heading, $in_header_tag,
     %form_id_values, %input_form_id, %audio_track_kind_map, $inside_audio,
     @list_heading_text, $form_count, @content_lines, @table_is_layout,
-    %f32_reported, @inside_dd,
+    %f32_reported, @inside_dd, $main_content_start,
 );
 
 my ($is_valid_html) = -1;
@@ -859,6 +859,7 @@ my %string_table_en = (
     "Multiple instances of",         "Multiple instances of",
     "Multiple links with same anchor text", "Multiple links with same anchor text ",
     "Multiple links with same title text", "Multiple links with same 'title' text ",
+    "Multiple main content areas found, previous instance found", "Multiple main content areas found, previous instance found",
     "New heading level",             "New heading level ",
     "No button found in form",       "No button found in form",
     "No captions found for",         "No captions found for",
@@ -1038,6 +1039,7 @@ my %string_table_fr = (
     "Multiple instances of",         "Plusieurs instances de",
     "Multiple links with same anchor text",  "Liens multiples avec la même texte de lien ",
     "Multiple links with same title text",  "Liens multiples avec la même texte de 'title' ",
+    "Multiple main content areas found, previous instance found", "Plusieurs domaines de contenu principal ont été trouvés, l'instance précédente a été trouvée",
     "New heading level",             "Nouveau niveau d'en-tête ",
     "No button found in form",       "Aucun bouton trouvé dans le <form>",
     "No captions found for",         "Pas de sous-titres trouvés pour",
@@ -1408,6 +1410,7 @@ sub Initialize_Test_Results {
     %form_id_values         = ();
     %input_form_id          = ();
     %f32_reported           = ();
+    $main_content_start     = "";
 
     #
     # Initialize content section found flags to false
@@ -6891,6 +6894,100 @@ sub Link_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Main_Tag_Handler
+#
+# Parameters: line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles main tags.
+#
+#***********************************************************************
+sub Main_Tag_Handler {
+    my ( $line, $column, $text, %attr ) = @_;
+    
+    my ($last_main, $last_line, $last_column);
+
+    #
+    # Have we already seen a <main> or a <section> or <div> tag
+    # with a role="main" attribute?
+    #
+    if ( $main_content_start ne "" ) {
+        #
+        # Multiple main content areas in page.
+        #
+        ($last_main, $last_line, $last_column) = split(/:/, $main_content_start);
+
+        #
+        # Check line and column of this tag and last main tag.
+        # If we have <main role="main">, don't report an error.
+        #
+        if ( ($line != $last_line) || ($column != $last_column) ) {
+            print "Multiple main content areas\n" if $debug;
+            Record_Result("WCAG_2.0-SC1.3.1", $line, $column, $text,
+                          String_Value("Multiple main content areas found, previous instance found") .
+                          " $last_main " . String_Value("at line:column") .
+                          " $last_line:$last_column");
+        }
+    }
+    else {
+        #
+        # Record the details of the start of the main content area
+        #
+        print "Found main content at <main>\n" if $debug;
+        $main_content_start = "<main>:$line:$column";
+    }
+}
+
+#***********************************************************************
+#
+# Name: End_Main_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end main tag.
+#
+#***********************************************************************
+sub End_Main_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    my ($clean_text);
+
+    #
+    # Get all the text found within the main tag
+    #
+    if ( ! $have_text_handler ) {
+        print "End main tag found without corresponding open tag at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Get the main text as a string and get rid of excess white space
+    #
+    $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
+    print "End_Main_Tag_Handler: text = \"$clean_text\"\n" if $debug;
+
+    #
+    # Do we have text within the main tags ?
+    #
+    if ( $clean_text eq "" ) {
+        print "Main tag has no text\n" if $debug;
+        Record_Result("WCAG_2.0-SC1.3.1", $line, $column, $text,
+                      String_Value("Missing text in") . "<main>");
+    }
+}
+
+#***********************************************************************
+#
 # Name: Anchor_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -9113,21 +9210,47 @@ sub Tag_Must_Have_Content_handler {
 sub End_Tag_Must_Have_Content_handler {
     my ( $self, $tag, $line, $column, $text ) = @_;
 
-    my ($clean_text);
+    my ($clean_text, $attr);
 
     #
     # Get all the text found within the tag
     #
+    print "End_Tag_Must_Have_Content_handler: tag = $tag\n" if $debug;
     if ( ! $have_text_handler ) {
         print "End $tag tag found without corresponding open tag at line $line, column $column\n" if $debug;
         return;
     }
 
     #
+    # Is this a <section> tag?
+    #
+    if ( $tag eq "section" ) {
+        #
+        # Get attribute list from corresponding start tag
+        #
+        if ( defined($current_tag_object) ) {
+            $attr = $current_tag_object->attr();
+
+            #
+            # Do we have a role="main" for the start tag?
+            #
+            if ( defined($$attr{"role"}) && ($$attr{"role"} eq "main") ) {
+                #
+                # Don't check missing content here, it will be checked later
+                # in function Check_End_Role_Main, which checks
+                # the main content area.
+                #
+                print "Skip content check for <section role=\"main\"\n" if $debug;
+                return;
+            }
+        }
+    }
+
+    #
     # Get the text as a string, remove excess white space
     #
     $clean_text = Clean_Text(Get_Text_Handler_Content($self, ""));
-    print "End_Tag_Must_Have_Content_handler: tag = $tag, text = \"$clean_text\"\n" if $debug;
+    print "text = \"$clean_text\"\n" if $debug;
     
     #
     # Check for using white space characters to control spacing within a word
@@ -10479,7 +10602,7 @@ sub Check_OnFocus_Attribute {
 sub Check_Aria_Role_Attribute {
     my ($tagname, $line, $column, $text, %attr) = @_;
 
-    my ($role);
+    my ($role, $last_main, $last_line, $last_column);
 
     #
     # Check for possible role attribute
@@ -10558,6 +10681,40 @@ sub Check_Aria_Role_Attribute {
                               String_Value("Missing") .
                               " \"aria-label\"" . String_Value("or") .
                               "\"aria-labelledby\"");
+            }
+        }
+
+        #
+        # Check role for main, it indicates the beginning of the main content
+        # area
+        #
+        if ( $role eq "main" ) {
+            #
+            # Have we already seen a <main> or a <section> or <div> tag
+            # with a role="main" attribute?
+            #
+            if ( $main_content_start ne "" ) {
+                #
+                # Multiple main content areas in page.
+                #
+                ($last_main, $last_line, $last_column) = split(/:/, $main_content_start);
+                
+                #
+                # Check line and column of this tag and last main tag.
+                # If we have <main role="main">, don't report an error.
+                #
+                if ( ($line != $last_line) || ($column != $last_column) ) {
+                    Record_Result("WCAG_2.0-SC1.3.1", $line, $column, $text,
+                                  String_Value("Multiple main content areas found, previous instance found") .
+                                  " $last_main " . String_Value("at line:column") .
+                                  " $last_line:$last_column");
+                }
+            }
+            else {
+                #
+                # Record the details of the start of the main content area
+                #
+                $main_content_start = "<$tagname role=\"main\">:$line:$column";
             }
         }
 
@@ -11479,6 +11636,13 @@ sub Start_Handler {
     #
     elsif ( $tagname eq "link" ) {
         Link_Tag_Handler( $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check main tag
+    #
+    elsif ( $tagname eq "main" ) {
+        Main_Tag_Handler( $line, $column, $text, %attr_hash );
     }
 
     #
@@ -12451,6 +12615,63 @@ sub Check_Styled_Text {
 
 #***********************************************************************
 #
+# Name: Check_End_Role_Main
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function checks text to see if the current end tag's corresponding
+# start tag had a role="main" attribute.  If it is a main content area,
+# the size of the content is checked.
+#
+#***********************************************************************
+sub Check_End_Role_Main {
+    my ($self, $tagname, $line, $column, $text) = @_;
+
+    my ($clean_text, $attr, $start_main, $start_line, $start_column);
+
+    #
+    # Get attribute list from corresponding start tag
+    #
+    if ( defined($current_tag_object) ) {
+        $attr = $current_tag_object->attr();
+        
+        #
+        # Do we have a role="main" for the start tag?
+        #
+        if ( defined($$attr{"role"}) && ($$attr{"role"} eq "main") ) {
+            #
+            # Get name and location of start tag
+            #
+            $start_line = $current_tag_object->line_no();
+            $start_column = $current_tag_object->column_no();
+            print "Found end tag for role=main started at $start_line:$start_column\n" if $debug;
+            
+            #
+            # Get the main text as a string and get rid of excess white space
+            #
+            $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
+            print "Check_End_Role_Main: text = \"$clean_text\"\n" if $debug;
+
+            #
+            # Do we have text within the main content ?
+            #
+            if ( $clean_text eq "" ) {
+                print "Main content area has no text\n" if $debug;
+                Record_Result("WCAG_2.0-SC1.3.1", $start_line, $start_column, "",
+                      String_Value("Missing text in") . "<$tagname role=\"main\">");
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: End_Handler
 #
 # Parameters: self - reference to this parser
@@ -12663,6 +12884,13 @@ sub End_Handler {
     }
 
     #
+    # Check main tag
+    #
+    elsif ( $tagname eq "main" ) {
+        End_Main_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
     # Check object tag
     #
     elsif ( $tagname eq "object" ) {
@@ -12847,6 +13075,11 @@ sub End_Handler {
     #
     Check_Styled_Text($self, $tagname, $line, $column, $text, %attr_hash);
     
+    #
+    # Check for end of main content area
+    #
+    Check_End_Role_Main($self, $tagname, $line, $column, $text);
+
     #
     # Restore global tag visibility and hidden status values.
     #
