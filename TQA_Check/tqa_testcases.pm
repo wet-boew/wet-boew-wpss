@@ -238,6 +238,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-PDF12", "1.3.1, 4.1.2 PDF12: Providing name, role, value information for form fields in PDF documents",
 "WCAG_2.0-PDF16", "3.1.1 PDF16: Setting the default language using the /Lang entry in the document catalog of a PDF document",
 "WCAG_2.0-PDF18", "2.4.2 PDF18: Specifying the document title using the Title entry in the document information dictionary of a PDF document",
+"WCAG_2.0-SC1.3.1", "1.3.1 SC1.3.1: Info and Relationships",
 "WCAG_2.0-SC1.4.4", "1.4.4 SC1.4.4: Resize text",
 "WCAG_2.0-SC3.1.1", "3.1.1 SC3.1.1: Language of Page",
 #
@@ -400,6 +401,7 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-PDF12", "1.3.1, 4.1.2 PDF12 : Fourni le nom, le rôle, la valeur des renseignements des champs de formulaire des documents PDF",
 "WCAG_2.0-PDF16", "3.1.1 PDF16 : Règle la langue par défaut au moyen de l’entrée /Lang dans le catalogue de document d’un document PDF",
 "WCAG_2.0-PDF18", "2.4.2 PDF18 : Précise le titre du document au moyen de l’entrée du dictionnaire d’informations du document d’un document PDF",
+"WCAG_2.0-SC1.3.1", "1.3.1 SC1.3.1: Information et relations",
 "WCAG_2.0-SC1.4.4", "1.4.4 SC1.4.4: Redimensionnement du texte",
 "WCAG_2.0-SC3.1.1", "3.1.1 SC3.1.1: Langue de la page",
 #
@@ -510,6 +512,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-PDF12", "1.3.1, 4.1.2",
 "WCAG_2.0-PDF16", "3.1.1",
 "WCAG_2.0-PDF18", "2.4.2",
+"WCAG_2.0-SC1.3.1", "1.3.1",
 "WCAG_2.0-SC1.4.4", "1.4.4",
 "WCAG_2.0-SC3.1.1", "3.1.1",
 "WCAG_2.0-SCR20", "2.1.1",
