@@ -861,7 +861,7 @@ sub Run_pdfchecker {
 sub PDF_Check {
     my ($this_url, $language, $profile, $content) = @_;
 
-    my (@tqa_results_list, $result_object, $testcase);
+    my (@tqa_results_list, $result_object, $testcase, $pdf_text);
 
     #
     # Do we have a valid profile ?
@@ -888,11 +888,22 @@ sub PDF_Check {
     # Check PDF file properties and information
     #
     Check_PDF_Properties($this_url, $content);
+    
+    #
+    # Get the text content from the PDF file
+    #
+    $pdf_text = PDF_Files_PDF_Content_To_Text($content);
+    print "PDF text length = " . length($pdf_text) . "\n" if $debug;
 
     #
     # Run the pdf checker program
     #
-    Run_pdfchecker($this_url, $language, $profile, $content);
+    if ( $pdf_text =~ /^\s*$/ ) {
+        print "Skip PDF checker, no content in PDF.\n" if $debug;
+    }
+    else {
+        Run_pdfchecker($this_url, $language, $profile, $content);
+    }
 
     #
     # Print testcase information
