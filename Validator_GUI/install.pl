@@ -3,9 +3,9 @@
 #
 # Name:   install.pl
 #
-# $Revision: 6733 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/Validator_GUI/Tools/install.pl $
-# $Date: 2014-07-24 14:57:12 -0400 (Thu, 24 Jul 2014) $
+# $Revision: 458 $
+# $URL: svn://10.36.20.203/Validator_GUI/Tools/install.pl $
+# $Date: 2017-08-17 13:42:20 -0400 (Thu, 17 Aug 2017) $
 #
 # Synopsis: install.pl [ uninstall ] [ -no_pause ]
 #
@@ -64,7 +64,8 @@ use Archive::Zip;
 #***********************************************************************
 
 my (@paths, $this_path, $program_dir, $program_name, $paths);
-my ($line, $perl_install, $python_path, $is_windows);
+my ($line, $python_path, $is_windows);
+my ($perl_install) = "";
 my ($debug) = 0;
 my ($uninstall) = 0;
 my ($pause_before_exit) = 1;
@@ -328,7 +329,6 @@ sub Check_Java {
     # Try to get the version number from the version output
     #
     ($lead, $version_number, $trail) = $version =~ /^(.* version ")(\d+\.\d+\.\d+)(.*)$/m;
-    Write_To_Log("  Version number = $version_number");
     if ( defined($version_number) ) {
         ($major, $minor, $maint) = $version_number =~ /^(\d+)\.(\d+)\.(\d+)$/;
         Write_To_Log("  Version major = $major, Minor = $minor, Maintenance = $maint");
@@ -336,6 +336,8 @@ sub Check_Java {
     else {
         $major = 0;
         $minor = 0;
+        $version_number = "0.0";
+        Write_To_Log("  Version number = $version_number");
     }
 
     #
@@ -554,6 +556,89 @@ sub Install_Functools32_Python_Module {
 
 #**********************************************************************
 #
+# Name: Install_Vcversioner_Python_Module
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function installs the vcversioner module, which is used
+# by the jsonschema module.
+#
+#**********************************************************************
+sub Install_Vcversioner_Python_Module {
+
+    my ($output, $python_output, $zip_file);
+
+    #
+    # Extract the vcversioner module
+    #
+    chdir("$program_dir/python/");
+    $zip_file = Archive::Zip->new("vcversioner-2.16.0.0.zip");
+    $zip_file->extractTree();
+
+    #
+    # Build the vcversioner module
+    #
+    Write_To_Log("Build python module 'vcversioner'");
+    chdir("$program_dir/python/vcversioner-2.16.0.0");
+    print "setup.py build vcversioner\n";
+    Write_To_Log("setup.py build");
+    if ( $is_windows ) {
+        $python_output = `.\\setup.py build 2>\&1`;
+    }
+    else {
+        $python_output = `python setup.py build 2>\&1`;
+    }
+
+    #
+    # Was the build phase successful ?
+    #
+    if ( ($python_output =~ /Error/i) &&
+          ( ! ($python_output =~ /Copying/i) ) ) {
+        print "\n*****\n";
+        print "setup.py build failed for vcversioner\n";
+        print "\n*****\n";
+        Write_To_Log("setup.py build failed for vcversioner, output = $python_output");
+        Exit_With_Pause(1);
+    }
+    else {
+        Write_To_Log("build vcversioner complete");
+        Write_To_Log("Output = $python_output");
+    }
+
+    #
+    # Install the vcversioner module
+    #
+    Write_To_Log("Install python module 'vcversioner'");
+    print "setup.py install vcversioner\n";
+    Write_To_Log("setup.py install --root $program_dir\\python");
+    if ( $is_windows ) {
+        $python_output = `.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
+    }
+    else {
+        $python_output = `python setup.py install --root \"$program_dir/python\" 2>\&1`;
+    }
+
+    #
+    # Was the build phase successful ?
+    #
+    if ( ($python_output =~ /Error/i) &&
+          ( ! ($python_output =~ /Copying/i) ) ) {
+        print "\n*****\n";
+        print "setup.py install --root $program_dir\\python failed for vcversioner\n";
+        print "\n*****\n";
+        Write_To_Log("setup.py install --root $program_dir\\python failed for vcversioner, output = $python_output");
+        Exit_With_Pause(1);
+    }
+    else {
+        Write_To_Log("install vcversioner complete");
+        Write_To_Log("Output = $python_output");
+    }
+}
+
+#**********************************************************************
+#
 # Name: Install_Jsonschema_Python_Module
 #
 # Parameters: none
@@ -568,17 +653,22 @@ sub Install_Jsonschema_Python_Module {
     my ($output, $python_output, $zip_file);
 
     #
+    # Install prerequisit module vcversioner
+    #
+    Install_Vcversioner_Python_Module();
+    
+    #
     # Extract the jsonschema module
     #
     chdir("$program_dir/python/");
-    $zip_file = Archive::Zip->new("jsonschema-2.5.1.zip");
+    $zip_file = Archive::Zip->new("jsonschema-2.6.0.zip");
     $zip_file->extractTree();
 
     #
     # Build the jsonschema module
     #
     Write_To_Log("Build python module 'jsonschema'");
-    chdir("$program_dir/python/jsonschema-2.5.1");
+    chdir("$program_dir/python/jsonschema-2.6.0");
     print "setup.py build jsonschema\n";
     Write_To_Log("setup.py build");
     if ( $is_windows ) {
@@ -1162,7 +1252,6 @@ sub Install_Win32_GUI {
             print "\n*****\n";
             print "Missing Perl module Win32::GUI\n";
             print "\n*****\n";
-            Write_To_Log(" rc = $rc");
             Exit_With_Pause(1);
         }
     }
