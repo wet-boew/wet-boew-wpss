@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 412 $
+# $Revision: 477 $
 # $URL: svn://10.36.20.203/Open_Data/Tools/open_data_check.pm $
-# $Date: 2017-07-18 08:24:14 -0400 (Tue, 18 Jul 2017) $
+# $Date: 2017-08-29 08:10:37 -0400 (Tue, 29 Aug 2017) $
 #
 # Description:
 #
@@ -685,9 +685,6 @@ sub Check_Encoding {
             $data_file_object->encoding("UTF-8");
         }
     }
-    else {
-        Check_Content_Encoding($filename, $data_file_object);
-    }
 }
 
 #***********************************************************************
@@ -796,7 +793,7 @@ sub Check_Dictionary_URL {
 # Parameters: url - open data file URL
 #             format - optional content format
 #             resp - HTTP::Response object
-#             filename - content pointer
+#             content - content pointer
 #             dictionary - address of a hash table for data dictionary
 #
 # Description:
@@ -845,6 +842,14 @@ sub Check_Resource_URL {
          ($format =~ /^xml$/i) ||
          ($url =~ /\.xml$/i) ) {
         Check_Encoding($resp, $data_file_object, $content);
+        
+        #
+        # If we didn't get an encoding in the HTTP::Response object, check
+        # the content.
+        #
+        if ( defined($data_file_object) && ($data_file_object->encoding() eq "") ) {
+            Check_Content_Encoding($content, $data_file_object);
+        }
     }
 }
 
@@ -2274,7 +2279,7 @@ sub Check_CSV_Data_File_Content {
             else {
                 #
                 # Number of columns match, now check the column types
-                # (e.g. numeric, text).
+                # (e.g. numeric, text) and number of non-blank cells.
                 #
                 for ($i = 0; $i < $cols; $i++) {
                     #
@@ -2351,6 +2356,7 @@ sub Check_CSV_Data_File_Content {
 #
 # Parameters: json_url - URL of JSON-CSV data file
 #             csv_url - URL of CSV data file
+#             dictionary - address of a hash table for data dictionary
 #
 # Description:
 #
@@ -2368,7 +2374,7 @@ sub Check_CSV_Data_File_Content {
 #
 #***********************************************************************
 sub Compare_CSV_JSON_CSV_Data_File_Content {
-    my ($json_url, $csv_url) = @_;
+    my ($json_url, $csv_url, $dictionary) = @_;
 
     my ($csv_data_file_object, $csv_rows, $csv_columns, $csv_columns_list);
     my ($content_error, $json_data_file_object, $items, $fields);
@@ -2556,7 +2562,8 @@ sub Compare_CSV_JSON_CSV_Data_File_Content {
         #
         @other_results = Open_Data_CSV_Compare_JSON_CSV($json_data, $json_url,
                                                         $csv_url,
-                                                        $current_open_data_profile_name);
+                                                        $current_open_data_profile_name,
+                                                        $dictionary);
         
         #
         # Merge the JSON-CSV and CSV data comparison results with
@@ -2572,6 +2579,7 @@ sub Compare_CSV_JSON_CSV_Data_File_Content {
 # Name: Check_JSON_CSV_Data_File_Content
 #
 # Parameters: url_list - address of list of urls
+#             dictionary - address of a hash table for data dictionary
 #             url_lang_map - hash table of data file URLs
 #
 # Description:
@@ -2589,7 +2597,7 @@ sub Compare_CSV_JSON_CSV_Data_File_Content {
 #
 #***********************************************************************
 sub Check_JSON_CSV_Data_File_Content {
-    my ($url_list, %url_lang_map) = @_;
+    my ($url_list, $dictionary, %url_lang_map) = @_;
 
     my (@url_list, $list_item, $url, $eng_url, $format, $item);
     my ($lang_count, $lang_item_addr, $lang_data_file_object);
@@ -2729,7 +2737,7 @@ sub Check_JSON_CSV_Data_File_Content {
                 #
                 print "Have CSV file for this JSON-CSV file\n" if $debug;
                 if ( defined($data_file_objects{$csv_url}) ) {
-                    Compare_CSV_JSON_CSV_Data_File_Content($url, $csv_url);
+                    Compare_CSV_JSON_CSV_Data_File_Content($url, $csv_url, $dictionary);
                 }
             }
             else {
@@ -2751,6 +2759,7 @@ sub Check_JSON_CSV_Data_File_Content {
 #
 # Parameters: profile - testcase profile
 #             url_list - address of list of urls
+#             dictionary - address of a hash table for data dictionary
 #
 # Description:
 #
@@ -2763,7 +2772,7 @@ sub Check_JSON_CSV_Data_File_Content {
 #
 #***********************************************************************
 sub Open_Data_Check_Dataset_Data_Files {
-    my ($profile, $url_list) = @_;
+    my ($profile, $url_list, $dictionary) = @_;
 
     my (@tqa_results_list, @url_list, $list_item, $format, $url, $eng_url);
     my (%url_lang_map, $lang_item_addr);
@@ -2858,7 +2867,7 @@ sub Open_Data_Check_Dataset_Data_Files {
     #
     # Check JSON-CSV file content for item/field matches and other content checks
     #
-    Check_JSON_CSV_Data_File_Content($url_list, %url_lang_map);
+    Check_JSON_CSV_Data_File_Content($url_list, $dictionary, %url_lang_map);
 
     #
     # Return results
