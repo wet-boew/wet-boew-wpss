@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 413 $
+# $Revision: 478 $
 # $URL: svn://10.36.20.203/Open_Data/Tools/open_data_json.pm $
-# $Date: 2017-07-18 08:25:49 -0400 (Tue, 18 Jul 2017) $
+# $Date: 2017-08-29 08:11:29 -0400 (Tue, 29 Aug 2017) $
 #
 # Description:
 #
@@ -442,7 +442,7 @@ sub Check_UTF8_BOM {
     #
     # Get a line of content from the file
     #
-    print "Check_UTF8_BOM\n" if $debug;
+    print "Check_UTF8_BOM in open_data_json.pm\n" if $debug;
     $line = $json_file->getline();
 
     #
@@ -476,7 +476,7 @@ sub Check_UTF8_BOM {
         #
         # Reposition to the beginning of the file
         #
-        print "Reset reading position to beginning of the file\n" if $debug;
+        print "No BOM, reset reading position to beginning of the file\n" if $debug;
         seek($json_file, 0, 0);
         $have_bom = 0;
     }
@@ -929,9 +929,12 @@ sub Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes {
         }
         else {
             #
-            # Not a sub hash table, must be a leaf node
+            # Not a sub hash table, must be a leaf node.  Remove leading
+            # and trailing whitespace from the key name.
             #
             print "Have leaf node $key at $parent.$key, value = $value\n" if $debug;
+            $key =~ s/^\s+//;
+            $key =~ s/\s+$//;
             $leaf_nodes{"$key"} = $value;
         }
     }
@@ -1003,22 +1006,24 @@ sub Check_JSON_CSV_Data {
     #
     # Create a column object to track this JSON-CSV column
     #
-    foreach $key (@expected_leaf_nodes) {
-        #
-        # Does this key match a data dictionary heading ?
-        #
-        if ( defined($$dictionary_ptr{$key}) ) {
-            $column_object = csv_column_object->new($key);
-            push(@json_csv_columns, $column_object);
-            $column_objects{$key} = $column_object;
-        }
-        else {
+    if ( keys(%$dictionary_ptr) != 0 ) {
+        foreach $key (@expected_leaf_nodes) {
             #
-            # No data dictionary term for this field
+            # Does this key match a data dictionary heading ?
             #
-            Record_Result("TP_PW_OD_DATA", 1, 0, "",
-                          String_Value("JSON-CSV item field name not in data dictionary") .
-                          " \"$key\"");
+            if ( defined($$dictionary_ptr{$key}) ) {
+                $column_object = csv_column_object->new($key);
+                push(@json_csv_columns, $column_object);
+                $column_objects{$key} = $column_object;
+            }
+            else {
+                #
+                # No data dictionary term for this field
+                #
+                Record_Result("TP_PW_OD_DATA", 1, 0, "",
+                              String_Value("JSON-CSV item field name not in data dictionary") .
+                              " \"$key\"");
+            }
         }
     }
 
@@ -1134,7 +1139,6 @@ sub Check_JSON_CSV_Data {
                 # Text field
                 #
                 else {
-                    $column_object->increment_non_blank_cell_count();
                     $column_object->type("text");
                 }
                 print "Column data = \"$value\", type = " . $column_object->type() .
