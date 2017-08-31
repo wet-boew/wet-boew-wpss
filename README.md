@@ -1,69 +1,65 @@
-## Web and Open Data Validator version 6.5.0
+## Web and Open Data Validator version 6.6.0
 
-The Web and Open Data Validator provides web developers and quality assurance testers the ability to perform a number of web site, web page validation and Open data validation tasks at one time.
+The Web and Open Data Validator provides web developers and quality assurance testers the ability to perform a number of web site, web page validation and Open data validation tasks at one time. Web site checking includes
+- WCAG 2.0 A an AA
+- Link checking (e.g. broken links, broken anchors, cross language links)
+- Mark-up validation (HTML, CSS, XML, Javascript)
+- Mobile optimization (based on Yahoo's best practices)
+
+Open data checking includes
+- CSV, JSON, JSON schema and XML validation
+- Content validation based on data dictionary patterns
 
 ## Major Changes
 
 Web Tool
 
 ```
-- Check the mime-type of image links and favicon to ensure that it is an image 
-  mime-type - BAD_IMAGE_MIME_TYPE
-- Correct bug in URL parsing in PhantomJS user agent that caused some URLs to be truncated 
-  when sent to web servers.
-- Update HTML5 validator to version 17.7.0.
-- Check for invalid separator for dc.subject terms - Metadata
-
+- Fix bug in PDF file checker which can cause it to hang.
+- Check for multiple <main> tags or tags with role="main" - WCAG_2.0-SC1.3.1
 ```
 
 Open Data_Tool
 
 ```
-- Check for missing module when running JSON schema validator - OD_VAL
-- Check for CSV version for each JSON-CSV data file - TP_PW_OD_DATA
-- Check that each item in the JSON-CSV data array have the same number and fields and 
-  same field names - OD_DATA
-- Check that all data items match for JSON-CSV and CSV variants of data files - OD_DATA
+- Don't analyze content to determine encoding of data files, only use the charset 
+  HTTP::Response header or the presence of a UTF-8 BOM - OD_ENC
+- If there is no data dictionary, don't report errors with JSON-CSV field names - TP_PW_OD_DATA
+- Remove leading and trailing whitespace from JSON field names before checking 
+  data dictionary - TP_PW_OD_DATA
+- To allow for offline installations, add Python module vcversioner version 2.16 
+  (used by jsonschema).
 ```
 
-Version 6.5.0 contains the following updates and additions
+Version 6.6.0 contains the following updates and additions
 
 ## Web
 
 ```
-- Check the mime-type of image links and favicon to ensure that it is an image 
-  mime-type - BAD_IMAGE_MIME_TYPE
-- Correct bug in URL parsing in PhantomJS user agent that caused some URLs to be truncated 
-  when sent to web servers.
-- Correct merging of links from original, modified and generated HTML markup.
-- Update HTML5 validator to version 17.7.0.
-- Check for invalid separator for dc.subject terms - Metadata
-- Check for 64 bit Perl installation.  The Win32::GUI module will not install on a 64 bit 
-  Perl installation.  
+- Fix bug in PDF file checker which can cause it to hang.
+- Check for multiple <main> tags or tags with role="main" - WCAG_2.0-SC1.3.1
 ```
 
 ## Open Data
 
 ```
-- Check for missing module when running JSON schema validator - OD_VAL
-- Check for CSV version for each JSON-CSV data file - TP_PW_OD_DATA
-- Check that language variations of JSON-CSV data files have the same number of rows 
-  and same fields - OD_DATA
-- Check that CSV and JSON-CSV data files have the same number of data rows - OD_DATA
-- Check that each item in the JSON-CSV data array have the same number and fields and 
-  same field names - OD_DATA
-- Check that CSV column headings and JSON-CSV data item field names match in JSON-CSV and 
-  CSV variants of data files - OD_DATA
-- Check that CSV column types and JSON-CSV data item field types match in JSON-CSV and 
-  CSV variants of data files - OD_DATA
-- Check that numeric CSV column sums and numeric JSON-CSV data field values match in 
-  SON-CSV and CSV variants of data files - OD_DATA
-- Check that all data items match for JSON-CSV and CSV variants of data files - OD_DATA
+- Don't analyze content to determine encoding of data files, only use the charset 
+  HTTP::Response header or the presence of a UTF-8 BOM - OD_ENC
+- If there is no data dictionary, don't report errors with JSON-CSV field names - TP_PW_OD_DATA
+- Remove leading and trailing whitespace from JSON field names before checking 
+  data dictionary - TP_PW_OD_DATA
+- Correct bug with CSV row field count check - OD_DATA
+- Update csv-validator to version 1.2-RC2
+- Update jsonschema to version 2.6.0
+- To allow for offline installations, add Python module vcversioner version 2.16 
+  (used by jsonschema).
+- Improve exception handling for headings and lists in CSV data cells - OD_DATA
 ```
 
 ## Web and Open Data Validator Installer
 
-The tool installer, WPSS_Tool.exe, does NOT include the required Perl or Python installers (as was the case for previous releases).  Perl and Python must be installed on the workstation prior to installing the WPSS_Tool.
+The tool installer, WPSS_Tool.exe, does NOT include the required Perl or Python installers.  
+Perl and Python must be installed on the workstation prior to installing the WPSS_Tool.
 
 Supported versions of Perl include
 - Strawberry Perl 5.18 (32 bit) available from http://strawberry-perl.googlecode.com/files/strawberry-perl-5.18.1.1-32bit.msi
@@ -78,4 +74,4 @@ The WPSS_Tool has been tested on the following platforms
 - Windows 7 (32 bit), Strawberry Perl 5.18 (32 bit), Python 2.7.6
 
 The WPSS Tool installer is available as a release in this repository
-- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.5.0/WPSS_Tool.exe
+- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.6.0/WPSS_Tool.exe
