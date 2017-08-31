@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 415 $
+# $Revision: 480 $
 # $URL: svn://10.36.20.203/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2017-07-18 08:28:20 -0400 (Tue, 18 Jul 2017) $
+# $Date: 2017-08-29 08:18:00 -0400 (Tue, 29 Aug 2017) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -9297,34 +9297,6 @@ sub Open_Data_Callback {
         ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
 
         #
-        # Did we get the description URL?
-        #
-        if ( (! defined($resp)) || (! $resp->is_success) ) {
-            if ( defined($resp) ) {
-                $error = String_Value("HTTP Error") . " " .
-                                      $resp->status_line;
-            }
-            else {
-                $error = String_Value("Malformed URL");
-            }
-            Validator_GUI_Print_URL_Error($crawled_urls_tab, $url, 1,
-                                          $error);
-
-            #
-            # Get current time/date
-            #
-            ($sec, $min, $hour, $mday, $mon, $year) = (localtime)[0,1,2,3,4,5];
-            $mon++;
-            $year += 1900;
-            $date = sprintf("%02d:%02d:%02d %4d/%02d/%02d", $hour, $min, $sec,
-                            $year, $mon, $mday);
-
-            Validator_GUI_End_Analysis($crawled_urls_tab, $date,
-                                       String_Value("Analysis terminated"));
-            return();
-        }
-        
-        #
         # Uncompress the content, if needed
         #
         Crawler_Uncompress_Content_File($resp);
@@ -9398,7 +9370,6 @@ sub Open_Data_Callback {
         #
         # Extract the dataset URLs from the description
         #
-        $filename = $resp->header("WPSS-Content-File");
         @results = Open_Data_Check_Read_JSON_Description($url,
                                                          $open_data_check_profile,
                                                          $resp, $filename,
@@ -9625,7 +9596,8 @@ sub Open_Data_Callback {
             #
             @url_list = split(/\n+/, $$dataset_urls{"DATA"});
             @results = Open_Data_Check_Dataset_Data_Files($open_data_check_profile,
-                                                          \@url_list);
+                                                          \@url_list,
+                                                          \%open_data_dictionary);
 
 
             #
