@@ -331,7 +331,7 @@ sub Validate_HTML5_Content {
 
     my ($validator_output, $line, $html_file_name, @results_list);
     my ($result_object, $fh, $ref, $messages, $eval_output, $item);
-    my ($ref_type, $messages, $errors, $line_no, $column_no, $message);
+    my ($ref_type, $errors, $line_no, $column_no, $message);
     my (@lines, $source_line, $start_col);
     my ($command_failed) = 0;
 
