@@ -2,9 +2,9 @@
 #
 # Name:   crawler_phantomjs.pm
 #
-# $Revision: 133 $
-# $URL: svn://10.36.20.203/Crawler/Tools/crawler_phantomjs.pm $
-# $Date: 2016-12-05 15:26:37 -0500 (Mon, 05 Dec 2016) $
+# $Revision: 561 $
+# $URL: svn://10.36.148.185/Crawler/Tools/crawler_phantomjs.pm $
+# $Date: 2017-11-03 10:13:44 -0400 (Fri, 03 Nov 2017) $
 #
 # Description:
 #
@@ -383,7 +383,7 @@ sub Server_Page_Markup {
     my ($this_url, $cookie_file, $image_file) = @_;
 
     my ($content, $output, $line, $load_time, $markup);
-    my ($sec, $min, $hour, $date, $image_param, %generated_markup);
+    my ($sec, $min, $hour, $time, $image_param, %generated_markup);
     my ($user_agent, $resp, $url, $req);
     my ($markup_ptr) = \%generated_markup;
 
@@ -399,7 +399,7 @@ sub Server_Page_Markup {
     # Get current time/date
     #
     ($sec, $min, $hour) = (localtime)[0,1,2];
-    $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+    $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
 
     #
     # Are we capturing an image of the web page ?
@@ -422,11 +422,11 @@ sub Server_Page_Markup {
     # Get page markup from the URL ?
     #
     $user_agent = LWP::UserAgent->new;
-    print "start $date page markup from $this_url\n" if $debug;
+    print "start $time page markup from $this_url\n" if $debug;
     $resp = $user_agent->request($req);
     ($sec, $min, $hour) = (localtime)[0,1,2];
-    $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
-    print "end   $date page markup\n" if $debug;
+    $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+    print "end   $time page markup\n" if $debug;
 
     #
     # Did we get the page markup ?
@@ -479,15 +479,6 @@ sub Server_Page_Markup {
         # Error running phantomjs
         #
         print "Failed to get response from phamtonjs markup server\n" if $debug;
-        print STDERR "Error in Server_Page_Markup\n";
-        print STDERR "  LWP::UserAgent->get($url)\n";
-        if ( defined($resp) ) {
-            print STDERR "  HTTP response:" . $resp->status_line . "\n";
-            print STDERR $resp->as_string . "\n";
-        }
-        else {
-            print STDERR "  HTTP response: undefined\n";
-        }
         $generated_markup{"generated_content"} = "";
 
         #
@@ -503,7 +494,22 @@ sub Server_Page_Markup {
             # Try one more time to get the page.
             #
             $retry_page = 1;
+            print "Retry GET of page\n" if $debug;
             $markup_ptr = Server_Page_Markup($this_url, $cookie_file, $image_file);
+        }
+        else {
+            #
+            # Failed to get page twice, report error.
+            #
+            print STDERR "Error in Server_Page_Markup\n";
+            print STDERR "  LWP::UserAgent->get($url)\n";
+            if ( defined($resp) ) {
+                print STDERR "  HTTP response:" . $resp->status_line . "\n";
+                print STDERR $resp->as_string . "\n";
+            }
+            else {
+                print STDERR "  HTTP response: undefined\n";
+            }
         }
         $retry_page = 0;
     }
