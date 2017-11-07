@@ -698,6 +698,7 @@ $validate_cmnd = "java -classpath \"$program_dir/lib/css-validator.jar;" .
                  "$program_dir/lib/commons-lang.jar;" .
                  "$program_dir/lib/commons-collections.jar;" .
                  "$program_dir/lib/xercesImpl.jar\" " .
+                 "-Dhttp.agent=\"WPSS_Tool css-validator\" " .
                  "org.w3c.css.css.CssValidator " .
                  "-profile css3 -warning -1 -vextwarning true";
 
