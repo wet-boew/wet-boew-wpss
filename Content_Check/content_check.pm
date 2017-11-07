@@ -462,7 +462,7 @@ sub Content_Check_HTML_Headings_Report {
     my ($heading_table, $title_table) = @_;
     
     my ($url, $heading_level, $heading_value, $title);
-    my (@urls, $url, $heading_list, $heading);
+    my (@urls, $heading_list, $heading);
     my ($report) = "";
     
     #
