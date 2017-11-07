@@ -104,10 +104,10 @@ my (%testcase_data, %interop_check_profile_map);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 
 my ($current_interop_check_profile, $current_url);
-my ($results_list_addr, $charset);
+my ($results_list_addr, $charset, $charset_text);
 my ($doctype_label, $doctype_version, $doctype_class);
 my ($doctype_line, $doctype_column, $doctype_text);
-my ($charset, $charset_line, $charset_column, $charset_text);
+my ($charset_line, $charset_column);
 my (%ignore_rel_domains, %html_data_vocab);
 my ($microdata_found, $microdata_line, $microdata_column, $microdata_text);
 my ($microdata_attr, $microdata_attr_count, $rdfa_found, $rdfa_attr_count);
