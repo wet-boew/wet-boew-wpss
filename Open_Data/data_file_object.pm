@@ -2,9 +2,9 @@
 #
 # Name: data_file_object.pm
 #
-# $Revision: 354 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/data_file_object.pm $
-# $Date: 2017-04-28 10:43:49 -0400 (Fri, 28 Apr 2017) $
+# $Revision: 523 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/data_file_object.pm $
+# $Date: 2017-10-18 11:45:32 -0400 (Wed, 18 Oct 2017) $
 #
 # Description:
 #
@@ -18,6 +18,7 @@
 # Class Methods
 #    new - create new object instance
 #    attribute - get/set an attribute value (attributes vary by file type)
+#    checksum - get/set the content checksum
 #    encoding - get/set the encoding (e.g. UTF-8)
 #    format - get/set the format of the data file (e.g. JSON-CSV)
 #    lang - get/set the data file content language
@@ -124,8 +125,9 @@ sub new {
     bless $self, $class;
 
     #
-    # Save arguments as object data items
+    # Save arguments as object data items and initialize fields values.
     #
+    $self->{"checksum"} = "";
     $self->{"encoding"} = "";
     $self->{"format"} = "";
     $self->{"type"} = $type;
@@ -180,6 +182,35 @@ sub attribute {
     }
     else {
         return("");
+    }
+}
+
+#********************************************************
+#
+# Name: checksum
+#
+# Parameters: self - class reference
+#             checksum - file content checksum (optional)
+#
+# Description:
+#
+#   This function either sets or returns the file content
+# checksum attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub checksum {
+    my ($self, $checksum) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($checksum) ) {
+        $self->{"checksum"} = $checksum;
+    }
+    else {
+        return($self->{"checksum"});
     }
 }
 
