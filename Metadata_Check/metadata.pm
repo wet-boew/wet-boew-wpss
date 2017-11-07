@@ -1801,7 +1801,7 @@ sub End_Title_Tag_Handler {
 sub Meta_Tag_Handler {
     my ( $language, $line, $column, $text, %attr ) = @_;
 
-    my ($key, $value, $status, $name, $content, $scheme, $lang);
+    my ($key, $value, $name, $content, $scheme, $lang);
     my ($result_object);
     my ($attributes) = "";
     my ($status) = $metadata_success;

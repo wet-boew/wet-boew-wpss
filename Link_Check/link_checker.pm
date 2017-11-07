@@ -862,7 +862,7 @@ sub Get_Site_Title {
 
     my ($protocol, $domain, $new_url, $file_path, $query, $list_addr);
     my ($site_title_addr, %site_title_hash, $base, %link_sets, $header);
-    my ($this_link, @links, $content, $mime_type, $content);
+    my ($this_link, @links, $content, $mime_type);
 
     #
     # Get the domain name of the URL

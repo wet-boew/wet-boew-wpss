@@ -96,7 +96,7 @@ my ($current_lang, @lang_stack, $current_resp_base, $have_text_handler);
 my ($content_section_handler, %subsection_links, @last_link_list);
 my (@tag_lang_stack, $last_lang_tag, $in_head_section);
 my ($last_heading_text, $current_list_level, @inside_list_item);
-my ($have_text_handler, @text_handler_tag_list, @text_handler_text_list);
+my (@text_handler_tag_list, @text_handler_text_list);
 my ($current_text_handler_tag, $inside_anchor, $last_image_link);
 my ($inside_figure, $have_figcaption, $figcaption_text, $inside_noscript);
 my ($image_in_figure_with_no_alt, @object_reference_list, @list_location);
