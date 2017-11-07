@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 142 $
-# $URL: svn://10.36.20.203/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2016-12-07 13:05:31 -0500 (Wed, 07 Dec 2016) $
+# $Revision: 508 $
+# $URL: svn://10.36.148.185/CLF_Check/Tools/tp_pw_check.pm $
+# $Date: 2017-09-29 13:40:04 -0400 (Fri, 29 Sep 2017) $
 #
 # Description:
 #
@@ -1717,6 +1717,11 @@ sub End_Anchor_Tag_Handler {
         #
         Check_End_Anchor_Mailto($line, $column, $text, $current_anchor_mailto,
                                 @anchor_text_list);
+                                
+        #
+        # Clear the mailto anchor
+        #
+        $current_anchor_mailto = "";
     }
 
     #
@@ -2125,7 +2130,7 @@ sub Verify_Template_Checksums {
 
     my ($manifest_url, $url, $resp, $line, $checksum, $file_path);
     my ($calculated_checksum, $object, $template_directory);
-    my ($object, $trusted_template_domains, @fields, $last_field);
+    my ($trusted_template_domains, @fields, $last_field);
     my ($critical_template_file, $content);
 
     #
