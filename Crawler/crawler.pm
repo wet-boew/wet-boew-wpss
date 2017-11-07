@@ -1061,7 +1061,7 @@ sub Create_User_Agents {
     # Create a LWP::UserAgent object
     #
     print "Create LWP::UserAgent user agent $user_agent_name\n" if $debug;
-    $lwp_user_agent = LWP::UserAgent->new("$user_agent_name");
+    $lwp_user_agent = LWP::UserAgent->new(agent => "$user_agent_name");
     $lwp_user_agent->ssl_opts(verify_hostname => 0,
                               SSL_verify_mode => SSL_VERIFY_NONE);
     $lwp_user_agent->timeout("60");
@@ -1555,7 +1555,7 @@ sub Crawler_Get_HTTP_Response {
     my ($user, $password, $realm, $url, $header, $redirect_domain);
     my ($redirect_protocol, $protocol, $host, $path, $query, $port);
     my ($redirect_file_path, $redirect_query, $redirect_dir, $new_url);
-    my ($sec, $min, $hour, $date, $set_credentials);
+    my ($sec, $min, $hour, $date, $set_credentials, $redirect_url);
     my ($redirect_count) = 0;
     my ($http_401_count) = 0;
     my ($done) = 0;
@@ -1871,30 +1871,30 @@ sub Crawler_Get_HTTP_Response {
                 print "Redirect, code = " . $resp->code . "\n" if $debug;
                 $redirect_count++;
                 $header = $resp->headers;
-                $url = $header->header("Location");
-                print "Redirect to = $url\n" if $debug;
+                $redirect_url = $header->header("Location");
+                print "Redirect to = $redirect_url\n" if $debug;
 
                 #
                 # Does URL have a leading http ? 
                 #
-                if ( ! ($url =~ /^http/) ) {
+                if ( ! ($redirect_url =~ /^http/) ) {
                     #
                     # If we have a leading //, use protocol from
                     # previous request.
                     #
-                    if ( $url =~ /^\/\// ) {
+                    if ( $redirect_url =~ /^\/\// ) {
                         print "Add protocol to received URL\n" if $debug;
-                        $url = "$redirect_protocol$url";
+                        $redirect_url = "$redirect_protocol$redirect_url";
                     }
                     #
                     # Check for leading /
                     #
-                    elsif ( $url =~ /^\// ) {
+                    elsif ( $redirect_url =~ /^\// ) {
                         #
                         # Add protocol and domain from previous request.
                         #
                         print "Add protocol & domain to received URL\n" if $debug;
-                        $url = "$redirect_protocol//$redirect_domain$url";
+                        $redirect_url = "$redirect_protocol//$redirect_domain$redirect_url";
                     }
                     else {
                         #
@@ -1903,15 +1903,41 @@ sub Crawler_Get_HTTP_Response {
                         #
                         print "Add protocol, domain & directory to received URL\n" if $debug;
                         if ( $redirect_dir ne "" ) {
-                            $url = "$redirect_protocol//$redirect_domain/$redirect_dir/$url";
+                            $redirect_url = "$redirect_protocol//$redirect_domain/$redirect_dir/$redirect_url";
                         }
                         else {
-                            $url = "$redirect_protocol//$redirect_domain/$url";
+                            $redirect_url = "$redirect_protocol//$redirect_domain/$redirect_url";
                         }
                     }
                 }
-                print "Redirect to \"$url\"\n" if $debug;
+                
+                #
+                # Does the redirect URL match the original URL (i.e. a redirect
+                # back to ourself)?
+                #
+                if ( $redirect_url eq $url ) {
+                    #
+                    # Set response code to 200 it indicate success
+                    #
+                    print "Redirect back to ourself, $redirect_url\n" if $debug;
+                    $done = 1;
+                    $resp->code(200);
+                    $header = $resp->headers;
+                    print "Content type = " . $header->content_type . "\n" if $debug;
 
+                    #
+                    # Did we save the content in a file ?
+                    #
+                    if ( $user_agent_content_file ) {
+                        $header->push_header("WPSS-Content-File" => $filename);
+                        print "Set header WPSS-Content-File => $filename\n" if $debug;
+                    }
+                }
+                else {
+                    print "Redirect to \"$redirect_url\"\n" if $debug;
+                    $url = $redirect_url;
+                }
+                
                 #
                 # Get components of redirected URL
                 #
