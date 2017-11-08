@@ -612,6 +612,7 @@ if ( $program_dir eq "." ) {
 $xerces_validate_cmnd = "java -classpath \"$program_dir/lib/xercesImpl.jar;" .
                         "$program_dir/lib/xml-apis.jar;" .
                         "$program_dir/lib/xercesSamples.jar\" " .
+                        "-Dhttp.agent=\"WPSS_Tool Xerces\" " .
                         "sax.Counter -v -n -np -s -f ";
 
 #
