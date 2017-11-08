@@ -218,7 +218,7 @@ sub URL_Check_Debug {
 sub URL_Check_Parse_URL {
     my ($url) = @_;
 
-    my ($protocol, $domain, $file_path, $query, $drive);
+    my ($protocol, $domain, $file_path, $query, $drive, $extra_slash);
 
     #
     # Do we have a leading http or https ?
@@ -234,6 +234,7 @@ sub URL_Check_Parse_URL {
         #
         ($protocol, $domain, $file_path, $query) =
           $url =~ /^(http[s]?:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+        $extra_slash = "";
     }
     elsif ( $url =~ /^file:\// ) {
         #
@@ -246,6 +247,7 @@ sub URL_Check_Parse_URL {
           $url =~ /^(file:)\/\/*(\w)+:\/([\/\w\-\.\%]*)$/io;
         ($protocol, $domain, $file_path, $query) = $url =~
                 /^(file:)\/\/*(\w*):\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+        $extra_slash = "/";
 
         #
         # Add trailing : to the domain/drive letter
@@ -264,6 +266,7 @@ sub URL_Check_Parse_URL {
         ($protocol, $domain, $file_path) =
           $url =~ /^(ftp:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*)$/io;
         $query = "";
+        $extra_slash = "";
     }
     
     #
@@ -309,10 +312,10 @@ sub URL_Check_Parse_URL {
         # Reconstruct the URL properly
         #
         if ( $file_path ne "/" ) {
-            $url = "$protocol//$domain/$file_path$query";
+            $url = "$protocol$extra_slash//$domain/$file_path$query";
         }
         else {
-            $url = "$protocol//$domain/$query";
+            $url = "$protocol$extra_slash//$domain/$query";
         }
     }
     else {
@@ -536,6 +539,59 @@ sub URL_Check_GET_URL_Language {
 
 #***********************************************************************
 #
+# Name: Get_English_Path
+#
+# Parameters: file_path
+#
+# Description:
+#
+#   This function attempts to convert the supplied file path into
+# an English file path.  This is done by replacing any language identifier
+# with the corresponding English identifier (e.g. -fra becomes -eng).
+#
+#***********************************************************************
+sub Get_English_Path {
+    my ($file_path) = @_;
+    
+    my ($file_name, $language_suffix, $file_suffix, $english_file_path);
+    
+    #
+    # Break the file path into the file name, language suffix
+    # and the file suffix.
+    #
+    ($file_name, $language_suffix, $file_suffix) = $file_path =~ /^([\w\/\-_\.]*[\-_])([a-zA-Z]{1,3})\.(.*)/;
+    print "Get_English_Path file name = $file_name, language_suffix = $language_suffix, file_suffix = $file_suffix\n" if $debug;
+
+    #
+    # Check for a 3 character language
+    #
+    if ( defined($language_map::iso_639_2T_languages{$language_suffix}) ) {
+        $english_file_path = $file_name . "eng" . ".$file_suffix";
+        print "3 character language suffix $language_suffix\n" if $debug;
+    }
+    #
+    # Check for 2 character language
+    #
+    elsif ( defined($language_map::iso_639_1_iso_639_2T_map{$file_suffix}) ) {
+        $english_file_path = $file_name . "en" . ".$file_suffix";
+        print "2 character language suffix $language_suffix\n" if $debug;
+    }
+    #
+    # Check for 1 character language
+    #
+    elsif ( defined($language_map::one_char_iso_639_2T_map{$file_suffix}) ) {
+        $english_file_path = $file_name . "e" . ".$file_suffix";
+        print "1 character language suffix $language_suffix\n" if $debug;
+    }
+    
+    #
+    # Return the english file path
+    #
+    return($english_file_path);
+}
+
+#***********************************************************************
+#
 # Name: URL_Check_Get_English_URL
 #
 # Parameters: url
@@ -554,7 +610,8 @@ sub URL_Check_Get_English_URL {
     my ($protocol, $domain, $file_path, $query, $arg, $lang, @dir_paths);
     my ($dir, $file_suffix, $new_url, $file_name, $language_suffix);
     my ($english_url, $english_file_path, @arg_list, $arg_name);
-    my ($english_arg, $i, $delimiter);
+    my ($english_arg, $i, $delimiter, $zip_path, $zip_suffix, $member_path);
+    my ($english_zip_path, $english_member_path, $extra_slash);
 
     #
     # Get components of the URL, we only check the file path portion
@@ -562,6 +619,17 @@ sub URL_Check_Get_English_URL {
     print "URL_Check_Get_English_URL: Convert to English $url\n" if $debug;
     ($protocol, $domain, $file_path, $query, $new_url) =
         URL_Check_Parse_URL($url);
+        
+    #
+    # Is the protocol file? If so we need an extra slash before
+    # the domain.
+    #
+    if ( $protocol eq "file:" ) {
+        $extra_slash = "/";
+    }
+    else {
+        $extra_slash = "";
+    }
 
     #
     # Check for possible language directory paths in the URL.  If
@@ -591,43 +659,66 @@ sub URL_Check_Get_English_URL {
     #
     # If we don't have a URL yet, look for a language suffix in
     # the file name. We will look for lower case only, if the suffix is in
-    # uppercase we wont match it (too many possibilities with -ENG or -Eng)
+    # uppercase we won't match it (too many possibilities with -ENG or -Eng)
     #
     if ( (! defined($english_url)) && ($file_path ne "/") ) {
         #
-        # Check for a 1..3 letter language suffix in the file name
-        # (before the file type).
+        # Check for a possible .zip: component of the URL path.  A URL
+        # may be a zip file member, in which case the ZIP file URL has
+        # the member file name apprended to it.
         #
-        ($file_name, $language_suffix, $file_suffix) = $file_path =~ /^([\w\/\-_\.]*[\-_])([a-zA-Z]{1,3})\.(.*)/;
-        print "file name = $file_name, language_suffix = $language_suffix, file_suffix = $file_suffix\n" if $debug;
+        if ( $file_path =~ /^.+\.zip:.+$/i ) {
+            #
+            # Get the ZIP file path and the member file path
+            #
+            ($zip_path, $zip_suffix, $member_path) =
+               $file_path =~ /^(.+)\.(zip):(.+)$/io;
+            print "Zip file path = $zip_path, member path = $member_path\n" if $debug;
+            
+            #
+            # Get English file path for this ZIP file path
+            #
+            $english_zip_path = Get_English_Path($zip_path . ".$zip_suffix");
+            
+            #
+            # Get English file path for this ZIP member file path
+            #
+            $english_member_path = Get_English_Path($member_path);
+            
+            #
+            # Did we get an english ZIP path and no english member path
+            #
+            if ( defined($english_zip_path) && ( !defined($english_member_path)) ) {
+                $english_url = "$protocol$extra_slash//$domain/$english_zip_path:$member_path$query";
+            }
+            #
+            # Did we get no english ZIP path and an english member path
+            #
+            elsif ( ( !defined($english_zip_path)) && defined($english_member_path) ) {
+                $english_url = "$protocol$extra_slash//$domain/$zip_path.$zip_suffix:$english_member_path$query";
+            }
+            #
+            # Did we get both an english ZIP path and an english member path
+            #
+            elsif ( defined($english_zip_path) && defined($english_member_path) ) {
+                $english_url = "$protocol$extra_slash//$domain/$english_zip_path:$english_member_path$query";
+            }
+        }
+        #
+        # Not a ZIP file URL
+        #
+        else {
+            #
+            # Get English file path for this URL file path
+            #
+            $english_file_path = Get_English_Path($file_path);
 
-        #
-        # Check for a 3 character language
-        #
-        if ( defined($language_map::iso_639_2T_languages{$language_suffix}) ) {
-            $english_file_path = $file_name . "eng" . ".$file_suffix";
-            print "3 character language suffix $language_suffix\n" if $debug;
-        }
-        #
-        # Check for 2 character language
-        #
-        elsif ( defined($language_map::iso_639_1_iso_639_2T_map{$file_suffix}) ) {
-            $english_file_path = $file_name . "en" . ".$file_suffix";
-            print "2 character language suffix $language_suffix\n" if $debug;
-        }
-        #
-        # Check for 1 character language
-        #
-        elsif ( defined($language_map::one_char_iso_639_2T_map{$file_suffix}) ) {
-            $english_file_path = $file_name . "e" . ".$file_suffix";
-            print "1 character language suffix $language_suffix\n" if $debug;
-        }
-        
-        #
-        # If we got an English file path, create the full English URL
-        #
-        if ( defined($english_file_path) ) {
-            $english_url = "$protocol//$domain/$english_file_path$query";
+            #
+            # If we got an English file path, create the full English URL
+            #
+            if ( defined($english_file_path) ) {
+                $english_url = "$protocol$extra_slash//$domain/$english_file_path$query";
+            }
         }
     }
 
@@ -696,10 +787,10 @@ sub URL_Check_Get_English_URL {
             # Reconstruct the URL properly
             #
             if ( $file_path ne "/" ) {
-                $english_url = "$protocol//$domain/$file_path$query";
+                $english_url = "$protocol$extra_slash//$domain/$file_path$query";
             }
             else {
-                $english_url = "$protocol//$domain/$query";
+                $english_url = "$protocol$extra_slash//$domain/$query";
             }
         }
     }
@@ -740,7 +831,7 @@ sub URL_Check_Get_English_URL {
 sub URL_Check_Make_URL_Absolute {
     my ($url, $base) = @_;
 
-    my ($protocol, $domain, $dir, $query, $new_url);
+    my ($protocol, $domain, $dir, $query, $new_url, $extra_slash);
 
     #
     # Check for mailto:, javascript:, or ftp: links.  These are cannot be
@@ -765,11 +856,13 @@ sub URL_Check_Make_URL_Absolute {
     if ( $base =~ /^http/i ) {
         ($protocol, $domain, $dir, $query) = $base =~
                 /^(http[s]?:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+        $extra_slash = "";
     }
     elsif ( $base =~ /^file/i ) {
         print "Got file URL\n" if $debug;
         ($protocol, $domain, $dir, $query) = $base =~
                 /^(file:)\/\/*(\w*):\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+        $extra_slash = "/";
 
         #
         # Add trailing : to the domain/drive letter
@@ -783,6 +876,7 @@ sub URL_Check_Make_URL_Absolute {
         $domain = "";
         $dir = "";
         $query = "";
+        $extra_slash = "";
     }
     print "Protocol = $protocol, domain = $domain, dir = $dir, query = $query\n" if $debug;
 
@@ -813,7 +907,7 @@ sub URL_Check_Make_URL_Absolute {
     #
     # Rebuild the base URL
     #
-    $base = "$protocol//$domain/$dir$query";
+    $base = "$protocol$extra_slash//$domain/$dir$query";
 
     #
     # Convert relative URL into absolute
@@ -843,10 +937,10 @@ sub URL_Check_Make_URL_Absolute {
     # Reconstruct URL
     #
     elsif ( $dir ne "/" ) {
-        $new_url = "$protocol//$domain/$dir$query";
+        $new_url = "$protocol$extra_slash//$domain/$dir$query";
     }
     else {
-        $new_url = "$protocol//$domain/$query";
+        $new_url = "$protocol$extra_slash//$domain/$query";
     }
 
     #
