@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 479 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2017-08-29 08:16:11 -0400 (Tue, 29 Aug 2017) $
+# $Revision: 525 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_csv.pm $
+# $Date: 2017-10-18 11:47:36 -0400 (Wed, 18 Oct 2017) $
 #
 # Description:
 #
@@ -147,9 +147,10 @@ my %string_table_en = (
     "Heading must be a single line", "Heading must be a single line",
     "Inconsistent list item prefix, found", "Inconsistent list item prefix, found",
     "Inconsistent number of fields, found", "Inconsistent number of fields, found",
+    "Leading or trailing whitespace characters in heading", "Leading or trailing whitespace characters in heading",
     "List item prefix character found for list of 1 item", "List item prefix character found for list of 1 item",
     "List item value",               "List item value",
-    "Missing header row",            "Missing header row",
+    "Missing header row or terms",   "Missing header row or terms",
     "Missing header row terms",      "Missing header row terms",
     "Missing list item prefix character", "Missing list item prefix character",
     "Missing UTF-8 BOM",             "Missing UTF-8 BOM",
@@ -183,9 +184,10 @@ my %string_table_fr = (
     "Heading must be a single line", "Le titre doit être une seule ligne",
     "Inconsistent list item prefix, found", "Préfixe d'élément de liste incompatible, trouvé",
     "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté",
+    "Leading or trailing whitespace characters in heading", "Caractères blancs avancés ou arrivant dans le titre",
     "List item value",               "Valeur de l'élément de liste",
     "List item prefix character found for list of 1 item", "Caractère de préfixe d'élément de liste trouvé pour la liste de 1 élément",
-    "Missing header row",            "Manquant lignes d'en-tête",
+    "Missing header row or terms",   "Ligne ou termes d'en-tête manquants",
     "Missing header row terms",      "Manquant termes de lignes d'en-tête",
     "Missing list item prefix character", "Caractère de préfixe d'élément de liste manquant",
     "Missing UTF-8 BOM",             "Manquant UTF-8 BOM",
@@ -469,12 +471,15 @@ sub Check_First_Data_Row {
     $count = 0;
     foreach $field (@fields) {
         #
-        # Don't convert to lower case, terms are case sensitive
+        # Don't convert to lower case, terms are case sensitive.
+        # Don't remove any leading or trailing whitespace.
+        #
+#        $field =~ s/^\s*//g;
+#        $field =~ s/\s*$//g;
+
         #
         # Check to see if it matches a dictionary entry.
         #
-        $field =~ s/^\s*//g;
-        $field =~ s/\s*$//g;
         if ( defined($$dictionary{$field}) ) {
             print "Found term/field match for \"$field\"\n" if $debug;
             $count++;
@@ -534,17 +539,25 @@ sub Check_First_Data_Row {
         # Missing header row, found a match on fewer than 25% of fields
         #
         print "Found a match on fewer than 25% fields\n" if $debug;
-        if ( $count == 0 ) {
-            Record_Result("TP_PW_OD_DATA", 1, 0, "",
-                          String_Value("Missing header row"));
-        }
-        else {
-            Record_Result("TP_PW_OD_DATA", 1, 0, "",
-                          String_Value("Missing header row terms") .
-                          " \"" . join(", ", @unmatched_fields) . "\"");
-        }
+        Record_Result("TP_PW_OD_DATA", 1, 0, "",
+                      String_Value("Missing header row or terms") .
+                      " \"" . join(", ", @unmatched_fields) . "\"");
     }
     
+    #
+    # Check for leading or trailing whitespace in header row values
+    #
+    $count = 0;
+    foreach $field (@fields) {
+        $count++;
+        if ( ($field =~ /^\s+/) || ($field =~ /\s+$/) ) {
+            Record_Result("TP_PW_OD_DATA", 1, $count, "",
+                          String_Value("Leading or trailing whitespace characters in heading") .
+                          " #$count \"$field\"");
+
+        }
+    }
+
     #
     # Return list of headings found
     #
@@ -1566,15 +1579,12 @@ sub Open_Data_CSV_Check_Data {
             #
             for ($i = 0; $i < $field_count; $i++) {
                 $blank_zero_column_flag{$i} = 1;
+                $heading = $fields[$i];
                 
                 #
-                # Do we have a column heading?
+                # Are we missing a column heading?
                 #
-                if ( defined($headings[$i]) ) {
-                    $heading = $headings[$i];
-                    $heading = $heading->term;
-                }
-                else {
+                if ( ! defined($$dictionary{$heading}) ) {
                     $heading = "Column " . ($i + 1);
                 }
                 
