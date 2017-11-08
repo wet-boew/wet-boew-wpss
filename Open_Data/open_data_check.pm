@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 477 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_check.pm $
-# $Date: 2017-08-29 08:10:37 -0400 (Tue, 29 Aug 2017) $
+# $Revision: 551 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_check.pm $
+# $Date: 2017-11-01 15:38:54 -0400 (Wed, 01 Nov 2017) $
 #
 # Description:
 #
@@ -111,7 +111,7 @@ BEGIN {
 my ($debug) = 0;
 my (%testcase_data, %open_data_profile_map);
 my ($current_open_data_profile, $current_url, $results_list_addr);
-my ($current_open_data_profile_name, %testcase_data);
+my ($current_open_data_profile_name);
 my (@supporting_doc_url, %expected_row_count, %first_url_count);
 my (%expected_column_count);
 my (@data_dictionary_file_name, @alternate_data_file_name);
@@ -138,6 +138,7 @@ my ($check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
+    "and",                             "and",
     "API URL unavailable",             "API URL unavailable",
     "as found in",                     " as found in ",
     "Character encoding is not UTF-8", "Character encoding is not UTF-8",
@@ -150,6 +151,7 @@ my %string_table_en = (
     "Data array item field count",     "Data array item field count",
     "Data array item field count mismatch, found", "Data array item field count mismatch, found",
     "Dataset URL unavailable",         "Dataset URL unavailable",
+    "Duplicate content checksum",      "Duplicate content checksum",
     "en",                              "English",
     "expecting",                       " expecting ",
     "Error in reading ZIP, status =",  "Error in reading ZIP, status =",
@@ -186,6 +188,7 @@ my %string_table_en = (
 # String table for error strings (French).
 #
 my %string_table_fr = (
+    "and",                             "et",
     "API URL unavailable",             "URL du API disponible",
     "as found in",                     " que l'on trouve dans ",
     "Character encoding is not UTF-8", "L'encodage des caractères ne pas UTF-8",
@@ -198,6 +201,7 @@ my %string_table_fr = (
     "Data array item field count",     "Nombre de champs de l'élément de données",
     "Data array item field count mismatch, found", "Le décalage du nombre de champs de l'élément de tableau de données n'a pas été trouvé",
     "Dataset URL unavailable",         "URL du jeu de données disponible",
+    "Duplicate content checksum",      "Somme de contrôle en double",
     "en",                              "anglais",
     "expecting",                       " expectant ",
     "Error in reading ZIP, status =",  "Erreur de lecture fichier ZIP, status =",
@@ -795,6 +799,7 @@ sub Check_Dictionary_URL {
 #             resp - HTTP::Response object
 #             content - content pointer
 #             dictionary - address of a hash table for data dictionary
+#             checksum - file content checksum
 #
 # Description:
 #
@@ -802,7 +807,7 @@ sub Check_Dictionary_URL {
 #
 #***********************************************************************
 sub Check_Resource_URL {
-    my ($url, $format, $resp, $content, $dictionary) = @_;
+    my ($url, $format, $resp, $content, $dictionary, $checksum) = @_;
 
     my ($header, $mime_type, $data_file_object);
 
@@ -862,6 +867,7 @@ sub Check_Resource_URL {
 #             resp - HTTP::Response object
 #             filename - file containing content
 #             dictionary - address of a hash table for data dictionary
+#             checksum - file content checksum
 #
 # Description:
 #
@@ -871,7 +877,7 @@ sub Check_Resource_URL {
 #
 #***********************************************************************
 sub Check_Data_File_URL {
-    my ($url, $format, $resp, $filename, $dictionary) = @_;
+    my ($url, $format, $resp, $filename, $dictionary, $checksum) = @_;
 
     my ($result_object, @other_results, $header, $mime_type, $base);
     my ($data_file_object, $lang);
@@ -923,8 +929,6 @@ sub Check_Data_File_URL {
         # CSV file type
         #
         $data_file_object = data_file_object->new($url, "CSV");
-        $data_file_object->lang($lang);
-        $data_file_objects{$url} = $data_file_object;
 
         #
         # Check for UTF-8 encoding
@@ -951,8 +955,6 @@ sub Check_Data_File_URL {
         # JSON file type
         #
         $data_file_object = data_file_object->new($url, "JSON");
-        $data_file_object->lang($lang);
-        $data_file_objects{$url} = $data_file_object;
 
         #
         # Check for UTF-8 encoding
@@ -980,8 +982,6 @@ sub Check_Data_File_URL {
         # XML file type
         #
         $data_file_object = data_file_object->new($url, "XML");
-        $data_file_object->lang($lang);
-        $data_file_objects{$url} = $data_file_object;
 
         #
         # Check for UTF-8 encoding
@@ -1008,7 +1008,20 @@ sub Check_Data_File_URL {
         }
         Record_Result("OD_URL", -1, -1, "",
                       String_Value("Invalid mime-type for data file") .
-        " \"" . $mime_type . "\"");
+                      " \"" . $mime_type . "\"");
+    }
+
+    #
+    # Did we create a data file object ?
+    #
+    if ( defined($data_file_object) ) {
+        #
+        # Set data file object attributes and save it in a
+        # table.
+        #
+        $data_file_object->lang($lang);
+        $data_file_object->checksum($checksum);
+        $data_file_objects{$url} = $data_file_object;
     }
 
     #
@@ -1340,12 +1353,13 @@ sub Is_Supporting_File {
 # Name: Open_Data_Check
 #
 # Parameters: url - open data file URL
-#             foramt - optional content format
+#             format - optional content format
 #             profile - testcase profile
 #             data_file_type - type of dataset file
 #             resp - HTTP::Response object
 #             filename - file containing content
 #             dictionary - address of a hash table for data dictionary
+#             checksum - file content checksum
 #
 # Description:
 #
@@ -1359,7 +1373,7 @@ sub Is_Supporting_File {
 #***********************************************************************
 sub Open_Data_Check {
     my ($url, $format, $profile, $data_file_type, $resp, $filename,
-        $dictionary) = @_;
+        $dictionary, $checksum) = @_;
 
     my (@tqa_results_list, $result_object, @other_results, $tcid, $file_size);
     my ($header, $mime_type);
@@ -1483,7 +1497,8 @@ sub Open_Data_Check {
         #
         # Check data content
         #
-        Check_Data_File_URL($url, $format, $resp, $filename, $dictionary);
+        Check_Data_File_URL($url, $format, $resp, $filename, $dictionary,
+                            $checksum);
     }
 
     #
@@ -1493,7 +1508,8 @@ sub Open_Data_Check {
         #
         # Check resource content
         #
-        Check_Resource_URL($url, $format, $resp, $filename, $dictionary);
+        Check_Resource_URL($url, $format, $resp, $filename, $dictionary,
+                           $checksum);
     }
 
     #
@@ -1807,7 +1823,7 @@ sub Read_JSON_Open_Data_Description {
         $resources = $$result{"resources"};
 
         #
-        # Is this a hash table ?
+        # Is this an array?
         #
         $ref_type = ref $resources;
         if ( $ref_type ne "ARRAY" ) {
@@ -2255,14 +2271,20 @@ sub Check_CSV_Data_File_Content {
             # Compare this URL's row count to the English
             # URL's row count
             #
-            if ( $rows != $eng_rows ) {
-                Record_Result("OD_DATA", -1, -1, "",
-                              String_Value("Row count mismatch, found") .
-                              "$rows " . String_Value("in") . " $url\n" .
-                              String_Value("expecting") .
-                              $eng_rows . String_Value("as found in") .
-                              $eng_url);
-            }
+            # Skip row count check, the non-blank cell count check is a
+            # better indicator of possible data errors.  Some data files
+            # may include a name cell and fiscal year data cells. The
+            # name may change in 1 language and not the other resulting
+            # in more rows in one file.
+            #
+#            if ( $rows != $eng_rows ) {
+#                Record_Result("OD_DATA", -1, -1, "",
+#                              String_Value("Row count mismatch, found") .
+#                              "$rows " . String_Value("in") . " $url\n" .
+#                              String_Value("expecting") .
+#                              $eng_rows . String_Value("as found in") .
+#                              $eng_url);
+#            }
 
             #
             # Compare this URL's column count to the English
@@ -2775,7 +2797,8 @@ sub Open_Data_Check_Dataset_Data_Files {
     my ($profile, $url_list, $dictionary) = @_;
 
     my (@tqa_results_list, @url_list, $list_item, $format, $url, $eng_url);
-    my (%url_lang_map, $lang_item_addr);
+    my (%url_lang_map, $lang_item_addr, $data_file_object, %file_checksums);
+    my ($checksum);
 
     #
     # Do we have a valid profile ?
@@ -2851,6 +2874,36 @@ sub Open_Data_Check_Dataset_Data_Files {
             $url_map_list_addr = $url_lang_map{$eng_url};
             push(@$url_map_list_addr, $url);
             print "Add to language map indexed by $eng_url url $url\n" if $debug;
+        }
+        
+        #
+        # Get the data file object, if we have one
+        #
+        if ( defined($data_file_objects{$url}) ) {
+            $data_file_object = $data_file_objects{$url};
+            
+            #
+            # Get the checksum and see if we have already seen a file with
+            # this checksum
+            #
+            $checksum = $data_file_object->checksum();
+            if ( ($checksum ne "") && defined($file_checksums{$checksum}) ) {
+                Record_Result("OD_DATA", -1, -1, "",
+                              String_Value("Duplicate content checksum") .
+                              " $checksum " . String_Value("in") .
+                              "\n    $url\n" . String_Value("and") . " " .
+                              $file_checksums{$checksum});
+            }
+            elsif ( $checksum ne "" ) {
+                $file_checksums{$checksum} = $url;
+                print "Save checksum $checksum for url $url\n" if $debug;
+            }
+            else {
+                print "No checksum for url $url\n" if $debug;
+            }
+        }
+        else {
+            print "No data_file_object for url $url\n" if $debug;
         }
     }
     
