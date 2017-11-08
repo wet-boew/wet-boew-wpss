@@ -561,7 +561,7 @@ sub Run_pdfchecker {
 
     my ($is_protected, %image_alt_map, %image_actualtext_map, $title);
     my ($output, $line, $filler, $page_count, $page_number, $fh);
-    my ($location, $sublocation, $value, $pdf_file, $title, $num_tables);
+    my ($location, $sublocation, $value, $pdf_file, $num_tables);
     my $is_protected = 0;
 
     #
