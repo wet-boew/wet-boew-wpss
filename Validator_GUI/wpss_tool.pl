@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 480 $
-# $URL: svn://10.36.20.203/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2017-08-29 08:18:00 -0400 (Tue, 29 Aug 2017) $
+# $Revision: 528 $
+# $URL: svn://10.36.148.185/Validator_GUI/Tools/wpss_tool.pl $
+# $Date: 2017-10-18 11:51:32 -0400 (Wed, 18 Oct 2017) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -145,7 +145,7 @@ my (@links, @ui_args, %image_alt_text_table, @web_feed_list);
 my (%all_link_sets, %domain_prod_dev_map, @all_urls, $logged_in);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
 my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
-my ($shared_save_content_directory, $firewall_check_url);
+my ($firewall_check_url);
 my ($enable_generated_markup, $cmnd_line_disable_generated_markup);
 my (%gui_config);
 my ($report_passes_only) = 0;
@@ -332,8 +332,7 @@ my (%doc_features_profiles_languages);
 # Mobile check variables
 #
 my ($mobile_check_profile, $web_page_size_file_handle);
-my (%mobile_check_profile_map, $mobile_check_profile);
-my (@mobile_check_profiles, $mobile_profile_label);
+my (%mobile_check_profile_map, @mobile_check_profiles, $mobile_profile_label);
 my (%mobile_error_url_count, %mobile_error_instance_count);
 my ($mobile_testcase_url_help_file_name);
 my (%mobile_check_profiles_languages);
@@ -7680,7 +7679,7 @@ sub Perform_CLF_Check {
 
     my ($url_status, $status, $message, $source_line, $tcid);
     my (@clf_results_list, $result_object, $output_line, @wa_results_list);
-    my (%local_clf_error_url_count, @content_links, $pattern, $result_object);
+    my (%local_clf_error_url_count, @content_links, $pattern);
     my ($found_web_analytics, $analytics_type, $list_ref);
 
     #
@@ -7868,7 +7867,7 @@ sub Perform_Interop_Check {
     my ($url_status, $status, $message, $source_line);
     my (@interop_results_list, $result_object, $output_line);
     my (%local_interop_error_url_count, @content_links, $pattern);
-    my ($feed_object, $result_object, $title, $key, $list_ref);
+    my ($feed_object, $title, $key, $list_ref);
 
     #
     # Is this URL marked as archived on the web ?
@@ -8722,7 +8721,7 @@ sub Perform_EPUB_Accessibility_Check {
     # Merge results with the full list of results
     #
     foreach $result_object (@$results_list_addr) {
-        push(@tqa_results_list, );
+        push(@tqa_results_list, $result_object);
     }
 
     #
@@ -9063,12 +9062,20 @@ sub Perform_Open_Data_Check {
                                         $document_count{$crawled_urls_tab});
 
                 #
+                # Compute SHA-1 checksum for this file
+                #
+                $sha = Digest::SHA->new("SHA-1");
+                $sha->addfile($filename);
+                $checksum = $sha->hexdigest;
+
+                #
                 # Perform checks on this content
                 #
                 @results = Open_Data_Check($member_url, $format,
                                            $open_data_check_profile,
                                            $data_file_type, $resp,
-                                           $filename, \%open_data_dictionary);
+                                           $filename, \%open_data_dictionary,
+                                           $checksum);
                 Record_Open_Data_Check_Results($member_url, @results);
                 
                 #
@@ -9084,13 +9091,6 @@ sub Perform_Open_Data_Check {
                     $rows = "";
                     $cols = "";
                 }
-
-                #
-                # Compute SHA-1 checksum for this file
-                #
-                $sha = Digest::SHA->new("SHA-1");
-                $sha->addfile($filename);
-                $checksum = $sha->hexdigest;
 
                 #
                 # Add file details to CSV
@@ -9132,13 +9132,24 @@ sub Perform_Open_Data_Check {
         print "Single open data file\n" if $debug;
         if ( defined($resp) && $resp->is_success ) {
             $filename = $resp->header("WPSS-Content-File");
+            $size = -s $filename;
+
+            #
+            # Compute SHA-1 checksum for this file
+            #
+            $sha = Digest::SHA->new("SHA-1");
+            $sha->addfile($filename);
+            $checksum = $sha->hexdigest;
         }
         else {
             $filename = "";
+            $size = 0;
+            $checksum = "";
         }
         @results = Open_Data_Check($url, $format, $open_data_check_profile,
                                    $data_file_type, $resp,
-                                   $filename, \%open_data_dictionary);
+                                   $filename, \%open_data_dictionary,
+                                   $checksum);
         Record_Open_Data_Check_Results($url, @results);
 
         #
@@ -9153,21 +9164,6 @@ sub Perform_Open_Data_Check {
         #
         # Get file details
         #
-        if ( defined($resp) && $resp->is_success ) {
-            $filename = $resp->header("WPSS-Content-File");
-            $size = -s $filename;
-
-            #
-            # Compute SHA-1 checksum for this file
-            #
-            $sha = Digest::SHA->new("SHA-1");
-            $sha->addfile($filename);
-            $checksum = $sha->hexdigest;
-        }
-        else {
-            $size = 0;
-            $checksum = "";
-        }
         $t = $url;
         $t =~ s/"/""/g;
         $h = Open_Data_Check_Get_Headings_List($url);
@@ -9204,7 +9200,8 @@ sub Open_Data_Callback {
     my (@url_list, $i, $key, $value, $resp_url, $resp, $header, $content);
     my ($data_file_type, $item, $format, $url, $tab, @results, $filename);
     my ($language, $mime_type, $error, $t, $size, $checksum, $sha);
-    my ($sec, $min, $hour, $mday, $mon, $year, $date);
+    my ($sec, $min, $hour, $mday, $mon, $year, $date, @data_url_list);
+    my ($durl);
 
     #
     # Initialize tool global variables
@@ -9437,6 +9434,7 @@ sub Open_Data_Callback {
                 #
                 $url =~ s/\r//g;
                 $url =~ s/^\s+//g;
+                $url =~ s/\s+$//g;
                 if ( $url =~ /^$/ ) {
                     next;
                 }
@@ -9508,6 +9506,7 @@ sub Open_Data_Callback {
                     #
                     # Perform mark-up validation
                     #
+                    print "Add to all URLs list HTML $url\n" if $debug;
                     push(@all_urls, "HTML $url");
                     Perform_Markup_Validation($url, $mime_type, $resp, \$content);
 
@@ -9547,6 +9546,7 @@ sub Open_Data_Callback {
                     #
                     # Perform Open Data checks.
                     #
+                    print "Add to all URLs list $data_file_type $url\n" if $debug;
                     push(@all_urls, "$data_file_type $url");
                     Perform_Open_Data_Check($url, $format, $data_file_type,
                                             $resp);
@@ -9592,11 +9592,19 @@ sub Open_Data_Callback {
         #
         if ( defined($$dataset_urls{"DATA"}) ) {
             #
-            # Check dataset consistency (e.g. matching English & French files)
+            # Check dataset consistency (e.g. matching English & French files).
+            # Get URL list from all_urls as some data files may be ZIP files
+            # and have member files.
             #
-            @url_list = split(/\n+/, $$dataset_urls{"DATA"});
+            foreach $url (@all_urls) {
+                if ( $url =~ /^DATA / ) {
+                    $durl = $url;
+                    $durl =~ s/^DATA //;
+                    push(@data_url_list, $durl);
+                }
+            }
             @results = Open_Data_Check_Dataset_Data_Files($open_data_check_profile,
-                                                          \@url_list,
+                                                          \@data_url_list,
                                                           \%open_data_dictionary);
 
 
