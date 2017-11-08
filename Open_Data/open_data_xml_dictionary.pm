@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml_dictionary.pm
 #
-# $Revision: 351 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_xml_dictionary.pm $
-# $Date: 2017-04-25 14:53:54 -0400 (Tue, 25 Apr 2017) $
+# $Revision: 536 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_xml_dictionary.pm $
+# $Date: 2017-10-24 12:57:44 -0400 (Tue, 24 Oct 2017) $
 #
 # Description:
 #
@@ -137,6 +137,7 @@ my %string_table_en = (
     "Invalid mime-type for json url", "Invalid mime-type for JSON url",
     "Invalid PWGSC XML data dictionary", "Invalid PWGSC XML data dictionary",
     "label not found in",          "<label> not found in",
+    "Leading or trailing whitespace characters in label", "Leading or trailing whitespace characters in <label>",
     "Missing beginning of line character", "Missing beginning of line character '^'",
     "Missing description for expected language", "Missing <description> for expected language",
     "Missing description for required language", "Missing <description> for required language",
@@ -187,6 +188,7 @@ my %string_table_fr = (
     "Invalid mime-type for json url", "Invalid mime-type pour JSON url",
     "Invalid PWGSC XML data dictionary", "TPSGC dictionnaire de donnies XML non valide",
     "label not found in",          "<label> pas trouvé dans",
+    "Leading or trailing whitespace characters in label", "Caractères blancs avancés ou en retour dans <label>",
     "Missing beginning of line character", "Début de caractère de ligne manquant '^'",
     "Missing description for expected language", "<description> manquante pour la langue attendue",
     "Missing description for required language", "<description> manquante pour la langue requise",
@@ -538,13 +540,21 @@ sub Char_Handler {
 sub Check_URL {
     my ($self, $url, $tag) = @_;
     
-    my ($resp_url, $resp, $i, $u, $filename);
+    my ($resp_url, $resp, $i, $u, $filename, $orig_url);
     
     #
     # Does the URL appear to be a well formed URL string ?
     #
-    print "Check_URL, url = $url\n" if $debug;
-    if ( URL_Check_Is_URL($url) ) {
+    $orig_url = $url;
+    print "Check_URL, url = $orig_url\n" if $debug;
+    if ( URL_Check_Is_URL($orig_url) ) {
+        #
+        # Remove any named anchor references from the URL so we don't
+        # get the same URL multiple times if different named anchors are
+        # used.
+        #
+        $url =~ s/#.*$//g;
+        
         #
         # Have we seen this URL before ?
         #
@@ -619,7 +629,7 @@ sub Check_URL {
             Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Expecting a URL in") . " $tag " .
-                          String_Value("found") . " \"$url\"");
+                          String_Value("found") . " \"$orig_url\"");
         }
         #
         # Is it a broken link ?
@@ -628,7 +638,7 @@ sub Check_URL {
             Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Broken link in") . " $tag " .
-                          " URL = \"$url\"");
+                          " URL = \"$orig_url\"");
         }
     }
     else {
@@ -639,7 +649,7 @@ sub Check_URL {
         Record_Result("TP_PW_OD_DD", $self->current_line,
                       $self->current_column, $self->original_string,
                       String_Value("Expecting a URL in") . " $tag " .
-                      String_Value("found") . " \"$url\"");
+                      String_Value("found") . " \"$orig_url\"");
     }
     
     #
@@ -1418,27 +1428,46 @@ sub Start_Label_Tag_Handler {
 #***********************************************************************
 sub End_Label_Tag_Handler {
     my ($self) = @_;
+    
+    my ($label_text);
 
     #
     # Do we have a text handler ?
     #
     if ( $save_text_between_tags ) {
         #
-        # Remove newlines and leading whitespace
+        # Do we have any leading or trailing whitespace or newlines in the label?
         #
-        $saved_text =~ s/\r\n|\r|\n/ /g;
-        $saved_text =~ s/^\s*//g;
-        $saved_text =~ s/\s*$//g;
+        $label_text = $saved_text;
+        $label_text =~ s/^(\r\n|\r|\n)+/ /g;
+        $label_text =~ s/(\r\n|\r|\n)+$/ /g;
+        if ( ($label_text =~ /^\s+/) || ($label_text =~ /\s+$/) ) {
+            Record_Result("TP_PW_OD_DD", $self->current_line,
+                          $self->current_column, $self->original_string,
+                          String_Value("Leading or trailing whitespace characters in label") .
+                          " \"$label_text\"");
+        }
+        
+        #
+        # Remove leading or trailing whitespace
+        # Don't remove whitespace, we want to detect mismatch in exact labels
+        #
+#        $saved_text =~ s/^\s*//g;
+#        $saved_text =~ s/\s*$//g;
 
         #
         # Do we have a heading ?
         #
-        if ( $saved_text ne "" ) {
+        if ( $saved_text =~ /^(\r|\n|\s)*$/ ) {
+            Record_Result("TP_PW_OD_DD", $self->current_line,
+                          $self->current_column, $self->original_string,
+                          String_Value("Missing text in") . " <label>");
+        }
+        else {
+            #
+            # We have a label, have we seen it before?
+            #
             print "Label = \"$saved_text\"\n" if $debug;
-
-            #
-            # Have we already seen this term/heading ?
-            #
             if ( defined($term_location{$saved_text}) ) {
                 Record_Result("TP_PW_OD_DD", $self->current_line,
                               $self->current_column, $self->original_string,
@@ -1462,11 +1491,6 @@ sub End_Label_Tag_Handler {
             if ( defined($dictionary_object) ) {
                 $dictionary_object->term($saved_text);
             }
-        }
-        else {
-            Record_Result("TP_PW_OD_DD", $self->current_line,
-                          $self->current_column, $self->original_string,
-                          String_Value("Missing text in") . " <label>");
         }
     }
 
