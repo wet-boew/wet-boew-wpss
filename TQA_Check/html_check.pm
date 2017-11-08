@@ -2856,15 +2856,18 @@ sub Check_Label_Aria_Id_or_Title {
     # input simply nested inside a label and not explicitly associated
     # with the input ?
     #
-    if ( (! $found_label) && $inside_label ) {
-        print "Input inside of label\n" if $debug;
-        $found_label = 1;
-        if ( $tag_is_visible ) {
-           Record_Result("WCAG_2.0-F68", $line, $column, $text,
-                         String_Value("Found tag") . $tag .
-                         String_Value("in") . "<label>");
-        }
-    }
+    # Change to F68 technique description in 2015.  Nesting
+    # inputs in labels are valid.
+    #
+#    if ( (! $found_label) && $inside_label ) {
+#        print "Input inside of label\n" if $debug;
+#        $found_label = 1;
+#        if ( $tag_is_visible ) {
+#           Record_Result("WCAG_2.0-F68", $line, $column, $text,
+#                         String_Value("Found tag") . $tag .
+#                         String_Value("in") . "<label>");
+#        }
+#    }
 
     #
     # Get possible title attribute
@@ -12444,6 +12447,7 @@ sub Check_End_Tag_Order {
 
     my ($last_start_tag, $location, $tag_list);
     my ($tag_error) = 0;
+    my (%attr_hash) = @attr;
 
     #
     # Is this an end tag that has no start tag ?
@@ -12504,7 +12508,7 @@ sub Check_End_Tag_Order {
                     push(@tag_order_stack, tqa_tag_object->new($last_start_tag,
                                                                $line,
                                                                $column,
-                                                               \@attr));
+                                                               \%attr_hash));
 
                     #
                     # Call End Handler to close the last tag
@@ -12644,7 +12648,8 @@ sub Check_End_Role_Main {
         #
         # Do we have a role="main" for the start tag?
         #
-        if ( defined($$attr{"role"}) && ($$attr{"role"} eq "main") ) {
+        if ( defined($attr) && defined($$attr{"role"}) &&
+             ($$attr{"role"} eq "main") ) {
             #
             # Get name and location of start tag
             #
