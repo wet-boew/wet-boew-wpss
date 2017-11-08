@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 478 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_json.pm $
-# $Date: 2017-08-29 08:11:29 -0400 (Tue, 29 Aug 2017) $
+# $Revision: 526 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_json.pm $
+# $Date: 2017-10-18 11:49:42 -0400 (Wed, 18 Oct 2017) $
 #
 # Description:
 #
@@ -102,7 +102,7 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%testcase_data, $results_list_addr, $dictionary_ptr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count, $python_path, $json_schema_validator);
-my ($filename, $python_file, $python_output);
+my ($filename, $python_file, $python_output, $separator);
 
 #
 # Data file object attribute names (use the same names as used for
@@ -133,6 +133,7 @@ my %string_table_en = (
     "Fails validation",            "Fails validation",
     "failed for value",            "failed for value",
     "Field",                       "Field",
+    "Found UTF-8 BOM",             "Found UTF-8 BOM, expecting charset in HTTP header",
     "Inconsistent name for field", "Inconsistent name for field",
     "Inconsistent number of fields, found", "Inconsistent number of fields, found",
     "Invalid Schema specification in JSON file", "Invalid Schema specification in JSON file",
@@ -157,6 +158,7 @@ my %string_table_fr = (
     "Fails validation",            "Échoue la validation",
     "failed for value",            "a échoué pour la valeur",
     "Field",                       "Champ",
+    "Found UTF-8 BOM",             "BOM UTF-8 trouvé, en attente de charset dans l'en-tête HTTP",
     "Inconsistent name for field", "Nom incohérent pour le champ",
     "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté",
     "Invalid Schema specification in JSON file", "Spécification de schéma non valide dans le fichier JSON",
@@ -502,6 +504,15 @@ sub Check_UTF8_BOM {
             Record_Result("OD_ENC", 1, 0, $line,
                           String_Value("Missing UTF-8 BOM or charset=utf-8"));
         }
+    }
+    
+    #
+    # Did we find a BOM.  JSON files should not have a BOM, the
+    # encoding should be set in the HTTP::Response object
+    #
+    if ( $have_bom ) {
+        Record_Result("TP_PW_OD_BOM", 1, 0, $line,
+                      String_Value("Found UTF-8 BOM"));
     }
     
     #
@@ -929,12 +940,12 @@ sub Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes {
         }
         else {
             #
-            # Not a sub hash table, must be a leaf node.  Remove leading
+            # Not a sub hash table, must be a leaf node.  Don't remove leading
             # and trailing whitespace from the key name.
             #
             print "Have leaf node $key at $parent.$key, value = $value\n" if $debug;
-            $key =~ s/^\s+//;
-            $key =~ s/\s+$//;
+#            $key =~ s/^\s+//;
+#            $key =~ s/\s+$//;
             $leaf_nodes{"$key"} = $value;
         }
     }
@@ -1586,6 +1597,7 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
+    $separator = ";";
     $python_output = `$filename 2>\&1`;
     $python_output =~ s/^[A-Z]://ig;
     chop($python_output);
@@ -1595,9 +1607,10 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Not Windows.
     #
+    $separator = ":";
     $python_output = `python $filename 2>\&1`;
     chop($python_output);
-    $python_path = "$program_dir/python/usr/local/lib/python2.7/dist-packages";
+    $python_path = "$program_dir/python/usr/local/lib/python2.7/site-packages";
     $json_schema_validator = "python bin/json_schema_validator.py";
 }
 unlink($filename);
@@ -1606,7 +1619,7 @@ unlink($filename);
 # Set PYTHONPATH environment variable
 #
 if ( defined($ENV{"PYTHONPATH"}) ) {
-    $ENV{"PYTHONPATH"} .= ";$python_path";
+    $ENV{"PYTHONPATH"} .= "$separator$python_path";
 }
 else {
     $ENV{"PYTHONPATH"} = "$python_path";
