@@ -3,9 +3,9 @@
 #
 # Name:   install.pl
 #
-# $Revision: 458 $
-# $URL: svn://10.36.20.203/Validator_GUI/Tools/install.pl $
-# $Date: 2017-08-17 13:42:20 -0400 (Thu, 17 Aug 2017) $
+# $Revision: 541 $
+# $URL: svn://10.36.148.185/Validator_GUI/Tools/install.pl $
+# $Date: 2017-10-26 09:43:20 -0400 (Thu, 26 Oct 2017) $
 #
 # Synopsis: install.pl [ uninstall ] [ -no_pause ]
 #
@@ -47,6 +47,7 @@
 
 use strict;
 use File::Basename;
+use File::Path qw(make_path remove_tree);
 use Cwd;
 use Sys::Hostname;
 #use Win32::TieRegistry( Delimiter=>"#", ArrayValues=>0 );
@@ -871,7 +872,7 @@ sub Check_Python_Modules {
 #**********************************************************************
 sub Check_Python {
 
-    my ($assoc_output, $python_output);
+    my ($assoc_output, $python_output, $major, $minor);
 
     #
     # Check file type association for .py files.
@@ -897,15 +898,16 @@ sub Check_Python {
         unlink("test$$.py");
         open(PYTHON, ">test$$.py");
         print PYTHON "import sys\n";
-        print PYTHON "if sys.version_info<(2,3,0):\n";
-        print PYTHON "   print 'fail, version less than 2.3.0'\n";
+        print PYTHON "if sys.version_info<(2,7,0):\n";
+        print PYTHON "   print 'fail, version less than 2.7.0'\n";
         print PYTHON "else:\n";
-        print PYTHON "   print 'pass version greater than 2.3.0'\n";
+        print PYTHON "   print 'pass version greater than 2.7.0'\n";
         print PYTHON "if sys.version_info<(3,0,0):\n";
         print PYTHON "   print 'pass version less than 3.0.0'\n";
         print PYTHON "else:\n";
         print PYTHON "   print 'fail, version greater than 3.0.0'\n";
         print PYTHON "print sys.version_info\n";
+        print PYTHON "print 'Version: major:',sys.version_info[0],' minor:',sys.version_info[1]\n";
         close(PYTHON);
         if ( $is_windows ) {
             $python_output = `.\\test$$.py 2>\&1`;
@@ -923,11 +925,27 @@ sub Check_Python {
              ( ! ($python_output =~ /pass/i) ) ) {
             Write_To_Log("Invalid Python version found");
             print "\n*****\n";
-            print "Invalid Python version found, must be greater than 2.3.0, less than 3.0.0\n";
+            print "Invalid Python version found, must be greater than 2.7.0, less than 3.0.0\n";
             print "\n*****\n";
             Write_To_Log("Failed install.pl");
             Exit_With_Pause(1);
         }
+
+        #
+        # Get major and minor release numbers
+        #
+        ($major) = $python_output =~ /major:\s*(\d).*/im;
+        ($minor) = $python_output =~ /minor:\s*(\d).*/im;
+        if ( (! defined($major)) || (! defined($minor)) ) {
+            Write_To_Log("Could not determine python version major and minor numbers");
+            print "\n*****\n";
+            print "Could not determine python version major and minor numbers\n";
+            print "\n*****\n";
+            Write_To_Log("Failed install.pl");
+            Exit_With_Pause(1);
+
+        }
+        Write_To_Log("Python version major = $major, minor = $minor");
     }
     else {
         #
@@ -971,7 +989,8 @@ sub Check_Python {
         $python_path = "$program_dir\\python" . "$python_output\\Lib\\site-packages";
     }
     else {
-        $python_path = "$program_dir/python/usr/local/lib/python2.7/dist-packages";
+        $python_output = dirname($python_output);
+        $python_path = "$program_dir/python/$python_output/lib/python$major.$minor/site-packages";
     }
     Write_To_Log("python_path = $python_path");
     
@@ -1340,8 +1359,62 @@ sub Register_Installation {
 #
 #**********************************************************************
 sub Delete_Everything(){
-    Write_To_Log("Remove registration file");
-    unlink ("$program_dir/registration.txt");
+
+    my ($start_menu, $error, $diag, $file, $message);
+
+    #
+    # Remove tool installation folder
+    #
+    if ( -d $program_dir ) {
+        remove_tree($program_dir, {error => \$error});
+
+        #
+        # Check for possible errors
+        #
+        if ( @$error ) {
+            print "Error: Failed to remove_tree $program_dir\n";
+            for $diag (@$error) {
+                ($file, $message) = %$diag;
+                if ($file eq '') {
+                    print "general error: $message\n";
+                }
+                else {
+                    print "problem unlinking $file: $message\n";
+                }
+            }
+        }
+    }
+
+    #
+    # Is this not a Windows system ?
+    #
+    if ( ! ($^O =~ /MSWin32/) ) {
+        return;
+    }
+
+    #
+    # Remove start menu shortcuts
+    #
+    $start_menu = "C:/ProgramData/Microsoft/Windows/Start Menu/Programs/Web and Open Data Validator";
+    if ( -d $start_menu ) {
+        remove_tree($start_menu, {error => \$error});
+
+        #
+        # Check for possible errors
+        #
+        if ( @$error ) {
+            print "Error: Failed to remove_tree $start_menu\n";
+            for $diag (@$error) {
+                ($file, $message) = %$diag;
+                if ($file eq '') {
+                    print "general error: $message\n";
+                }
+                else {
+                    print "problem unlinking $file: $message\n";
+                }
+            }
+        }
+    }
 }
 
 #**********************************************************************
@@ -1352,13 +1425,13 @@ sub Delete_Everything(){
 #
 # Description:
 #
-#   This function creates desktop sortcuts for the tools on
+#   This function creates start menu shortcuts for the tools on
 # Windows based systems.
 #
 #**********************************************************************
 sub Create_Shortcuts {
 
-    my ($desktop, $rc);
+    my ($start_menu, $rc);
 
     #
     # Is this not a Windows system ?
@@ -1369,22 +1442,35 @@ sub Create_Shortcuts {
     Write_To_Log("Create desktop shortcuts");
 
     #
-    # Check for path to the user's home directory
+    # Check for start menu folder
     #
-    if ( ! defined($ENV{"USERPROFILE"}) ) {
-        return;
+    $start_menu = "C:/ProgramData/Microsoft/Windows/Start Menu/Programs/Web and Open Data Validator";
+    #$start_menu = $ENV{"USERPROFILE"} . "/desktop/Web and Open Data Validator";
+    if ( ! -d $start_menu ) {
+        Write_To_Log("Create start menu folder $start_menu");
+        if ( ! mkdir($start_menu) ) {
+            $rc = $!;
+            Write_To_Log("Error creating start menu, errno = $rc");
+            
+            #
+            # Are we denied permission?
+            #
+            if ( $rc =~ /Permission denied/i ) {
+                Write_To_Log("Skip creating start menu shortcuts");
+                return();
+            }
+            print "Error creating start menu, errno = $rc\n";
+            Exit_With_Pause(1);
+        }
+        print "Start menu created\n";
     }
-    $desktop = $ENV{"USERPROFILE"} . "/Desktop";
-    if ( ! -d $desktop ) {
-        return;
-    }
-    Write_To_Log("Desktop path = $desktop");
+    Write_To_Log("Start menu path = $start_menu");
 
     #
     # Do we already have shortcuts ?
     #
-    if ( (-f "$desktop/WPSS_Tool.lnk")
-         && (-f "$desktop/Open_Data_Tool.lnk") ) {
+    if ( (-f "$start_menu/WPSS Tool.lnk")
+         && (-f "$start_menu/Open Data Tool.lnk") ) {
         Write_To_Log("Shortcut files already exist");
         return;
     }
@@ -1393,7 +1479,7 @@ sub Create_Shortcuts {
     # Create a temporary VB script to create shortcut files
     #
     print "Create desktop shortcuts\n";
-    Write_To_Log("Create shortcut VB script for WPSS_Tool.lnk");
+    Write_To_Log("Create shortcut VB script for WPSS Tool.lnk");
     unlink("CreateShortcut.vbs");
     if ( ! open(VB, "> CreateShortcut.vbs") ) {
         print "Failed to create shortcuts\n";
@@ -1401,7 +1487,7 @@ sub Create_Shortcuts {
     }
     print VB 
 "Set oWS = WScript.CreateObject(\"WScript.Shell\")
-sLinkFile = \"$desktop\\WPSS_Tool.lnk\"
+sLinkFile = \"$start_menu\\WPSS Tool.lnk\"
 Set oLink = oWS.CreateShortcut(sLinkFile)
 oLink.TargetPath = \"$program_dir\\wpss_tool.pl\"
 oLink.Save";
@@ -1414,15 +1500,18 @@ oLink.Save";
     $rc = `cscript CreateShortcut.vbs 2>\&1`;
     Write_To_Log("cscript CreateShortcut.vbs return code = $rc");
 
+    #
+    # Create a temporary VB script to create shortcut files
+    #
     unlink("CreateShortcut.vbs");
     if ( ! open(VB, "> CreateShortcut.vbs") ) {
         print "Failed to create shortcuts\n";
         Exit_With_Pause(1);
     }
-    Write_To_Log("Create shortcut VB script for Open_Data_Tool.lnk");
+    Write_To_Log("Create shortcut VB script for Open Data Tool.lnk");
     print VB
 "Set oWS = WScript.CreateObject(\"WScript.Shell\")
-sLinkFile = \"$desktop\\Open_Data_Tool.lnk\"
+sLinkFile = \"$start_menu\\Open Data Tool.lnk\"
 Set oLink = oWS.CreateShortcut(sLinkFile)
 oLink.TargetPath = \"$program_dir\\open_data_tool.pl\"
 oLink.Save";
@@ -1437,15 +1526,39 @@ oLink.Save";
     unlink("CreateShortcut.vbs");
 
     #
-    # Do the shortcuts exist ?
+    # Create a temporary VB script to create shortcut files
     #
-    if ( (! -f "$desktop/WPSS_Tool.lnk")
-         || (! -f "$desktop/Open_Data_Tool.lnk") ) {
-        print "Failed to create desktop shortcuts\n";
-        Write_To_Log("Failed to create desktop shortcuts");
+    Write_To_Log("Create shortcut VB script for Uninstall.lnk");
+    if ( ! open(VB, "> CreateShortcut.vbs") ) {
+        print "Failed to create shortcuts\n";
         Exit_With_Pause(1);
     }
+    print VB
+"Set oWS = WScript.CreateObject(\"WScript.Shell\")
+sLinkFile = \"$start_menu\\Uninstall.lnk\"
+Set oLink = oWS.CreateShortcut(sLinkFile)
+oLink.TargetPath = \"$program_dir\\uninstall.pl\"
+oLink.Save";
+    close(VB);
 
+    #
+    # Run the VB script to generate the shortcuts
+    #
+    Write_To_Log("Running cscript CreateShortcut.vbs");
+    $rc = `cscript CreateShortcut.vbs 2>\&1`;
+    Write_To_Log("cscript CreateShortcut.vbs return code = $rc");
+    unlink("CreateShortcut.vbs");
+
+    #
+    # Do the shortcuts exist ?
+    #
+    if ( (! -f "$start_menu/WPSS Tool.lnk")
+         || (! -f "$start_menu/Open Data Tool.lnk")
+         || (! -f "$start_menu/Uninstall.lnk")) {
+        print "Failed to create start menu shortcuts\n";
+        Write_To_Log("Failed to create start start menu shortcuts");
+        Exit_With_Pause(1);
+    }
 }
 
 #***********************************************************************
