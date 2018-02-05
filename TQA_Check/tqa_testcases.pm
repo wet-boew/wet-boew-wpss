@@ -247,6 +247,26 @@ my (%testcase_description_en) = (
 #
 "WCAG_2.0-SCR20", "2.1.1 SCR20: Using both keyboard and other device-specific functions",
 "WCAG_2.0-SCR21", "1.3.1 SCR21: Using functions of the Document Object Model (DOM) to add content to a page",
+"WCAG_2.0-Guideline41", "4.1 Guideline41: Compatible",
+
+#
+# EPUB Accessibility Techniques 1.0 from http://www.idpf.org/epub/a11y/techniques/techniques.html
+#
+"EPUB-ACCESS-001", "1.3.2 ACCESS-001: Ensure linear reading order of the publication",
+"EPUB-ACCESS-002", "2.4.5 ACCESS-002: Provide multiple ways to access the content",
+"EPUB-DIST-001", "4.1.1 DIST-001: Do not restrict access through digital rights management",
+"EPUB-META-001", "4.1.1 META-001: Identify primary access modes",
+"EPUB-META-002", "4.1.1 META-002: Identify sufficient access modes",
+"EPUB-META-003", "4.1.1 META-003: Identify accessibility features",
+"EPUB-META-004", "4.1.1 META-004: Identify accessibility hazards",
+"EPUB-META-005", "4.1.1 META-005: Include an accessibility summary",
+"EPUB-META-006", "4.1.1 META-006: Identify ARIA Conformance",
+"EPUB-META-007", "4.1.1 META-007: Identify Input Control Methods",
+"EPUB-PAGE-001", "4.1.1 PAGE-001: Provide page break markers",
+"EPUB-PAGE-003", "2.4.5 PAGE-001: Provide a page list",
+"EPUB-SEM-001",  "1.3.1 SEM-001: Include ARIA and EPUB semantics",
+"EPUB-SEM-003",  "2.4.5 SEM-003: Include EPUB landmarks",
+"EPUB-TITLES-002", "1.3.1 TITLES-002: Ensure numbered headings reflect publication hierarchy",
 );
 
 my (%testcase_description_fr) = (
@@ -410,6 +430,26 @@ my (%testcase_description_fr) = (
 #
 "WCAG_2.0-SCR20", "2.1.1 SCR20: Utiliser à la fois des fonctions au clavier et spécifiques à d'autres périphériques",
 "WCAG_2.0-SCR21", "1.3.1 SCR21: Utiliser les fonctions du modèle objet de document (DOM) pour ajouter du contenu à la page",
+"WCAG_2.0-Guideline41", "4.1 Guideline41: Compatible",
+
+#
+# EPUB Accessibility Techniques 1.0
+#
+"EPUB-ACCESS-001", "1.3.2 ACCESS-001: Ensure linear reading order of the publication",
+"EPUB-ACCESS-002", "2.4.5 ACCESS-002: Provide multiple ways to access the content",
+"EPUB-DIST-001", "4.1.1 DIST-001: Do not restrict access through digital rights management",
+"EPUB-META-001", "4.1.1 META-001: Identify primary access modes",
+"EPUB-META-002", "4.1.1 META-002: Identify sufficient access modes",
+"EPUB-META-003", "4.1.1 META-003: Identify accessibility features",
+"EPUB-META-004", "4.1.1 META-004: Identify accessibility hazards",
+"EPUB-META-005", "4.1.1 META-005: Include an accessibility summary",
+"EPUB-META-006", "4.1.1 META-006: Identify ARIA Conformance",
+"EPUB-META-007", "4.1.1 META-007: Identify Input Control Methods",
+"EPUB-PAGE-001", "4.1.1 PAGE-001: Provide page break markers",
+"EPUB-PAGE-003", "2.4.5 PAGE-001: Provide a page list",
+"EPUB-SEM-001",  "1.3.1 SEM-001: Include ARIA and EPUB semantics",
+"EPUB-SEM-003",  "2.4.5 SEM-003: Include EPUB landmarks",
+"EPUB-TITLES-002", "1.3.1 TITLES-002: Ensure numbered headings reflect publication hierarchy",
 );
 
 #
@@ -517,6 +557,25 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-SC3.1.1", "3.1.1",
 "WCAG_2.0-SCR20", "2.1.1",
 "WCAG_2.0-SCR21", "1.3.1",
+"WCAG_2.0-Guideline41", "4.1",
+#
+# EPUB Accessibility Techniques 1.0
+#
+"EPUB-ACCESS-001", "1.3.2",
+"EPUB-ACCESS-002", "2.4.5",
+"EPUB-DIST-001", "4.1.1",
+"EPUB-META-001", "4.1.1",
+"EPUB-META-002", "4.1.1",
+"EPUB-META-003", "4.1.1",
+"EPUB-META-004", "4.1.1",
+"EPUB-META-005", "4.1.1",
+"EPUB-META-006", "4.1.1",
+"EPUB-META-007", "4.1.1",
+"EPUB-PAGE-001", "4.1.1",
+"EPUB-PAGE-003", "2.4.5",
+"EPUB-SEM-001", "1.3.1",
+"EPUB-SEM-003", "2.4.5",
+"EPUB-TITLES-002", "1.3.1",
 );
 
 #
@@ -566,6 +625,7 @@ my (%testcase_sc_description_en) = (
 "3.3.2", "3.3.2 Labels or Instructions Level A",
 "3.3.3", "3.3.3 Error Suggestion Level AA",
 "3.3.4", "3.3.4 Error Prevention (Legal, Financial, Data) Level AA",
+"4.1", "4.1 Compatible",
 "4.1.1", "4.1.1 Parsing Level A",
 "4.1.2", "4.1.2 Name, Role, Value Level A",
 );
@@ -610,6 +670,7 @@ my (%testcase_sc_description_fr) = (
 "3.3.2", "3.3.2 Étiquettes ou instructions Niveau A",
 "3.3.3", "3.3.3 Suggestion après une erreur Niveau AA",
 "3.3.4", "3.3.4 Prévention des erreurs (juridiques, financières, de données) Niveau AA",
+"4.1", "4.1 Compatible",
 "4.1.1", "4.1.1 Analyse syntaxique Niveau A",
 "4.1.2", "4.1.2 Nom, rôle et valeur Niveau A",
 );
