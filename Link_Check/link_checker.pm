@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 7442 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Link_Check/Tools/link_checker.pm $
-# $Date: 2016-01-19 04:15:59 -0500 (Tue, 19 Jan 2016) $
+# $Revision: 599 $
+# $URL: svn://10.36.148.185/Link_Check/Tools/link_checker.pm $
+# $Date: 2017-11-28 15:23:50 -0500 (Tue, 28 Nov 2017) $
 #
 # Description:
 #
@@ -137,6 +137,9 @@ my ($debug) = 0;
 my ($visited_url_count) = 0;
 my ($MAX_visited_url_count)   = 10000;
 my ($Clean_visited_url_count) =  7500;
+my ($visited_url_content_size) = 0;
+my ($MAX_visited_url_content_size)   = 200000000; # approx 200 Mb
+my ($Clean_visited_url_content_size) =  150000000;
 my ($MAXIMUM_CONTENT_SIZE) = 25000000; # approx 25 Mb
 my ($url_language_count) = 0;
 my ($MAX_url_language_count)   = 10000;
@@ -863,6 +866,16 @@ sub Get_Site_Title {
     my ($protocol, $domain, $new_url, $file_path, $query, $list_addr);
     my ($site_title_addr, %site_title_hash, $base, %link_sets, $header);
     my ($this_link, @links, $content, $mime_type);
+
+    #
+    # Is this an HTML URL?
+    #
+    $header = $resp->headers;
+    $mime_type = $header->content_type;
+    if ( ! ($mime_type =~ /text\/html/) ) {
+        print "Get_Site_Title: Not an HTML url\n" if $debug;
+        return;
+    }
 
     #
     # Get the domain name of the URL
@@ -1783,13 +1796,15 @@ sub Link_Matches_Ignore_Pattern {
 #
 #***********************************************************************
 sub Clean_Visited_URL_List {
-    my ( $url, $hits );
+    my ($url, $hits, $resp, $headers);
     my ($current_hit_count) = 1;
 
     #
-    # Loop until the URL count is below the threshold
+    # Loop until the URL count is below the threshold and the
+    # content size is belog the threshold
     #
-    while ( $visited_url_count > $Clean_visited_url_count ) {
+    while ( ($visited_url_count > $Clean_visited_url_count) ||
+            ($visited_url_content_size > $Clean_visited_url_content_size) ) {
 
         #
         # Loop through the URL list looking for URLs with a hit count
@@ -1797,7 +1812,16 @@ sub Clean_Visited_URL_List {
         #
         while ( ( $url, $hits ) = each %visited_url_hits ) {
             if ( $hits <= $current_hit_count ) {
-
+                #
+                # Reduce the visited url content size by the size of this
+                # url's content
+                #
+                $resp = $visited_url_http_resp{$url};
+                if ( defined($resp) ) {
+                    $headers = $resp->headers;
+                    $visited_url_content_size -= $headers->content_length;
+                }
+                
                 #
                 # Remove this URL from the hash tables and decrement the
                 # number of URLs in the list.
@@ -1965,11 +1989,13 @@ sub Link_Checker_Get_Link_Status {
 
         #
         # A URL we have not seen yet.  Before we record its
-        # status, check the number of visited URLs to see that
-        # we don't have too many.  If we do we must clean up
+        # status, check the number of visited URLs and the content
+        # size to see that we don't have too many or are using too much
+        # memory.  If we do we must clean up
         # the hash table to control our memory usage.
         #
-        if ( $visited_url_count > $MAX_visited_url_count ) {
+        if ( ($visited_url_count > $MAX_visited_url_count) ||
+             ($visited_url_content_size > $MAX_visited_url_content_size) ) {
             Clean_Visited_URL_List;
         }
 
@@ -2122,6 +2148,7 @@ sub Link_Checker_Get_Link_Status {
         $visited_url_count++;
         $visited_url_hits{$this_link} = 1;
         $visited_link_object_cache{$this_link} = $link;
+        $visited_url_content_size += $link->content_length();
 
         #
         # If the response URL is different from the original one,
