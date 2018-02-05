@@ -51,7 +51,7 @@ use strict;
 use File::Basename;
 use HTML::Parser;
 use Encode;
-use JSON;
+use JSON::PP;
 use File::Temp qw/ tempfile tempdir /;
 
 #
