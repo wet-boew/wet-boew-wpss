@@ -2,13 +2,13 @@
 #
 # Name:   epub_parse.pm
 #
-# $Revision: 358 $
-# $URL: svn://10.36.20.203/TQA_Check/Tools/epub_parse.pm $
-# $Date: 2017-04-28 10:49:15 -0400 (Fri, 28 Apr 2017) $
+# $Revision: 697 $
+# $URL: svn://10.36.148.185/TQA_Check/Tools/epub_parse.pm $
+# $Date: 2018-01-30 12:46:46 -0500 (Tue, 30 Jan 2018) $
 #
 # Description:
 #
-#   This file contains routines that parse EPUB files.
+#   This file contains routines that parses and checks EPUB files.
 #
 # Public functions:
 #     Set_EPUB_Parse_Debug
@@ -93,7 +93,9 @@ BEGIN {
 my ($debug) = 0;
 my (%testcase_data, $results_list_addr);
 my (%epub_check_profile_map, $current_epub_check_profile, $current_url);
-my ($save_text_between_tags, $saved_text, $opf_file_name);
+my ($save_text_between_tags, $saved_text, @opf_file_names);
+my ($in_rootfiles, $in_container, $found_declaration, $in_links);
+my ($links_tag_count, $rootfile_tag_count, $link_tag_count);
 
 #
 # Status values
@@ -102,29 +104,68 @@ my ($epub_check_pass)       = 0;
 my ($epub_check_fail)       = 1;
 
 #
+# Expected values for tag attributes
+#
+my ($expected_container_version) = "1.0";
+my ($expected_rootfile_media_type) = "application/oebps-package+xml";
+
+#
+# Expected mimetype file content
+#
+my ($expected_mimetype) = "application/epub+zip";
+
+#
 # String table for error strings.
 #
 my %string_table_en = (
+    "Encrypted file found in EPUB",                 "Encrypted file found in EPUB file",
     "Error in reading EPUB, status =",              "Error in reading EPUB, status =",
-    "Invalid media-type value in rootfile tag",     "Invalid 'media-type' value in 'rootfile' tag",
-    "Missing full-path attribute in rootfile tag",  "Missing 'full-path' attribute in 'rootfile' tag",
-    "Missing media-type attribute in rootfile tag",  "Missing 'media-type' attribute in 'rootfile' tag",
-    "Missing META-INF/container.xml file",          "Missing META-INF/container.xml file",
+    "expecting",                                    "expecting",
     "Fails validation",                             "Fails validation",
+    "found",                                        "found",
+    "Found META-INF/rights.xml file",               "Found META-INF/rights.xml file",
+    "Found multiple instances of tag",              "Found multiple instances of tag",
+    "in tag",                                       "in tag",
+    "Invalid content for attribute",                "Invalid content for attribute",
+    "Invalid content in file",                      "Invalid content in file",
+    "Invalid full-path value in rootfile tag",      "Invalid 'full-path' value in 'rootfile' tag",
+    "Invalid media-type value in rootfile tag",     "Invalid 'media-type' value in 'rootfile' tag",
+    "Missing attribute",                            "Missing attribute",
+    "Missing sub tag",                              "Missing sub tag",
+    "Missing META-INF/container.xml file",          "Missing META-INF/container.xml file",
+    "Missing XML declaration line",                 "Missing XML declaration line",
+    "Multi-volume EPUB/ZIP archive is not supported", "Multi-volume EPUB/ZIP archive is not supported",
+    "must be nested inside a",                      "must be nested inside a",
     "rootfile not specified in container.xml file", "'rootfile' not specified in 'container.xml' file",
+    "Tag",                                          "tag",
+    "tag set",                                      "tag set",
 );
 
 #
 # String table for error strings (French).
 #
 my %string_table_fr = (
-    "Error in reading EPUB, status =",             "Erreur de lecture fichier EPUB, status =",
-    "Invalid media-type value in rootfile tag",    "Valeur de 'media-type' non valide dans la balise 'rootfile'",
-    "Missing full-path attribute in rootfile tag", "Attribut 'full-path' manquant dans le balise 'rootfile'",
-    "Missing media-type attribute in rootfile tag", "Attribut 'media-type' manquant dans le balise 'rootfile'",
-    "Missing META-INF/container.xml file",         "Fichier META-INF/container.xml manquant",
-    "Fails validation",                            "Échoue la validation",
+    "Encrypted file found in EPUB",                 "Fichier chiffré trouvé dans le fichier EPUB",
+    "Error in reading EPUB, status =",              "Erreur de lecture fichier EPUB, status =",
+    "expecting",                                    "valeur attendue",
+    "Fails validation",                             "Échoue la validation",
+    "found",                                        "trouvé",
+    "Found META-INF/rights.xml file",               "Fichier trouvé META-INF/rights.xml",
+    "Found multiple instances of tag",              "Plusieurs instances de balise trouvées",
+    "in tag",                                       "dans balise",
+    "Invalid content for attribute",                "Contenu non valide pour l'attribut",
+    "Invalid content in file",                      "Contenu incorrect dans le fichier",
+    "Invalid full-path value in rootfile tag",      "Valeur de 'full-path' non valide dans la balise 'rootfile'",
+    "Invalid media-type value in rootfile tag",     "Valeur de 'media-type' non valide dans la balise 'rootfile'",
+    "Missing attribute",                            "attribut manquant",
+    "Missing sub tag",                              "Balise secondaire manquante",
+    "Missing XML declaration line",                 "Ligne de déclaration XML manquante",
+    "Missing META-INF/container.xml file",          "Fichier META-INF/container.xml manquant",
+    "Multi-volume EPUB/ZIP archive is not supported", "L'archive EPUB / ZIP multi-volumes n'est pas supportée",
+    "must be nested inside a",                      "doit être imbriqué dans un",
     "rootfile not specified in container.xml file", "'rootfile' non spécifié dans le fichier 'container.xml'",
+    "Tag",                                          "Balise",
+    "tag set",                                      "ensemble de balises",
 );
 
 #
@@ -346,6 +387,222 @@ sub Record_Result {
 #***********************************************************************
 sub Container_Tag_Handler {
     my ($self, %attr) = @_;
+    
+    my ($version);
+    
+    #
+    # Check for version attribute
+    #
+    if ( ! defined($attr{"version"}) ) {
+        #
+        # Missing version attribute
+        #
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Missing attribute") .
+                      " \"version\" " . String_Value("in tag") .
+                      " \"<container>\"");
+    }
+    else {
+        #
+        # Is the version value the expected value?
+        #
+        $version = $attr{"version"};
+        if ( $version ne $expected_container_version ) {
+            Record_Result("WCAG_2.0-G134", $self->current_line,
+                          $self->current_column, $self->original_string,
+                          String_Value("Invalid content for attribute") .
+                          " \"version\" " . String_Value("in tag") .
+                          " <container> " . String_Value("found") .
+                          " \"$version\" " . String_Value("expecting") .
+                          " \"$expected_container_version\"");
+        }
+    }
+
+    #
+    # Set flag to indicate we are inside a <container> tag set.
+    #
+    $in_container = 1;
+}
+
+#***********************************************************************
+#
+# Name: End_Container_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </container> tag.
+#
+#***********************************************************************
+sub End_Container_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Clear flag to indicate we are no longer inside a <container> tag set.
+    #
+    $in_container = 0;
+}
+
+#***********************************************************************
+#
+# Name: Link_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the <link> tag.
+#
+#***********************************************************************
+sub Link_Tag_Handler {
+    my ($self, %attr) = @_;
+
+    #
+    # Are we inside a <links> tag set?
+    #
+    if ( ! $in_links ) {
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Tag") . " \"<link>\" " .
+                      String_Value("must be nested inside a") .
+                      " \"<links></links>\" " . String_Value("tag set"));
+    }
+    #
+    # Do we have a href attribute
+    #
+    elsif ( ! defined($attr{"href"}) ) {
+        #
+        # Missing href attribute
+        #
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Missing attribute") .
+                      " \"href\" " . String_Value("in tag") .
+                      " \"<link>\"");
+    }
+    #
+    # Do we have a media-type attribute
+    #
+    elsif ( ! defined($attr{"media-type"}) ) {
+        #
+        # Missing media-type attribute
+        #
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Missing attribute") .
+                      " \"media-type\" " . String_Value("in tag") .
+                      " \"<link>\"");
+    }
+    #
+    # Do we have a rel attribute
+    #
+    elsif ( ! defined($attr{"rel"}) ) {
+        #
+        # Missing rel attribute
+        #
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Missing attribute") .
+                      " \"rel\" " . String_Value("in tag") .
+                      " \"<link>\"");
+    }
+    
+    #
+    # Increment link tag count
+    #
+    $link_tag_count++;
+}
+
+#***********************************************************************
+#
+# Name: End_Link_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </link> tag.
+#
+#***********************************************************************
+sub End_Link_Tag_Handler {
+    my ($self) = @_;
+
+}
+
+#***********************************************************************
+#
+# Name: Links_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the <links> tag.
+#
+#***********************************************************************
+sub Links_Tag_Handler {
+    my ($self, %attr) = @_;
+
+    #
+    # Check the counter for <links> tags, there should only be 1
+    # in the file.
+    #
+    if ( $links_tag_count == 1 ) {
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Found multiple instances of tag") .
+                      " <links>");
+    }
+    
+    #
+    # Increment links tag counter
+    #
+    $links_tag_count++;
+    
+    #
+    # Set flag to indicate we are inside a <links> tag set.
+    #
+    $in_links = 1;
+    
+    #
+    # Clear link tag counter
+    #
+    $link_tag_count = 0;
+}
+
+#***********************************************************************
+#
+# Name: End_Links_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </links> tag.
+#
+#***********************************************************************
+sub End_Links_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Did we find at least 1 link tag within the links tag set?
+    #
+    if ( $link_tag_count == 0 ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Missing sub tag") .
+                      " \"<link>\" " . String_Value("in tag") .
+                      " \"<links></links>\" " . String_Value("tag set"));
+    }
+    
+    #
+    # Clear flag to indicate we are no longer inside a <links> tag set.
+    #
+    $in_links = 0;
+    $link_tag_count = 0;
 }
 
 #***********************************************************************
@@ -362,33 +619,90 @@ sub Container_Tag_Handler {
 #***********************************************************************
 sub Rootfile_Tag_Handler {
     my ($self, %attr) = @_;
+    
+    my ($full_path, $media_type);
 
+    #
+    # Are we inside a <rootfiles> tag set?
+    #
+    if ( ! $in_rootfiles ) {
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Tag") . " \"<rootfile>\" " .
+                      String_Value("must be nested inside a") .
+                      " \"<rootfiles></rootfiles>\" " . String_Value("tag set"));
+    }
     #
     # Check for a full-path attribute
     #
-    if ( defined($attr{"full-path"}) ) {
+    elsif ( ! defined($attr{"full-path"}) ) {
         #
-        # Check the media-type attribute
+        # Missing full-path attribute
         #
-        if ( ! defined($attr{"media-type"}) ) {
-            Record_Result("WCAG_2.0-G134", -1, 0, "",
-                          String_Value("Missing media-type attribute in rootfile tag"));
-        }
-        elsif ( $attr{"media-type"} ne "application/oebps-package+xml" ) {
-            Record_Result("WCAG_2.0-G134", -1, 0, "",
-                          String_Value("Invalid media-type value in rootfile tag") .
-                          " \"" . $attr{"media-type"} . "\"");
-        }
-        else {
-            $opf_file_name = $attr{"full-path"};
-            $opf_file_name =~ s/^\s*//g;
-            print "OPF File name " . $attr{"full-path"} . "\n" if $debug;
-        }
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Missing attribute") .
+                      " \"full-path\" " . String_Value("in tag") .
+                      " \"<rootfile>\"");
+    }
+    #
+    # Is there a media-type attribute?
+    #
+    elsif ( ! defined($attr{"media-type"}) ) {
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Missing attribute") .
+                      " \"media-type\" " . String_Value("in tag") .
+                      " \"<rootfile>\"");
     }
     else {
-        Record_Result("WCAG_2.0-G134", -1, 0, "",
-                      String_Value("Missing full-path attribute in rootfile tag"));
+        #
+        # Have required attributes
+        #
+        $full_path = $attr{"full-path"};
+        $media_type = $attr{"media-type"};
+
+        #
+        # Is the media-type the expected value?
+        #
+        if ( $media_type ne $expected_rootfile_media_type ) {
+            Record_Result("WCAG_2.0-G134", $self->current_line,
+                          $self->current_column, $self->original_string,
+                          String_Value("Invalid content for attribute") .
+                          " \"media-type\" " . String_Value("in tag") .
+                          " <rootfile> " . String_Value("found") .
+                          " \"$media_type\" " . String_Value("expecting") .
+                          " \"$expected_rootfile_media_type\"");
+        }
+        #
+        # Record the path to the OPF (EPUB package) file
+        #
+        else {
+            $full_path =~ s/^\s*//g;
+            print "OPF File name $full_path\n" if $debug;
+
+            #
+            # Do we have a path?
+            #
+            if ( $full_path ne "" ) {
+                #
+                # Add file name to the list of OPF files
+                #
+                push(@opf_file_names, $full_path);
+            }
+            else {
+                Record_Result("WCAG_2.0-G134", $self->current_line,
+                              $self->current_column, $self->original_string,
+                              String_Value("Invalid full-path value in rootfile tag") .
+                              " \"\"");
+            }
+        }
     }
+    
+    #
+    # Increment rootfile tag counter
+    #
+    $rootfile_tag_count++;
 }
 
 #***********************************************************************
@@ -405,6 +719,58 @@ sub Rootfile_Tag_Handler {
 #***********************************************************************
 sub Rootfiles_Tag_Handler {
     my ($self, %attr) = @_;
+    
+    #
+    # Are we inside a <container> tag set?
+    #
+    if ( ! $in_container ) {
+        Record_Result("WCAG_2.0-G134", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Tag") . " \"<rootfiles>\" " .
+                      String_Value("must be nested inside a") .
+                      " \"<container></container>\" " . String_Value("tag set"));
+    }
+
+    #
+    # Set flag to indicate we are inside a <rootfiles> tag set.
+    #
+    $in_rootfiles = 1;
+
+    #
+    # Clear rootfile tag counter
+    #
+    $rootfile_tag_count = 0;
+}
+
+#***********************************************************************
+#
+# Name: End_Rootfiles_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the </rootfiles> tag.
+#
+#***********************************************************************
+sub End_Rootfiles_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Did we find at least 1 rootfile tag within the rootfiles tag set?
+    #
+    if ( $rootfile_tag_count == 0 ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Missing sub tag") .
+                      " \"<rootfile>\" " . String_Value("in tag") .
+                      " \"<rootfiles></rootfiles>\" " . String_Value("tag set"));
+    }
+    
+    #
+    # Clear flag to indicate we are no longer inside a <rootfiles> tag set.
+    #
+    $in_rootfiles = 0;
+    $rootfile_tag_count = 0;
 }
 
 #***********************************************************************
@@ -432,6 +798,18 @@ sub Start_Handler {
     print "Start_Handler tag $tagname\n" if $debug;
     if ( $tagname eq "container" ) {
         Container_Tag_Handler($self, %attr);
+    }
+    #
+    # Check for link tag.
+    #
+    elsif ( $tagname eq "link" ) {
+        Link_Tag_Handler($self, %attr);
+    }
+    #
+    # Check for links tag.
+    #
+    elsif ( $tagname eq "links" ) {
+        Links_Tag_Handler($self, %attr);
     }
     #
     # Check for rootfile tag.
@@ -473,54 +851,6 @@ sub Char_Handler {
 
 #***********************************************************************
 #
-# Name: End_Container_Tag_Handler
-#
-# Parameters: self - reference to this parser
-#
-# Description:
-#
-#   This function handles the </container> tag.
-#
-#***********************************************************************
-sub End_Container_Tag_Handler {
-    my ($self) = @_;
-
-}
-
-#***********************************************************************
-#
-# Name: End_Rootfile_Tag_Handler
-#
-# Parameters: self - reference to this parser
-#
-# Description:
-#
-#   This function handles the </rootfile> tag.
-#
-#***********************************************************************
-sub End_Rootfile_Tag_Handler {
-    my ($self) = @_;
-
-}
-
-#***********************************************************************
-#
-# Name: End_Rootfiles_Tag_Handler
-#
-# Parameters: self - reference to this parser
-#
-# Description:
-#
-#   This function handles the </rootfiles> tag.
-#
-#***********************************************************************
-sub End_Rootfiles_Tag_Handler {
-    my ($self) = @_;
-
-}
-
-#***********************************************************************
-#
 # Name: End_Handler
 #
 # Parameters: self - reference to this parser
@@ -543,10 +873,16 @@ sub End_Handler {
         End_Container_Tag_Handler($self);
     }
     #
-    # Check for rootfile tag
+    # Check for link tag
     #
-    elsif ( $tagname eq "rootfile" ) {
-        End_Rootfile_Tag_Handler($self);
+    elsif ( $tagname eq "link" ) {
+        End_Link_Tag_Handler($self);
+    }
+    #
+    # Check for links tag
+    #
+    elsif ( $tagname eq "links" ) {
+        End_Links_Tag_Handler($self);
     }
     #
     # Check for rootfiles tag
@@ -575,6 +911,7 @@ sub Declaration_Handler {
     my ($self, $version, $encoding, $standalone) = @_;
 
     print "XML doctype $version, $encoding, $standalone\n" if $debug;
+    $found_declaration = 1;
 }
 
 #***********************************************************************
@@ -597,14 +934,24 @@ sub EPUB_Parse_Get_OPF_File {
 
     my ($parser, $eval_output, $zip_file, $current_dir, @tqa_results_list);
     my ($temp_epub_fh, $epub_filename, $zip_status, $container_file);
-    my ($epub_uncompressed_dir, $created_temp_file);
+    my ($epub_uncompressed_dir, $created_temp_file, $member);
+    my ($is_encrypted, %member_files, $mimetype);
 
+    #
+    # Check testcase profile
+    #
+    print "EPUB_Parse_Get_OPF_File Checking URL $this_url, profile = $profile\n" if $debug;
+    if ( ! defined($epub_check_profile_map{$profile}) ) {
+        print "Unknown EPUB testcase profile passed $profile\n";
+        return(\@tqa_results_list, \@opf_file_names, $epub_uncompressed_dir);
+    }
     #
     # Initialize unit globals.
     #
+    print "EPUB_Parse_Get_OPF_File url = $this_url\n" if $debug;
     $save_text_between_tags = 0;
     $saved_text = "";
-    $opf_file_name = "";
+    @opf_file_names = ();
     $current_epub_check_profile = $epub_check_profile_map{$profile};
     $results_list_addr = \@tqa_results_list;
     $epub_uncompressed_dir = "";
@@ -631,6 +978,7 @@ sub EPUB_Parse_Get_OPF_File {
     if ( defined($resp) && (defined($resp->header("WPSS-Content-File"))) ) {
         $epub_filename = $resp->header("WPSS-Content-File");
         $created_temp_file = 0;
+        print "Use EPUB content from temporary file $epub_filename\n" if $debug;
     }
     else {
         #
@@ -646,8 +994,9 @@ sub EPUB_Parse_Get_OPF_File {
         if ( ! defined($temp_epub_fh) ) {
             print "Error: Failed to create temporary file in EPUB_Parse_Get_OPF_File\n";
             print STDERR "Error: Failed to create temporary file in EPUB_Parse_Get_OPF_File\n";
-            return($results_list_addr, $opf_file_name, $epub_uncompressed_dir);
+            return($results_list_addr, \@opf_file_names, $epub_uncompressed_dir);
         }
+        print "Save EPUB content in temporary file $epub_filename\n" if $debug;
         binmode $temp_epub_fh, ":utf8";
         print "Temporary EPUB file = $epub_filename\n" if $debug;
         print $temp_epub_fh $$content;
@@ -661,6 +1010,7 @@ sub EPUB_Parse_Get_OPF_File {
     $epub_uncompressed_dir = tempdir("WPSS_TOOL_EPUB_XXXXXXXXXX", TMPDIR => 1);
     $current_dir = getcwd;
     chdir($epub_uncompressed_dir);
+    print "Uncompress EPUB file into directory $epub_uncompressed_dir\n" if $debug;
     $zip_file = Archive::Zip->new($epub_filename);
     $zip_status = $zip_file->read($epub_filename);
 
@@ -677,7 +1027,119 @@ sub EPUB_Parse_Get_OPF_File {
         if ( $created_temp_file ) {
             unlink($epub_filename);
         }
-        return($results_list_addr, $opf_file_name, $epub_uncompressed_dir);
+        return($results_list_addr, \@opf_file_names, $epub_uncompressed_dir);
+    }
+    
+    #
+    # Is this a multi-volume ZIP archive?
+    #
+    if ($zip_file->diskNumber() != 0 ) {
+        print "Detected multi-volume ZIP archive\n" if $debug;
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Multi-volume EPUB/ZIP archive is not supported"));
+        #
+        # Clean up temporary files
+        #
+        chdir($current_dir);
+        if ( $created_temp_file ) {
+            unlink($epub_filename);
+        }
+        return($results_list_addr, \@opf_file_names, $epub_uncompressed_dir);
+    }
+    
+    #
+    # Check member files for encryption.
+    #  Check for the presence of specific required files.
+    #  Check for optional files.
+    #  Check for encrypted files.
+    #
+    $is_encrypted = 0;
+    foreach $member ($zip_file->members()) {
+        #
+        # Save file name in a table for easier checking.
+        #
+        $member_files{$member->fileName()} = $member->fileName();
+        
+        #
+        # Is this member file encrypted?
+        #
+        if ( $member->isEncrypted() ) {
+            $is_encrypted = 1;
+            print "Encrypted member file in ZIP " . $member->fileName() . "\n" if $debug;
+            Record_Result("WCAG_2.0-G134", -1, 0, "",
+                          String_Value("Encrypted file found in EPUB") .
+                          " " . $member->fileName());
+
+        }
+    }
+    
+    #
+    # If we found an encrypted member file, stop further processing
+    #
+    if ( $is_encrypted ) {
+        #
+        # Clean up temporary files
+        #
+        chdir($current_dir);
+        if ( $created_temp_file ) {
+            unlink($epub_filename);
+        }
+        return($results_list_addr, \@opf_file_names, $epub_uncompressed_dir);
+    }
+    
+    #
+    # Did we find the mimetype file?
+    #
+    if ( ! defined($member_files{"mimetype"}) ) {
+        print "Missing mimetype file\n" if $debug;
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Missing mimetype file"));
+
+        #
+        # Clean up temporary files
+        #
+        chdir($current_dir);
+        if ( $created_temp_file ) {
+            unlink($epub_filename);
+        }
+        return($results_list_addr, \@opf_file_names, $epub_uncompressed_dir);
+    }
+
+    #
+    # Did we find the META-INF/container.xml file?
+    #
+    if ( ! defined($member_files{"META-INF/container.xml"}) ) {
+        print "Missing container.xml file\n" if $debug;
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Missing META-INF/container.xml file"));
+
+        #
+        # Clean up temporary files
+        #
+        chdir($current_dir);
+        if ( $created_temp_file ) {
+            unlink($epub_filename);
+        }
+        return($results_list_addr, \@opf_file_names, $epub_uncompressed_dir);
+    }
+
+    #
+    # Did we find the META-INF/rights.xml file? This file specifies digital
+    # rights for the EPUB and can interfere with accessibility.
+    #
+    if ( defined($member_files{"META-INF/rights.xml"}) ) {
+        print "Found rights.xml file\n" if $debug;
+        Record_Result("EPUB-DIST-001", -1, 0, "",
+                      String_Value("Found META-INF/rights.xml file"));
+
+        #
+        # Clean up temporary files
+        #
+        chdir($current_dir);
+        if ( $created_temp_file ) {
+            unlink($epub_filename);
+        }
+        return($results_list_addr, \@opf_file_names, $epub_uncompressed_dir);
     }
     
     #
@@ -693,62 +1155,101 @@ sub EPUB_Parse_Get_OPF_File {
     if ( $created_temp_file ) {
         unlink($epub_filename);
     }
-    
+
+    #
+    # Read the mimetype file to check it's content
+    #
+    open(MIMETYPE, "$epub_uncompressed_dir/mimetype");
+    $mimetype = <MIMETYPE>;
+    close(MIMETYPE);
+    if ( $mimetype ne $expected_mimetype ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Invalid content in file") .
+                      " mimetype " . String_Value("found") .
+                      " \"$mimetype\" " . String_Value("expecting") .
+                      " \"$expected_mimetype\"");
+
+        #
+        # Clean up temporary files
+        #
+        chdir($current_dir);
+        if ( $created_temp_file ) {
+            unlink($epub_filename);
+        }
+        return($results_list_addr, \@opf_file_names, $epub_uncompressed_dir);
+    }
+
     #
     # Get the path to the container.xml file, it should be in the META-INF
     # directory.
     #
     $container_file = "$epub_uncompressed_dir/META-INF/container.xml";
-    if ( -f $container_file ) {
-        #
-        # Create a document parser
-        #
-        $parser = XML::Parser->new;
 
-        #
-        # Add handlers for some of the XML tags
-        #
-        $parser->setHandlers(Start => \&Start_Handler);
-        $parser->setHandlers(XMLDecl => \&Declaration_Handler);
-        $parser->setHandlers(End => \&End_Handler);
-        $parser->setHandlers(Char => \&Char_Handler);
+    #
+    # Create a document parser
+    #
+    print "Parse the META-INF/container.xml file\n" if $debug;
+    $parser = XML::Parser->new;
 
-        #
-        # Parse the container file.
-        #
-        $eval_output = eval { $parser->parsefile($container_file); 1 } ;
+    #
+    # Add handlers for some of the XML tags
+    #
+    $parser->setHandlers(Start => \&Start_Handler);
+    $parser->setHandlers(XMLDecl => \&Declaration_Handler);
+    $parser->setHandlers(End => \&End_Handler);
+    $parser->setHandlers(Char => \&Char_Handler);
+    
+    #
+    # Set global variables
+    #
+    $in_rootfiles = 0;
+    $in_container = 0;
+    $found_declaration = 0;
+    $links_tag_count = 0;
+    $in_links = 0;
+    $link_tag_count = 0;
+    $rootfile_tag_count = 0;
+    @opf_file_names = ();
 
-        #
-        # Did the parsing fail ?
-        #
-        if ( ! $eval_output ) {
-            $eval_output =~ s/\n at .* line \d*$//g;
-            print "Parse of EPUB file failed \"$eval_output\"\n" if $debug;
-            Record_Result("WCAG_2.0-G134", -1, 0, "",
-                      String_Value("Fails validation") . " \"$eval_output\"");
-        }
-        else {
-            print "End parsing of container file\n" if $debug;
-        }
+    #
+    # Parse the container file. THe parser rules are based on the schema
+    # specified at http://www.idpf.org/epub/301/schema/ocf-container-30.rnc
+    #
+    $eval_output = eval { $parser->parsefile($container_file); 1 } ;
 
-        #
-        # Did we get a rootfile (OPF file) ?
-        #
-        if ( $opf_file_name eq "" ) {
-            Record_Result("WCAG_2.0-G134", -1, 0, "",
-                          String_Value("rootfile not specified in container.xml file"));
-        }
+    #
+    # Did the parsing fail ?
+    #
+    if ( ! $eval_output ) {
+        $eval_output =~ s/\n at .* line \d*$//g;
+        print "Parse of EPUB file failed \"$eval_output\"\n" if $debug;
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                  String_Value("Fails validation") . " \"$eval_output\"");
     }
     else {
-        print "Missing container.xml file in EPUB_Parse_Get_OPF_File, file name = \"$container_file\"\n" if $debug;
-        Record_Result("WCAG_2.0-G134", -1, 0, "",
-                      String_Value("Missing META-INF/container.xml file"));
+        print "End parsing of container file\n" if $debug;
     }
 
+    #
+    # Did we find an XML declaration tag?
+    #
+    if ( ! $found_declaration ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Missing XML declaration line"));
+    }
+
+    #
+    # Did we get a rootfile (OPF file) ?
+    #
+    if ( @opf_file_names == 0 ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("rootfile not specified in container.xml file"));
+    }
+    
     #
     # Return testcase results, EPUB OPF file name and EPUB directory
     #
-    return($results_list_addr, $opf_file_name, $epub_uncompressed_dir);
+    return($results_list_addr, \@opf_file_names, $epub_uncompressed_dir);
 }
 
 #***********************************************************************
