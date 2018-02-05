@@ -15,6 +15,10 @@
 # Public functions:
 #     TQA_Result_Object_Debug
 #
+# Public variables
+#    TQA_Result_Object_Maximum_Errors - maximum number of errors to report
+#                                       per URL or file. Default is unlimited.
+#
 # Class Methods
 #    new - create new object instance
 #    column_no - source column number
@@ -74,7 +78,8 @@ BEGIN {
     use vars qw($VERSION @ISA @EXPORT);
 
     @ISA     = qw(Exporter);
-    @EXPORT  = qw(TQA_Result_Object_Debug);
+    @EXPORT  = qw(TQA_Result_Object_Debug
+                  $TQA_Result_Object_Maximum_Errors);
     $VERSION = "1.0";
 }
 
@@ -86,6 +91,11 @@ BEGIN {
 
 my ($debug) = 0;
 my ($MAX_SOURCE_LINE_SIZE) = 200;
+
+#
+# Set maximum error count to 0, which means unlimited
+#
+my ($TQA_Result_Object_Maximum_Errors) = 0;
 
 #********************************************************
 #
