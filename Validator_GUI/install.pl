@@ -3,9 +3,9 @@
 #
 # Name:   install.pl
 #
-# $Revision: 541 $
+# $Revision: 635 $
 # $URL: svn://10.36.148.185/Validator_GUI/Tools/install.pl $
-# $Date: 2017-10-26 09:43:20 -0400 (Thu, 26 Oct 2017) $
+# $Date: 2017-12-13 14:03:24 -0500 (Wed, 13 Dec 2017) $
 #
 # Synopsis: install.pl [ uninstall ] [ -no_pause ]
 #
@@ -52,10 +52,6 @@ use Cwd;
 use Sys::Hostname;
 #use Win32::TieRegistry( Delimiter=>"#", ArrayValues=>0 );
 use Win32::TieRegistry;
-use LWP::UserAgent;
-use HTTP::Headers;
-use ExtUtils::Installed;
-use File::Temp qw/ tempfile/;
 use Archive::Zip;
 
 #***********************************************************************
@@ -1561,6 +1557,58 @@ oLink.Save";
     }
 }
 
+#**********************************************************************
+#
+# Name: Set_Permissions
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function sets execute permissions on programs for Linux systems.
+#
+#**********************************************************************
+sub Set_Permissions {
+
+    my ($p);
+    
+    #
+    # Set execute for all .pl scripts
+    #
+    chdir($program_dir);
+    opendir(DIR, ".");
+    while ( $p = readdir(DIR) ) {
+        if ( $p =~ /\.pl$/ ) {
+            chmod 0755, $p;
+        }
+    }
+    closedir(DIR);
+
+    #
+    # Set execute for all files in the bin directory
+    #
+    chdir("bin");
+    opendir(DIR, ".");
+    while ( $p = readdir(DIR) ) {
+        if ( -f $p ) {
+            chmod 0755, $p;
+        }
+    }
+    closedir(DIR);
+
+    #
+    # Set execute for all files in the bin/csv-validator/bin directory
+    #
+    chdir("csv-validator/bin");
+    opendir(DIR, ".");
+    while ( $p = readdir(DIR) ) {
+        if ( -f $p ) {
+            chmod 0755, $p;
+        }
+    }
+    closedir(DIR);
+}
+
 #***********************************************************************
 #
 # Mainline
@@ -1667,6 +1715,13 @@ if ($uninstall){
     #
     if ( $is_windows ) {
         Install_Win32_GUI();
+    }
+    
+    #
+    # Set permissions for Linux systems
+    #
+    if ( ! $is_windows ) {
+        Set_Permissions();
     }
 
     #
