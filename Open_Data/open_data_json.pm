@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 526 $
+# $Revision: 610 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_json.pm $
-# $Date: 2017-10-18 11:49:42 -0400 (Wed, 18 Oct 2017) $
+# $Date: 2017-12-04 10:34:59 -0500 (Mon, 04 Dec 2017) $
 #
 # Description:
 #
@@ -56,7 +56,7 @@ package open_data_json;
 use strict;
 use URI::URL;
 use File::Basename;
-use JSON;
+use JSON::PP;
 use File::Temp qw/ tempfile tempdir /;
 use Digest::MD5 qw(md5_hex);
 use Encode;
@@ -1191,7 +1191,7 @@ sub Check_JSON_CSV_Data {
             #
             # Generate a checksum of the row content.
             #
-            $checksum = md5_hex(encode_utf8(to_json($item)));
+            $checksum = md5_hex(encode_utf8(encode_json($item)));
 
             #
             # Have we seen this checksum before ? If so we have a duplicate
