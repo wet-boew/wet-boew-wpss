@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 525 $
+# $Revision: 701 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2017-10-18 11:47:36 -0400 (Wed, 18 Oct 2017) $
+# $Date: 2018-02-02 08:56:51 -0500 (Fri, 02 Feb 2018) $
 #
 # Description:
 #
@@ -129,6 +129,7 @@ my ($check_fail)       = 1;
 my %string_table_en = (
     "and",                           "and",
     "at line number",                "at line number",
+    "Blank column header",           "Blank column header",
     "Column",                        "Column",
     "CSV and JSON-CSV values do not match for column", "CSV and JSON-CSV values do not match for column",
     "csv-validator failed",          "csv-validator failed",
@@ -166,6 +167,7 @@ my %string_table_en = (
 my %string_table_fr = (
     "and",                           "et",
     "at line number",                "au numéro de ligne",
+    "Blank column header",           "En-tête de colonne vide",
     "Column",                        "Colonne",
     "CSV and JSON-CSV values do not match for column", "Les valeurs CSV et JSON-CSV ne correspondent pas à la colonne",
     "csv-validator failed",          "csv-validator a échoué",
@@ -409,6 +411,15 @@ sub Record_Result {
     my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
     my ($result_object);
+    
+    #
+    # Do we have a maximum number of errors to report and have we reached it?
+    #
+    if ( ($TQA_Result_Object_Maximum_Errors > 0) &&
+         (@$results_list_addr >= $TQA_Result_Object_Maximum_Errors) ) {
+        print "Skip reporting errors, maximum reached\n" if $debug;
+        return;
+    }
 
     #
     # Is this testcase included in the profile
@@ -453,7 +464,7 @@ sub Record_Result {
 sub Check_First_Data_Row {
     my ($dictionary, $report_errors, @fields) = @_;
 
-    my ($count, $field, @unmatched_fields, %headers);
+    my ($count, $field, @unmatched_fields, %headers, $field_num);
     my (@headings) = ();
     
     #
@@ -469,6 +480,7 @@ sub Check_First_Data_Row {
     #
     print "Check for terms in first row of CSV file\n" if $debug;
     $count = 0;
+    $field_num = 0;
     foreach $field (@fields) {
         #
         # Don't convert to lower case, terms are case sensitive.
@@ -480,34 +492,42 @@ sub Check_First_Data_Row {
         #
         # Check to see if it matches a dictionary entry.
         #
+        $field_num++;
         if ( defined($$dictionary{$field}) ) {
             print "Found term/field match for \"$field\"\n" if $debug;
             $count++;
+
+            #
+            # Do we have a duplicate header ?
+            #
+            if ( defined($headers{$field}) ) {
+                Record_Result("OD_DATA", 1, $field_num, "",
+                              String_Value("Duplicate column header") .
+                              " \"$field\". " .
+                              String_Value("Found at") . " # " .
+                              $headers{$field} . " " .
+                              String_Value("and") . " # $field_num");
+            }
+            else {
+                #
+                # Save header name
+                #
+                $headers{$field} = $field_num;
+            }
+        }
+        #
+        # Is the heading blank?
+        #
+        elsif ( $field =~ /^\s*$/ ) {
+            Record_Result("TP_PW_OD_DATA", 1, $field_num, "",
+                          String_Value("Blank column header"));
         }
         else {
             #
             # An unmatched field, save it for possible use later
             #
             push (@unmatched_fields, "$field");
-            print "No dictionary value for \"$field\"\n" if $debug;
-        }
-        
-        #
-        # Do we have a duplicate header ?
-        #
-        if ( defined($headers{$field}) ) {
-            Record_Result("OD_DATA", 1, 0, "",
-                          String_Value("Duplicate column header") .
-                          " \"$field\". " .
-                          String_Value("Found at" . " " .
-                          $headers{$field} .
-                          String_Value("and") . " $count"));
-        }
-        else {
-            #
-            # Save header name
-            #
-            $headers{$field} = $count;
+            print "No dictionary value for column # $field_num value \"$field\"\n" if $debug;
         }
     }
     
@@ -978,6 +998,13 @@ sub Check_Multi_Line_Field {
             next;
         }
         #
+        # If we are in a list item, appeand this text to the list item
+        #
+        elsif ( $in_list_item ) {
+            $list_item .= "\n$single_line";
+            next;
+        }
+        #
         # Is this an unordered list item? (i.e. starts with a dash,
         # asterisk or bullet).
         #
@@ -1249,16 +1276,9 @@ sub Check_Multi_Line_Field {
         }
         else {
             #
-            # If we are in a list item, appeand this text to the list item
-            #
-            if ( $in_list_item ) {
-                $list_item .= "\n$single_line";
-                next;
-            }
-            #
             # Are we inside of a list ?
             #
-            elsif ( $in_list ) {
+            if ( $in_list ) {
                 #
                 # Not in a list item, but in a list.  The list has ended,
                 # this text may be a heading or the beginning of a paragraph.
