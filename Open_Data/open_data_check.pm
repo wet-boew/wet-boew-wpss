@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 551 $
+# $Revision: 629 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_check.pm $
-# $Date: 2017-11-01 15:38:54 -0400 (Wed, 01 Nov 2017) $
+# $Date: 2017-12-12 15:02:51 -0500 (Tue, 12 Dec 2017) $
 #
 # Description:
 #
@@ -60,7 +60,7 @@ package open_data_check;
 use strict;
 use Encode;
 use Archive::Zip qw(:ERROR_CODES);
-use JSON;
+use JSON::PP;
 
 #
 # Use WPSS_Tool program modules
