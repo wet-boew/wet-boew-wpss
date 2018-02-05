@@ -2,9 +2,9 @@
 //
 // Name: page_markup.js
 //
-// $Revision: 90 $
-// $URL: svn://10.36.20.203/Crawler/Tools/page_markup.js $
-// $Date: 2016-11-15 09:02:04 -0500 (Tue, 15 Nov 2016) $
+// $Revision: 595 $
+// $URL: svn://10.36.148.185/Crawler/Tools/page_markup.js $
+// $Date: 2017-11-23 09:56:23 -0500 (Thu, 23 Nov 2017) $
 //
 // Synopsis: phantomjs page_markup.js <url> [ -debug ]
 //
@@ -65,6 +65,9 @@ var resourceWait = 500,
     arg,
     arg_count,
     page_image_file_name;
+
+// Set user agent string
+page.settings.userAgent = 'Mozilla/5.0 (Windows NT 6.1; Trident/7.0; rv:11.0) PhantomJS 2.0 WPSS_Tool';
 
 // Set page viewport size to ensure we get a full web page and not
 // a smaller (e.g. mobile) page presentation.
