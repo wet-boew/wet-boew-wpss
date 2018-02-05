@@ -2,9 +2,9 @@
 //
 // Name: markup_server.js
 //
-// $Revision: 390 $
-// $URL: svn://10.36.20.203/Crawler/Tools/markup_server.js $
-// $Date: 2017-07-04 13:41:20 -0400 (Tue, 04 Jul 2017) $
+// $Revision: 595 $
+// $URL: svn://10.36.148.185/Crawler/Tools/markup_server.js $
+// $Date: 2017-11-23 09:56:23 -0500 (Thu, 23 Nov 2017) $
 //
 // Synopsis: phantomjs markup_server.js <port> -debug
 //
@@ -73,6 +73,9 @@ var idle_timeout = 50000,
     idle_timer,
     received_request = 0,
     rendering_done = 0;
+
+// Set user agent string
+page.settings.userAgent = 'Mozilla/5.0 (Windows NT 6.1; Trident/7.0; rv:11.0) PhantomJS 2.0 WPSS_Tool';
 
 // ************************************************************
 //
