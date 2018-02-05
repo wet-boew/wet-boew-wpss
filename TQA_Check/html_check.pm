@@ -18,6 +18,7 @@
 #     Set_HTML_Check_Test_Profile
 #     Set_HTML_Check_Valid_Markup
 #     HTML_Check
+#     HTML_Check_EPUB_File
 #
 # Terms and Conditions of Use
 # 
@@ -94,6 +95,7 @@ BEGIN {
                   Set_HTML_Check_Test_Profile
                   Set_HTML_Check_Valid_Markup
                   HTML_Check
+                  HTML_Check_EPUB_File
                   );
     $VERSION = "1.0";
 }
@@ -173,6 +175,7 @@ my (%section_markers) = ();
 my ($have_content_markers) = 0;
 my (@required_content_sections) = ("CONTENT");
 my ($pseudo_header_length) = 50;
+my ($html_is_part_of_epub) = 0;
 
 #
 # Status codes for text catagorization (taken from textcat.pm)
@@ -704,6 +707,13 @@ my %valid_html5_rel_values = (
 $valid_html5_rel_values{"a"} .= "attachment category disclosure entry-content external home index profile publisher rendition sidebar widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
 $valid_html5_rel_values{"area"} .= "attachment category disclosure entry-content external home index profile publisher rendition sidebar widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
 $valid_html5_rel_values{"link"} .= "apple-touch-icon apple-touch-icon-precomposed apple-touch-startup-image attachment canonical category dns-prefetch EditURI home index meta openid.delegate openid.server openid2.local_id openid2.provider p3pv1 pgpkey pingback prerender profile publisher rendition servive shortlink sidebar sitemap timesheet widget wlwmanifest image_src  http://docs.oasis-open.org/ns/cmis/link/200908/acl stylesheet/less schema.dc schema.dcterms ";
+
+#
+# Values for the rel attribute of tags
+#   http://microformats.org/wiki/rel-pronunciation
+#   Date: 2017-11-19
+#
+$valid_html5_rel_values{"link"} .= "pronunciation ";
 
 my ($valid_rel_values);
 
@@ -6251,13 +6261,15 @@ sub HTML_Tag_Handler {
         #
         # Do we have a lang ?
         #
-        if ( ! defined( $attr{"lang"}) ) {
+        if ( ! defined($attr{"lang"}) ) {
             #
             # Missing language attribute
             #
-            Record_Result("WCAG_2.0-H57", $line, $column, $text,
-                          String_Value("Missing html language attribute") .
-                          " 'lang'");
+            if ( ! $modified_content ) {
+                Record_Result("WCAG_2.0-H57", $line, $column, $text,
+                              String_Value("Missing html language attribute") .
+                              " 'lang'");
+            }
         }
         else {
             #
@@ -6275,13 +6287,15 @@ sub HTML_Tag_Handler {
         #
         # Do we have a xml:lang attribute ?
         #
-        if ( ! defined( $attr{"xml:lang"}) ) {
+        if ( ! defined($attr{"xml:lang"}) ) {
             #
             # Missing language attribute
             #
-            Record_Result("WCAG_2.0-H57", $line, $column, $text,
-                          String_Value("Missing html language attribute") .
-                          " 'xml:lang'");
+            if ( ! $modified_content ) {
+                Record_Result("WCAG_2.0-H57", $line, $column, $text,
+                              String_Value("Missing html language attribute") .
+                              " 'xml:lang'");
+            }
         }
         else {
             #
@@ -6295,14 +6309,16 @@ sub HTML_Tag_Handler {
     #
     # Do we have both attributes ?
     #
-    if ( defined( $attr{"lang"}) && defined( $attr{"xml:lang"}) ) {
+    if ( defined($attr{"lang"}) && defined($attr{"xml:lang"}) ) {
         #
         # Do the values match ?
         #
         if ( lc($attr{"lang"}) ne lc($attr{"xml:lang"}) ) {
-            Record_Result("WCAG_2.0-H57", $line, $column, $text,
-                          String_Value("Mismatching lang and xml:lang attributes") .
-                          String_Value("for tag") . "<html>");
+            if ( ! $modified_content ) {
+                Record_Result("WCAG_2.0-H57", $line, $column, $text,
+                              String_Value("Mismatching lang and xml:lang attributes") .
+                              String_Value("for tag") . "<html>");
+            }
         }
     }
 
@@ -6314,7 +6330,7 @@ sub HTML_Tag_Handler {
     #
     # Were we able to determine the language of the content ?
     #
-    if ( $current_content_lang_code ne "" ) {
+    if ( ($current_content_lang_code ne "") && (! $modified_content) ) {
         #
         # Does the lang attribute match the content language ?
         #
@@ -9683,7 +9699,7 @@ sub End_Li_Tag_Handler {
 sub Check_Start_of_New_List {
     my ( $self, $tag, $line, $column, $text ) = @_;
 
-    my ($clean_text);
+    my ($clean_text, $i, $parent_list_headings);
 
     #
     # Is this a nested list ?
@@ -9741,8 +9757,20 @@ sub Check_Start_of_New_List {
         }
         
         #
+        # If we have nested lists, use the heading text from all lists to
+        # get a, hopefully, unique heading.
+        #
+        $parent_list_headings = "";
+        for ($i = 0; $i < $current_list_level; $i++) {
+            $parent_list_headings .= $list_heading_text[$i];
+        }
+        print "Parent lists heading text = \"$parent_list_headings\"\n" if $debug;
+        $clean_text = $parent_list_headings . $clean_text;
+        
+        #
         # Save list heading text
         #
+        print "List heading text = \"$clean_text\"\n" if $debug;
         $list_heading_text[$current_list_level] = $clean_text;
     }
 }
@@ -11600,17 +11628,17 @@ sub Start_Handler {
     }
 
     #
-    # Check input tag
-    #
-    elsif ( $tagname eq "input" ) {
-        Input_Tag_Handler( $self, $line, $column, $text, %attr_hash );
-    }
-
-    #
     # Check image tag
     #
     elsif ( $tagname eq "img" ) {
         Image_Tag_Handler( $self, $line, $column, $text, %attr_hash );
+    }
+
+    #
+    # Check input tag
+    #
+    elsif ( $tagname eq "input" ) {
+        Input_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
 
     #
@@ -12165,7 +12193,12 @@ sub End_Anchor_Tag_Handler {
         $anchor_text =~ s/^\s*//g;
         $anchor_text =~ s/\s*$//g;
         if ( URL_Check_Is_URL($anchor_text) ) {
-            if ( $tag_is_visible ) {
+            #
+            # Is the link is visible?
+            # Don't report an error is the HTML is part of an EPUB document.
+            # A URL as link text is acceptable if the document may be printed.
+            #
+            if ( $tag_is_visible && (! $html_is_part_of_epub) ) {
                 Record_Result("WCAG_2.0-H30", $line, $column, $text,
                               String_Value("Anchor text is a URL"));
             }
@@ -12211,10 +12244,10 @@ sub End_Anchor_Tag_Handler {
         #
         # We include heading text if the link appears in a list.
         #
-        if ( ($current_list_level > -1) && 
-             ($inside_list_item[$current_list_level]) ) {
-            print "Link inside a list item\n" if $debug;
-            $link_text = $last_heading_text . $all_anchor_text;
+        if ( ($current_list_level > 0) &&
+             ($inside_list_item[$current_list_level - 1]) ) {
+            print "Link inside a list item with heading text " . $list_heading_text[$current_list_level - 1] . "\n" if $debug;
+            $link_text = $list_heading_text[$current_list_level - 1] . $all_anchor_text;
         }
         else {
             $link_text = $all_anchor_text;
@@ -13454,10 +13487,15 @@ sub Check_Document_Errors {
     if ( (keys(%anchor_text_href_map) == 0)
          && (! $found_frame_tag) ) {
         #
-        # No links or frames found in this document
+        # No links or frames found in this document.
+        # Don't report error if this is part of an EPUB document.  EPUB
+        # documents have global navigation (i.e. table of contents) and the
+        # content may not link to any web resources.
         #
-        Record_Result("WCAG_2.0-G125", -1, 0, "",
-                      String_Value("No links found"));
+        if ( ! $html_is_part_of_epub ) {
+            Record_Result("WCAG_2.0-G125", -1, 0, "",
+                          String_Value("No links found"));
+        }
     }
     
     #
@@ -13763,6 +13801,53 @@ sub HTML_Check {
     # Reset valid HTML flag to unknown before we are called again
     #
     $is_valid_html = -1;
+
+    #
+    # Return list of results
+    #
+    return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: HTML_Check_EPUB_File
+#
+# Parameters: this_url - a URL
+#             language - language of EPUB
+#             profile - testcase profile
+#             content - HTML content pointer
+#
+# Description:
+#
+#   This function runs a number of technical QA checks on HTML content that
+# is part of an EPUB document.  Since HTML pages in an EPUD document are not
+# stand alone web pages, a number of checks that apply to web pages do
+# not apply (e.g. G125: Providing links to navigate to related Web pages).
+#
+#***********************************************************************
+sub HTML_Check_EPUB_File {
+    my ($this_url, $language, $profile, $content) = @_;
+    
+    my ($resp, @links, @tqa_results_list);
+    
+    #
+    # Set global flag to indicate this HTML content is from an EPUB
+    # document.
+    #
+    $html_is_part_of_epub = 1;
+    
+    #
+    # Call HTML_Check to analyse the content
+    #
+    print "HTML_Check_EPUB_File: Call HTML_Check\n" if $debug;
+    @tqa_results_list = HTML_Check($this_url, $language, $profile,
+                                   $resp, $content, \@links);
+    
+    #
+    # Clean the global flag indicating that HTML content is from an EPUB
+    # document.
+    #
+    $html_is_part_of_epub = 0;
 
     #
     # Return list of results
