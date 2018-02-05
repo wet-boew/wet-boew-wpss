@@ -2,9 +2,9 @@
 #
 # Name: epub_opf_object.pm
 #
-# $Revision: 358 $
-# $URL: svn://10.36.20.203/TQA_Check/Tools/epub_opf_object.pm $
-# $Date: 2017-04-28 10:49:15 -0400 (Fri, 28 Apr 2017) $
+# $Revision: 694 $
+# $URL: svn://10.36.148.185/TQA_Check/Tools/epub_opf_object.pm $
+# $Date: 2018-01-30 12:40:08 -0500 (Tue, 30 Jan 2018) $
 #
 # Description:
 #
@@ -18,10 +18,13 @@
 # Class Methods
 #    new - create new object instance
 #    add_to_manifest - add an item object to the manifest list
+#    dir - get/set OPF file directory
 #    identifier - get/set the EPUB identifier
 #    language - get/set the EPUB file content language
 #    manifest - get/set the list of files in the EPUB manifest
 #    title - get/set the EPUB file title
+#    uncompressed_directory - get/set the path to the directory where the
+#        EPUB file is uncompressed into.
 #    version - get/set the EPUB file version
 #
 # Terms and Conditions of Use
@@ -106,7 +109,8 @@ sub Set_EPUB_OPF_Object_Debug {
 # Name: new
 #
 # Parameters: filename - name of EPUB opf file
-#             directory - path of directory for the EPUB file
+#             uncompressed_directory - path of directory
+#               where the uncompressed EPUB files are located.
 #
 # Description:
 #
@@ -115,7 +119,7 @@ sub Set_EPUB_OPF_Object_Debug {
 #
 #********************************************************
 sub new {
-    my ($class, $filename, $directory) = @_;
+    my ($class, $filename, $uncompressed_directory) = @_;
 
     my ($self) = {};
     my (@empty_list);
@@ -129,7 +133,8 @@ sub new {
     # Save arguments as object data items
     #
     $self->{"filename"} = $filename;
-    $self->{"directory"} = $directory;
+    $self->{"dir"} = "";
+    $self->{"uncompressed_directory"} = $uncompressed_directory;
 
     #
     # Initialize other object properties
@@ -175,6 +180,39 @@ sub add_to_manifest {
         print "Add item to manifest array\n" if $debug;
         $addr = $self->{"manifest"};
         push(@$addr, $item);
+    }
+}
+
+#********************************************************
+#
+# Name: dir
+#
+# Parameters: self - class reference
+#             dir - EPUB file directory (optional)
+#
+# Description:
+#
+#   This function either sets or returns the EPUB OPF file
+# dir attribute of the object. The dir attribute is the relative
+# directory for the EPUB content.  It does not include the
+# uncompressed directory path.  To get the full path to the
+# EPUB content files, both the uncompressed directory and EPUB
+# directory must be used. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub dir {
+    my ($self, $dir) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($dir) ) {
+        $self->{"dir"} = $dir;
+    }
+    else {
+        return($self->{"dir"});
     }
 }
 
@@ -291,6 +329,36 @@ sub title {
     }
     else {
         return($self->{"title"});
+    }
+}
+
+#********************************************************
+#
+# Name: uncompressed_directory
+#
+# Parameters: self - class reference
+#             uncompressed_directory - EPUB file directory (optional)
+#
+# Description:
+#
+#   This function either sets or returns the EPUB OPF file
+# uncompressed_directory attribute of the object.
+# If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub uncompressed_directory {
+    my ($self, $uncompressed_directory) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($uncompressed_directory) ) {
+        $self->{"uncompressed_directory"} = $uncompressed_directory;
+    }
+    else {
+        return($self->{"uncompressed_directory"});
     }
 }
 

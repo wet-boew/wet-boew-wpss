@@ -2,9 +2,9 @@
 #
 # Name:   epub_check.pm
 #
-# $Revision: 6958 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/epub_check.pm $
-# $Date: 2015-01-06 09:25:49 -0500 (Tue, 06 Jan 2015) $
+# $Revision: 707 $
+# $URL: svn://10.36.148.185/TQA_Check/Tools/epub_check.pm $
+# $Date: 2018-02-02 09:04:04 -0500 (Fri, 02 Feb 2018) $
 #
 # Description:
 #
@@ -63,8 +63,10 @@ use XML::Parser;
 #
 # Use WPSS_Tool program modules
 #
+use epub_html_check;
 use epub_opf_parse;
 use epub_parse;
+use html_check;
 use tqa_result_object;
 use tqa_testcases;
 
@@ -101,6 +103,8 @@ BEGIN {
 my ($debug) = 0;
 my (%testcase_data, $results_list_addr);
 my (%epub_check_profile_map, $current_epub_check_profile, $current_url);
+my ($invalid_epub_version) = 0;
+my (%epub_versions);
 
 my ($is_valid_markup) = -1;
 my ($max_error_message_string)= 2048;
@@ -116,10 +120,18 @@ my ($epub_check_fail)       = 1;
 #
 my %string_table_en = (
     "Fails validation",           "Fails validation, see validation results for details.",
+    "Missing landmarks navigation list", "Missing landmarks navigation list",
+    "Missing list of illustrations", "Missing list of illustrations",
+    "Missing list of pages",      "Missing list of pages",
+    "Missing table of content",   "Missing table of content",
     );
 
 my %string_table_fr = (
     "Fails validation",           "Échoue la validation, voir les résultats de validation pour plus de détails.",
+    "Missing landmarks navigation list", "Liste de navigation des landmarks manquants",
+    "Missing list of illustrations", "Liste manquante d'illustrations",
+    "Missing list of pages",      "Liste manquante de pages",
+    "Missing table of content",   "Table des matières manquante",
     );
 
 #
@@ -151,6 +163,7 @@ sub Set_EPUB_Check_Debug {
     #
     Set_EPUB_OPF_Parse_Debug($debug);
     Set_EPUB_Parse_Debug($debug);
+    Set_EPUB_HTML_Check_Debug($debug);
 }
 
 #**********************************************************************
@@ -186,6 +199,7 @@ sub Set_EPUB_Check_Language {
     #
     Set_EPUB_OPF_Parse_Language($language);
     Set_EPUB_Parse_Language($language);
+    Set_EPUB_HTML_Check_Language($language);
 }
 
 #***********************************************************************
@@ -270,23 +284,53 @@ sub String_Value {
 sub Set_EPUB_Check_Testcase_Data {
     my ($testcase, $data) = @_;
 
+    my ($type, $versions, $line, @version_list);
+
     #
-    # Copy the data into the table
+    # Check for minimum EPUB version setting for testcase WCAG_2.0-Guideline41
     #
-    $testcase_data{$testcase} = $data;
-    
+    if ( $testcase eq "WCAG_2.0-Guideline41" ) {
+        #
+        # Check each line of the testcase data
+        #
+        foreach $line (split(/\n/, $data)) {
+            #
+            # Split the data line into a technology type and versions
+            #
+            ($type, $versions) = split(/\s+/, $line, 2);
+
+            if ( defined($versions) && ($type =~ /^EPUB_VERSIONS$/i) ) {
+                #
+                # Save the versions in a table for easy checking
+                #
+                @version_list = split(/\s+/, $versions);
+                foreach (@version_list) {
+                    $epub_versions{$_} = 1;
+                }
+                last;
+            }
+        }
+    }
+    #
+    # Save any other testcase data into the table
+    #
+    else {
+        $testcase_data{$testcase} = $data;
+    }
+
     #
     # Set testcase data in supporting modules
     #
     Set_EPUB_OPF_Parse_Testcase_Data($testcase, $data);
     Set_EPUB_Parse_Testcase_Data($testcase, $data);
+    Set_EPUB_HTML_Check_Testcase_Data($testcase, $data);
 }
 
 #***********************************************************************
 #
 # Name: Set_EPUB_Check_Test_Profile
 #
-# Parameters: profile - XML check test profile
+# Parameters: profile - EPUB check test profile
 #             epub_checks - hash table of testcase name
 #
 # Description:
@@ -312,13 +356,15 @@ sub Set_EPUB_Check_Test_Profile {
     # Set profile in supporting modules
     #
     Set_EPUB_Parse_Test_Profile($profile, $epub_checks);
+    Set_EPUB_OPF_Parse_Test_Profile($profile, $epub_checks);
+    Set_EPUB_HTML_Check_Test_Profile($profile, $epub_checks);
 }
 
 #***********************************************************************
 #
 # Name: Initialize_Test_Results
 #
-# Parameters: profile - XML check test profile
+# Parameters: profile - EPUB check test profile
 #             local_results_list_addr - address of results list.
 #
 # Description:
@@ -413,7 +459,9 @@ sub Record_Result {
 #
 # Description:
 #
-#   This function runs a number of technical QA checks on EPUB content.
+#   This function runs a number of technical QA checks on EPUB files.
+# Only the EPUB container file is checked, the EPUB_Check_Manifest_File
+# function is used to check the content of each component file.
 #
 #***********************************************************************
 sub EPUB_Check {
@@ -487,13 +535,90 @@ sub EPUB_Check {
 
 #***********************************************************************
 #
+# Name: Check_Navigation_File
+#
+# Parameters: epub_opf_object - an object containing details on the
+#                                complete EPUB document
+#             nav_item_object - an object containing details on
+#                                the epub file
+#             this_url - a URL
+#
+# Description:
+#
+#   This function performs checks on navigation files.
+#
+#***********************************************************************
+sub Check_Navigation_File {
+    my ($epub_opf_object, $nav_item_object, $this_url) = @_;
+    
+    my (%epub_nav_types, $page_count, $illustration_count, $list_item);
+    my ($manifest_list);
+
+    #
+    # Navigation file specific checks
+    # Get the table of navigation types found in the file.
+    #
+    print "Check_Navigation_File\n" if $debug;
+    %epub_nav_types = $nav_item_object->nav_types();
+    
+    #
+    # Are we missing a table of contents
+    #
+    if ( ! defined($epub_nav_types{"toc"}) ) {
+        Record_Result("EPUB-ACCESS-002", -1, 0, "",
+                      String_Value("Missing table of content"));
+    }
+    
+    #
+    # Count the number of page breaks and illustrations found in content
+    # documents.
+    #
+    $page_count = 0;
+    $illustration_count = 0;
+    $manifest_list = $epub_opf_object->manifest();
+    for $list_item (@$manifest_list) {
+        $page_count += $list_item->page_count();
+        $illustration_count += $list_item->illustration_count();
+    }
+    
+    #
+    # Do we have a page count with no page list?
+    #
+    if ( ($page_count > 1) && ( ! defined($epub_nav_types{"page-list"})) ) {
+        Record_Result("EPUB-PAGE-003", -1, 0, "",
+                      String_Value("Missing list of pages"));
+    }
+
+    #
+    # Do we have an illustration count with no list of illustrations?
+    # Set threshold for the list at 5 illustrations.
+    #
+    if ( ($illustration_count > 5) && ( ! defined($epub_nav_types{"loi"})) ) {
+        Record_Result("EPUB-ACCESS-002", -1, 0, "",
+                      String_Value("Missing list of illustrations"));
+    }
+
+    #
+    # Do we have a landmarks navigation section?
+    #
+    if ( ! defined($epub_nav_types{"landmarks"}) ) {
+        Record_Result("EPUB-SEM-003", -1, 0, "",
+                      String_Value("Missing landmarks navigation list"));
+    }
+}
+
+#***********************************************************************
+#
 # Name: EPUB_Check_Manifest_File
 #
-# Parameters: this_url - a URL
-#             language - URL language
+# Parameters: epub_opf_object - an object containing details on the
+#                                complete EPUB document
+#             epub_item_object - an object containing details on
+#                                the epub file
+#             this_url - a URL
 #             profile - testcase profile
 #             file_name - path to file
-#             epub_uncompressed_dir
+#             epub_uncompressed_dir - directory of uncompressed EPUB
 #
 # Description:
 #
@@ -501,16 +626,29 @@ sub EPUB_Check {
 #
 #***********************************************************************
 sub EPUB_Check_Manifest_File {
-    my ($this_url, $language, $profile, $content) = @_;
+    my ($epub_opf_object, $epub_item_object, $this_url, $profile,
+        $file_name, $epub_uncompressed_dir) = @_;
 
-    my (@tqa_results_list, $result_object);
+    my (@tqa_results_list, $result_object, $content, $line, $media_type);
+    my ($resp, @links, $version, @other_results, $language, %properties);
 
     #
     # Do we have a valid profile ?
     #
+    $language = $epub_opf_object->language();
     print "EPUB_Check_Manifest_File Checking URL $this_url, lanugage = $language, profile = $profile\n" if $debug;
     if ( ! defined($epub_check_profile_map{$profile}) ) {
         print "EPUB_Check: Unknown testcase profile passed $profile\n";
+        return(@tqa_results_list);
+    }
+    
+    #
+    # Is the EPUB version valid?
+    #
+    $version = $epub_opf_object->version();
+    if ( ($version eq "") ||
+         (! defined($epub_versions{$version})) ) {
+        print "Skip EPUB checks, version not valid\n" if $debug;
         return(@tqa_results_list);
     }
 
@@ -532,30 +670,76 @@ sub EPUB_Check_Manifest_File {
     # Initialize the test case pass/fail table.
     #
     Initialize_Test_Results($profile, \@tqa_results_list);
-
+    
     #
-    # Check to see if we were told that this document is not
-    # a valid EPUB
+    # Read the content from the file
     #
-    if ( $is_valid_markup == 0 ) {
-        Record_Result("WCAG_2.0-G134", -1, 0, "",
-                      String_Value("Fails validation"));
+    print "Read content from file $epub_uncompressed_dir/$file_name\n" if $debug;
+    $content = "";
+    if ( ! open (CONTENT, "$epub_uncompressed_dir/$file_name") ) {
+        print  "EPUB_Check_Manifest_File: Failed to open file\n" if $debug;
+        print STDERR "EPUB_Check_Manifest_File: Failed to open file\n";
+        print STDERR "$epub_uncompressed_dir/$file_name\n";
+        print STDERR "from URL $this_url\n";
+        return(@tqa_results_list);
     }
+    binmode CONTENT, ":utf8";
+    while ( $line = <CONTENT> ) {
+        $content .= $line;
+    }
+    close(CONTENT);
 
     #
     # Did we get any content ?
     #
-    if ( length($$content) > 0 ) {
+    print "Content length = " . length($content) . "\n" if $debug;
+    if ( length($content) > 0 ) {
+        #
+        # Check mime-type/media-type of file
+        #
+        $media_type = $epub_item_object->media_type();
+        print "Check media_type = $media_type\n" if $debug;
+        if ( $media_type =~ /html/i ) {
+            print "Run HTML check on content\n" if $debug;
+            @tqa_results_list = HTML_Check_EPUB_File($this_url,
+                                                     $language, $profile,
+                                                     \$content);
+                                           
+            #
+            # Run EPUB specific checks on the HTML content
+            #
+            print "Run EPUB specific HTML check on content\n" if $debug;
+            @other_results = EPUB_HTML_Check($this_url,
+                                             $language, $profile,
+                                             \$content, $epub_item_object);
+
+            #
+            # Add results from the EPUB checks to the general
+            # HTML checks
+            #
+            foreach $result_object (@other_results) {
+                push(@tqa_results_list, $result_object);
+            }
+        }
     }
     else {
-        print "No content passed to EPUB_Check\n" if $debug;
+        print "No content passed to EPUB_Check_Manifest_File\n" if $debug;
+    }
+    
+    #
+    # Is this a navigation file? Additional checks must be performed
+    # such as checking for table of contents.
+    #
+    %properties = $epub_item_object->properties();
+    if ( defined($properties{"nav"}) ) {
+       Check_Navigation_File($epub_opf_object, $epub_item_object, $this_url);
     }
 
     #
     # Print testcase information
     #
     if ( $debug ) {
-        print "EPUB_Check results\n";
+        print "EPUB_Check_Manifest_File results\n";
         foreach $result_object (@tqa_results_list) {
             print "Testcase: " . $result_object->testcase;
             print "  status   = " . $result_object->status . "\n";
@@ -587,14 +771,15 @@ sub EPUB_Check_Manifest_File {
 sub EPUB_Check_Get_OPF_File {
     my ($this_url, $resp, $profile, $content) = @_;
     
-    my ($results_list_addr, $opf_file_name, $epub_uncompressed_dir);
+    my ($results_list_addr, $opf_file_names, $epub_uncompressed_dir);
     
     #
     # Call EPUB Parse function to get the OPF container file name
     #
-    ($results_list_addr, $opf_file_name, $epub_uncompressed_dir) =
+    print "EPUB_Check_Get_OPF_File url = $this_url\n" if $debug;
+    ($results_list_addr, $opf_file_names, $epub_uncompressed_dir) =
         EPUB_Parse_Get_OPF_File($this_url, $resp, $profile, $content);
-    return($results_list_addr, $opf_file_name, $epub_uncompressed_dir);
+    return($results_list_addr, $opf_file_names, $epub_uncompressed_dir);
 }
 
 #***********************************************************************
@@ -620,6 +805,7 @@ sub EPUB_Check_OPF_Parse {
     #
     # Call EPUB OPF Parse function to get the EPUB package details
     #
+    print "EPUB_Check_OPF_Parse\n" if $debug;
     ($results_list_addr, $epub_opf_object) = EPUB_OPF_Parse($this_url,
                                                             $epub_uncompressed_dir,
                                                             $filename, $profile);

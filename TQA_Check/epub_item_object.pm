@@ -2,9 +2,9 @@
 #
 # Name: epub_item_object.pm
 #
-# $Revision: 358 $
-# $URL: svn://10.36.20.203/TQA_Check/Tools/epub_item_object.pm $
-# $Date: 2017-04-28 10:49:15 -0400 (Fri, 28 Apr 2017) $
+# $Revision: 706 $
+# $URL: svn://10.36.148.185/TQA_Check/Tools/epub_item_object.pm $
+# $Date: 2018-02-02 09:02:57 -0500 (Fri, 02 Feb 2018) $
 #
 # Description:
 #
@@ -18,9 +18,13 @@
 # Class Methods
 #    new - create new object instance
 #    id - get/set the id value
+#    illustration_count - get/set the number of illustrations
 #    href - get/set the href value
 #    media_type - get/set the media type of data file (e.g. image/jpeg,
 #                 text/html)
+#    nav_types - get/set the set of navigation types found in a navigation file
+#    page_count - get/set the number of pages (i.e. number of page breaks)
+#    properties - get/set the properties value
 #
 # Terms and Conditions of Use
 #
@@ -117,6 +121,7 @@ sub new {
     my ($class, $id, $href, $media_type) = @_;
 
     my ($self) = {};
+    my (%properties_table, %nav_types_table);
 
     #
     # Bless the reference as a epub_item_object class item
@@ -124,21 +129,54 @@ sub new {
     bless $self, $class;
 
     #
-    # Save arguments as object data items
+    # Save arguments as object data items and initialize other fields
     #
-    $self->{"id"} = $id;
+    $self->{"illustration_count"} = 0;
     $self->{"href"} = $href;
+    $self->{"id"} = $id;
     $self->{"media_type"} = $media_type;
+    $self->{"nav_types"} = \%nav_types_table;
+    $self->{"page_count"} = 0;
+    $self->{"properties"} = \%properties_table;
 
     #
     # Print object details
     #
-    print "New EPUB manifest item file object, ID $id\n" if $debug;
+    print "New EPUB manifest item file object, ID $id, href $href media-type $media_type\n" if $debug;
 
     #
     # Return reference to object.
     #
     return($self);
+}
+
+#********************************************************
+#
+# Name: illustration_count
+#
+# Parameters: self - class reference
+#             illustration_count - count of illustrations (optional)
+#
+# Description:
+#
+#   This function either sets or returns the illustration_count
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub illustration_count {
+    my ($self, $illustration_count) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($illustration_count) ) {
+        $self->{"illustration_count"} = $illustration_count;
+    }
+    else {
+        return($self->{"illustration_count"});
+    }
 }
 
 #********************************************************
@@ -225,6 +263,108 @@ sub media_type {
     }
     else {
         return($self->{"media_type"});
+    }
+}
+
+#********************************************************
+#
+# Name: nav_types
+#
+# Parameters: self - class reference
+#             nav_types - hash table (optional)
+#
+# Description:
+#
+#   This function either sets or returns the nav_types
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub nav_types {
+    my ($self, %nav_types) = @_;
+
+    my ($table_addr);
+    
+    #
+    # Was a value supplied ?
+    #
+    $table_addr = $self->{"nav_types"};
+    if ( keys(%nav_types) > 0 ) {
+        %$table_addr = %nav_types;
+    }
+    else {
+        return(%$table_addr);
+    }
+}
+
+#********************************************************
+#
+# Name: page_count
+#
+# Parameters: self - class reference
+#             page_count - count of pages (optional)
+#
+# Description:
+#
+#   This function either sets or returns the page_count
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub page_count {
+    my ($self, $page_count) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($page_count) ) {
+        $self->{"page_count"} = $page_count;
+    }
+    else {
+        return($self->{"page_count"});
+    }
+}
+
+#********************************************************
+#
+# Name: properties
+#
+# Parameters: self - class reference
+#             properties - properties value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the properties
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the table of current values is returned.
+#
+#********************************************************
+sub properties {
+    my ($self, $properties) = @_;
+
+    my (@property_list, $property, $table_addr);
+    
+    #
+    # Was a value supplied ?
+    #
+    $table_addr = $self->{"properties"};
+    if ( defined($properties) ) {
+        #
+        # Split the properties value on white space, there may
+        # be several property values specified.
+        #
+        @property_list = split(/\s+/, $properties);
+        foreach $property (@property_list) {
+            if ( $property ne "" ) {
+                $$table_addr{$property} = $property;
+            }
+        }
+    }
+    else {
+        return(%$table_addr);
     }
 }
 
