@@ -58,7 +58,7 @@ use strict;
 use HTML::Entities;
 use URI::URL;
 use File::Basename;
-use JSON;
+use JSON::PP;
 
 #
 # Use WPSS_Tool program modules
