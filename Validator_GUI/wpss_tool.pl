@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 528 $
+# $Revision: 709 $
 # $URL: svn://10.36.148.185/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2017-10-18 11:51:32 -0400 (Wed, 18 Oct 2017) $
+# $Date: 2018-02-02 09:06:47 -0500 (Fri, 02 Feb 2018) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -145,7 +145,7 @@ my (@links, @ui_args, %image_alt_text_table, @web_feed_list);
 my (%all_link_sets, %domain_prod_dev_map, @all_urls, $logged_in);
 my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
 my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
-my ($firewall_check_url);
+my ($firewall_check_url, $maximum_errors_per_url);
 my ($enable_generated_markup, $cmnd_line_disable_generated_markup);
 my (%gui_config);
 my ($report_passes_only) = 0;
@@ -160,6 +160,7 @@ my ($shared_site_dir_e, $shared_site_dir_f);
 my ($shared_headings_report, $shared_web_page_size_filename);
 my ($shared_save_content, $shared_save_content_directory);
 my ($shared_testcase_results_summary_csv_filename);
+my ($shared_links_details_filename);
 if ( $have_threads ) {
     share(\$shared_image_alt_text_report);
     share(\$shared_site_dir_e);
@@ -170,6 +171,7 @@ if ( $have_threads ) {
     share(\$shared_save_content);
     share(\$shared_save_content_directory);
     share(\$shared_testcase_results_summary_csv_filename);
+    share(\$shared_links_details_filename);
 }
 
 #
@@ -346,6 +348,12 @@ my (@web_page_details_fields) = ("url", "title", "lang", "h1", "breadcrumb",
                                  "dcterms.subject", "dcterms.creator", 
                                  "content size", "flesch-kincaid");
 my (%web_page_details_values, $files_details_fh);
+
+#
+# Web Page Link Details variables
+#
+my (@links_details_fields) = ("url", "type", "line", "column", "href");
+my ($links_details_fh);
 
 #
 # Testcase profile group variables
@@ -2797,6 +2805,14 @@ sub Read_Config_File {
                 push(@link_ignore_patterns, $fields[1]);
             }
         }
+        elsif ( $config_type eq "Maximum_Errors_Per_URL" ) {
+            #
+            # Save user agent maximum number of errors to report per URL or file
+            #
+            if ( @fields > 1 ) {
+                $maximum_errors_per_url = $fields[1];
+            }
+        }
         elsif ( $config_type eq "Redirect_Ignore_Pattern" ) {
             #
             # Save link redirect ignore value
@@ -3274,6 +3290,14 @@ sub Initialize {
     Set_Link_Checker_Domain_Networkscope_Map(%networkscope_map);
     Set_Link_Checker_Domain_Alias_Map(%domain_alias_map);
     Set_Link_Checker_Redirect_Ignore_Patterns(@redirect_ignore_patterns);
+    
+    #
+    # Set maximum errors per URL or file if we have a configuration
+    # value for it.
+    #
+    if ( defined($maximum_errors_per_url) ) {
+        $TQA_Result_Object_Maximum_Errors = $maximum_errors_per_url;
+    }
 
     #
     # Get current date and time
@@ -3564,6 +3588,13 @@ sub Print_Resource_Usage {
     my ($sec, $min, $hour, $mday, $mon, $year, $datetime_stamp);
 
     #
+    # Are we doing resource monitoring?
+    #
+    if ( ! $monitoring ) {
+        return;
+    }
+    
+    #
     # Get current date and time
     #
     ($sec, $min, $hour, $mday, $mon, $year) = (localtime(time))[0, 1, 2, 3, 4, 5];
@@ -3629,10 +3660,8 @@ sub HTTP_Response_Callback {
     # If we are doing process monitoring, print out some resource
     # usage statistics
     #
-    if ( $monitoring ) {
-        Print_Resource_Usage($url, "before",
-                             $document_count{$crawled_urls_tab} + 1);
-    }
+    Print_Resource_Usage($url, "before",
+                         $document_count{$crawled_urls_tab} + 1);
 
     #
     # Check for logout page
@@ -3777,6 +3806,8 @@ sub HTTP_Response_Callback {
         # Validate the content
         #
         if ( TQA_Check_Need_Validation($tqa_check_profile) ) {
+            Print_Resource_Usage($url, "Perform_Markup_Validation",
+                                 $document_count{$crawled_urls_tab});
             Perform_Markup_Validation($url, $mime_type, $resp, \$content);
         }
 
@@ -3887,6 +3918,8 @@ sub HTTP_Response_Callback {
             #
             # Perform EPUB checks
             #
+            Print_Resource_Usage($url, "Perform_EPUB_Check",
+                                 $document_count{$crawled_urls_tab});
             Perform_EPUB_Check($url, \$content, $language, $mime_type, $resp);
         }
 
@@ -4138,10 +4171,8 @@ sub HTTP_Response_Callback {
     # If we are doing process monitoring, print out some resource
     # usage statistics
     #
-    if ( $monitoring ) {
-        Print_Resource_Usage($url, "after",
-                             $document_count{$crawled_urls_tab});
-    }
+    Print_Resource_Usage($url, "after",
+                         $document_count{$crawled_urls_tab});
 
     #
     # Return success
@@ -5533,6 +5564,17 @@ sub Results_Save_Callback {
         copy($shared_file_details_filename, $save_filename);
     }
     unlink($shared_file_details_filename);
+
+    #
+    # Copy the web page links details CSV to the results directory.
+    #
+    $save_filename = $filename . "_link_details.csv";
+    unlink($save_filename);
+    print "Copy $shared_links_details_filename, $save_filename\n" if $debug;
+    if ( -f $shared_links_details_filename ) {
+        copy($shared_links_details_filename, $save_filename);
+    }
+    unlink($shared_links_details_filename);
 }
 
 #***********************************************************************
@@ -6466,6 +6508,10 @@ sub Remove_Temporary_Files {
     #
     # Clean up any temporary file from a possible previous analysis run
     #
+    if ( defined($shared_links_details_filename)
+         && ($shared_links_details_filename ne "") ) {
+        unlink($shared_links_details_filename);
+    }
     if ( defined($shared_web_page_size_filename)
          && ($shared_web_page_size_filename ne "") ) {
         unlink($shared_web_page_size_filename);
@@ -6735,6 +6781,20 @@ sub Initialize_Tool_Globals {
     }
     binmode $files_details_fh, ":utf8";
     print $files_details_fh join(",", @web_page_details_fields) . "\r\n";
+
+    #
+    # Create web page links details temporary file
+    #
+    ($links_details_fh, $shared_links_details_filename) =
+       tempfile("WPSS_TOOL_XXXXXXXXXX",
+                SUFFIX => '.csv',
+                TMPDIR => 1);
+    if ( ! defined($links_details_fh) ) {
+        print "Error: Failed to create temporary file in Initialize_Tool_Globals\n";
+        return;
+    }
+    binmode $links_details_fh, ":utf8";
+    print $links_details_fh join(",", @links_details_fields) . "\r\n";
 }
 
 #***********************************************************************
@@ -6996,9 +7056,10 @@ sub Perform_Site_Crawl {
     }
 
     #
-    # Close the web page details file
+    # Close the web page details file and the link details
     #
     close($files_details_fh);
+    close($links_details_fh);
 
     #
     # Close the web page size file
@@ -8405,7 +8466,7 @@ sub Perform_Mobile_Check {
 sub Perform_Link_Check {
     my ($url, $mime_type, $resp, $content, $language, $generated_content) = @_;
 
-    my ($url_status, @link_results_list, $anchor_list);
+    my ($url_status, @link_results_list, $anchor_list, $href, $clean_url);
     my ($i, $status, $link, $breadcrumb, $list_addr);
     my ($result_object, $base, %local_link_error_url_count);
 
@@ -8447,6 +8508,27 @@ sub Perform_Link_Check {
     @links = Extract_Links($url, $base, $language, $mime_type, $content,
                            $generated_content);
 
+    #
+    # Print link details to the CSV file
+    #
+    $clean_url = $url;
+    $clean_url =~ s/"/""/g;
+    foreach $link (@links) {
+        #
+        # Print details for anchor links only.
+        # Skip javascript and mailto links.
+        #
+        $href = $link->abs_url();
+        if ( ($link->link_type() eq "a") &&
+             ! ($href =~ /^javascript:/) &&
+             ! ($href =~ /^mailto:/) ) {
+            $href =~ s/"/""/g;
+            print $links_details_fh "\"$url\"," . $link->link_type() . "," .
+                                    $link->line_no() . "," .
+                                    $link->column_no() . ",\"$href\"\r\n";
+        }
+    }
+    
     #
     # Get links from all document subsections
     #
@@ -8666,123 +8748,6 @@ sub Record_EPUB_Accessibility_Check_Results {
 
 #***********************************************************************
 #
-# Name: Perform_EPUB_Accessibility_Check
-#
-# Parameters: url - document URL
-#             content - content pointer
-#             language - URL language
-#             mime_type - content mime-type
-#             resp - HTTP::Response object
-#
-# Description:
-#
-#   This function performs a number of accessibility QA tests on EPUB content.
-#
-#***********************************************************************
-sub Perform_EPUB_Accessibility_Check {
-    my ($url, $content, $language, $mime_type, $resp) = @_;
-
-    my (@tqa_results_list, $result_object, $pattern);
-    my ($results_list_addr, $opf_file_name, $epub_uncompressed_dir);
-    my ($epub_opf_object, $file_count, $list_item, $manifest_list);
-    my ($file_name);
-
-    #
-    # Do we want to skip accessibility checking of this document ?
-    #
-    print "Perform_EPUB_Accessibility_Check on URL\n  --> $url\n" if $debug;
-    foreach $pattern (@tqa_url_skip_patterns) {
-        if ( $url =~ /$pattern/i ) {
-            print "Skipping accessibility check on $url, matches pattern $pattern\n" if $debug;
-            return;
-        }
-    }
-
-    #
-    # Tell TQA Check module whether or not documents have
-    # valid markup.
-    #
-    Set_TQA_Check_Valid_Markup($url, %is_valid_markup);
-
-    #
-    # Check the complete EPUB document
-    #
-    @tqa_results_list = TQA_Check($url, $language, $tqa_check_profile,
-                                  $mime_type, $resp, $content, \@links);
-
-    #
-    # Get the container.xml OPF file, it contains the details of
-    # the rest of the EPUB files.
-    #
-    ($results_list_addr, $opf_file_name, $epub_uncompressed_dir) =
-        EPUB_Check_Get_OPF_File($url, $resp, $tqa_check_profile, $content);
-
-    #
-    # Merge results with the full list of results
-    #
-    foreach $result_object (@$results_list_addr) {
-        push(@tqa_results_list, $result_object);
-    }
-
-    #
-    # Record results
-    #
-    Record_EPUB_Accessibility_Check_Results($url, @tqa_results_list);
-
-    #
-    # Parse the OPF container file to get the other EPUB files details
-    #
-    ($results_list_addr, $epub_opf_object) = EPUB_Check_OPF_Parse($url,
-                                                       $epub_uncompressed_dir,
-                                                       $opf_file_name,
-                                                       $tqa_check_profile);
-
-    #
-    # Record results
-    #
-    $file_count = 1;
-    Validator_GUI_Start_URL($crawled_urls_tab, "$url:$opf_file_name", "",
-                            0, $document_count{$crawled_urls_tab} . ".$file_count");
-    Record_EPUB_Accessibility_Check_Results("$url:$opf_file_name",
-                                            @$results_list_addr);
-    Validator_GUI_End_URL($crawled_urls_tab, "$url:$opf_file_name", "", 0);
-
-    #
-    # Check each of the EPUB content files for accessibility checks
-    #
-    if ( defined($epub_opf_object) ) {
-        $manifest_list = $epub_opf_object->manifest();
-        for $list_item (@$manifest_list) {
-            #
-            # Increment found count and get the file name
-            #
-            $file_count++;
-            $file_name = $list_item->href();
-            Validator_GUI_Start_URL($crawled_urls_tab, "$url:$file_name", "",
-                                    0, $document_count{$crawled_urls_tab} . ".$file_count");
-
-            #
-            # Perform accessibility checks on this file
-            #
-            @tqa_results_list = ();
-                                    
-            #
-            # Record accessibility results
-            #
-            Record_EPUB_Accessibility_Check_Results("$url:$opf_file_name",
-                                                    @tqa_results_list);
-            Validator_GUI_End_URL($crawled_urls_tab, "$url:$file_name", "", 0);
-        }
-    }
-
-    #
-    # Cleanup temporary files from EPUB file
-    #
-    EPUB_Check_Cleanup($epub_uncompressed_dir);
-}
-
-#***********************************************************************
-#
 # Name: Perform_EPUB_Check
 #
 # Parameters: url - EPUB URL
@@ -8799,36 +8764,200 @@ sub Perform_EPUB_Accessibility_Check {
 sub Perform_EPUB_Check {
     my ($url, $content, $language, $mime_type, $resp) = @_;
 
-    my ($epub_file);
+    my ($epub_file, $pattern, @tqa_results_list, @links);
+    my ($results_list_addr, $opf_file_names, $epub_uncompressed_dir);
+    my ($file_count, $epub_opf_object, $manifest_list, $list_item);
+    my ($file_name, $opf_file_name, %properties);
     
     #
-    # Perform checks on an EPUB document
+    # Do we want to skip checking of this document ?
     #
-    print "Perform_EPUB_Check\n" if $debug;
+    print "Perform_EPUB_Check\n  --> $url\n" if $debug;
+    foreach $pattern (@tqa_url_skip_patterns) {
+        if ( $url =~ /$pattern/i ) {
+            print "Skipping check on EPUB $url, matches pattern $pattern\n" if $debug;
+            return;
+        }
+    }
 
     #
     # If we are doing process monitoring, print out some resource
     # usage statistics
     #
-    if ( $monitoring ) {
-        Print_Resource_Usage($url, "before",
-                             $document_count{$crawled_urls_tab});
+    Print_Resource_Usage($url, "EPUB TQA_Check",
+                         $document_count{$crawled_urls_tab});
+
+    #
+    # Tell TQA Check module whether or not documents have
+    # valid markup.
+    #
+    Set_TQA_Check_Valid_Markup($url, %is_valid_markup);
+
+    #
+    # Check the accessibility of the complete EPUB document
+    #
+    @tqa_results_list = TQA_Check($url, $language, $tqa_check_profile,
+                                  $mime_type, $resp, $content, \@links);
+
+    #
+    # Record results
+    #
+    Record_EPUB_Accessibility_Check_Results($url, @tqa_results_list);
+
+    #
+    # Get the META-INF/container.xml file and the list of OPF rootfiles
+    # specified in it. The OPF files contain the details of the rest
+    # of the EPUB files.
+    #
+    $file_count = 1;
+    Validator_GUI_Start_URL($crawled_urls_tab, "$url:META-INF/container.xml", "",
+                            0, $document_count{$crawled_urls_tab} . ".$file_count");
+    print "Parse and get the META-INF/container.xml and OPF file\n" if $debug;
+    ($results_list_addr, $opf_file_names, $epub_uncompressed_dir) =
+        EPUB_Check_Get_OPF_File($url, $resp, $tqa_check_profile, $content);
+    $file_count = 1;
+
+    #
+    # Record results
+    #
+    Record_EPUB_Accessibility_Check_Results($url, @$results_list_addr);
+    Validator_GUI_End_URL($crawled_urls_tab, "$url:META-INF/container.xml", "", 0);
+
+    #
+    # Parse the list OPF container files to get the other EPUB files details
+    #
+    if ( @$opf_file_names != 0 ) {
+        #
+        # Go through the list of OPF files in reverse order.
+        # We want to end up with the first file as the last one parsed. The
+        # first OPF file represents the default rendition of the EPUB, and
+        # this rendition must be the accessible one.
+        #
+        foreach $opf_file_name (reverse(@$opf_file_names)) {
+            Validator_GUI_Start_URL($crawled_urls_tab, "$url:$opf_file_name", "",
+                                    0, $document_count{$crawled_urls_tab} . ".$file_count");
+            undef($epub_opf_object);
+            ($results_list_addr, $epub_opf_object) = EPUB_Check_OPF_Parse($url,
+                                                               $epub_uncompressed_dir,
+                                                               $opf_file_name,
+                                                               $tqa_check_profile);
+
+            #
+            # Record results
+            #
+            Record_EPUB_Accessibility_Check_Results("$url:$opf_file_name",
+                                                    @$results_list_addr);
+            Validator_GUI_End_URL($crawled_urls_tab, "$url:$opf_file_name", "", 0);
+        }
+
+        #
+        # Check each of the EPUB content files for accessibility checks
+        # Since the above checks of the OPF files was done in reverse order,
+        # we will only be checking the files of the default rendition.
+        #
+        print "Check files in OPF container\n" if $debug;
+        if ( defined($epub_opf_object) ) {
+            $manifest_list = $epub_opf_object->manifest();
+            for $list_item (@$manifest_list) {
+                #
+                # Is this a navigation file? If so skip it for now,
+                # we will check the navigation files last.
+                #
+                %properties = $list_item->properties();
+                if ( defined($properties{"nav"}) ) {
+                    print "Skip nav item\n" if $debug;
+                    next;
+                }
+                
+                #
+                # Are we aborting the URL analysis ? Check crawler module flag
+                # in case the abort was called from another thread
+                # (i.e. the UI layer)
+                #
+                if ( Crawler_Abort_Crawl_Status() == 1 ) {
+                    last;
+                }
+
+                #
+                # Increment found count and get the file name
+                #
+                $file_count++;
+                $file_name = $list_item->href();
+                Validator_GUI_Start_URL($crawled_urls_tab, "$url:$file_name", "",
+                                        0, $document_count{$crawled_urls_tab} . ".$file_count");
+
+                #
+                # Perform accessibility checks on this manifest file
+                #
+                @tqa_results_list = EPUB_Check_Manifest_File($epub_opf_object,
+                                          $list_item,
+                                          "$url:$file_name",
+                                          $tqa_check_profile,
+                                          $file_name, $epub_uncompressed_dir);
+
+                #
+                # Record accessibility results
+                #
+                Record_EPUB_Accessibility_Check_Results("$url:$file_name",
+                                                        @tqa_results_list);
+                Validator_GUI_End_URL($crawled_urls_tab, "$url:$file_name", "", 0);
+            }
+
+            #
+            # Check navigation files
+            #
+            print "Check navigation files in OPF container\n" if $debug;
+            for $list_item (@$manifest_list) {
+                #
+                # Is this a navigation file? If not skip it as we
+                # have already processed it above.
+                #
+                %properties = $list_item->properties();
+                if ( ! defined($properties{"nav"}) ) {
+                    print "Skip non-nav item\n" if $debug;
+                    next;
+                }
+
+                #
+                # Are we aborting the URL analysis ? Check crawler module flag
+                # in case the abort was called from another thread
+                # (i.e. the UI layer)
+                #
+                if ( Crawler_Abort_Crawl_Status() == 1 ) {
+                    last;
+                }
+
+                #
+                # Increment found count and get the file name
+                #
+                $file_count++;
+                $file_name = $list_item->href();
+                Validator_GUI_Start_URL($crawled_urls_tab, "$url:$file_name", "",
+                                        0, $document_count{$crawled_urls_tab} . ".$file_count");
+
+                #
+                # Perform accessibility checks on this manifest file
+                #
+                @tqa_results_list = EPUB_Check_Manifest_File($epub_opf_object,
+                                          $list_item,
+                                          "$url:$file_name",
+                                          $tqa_check_profile,
+                                          $file_name, $epub_uncompressed_dir);
+
+                #
+                # Record accessibility results
+                #
+                Record_EPUB_Accessibility_Check_Results("$url:$file_name",
+                                                        @tqa_results_list);
+                Validator_GUI_End_URL($crawled_urls_tab, "$url:$file_name", "", 0);
+            }
+        }
     }
 
     #
-    # Perform accessibility checks on the EPUB document
+    # Cleanup temporary files from EPUB file
     #
-    Perform_EPUB_Accessibility_Check($url, \$content, $language,
-                                     $mime_type, $resp);
-
-    #
-    # If we are doing process monitoring, print out some resource
-    # usage statistics
-    #
-    if ( $monitoring ) {
-        Print_Resource_Usage($url, "after",
-                             $document_count{$crawled_urls_tab});
-    }
+    EPUB_Check_Cleanup($epub_uncompressed_dir);
 
     #
     # Remove local epub file
@@ -8974,10 +9103,8 @@ sub Perform_Open_Data_Check {
         # If we are doing process monitoring, print out some resource
         # usage statistics
         #
-        if ( $monitoring ) {
-            Print_Resource_Usage($url, "before",
-                                 $document_count{$crawled_urls_tab});
-        }
+        Print_Resource_Usage($url, "Open_Data_Check_Zip_Content",
+                             $document_count{$crawled_urls_tab});
 
         #
         # Get the ZIP file contents
@@ -8997,10 +9124,8 @@ sub Perform_Open_Data_Check {
         # If we are doing process monitoring, print out some resource
         # usage statistics
         #
-        if ( $monitoring ) {
-            Print_Resource_Usage($url, "after",
-                                 $document_count{$crawled_urls_tab});
-        }
+        Print_Resource_Usage($url, "after Open_Data_Check_Zip_Content",
+                             $document_count{$crawled_urls_tab});
 
         #
         # Get file details
@@ -9037,10 +9162,8 @@ sub Perform_Open_Data_Check {
                 # If we are doing process monitoring, print out some resource
                 # usage statistics
                 #
-                if ( $monitoring ) {
-                    Print_Resource_Usage("$url:$member_name", "before",
-                                         $document_count{$crawled_urls_tab} + 1);
-                }
+                Print_Resource_Usage("$url:$member_name", "before Open_Data_Check",
+                                     $document_count{$crawled_urls_tab} + 1);
 
                 #
                 # Get contents for this member in a file
@@ -9109,10 +9232,8 @@ sub Perform_Open_Data_Check {
                 # If we are doing process monitoring, print out some resource
                 # usage statistics
                 #
-                if ( $monitoring ) {
-                    Print_Resource_Usage("$url:$member_name", "after",
-                                         $document_count{$crawled_urls_tab});
-                }
+                Print_Resource_Usage("$url:$member_name", "after",
+                                     $document_count{$crawled_urls_tab});
             }
         }
     }
@@ -9121,10 +9242,8 @@ sub Perform_Open_Data_Check {
         # If we are doing process monitoring, print out some resource
         # usage statistics
         #
-        if ( $monitoring ) {
-            Print_Resource_Usage($url, "before",
-                                 $document_count{$crawled_urls_tab});
-        }
+        Print_Resource_Usage($url, "before Open_Data_Check",
+                             $document_count{$crawled_urls_tab});
 
         #
         # Treat URL as a single open data file
@@ -9156,10 +9275,8 @@ sub Perform_Open_Data_Check {
         # If we are doing process monitoring, print out some resource
         # usage statistics
         #
-        if ( $monitoring ) {
-            Print_Resource_Usage($url, "after",
-                                 $document_count{$crawled_urls_tab});
-        }
+        Print_Resource_Usage($url, "after",
+                             $document_count{$crawled_urls_tab});
 
         #
         # Get file details
@@ -9359,10 +9476,8 @@ sub Open_Data_Callback {
         # If we are doing process monitoring, print out some resource
         # usage statistics
         #
-        if ( $monitoring ) {
-            Print_Resource_Usage($url, "before",
-                                 $document_count{$crawled_urls_tab});
-        }
+        Print_Resource_Usage($url, "before Open_Data_Check_Read_JSON_Description",
+                             $document_count{$crawled_urls_tab});
 
         #
         # Extract the dataset URLs from the description
@@ -9381,10 +9496,8 @@ sub Open_Data_Callback {
         # If we are doing process monitoring, print out some resource
         # usage statistics
         #
-        if ( $monitoring ) {
-            Print_Resource_Usage($url, "after",
-                                 $document_count{$crawled_urls_tab});
-        }
+        Print_Resource_Usage($url, "after",
+                             $document_count{$crawled_urls_tab});
 
         #
         # Remove URL content file
