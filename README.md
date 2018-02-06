@@ -1,4 +1,4 @@
-## Web and Open Data Validator version 6.7.0
+## Web and Open Data Validator version 6.8.0
 
 The Web and Open Data Validator provides web developers and quality assurance testers the ability to perform a number of web site, web page validation and Open data validation tasks at one time. Web site checking includes
 - WCAG 2.0 A an AA
@@ -15,48 +15,44 @@ Open data checking includes
 Web Tool
 
 ```
-- Stop redirecting if a URL redirects back to itself.
-- Allow input to be nested in label - WCAG_2.0-F68
+- Limit size of link check cache by content size as well as number of links to control memory usage.
+- Update HTML5 validator to version 17.11.1.
+- Generate a link details CSV file for all links in web pages.  
+- Add checks for EPUB Accessibility Techniques version 1.0 
+      http://www.idpf.org/epub/a11y/techniques/techniques.html
 ```
 
 Open Data_Tool
 
 ```
-- Clarify error message if header row is not found - TP_PW_OD_DATA
-- Ensure file: protocol URLs have 3 slash characters after the colon.
-- Don't report row count mismatch errors for language variants of CSV files, report 
-  mismatches in the number of non-blank cells in columns - OD_DATA
-- Check data dictionary labels and CSV column headings for leading or trailing 
-  whitespace - TP_PW_OD_DATA
-- Check for UTF-8 BOM in JSON data files - TP_PW_OD_DATA
-- Check for duplicate data files - OD_DATA
+- Check for blank column heading - TP_PW_OD_DATA
+- Use JSON::PP, the pure Perl backend to JSON.pm.  In Strawberry Perl 5.22 and later on 
+Windows, the JSON::XS module fails to decode a JSON string in a multi-threaded program.
+- Include all non-blank lines in list item - OD_DATA
 ```
 
-Version 6.7.0 contains the following updates and additions
+Version 6.8.0 contains the following updates and additions
 
 ## Web
 
 ```
-- Stop redirecting if a URL redirects back to itself.
-- Allow input to be nested in label - WCAG_2.0-F68
+- Add "WPSS_Tool" to user agent string for PhantomJS.
+- Limit size of link check cache by content size as well as number of links to control memory usage.
+- Update HTML5 validator to version 17.11.1.
+- Generate a link details CSV file for all links in web pages.
+- Add checks for EPUB Accessibility Techniques version 1.0 
+   http://www.idpf.org/epub/a11y/techniques/techniques.html
+- Add configuration item to limit the number of errors to report for a single URL.
 ```
 
 ## Open Data
 
 ```
-- Clarify error message if header row is not found - TP_PW_OD_DATA
-- Ensure file: protocol URLs have 3 slash characters after the colon.
-- Don't report row count mismatch errors for language variants of CSV files, report 
-  mismatches in the number of non-blank cells in columns - OD_DATA
-- Check data dictionary labels and CSV column headings for leading or trailing 
-  whitespace - TP_PW_OD_DATA
-- Check for UTF-8 BOM in JSON data files - TP_PW_OD_DATA
-- Check for duplicate data files - OD_DATA
-- Check for python 2.7.0 or later at install time.
-- Set the user agent string for the non-robots user agent.
-- Add "WPSS_Tool" to user agent string for Java tools.
-- Strip named anchors from URL when checking <data_type> URL in data dictionary 
-  to avoid possible multiple retrievals of the data dictionary file.
+- Check for blank column heading - TP_PW_OD_DATA
+- Use JSON::PP, the pure Perl backend to JSON.pm.  In Strawberry Perl 5.22 and later on 
+Windows, the JSON::XS module fails to decode a JSON string in a multi threaded program.
+- Include all non-blank lines in list item - OD_DATA
+- Add configuration item to limit the number of errors to report for  a single URL.
 ```
 
 ## Web and Open Data Validator Installer
@@ -77,4 +73,4 @@ The WPSS_Tool has been tested on the following platforms
 - Windows 7 (32 bit), Strawberry Perl 5.18 (32 bit), Python 2.7.6
 
 The WPSS Tool installer is available as a release in this repository
-- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.7.0/WPSS_Tool.exe
+- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.8.0/WPSS_Tool.exe
