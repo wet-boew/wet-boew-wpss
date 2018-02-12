@@ -64,6 +64,7 @@ Supported versions of Perl include
 - Strawberry Perl 5.18 (32 bit) available from http://strawberryperl.com/download/5.18.4.1/strawberry-perl-5.18.4.1-32bit.msi
   to
 - Strawberry Perl 5.24 (32 bit) available from http://strawberryperl.com/download/5.24.3.1/strawberry-perl-5.24.3.1-32bit.msi
+
 It does not work in Perl 5.26 as some required modules are not supported.
 
 Supported versions of Python include
