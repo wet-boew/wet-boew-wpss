@@ -61,7 +61,10 @@ The tool installer, WPSS_Tool.exe, does NOT include the required Perl or Python 
 Perl and Python must be installed on the workstation prior to installing the WPSS_Tool.
 
 Supported versions of Perl include
-- Strawberry Perl 5.18 (32 bit) available from http://strawberry-perl.googlecode.com/files/strawberry-perl-5.18.1.1-32bit.msi
+- Strawberry Perl 5.18 (32 bit) available from http://strawberryperl.com/download/5.18.4.1/strawberry-perl-5.18.4.1-32bit.msi
+  to
+- Strawberry Perl 5.24 (32 bit) available from http://strawberryperl.com/download/5.24.3.1/strawberry-perl-5.24.3.1-32bit.msi
+It does not work in Perl 5.26 as some required modules are not supported.
 
 Supported versions of Python include
 - Python 2.7.6 available from http://python.org/ftp/python/2.7.6/python-2.7.6.msi
