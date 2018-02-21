@@ -49,5 +49,5 @@ if ( $program_dir eq "." ) {
 # Run the wpss_tool.pl program
 #
 chdir($program_dir);
-$rc = system(".\\wpss_tool.pl -cli @ARGV");
+$rc = system(".\/wpss_tool.pl -cli @ARGV");
 exit($rc);
