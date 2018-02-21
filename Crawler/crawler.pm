@@ -3557,10 +3557,12 @@ sub Crawl_Site {
     #
     # Check that we can get to the English & French entry pages.
     #
-    if ( ! Entry_Pages_Valid("$site_dir_e/$site_entry_e",
-                             "$site_dir_f/$site_entry_f") ) {
-        return(1);
-    }
+#    print "ignore 403 errors in Entry_Pages_Valid , do not check that we get to the English & French entry pages because we expect 403, must log in first.";
+#    # ignore403 errors
+#    if ( ! Entry_Pages_Valid("$site_dir_e/$site_entry_e",
+#                             "$site_dir_f/$site_entry_f") ) {
+#        return(1);
+#    }
 
     #
     # Set initial page crawl list.
