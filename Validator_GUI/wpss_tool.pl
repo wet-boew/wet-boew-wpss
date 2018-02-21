@@ -6862,9 +6862,14 @@ sub Perform_Site_Crawl {
     # Make sure we can get at the English entry page before we start
     # the crawl.
     #
-    $resp_url = Check_Page_URL("$site_dir_e/$site_entry_e", 1);
-    if ( $resp_url eq "" ) {
-        return;
+#    $resp_url = Check_Page_URL("$site_dir_e/$site_entry_e", 1);
+#    if ( $resp_url eq "" ) {
+#        return;
+#    }
+
+    #English hack workaround to ignore 403
+    if (index($site_dir_e, 'http')) {
+      $resp_url = "$site_dir_e/$site_entry_e";
     }
 
     #
@@ -6896,11 +6901,16 @@ sub Perform_Site_Crawl {
     # Make sure we can get at the French entry page before we start
     # the crawl.
     #
-    $resp_url = Check_Page_URL("$site_dir_f/$site_entry_f", 1);
-    if ( $resp_url eq "" ) {
-        return;
-    }
+#    print "\ndebug: Check F\n";
+#    $resp_url = Check_Page_URL("$site_dir_f/$site_entry_f", 1);
+#    if ( $resp_url eq "" ) {
+#        return;
+#    }
 
+    #French hack workaround to ignore 403
+    if (index($site_dir_f, 'http')) {
+      $resp_url = "$site_dir_f/$site_entry_f";
+    }
     #
     # Did the response change the site directory ? if so our crawl will
     # fail.
