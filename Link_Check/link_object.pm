@@ -33,6 +33,8 @@
 #    in_list - get/set the in_list attribute
 #    is_archived - get/set the is_archived attribute
 #    is_redirected - get/set the is_redirected attribute
+#    landmark - get/set landmark
+#    landmark_marker - get/set landmark marker
 #    lang - get/set lang value
 #    line_no - get/set line number value
 #    link_status - get/set link status value
@@ -184,6 +186,8 @@ sub new {
     $self->{"is_archived"} = 0;
     $self->{"is_redirected"} = 0;
     $self->{"link_type"} = $link_type;
+    $self->{"landmark"} = "";
+    $self->{"landmark_marker"} = "";
     $self->{"lang"} = $lang;
     $self->{"line_no"} = $line_no;
     $self->{"list_heading"} = "";
@@ -755,6 +759,35 @@ sub is_redirected {
 
 #********************************************************
 #
+# Name: landmark
+#
+# Parameters: self - class reference
+#             landmark - landmark name (optional)
+#
+# Description:
+#
+#   This function either sets or returns the landmark
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub landmark {
+    my ($self, $landmark) = @_;
+
+    #
+    # Was a landmark value supplied ?
+    #
+    if ( defined($landmark) ) {
+        $self->{"landmark"} = $landmark;
+    }
+    else {
+        return($self->{"landmark"});
+    }
+}
+
+#********************************************************
+#
 # Name: lang
 #
 # Parameters: self - class reference
@@ -779,6 +812,35 @@ sub lang {
     }
     else {
         return($self->{"lang"});
+    }
+}
+
+#********************************************************
+#
+# Name: landmark_marker
+#
+# Parameters: self - class reference
+#             landmark_marker - landmark marker (optional)
+#
+# Description:
+#
+#   This function either sets or returns the landmark
+# marker attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub landmark_marker {
+    my ($self, $landmark_marker) = @_;
+
+    #
+    # Was a landmark marker value supplied ?
+    #
+    if ( defined($landmark_marker) ) {
+        $self->{"landmark_marker"} = $landmark_marker;
+    }
+    else {
+        return($self->{"landmark_marker"});
     }
 }
 
