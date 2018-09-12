@@ -58,6 +58,7 @@ use epub_validate;
 use feed_validate;
 use html_validate;
 use javascript_validate;
+use marc_validate;
 use robots_check;
 use tqa_result_object;
 use xml_validate;
@@ -90,6 +91,22 @@ my (%markup_validate_profile_map);
 my ($debug) = 0;
 
 #
+# String table for error strings.
+#
+my %string_table_en = (
+    "Fails validation",      "Fails validation",
+);
+
+my %string_table_fr = (
+    "Fails validation",      "Échoue la validation",
+);
+
+#
+# Default messages to English
+#
+my ($string_table) = \%string_table_en;
+
+#
 # Default language is English
 #
 my ($language) = "eng";
@@ -120,7 +137,7 @@ sub Validate_Markup_Debug {
     EPUB_Validate_Debug($debug);
     HTML_Validate_Debug($debug);
     JavaScript_Validate_Debug($debug);
-    Robots_Check_Debug($debug);
+    MARC_Validate_Debug($debug);
     Feed_Validate_Debug($debug);
     XML_Validate_Debug($debug);
 }
@@ -140,23 +157,26 @@ sub Validate_Markup_Language {
     my ($this_language) = @_;
 
     #
+    # Set global language
+    #
+    if ( $this_language =~ /^fr/i ) {
+        $language = "fra";
+        $string_table = \%string_table_fr;
+    }
+    else {
+        $language = "eng";
+        $string_table = \%string_table_en;
+    }
+
+    #
     # Set language for supporting packages
     #
     CSS_Validate_Language($this_language);
     EPUB_Validate_Language($this_language);
     HTML_Validate_Language($this_language);
+    MARC_Validate_Language($this_language);
     Robots_Check_Language($this_language);
     Feed_Validate_Language($this_language);
-
-    #
-    # Set global language
-    #
-    if ( $this_language =~ /^fr/i ) {
-        $language = "fra";
-    }
-    else {
-        $language = "eng";
-    }
 }
 
 #***********************************************************************
@@ -184,6 +204,40 @@ sub Set_Validate_Markup_Test_Profile {
     print "Set_Validate_Markup_Test_Profile, profile = $profile\n" if $debug;
     %local_checks = %$checks;
     $markup_validate_profile_map{$profile} = \%local_checks;
+}
+
+#**********************************************************************
+#
+# Name: String_Value
+#
+# Parameters: key - string table key
+#
+# Description:
+#
+#   This function returns the value in the string table for the
+# specified key.  If there is no entry in the table an error string
+# is returned.
+#
+#**********************************************************************
+sub String_Value {
+    my ($key) = @_;
+
+    #
+    # Do we have a string table entry for this key ?
+    #
+    if ( defined($$string_table{$key}) ) {
+        #
+        # return value
+        #
+        return ($$string_table{$key});
+    }
+    else {
+        #
+        # No string table entry, either we are missing a string or
+        # we have a typo in the key name.
+        #
+        return ("*** No string for $key ***");
+    }
 }
 
 #***********************************************************************
@@ -286,6 +340,17 @@ sub Validate_Markup {
                         push (@results_list, $result_object);
                     }
                 }
+            }
+        }
+        elsif ( ($mime_type =~ /application\/marc/) ||
+                ($this_url =~ /\.mrc$/i) ) {
+            #
+            # Validate the MARC 21 content.
+            #
+            if ( defined($$testcase_profile{"MARC_VALIDATION"}) ) {
+                print "Validate MARC content\n" if $debug;
+                @results_list = MARC_Validate_Content($this_url, $content, "", "MARC_VALIDATION",
+                                          "MARC_VALIDATION:" . String_Value("Fails validation"));
             }
         }
         elsif ( $this_url =~ /\/robots\.txt$/ ) {
