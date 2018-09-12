@@ -2,9 +2,9 @@
 #
 # Name:   crawler_phantomjs.pm
 #
-# $Revision: 561 $
+# $Revision: 733 $
 # $URL: svn://10.36.148.185/Crawler/Tools/crawler_phantomjs.pm $
-# $Date: 2017-11-03 10:13:44 -0400 (Fri, 03 Nov 2017) $
+# $Date: 2018-02-22 13:00:31 -0500 (Thu, 22 Feb 2018) $
 #
 # Description:
 #
@@ -213,6 +213,7 @@ sub Crawler_Phantomjs_Stop_Markup_Server {
     #
     # Build request string
     #
+    print "Crawler_Phantomjs_Stop_Markup_Server\n" if $debug;
     $url = "http://127.0.0.1:$markup_server_port/EXIT";
     $req = HTTP::Request->new(GET => $url);
 
@@ -232,6 +233,10 @@ sub Crawler_Phantomjs_Stop_Markup_Server {
 # Description:
 #
 #   This function starts the markup server process in PhantomJS.
+# Program arguments include:
+#   enable disk cache
+#   cookie jar path
+#   instruct PhantomJS to ignore SSL errors (e.g. unsigned certificates)
 #
 #***********************************************************************
 sub Start_Markup_Server {
@@ -260,8 +265,8 @@ sub Start_Markup_Server {
     ($sec, $min, $hour) = (localtime)[0,1,2];
     $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
     print "Start_Markup_Server at $time\n" if $debug;
-    print "$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt 2>> phantomjs_stderr.txt $phantomjs_server_last_arg\n" if $debug;
-    system("$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt 2>> phantomjs_stderr.txt $phantomjs_server_last_arg");
+    print "$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" --ignore-ssl-errors=true $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt 2>> phantomjs_stderr.txt $phantomjs_server_last_arg\n" if $debug;
+    system("$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" --ignore-ssl-errors=true $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt 2>> phantomjs_stderr.txt $phantomjs_server_last_arg");
 
     #
     # Set flag to indicate that the markup server has been started.
@@ -278,6 +283,8 @@ sub Start_Markup_Server {
 #             cookie_file - path to cookie jar file
 #             image_file - name of file to contain the screen capture
 #               of the web page
+#             user - user name for HTTP 401 authentication
+#             password - password for HTTP 401 authentication
 #
 # Description:
 #
@@ -287,7 +294,7 @@ sub Start_Markup_Server {
 #
 #***********************************************************************
 sub Single_Page_Markup {
-    my ($this_url, $cookie_file, $image_file) = @_;
+    my ($this_url, $cookie_file, $image_file, $user, $password) = @_;
 
     my ($content, $output, $line, $load_time, $markup);
     my ($sec, $min, $hour, $date, $image_param, %generated_markup);
@@ -371,6 +378,8 @@ sub Single_Page_Markup {
 #             cookie_file - path to cookie jar file
 #             image_file - name of file to contain the screen capture
 #               of the web page
+#             user - user name for HTTP 401 authentication
+#             password - password for HTTP 401 authentication
 #
 # Description:
 #
@@ -380,11 +389,11 @@ sub Single_Page_Markup {
 #
 #***********************************************************************
 sub Server_Page_Markup {
-    my ($this_url, $cookie_file, $image_file) = @_;
+    my ($this_url, $cookie_file, $image_file, $user, $password) = @_;
 
     my ($content, $output, $line, $load_time, $markup);
     my ($sec, $min, $hour, $time, $image_param, %generated_markup);
-    my ($user_agent, $resp, $url, $req);
+    my ($user_agent, $resp, $url, $req, $authen_param);
     my ($markup_ptr) = \%generated_markup;
 
     #
@@ -412,9 +421,25 @@ sub Server_Page_Markup {
     }
     
     #
+    # Do we have HTTP 401 authentication credentials?
+    #
+    if ( defined($user) && ($user ne "") ) {
+        $authen_param = "username=$user\&password=$password\&";
+        print "Add HTTP 401 credentials\n" if $debug;
+    }
+    else {
+        $authen_param = "";
+    }
+    
+    #
     # Build request string
     #
-    $url = "http://127.0.0.1:$markup_server_port/GET?$image_param" . "url=$this_url";
+    $url = "http://127.0.0.1:$markup_server_port/GET?$authen_param$image_param" .
+           "url=$this_url";
+
+    #
+    # Send the request to the server
+    #
     $req = HTTP::Request->new(GET => $url);
     print "Request = " . $req->as_string . "\n" if $debug;
 
@@ -484,7 +509,7 @@ sub Server_Page_Markup {
         #
         # Restart the markup server
         #
-        Start_Markup_Server();
+        Start_Markup_Server($cookie_file);
 
         #
         # Have we already tried to get this page for the 2nd time?
@@ -495,7 +520,8 @@ sub Server_Page_Markup {
             #
             $retry_page = 1;
             print "Retry GET of page\n" if $debug;
-            $markup_ptr = Server_Page_Markup($this_url, $cookie_file, $image_file);
+            $markup_ptr = Server_Page_Markup($this_url, $cookie_file,
+                                             $image_file, $user, $password);
         }
         else {
             #
@@ -528,6 +554,8 @@ sub Server_Page_Markup {
 #             cookie_file - path to cookie jar file
 #             image_file - name of file to contain the screen capture
 #               of the web page
+#             user - user name for HTTP 401 authentication
+#             password - password for HTTP 401 authentication
 #
 # Description:
 #
@@ -537,7 +565,7 @@ sub Server_Page_Markup {
 #
 #***********************************************************************
 sub Crawler_Phantomjs_Page_Markup {
-    my ($this_url, $cookie_file, $image_file) = @_;
+    my ($this_url, $cookie_file, $image_file, $user, $password) = @_;
 
     my ($markup);
     
@@ -548,10 +576,12 @@ sub Crawler_Phantomjs_Page_Markup {
     #
     print "Crawler_Phantomjs_Page_Markup\n" if $debug;
     if ( $use_markup_server ) {
-        $markup = Server_Page_Markup($this_url, $cookie_file, $image_file);
+        $markup = Server_Page_Markup($this_url, $cookie_file, $image_file,
+                                     $user, $password);
     }
     else {
-        $markup = Single_Page_Markup($this_url, $cookie_file, $image_file);
+        $markup = Single_Page_Markup($this_url, $cookie_file, $image_file,
+                                     $user, $password);
     }
     
     #
