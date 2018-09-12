@@ -2,9 +2,9 @@
 //
 // Name: markup_server.js
 //
-// $Revision: 595 $
+// $Revision: 732 $
 // $URL: svn://10.36.148.185/Crawler/Tools/markup_server.js $
-// $Date: 2017-11-23 09:56:23 -0500 (Thu, 23 Nov 2017) $
+// $Date: 2018-02-22 12:55:12 -0500 (Thu, 22 Feb 2018) $
 //
 // Synopsis: phantomjs markup_server.js <port> -debug
 //
@@ -64,7 +64,8 @@ var resourceWait = 500,
     start_time, now,
     arg,
     arg_count,
-    page_image_file_name;
+    page_image_file_name,
+    username, password;
 var port, server, service, url, buffer;
 var page_status, page_content;
 var element_text, child_element;
@@ -100,7 +101,8 @@ function get_page(status, _callback) {
     // Print load time information
     if (debug === 1) {
         t = new Date();
-        console.out('get_page, at ' + t.toLocaleTimeString() + ' for url ' + url);
+        console.out('get_page, at ' + t.toLocaleTimeString() +
+                    ' status = ' + status + ' for url ' + url);
     }
 
     // Was the open successful ?
@@ -205,14 +207,22 @@ function doRender() {
     // Cancel any possible timers
     clearTimeout(renderTimeout);
     clearTimeout(forcedRenderTimeout);
+    
+    // Did the page load successfully?
+    if ( page_status !== "success" ) {
+        console.out('Not rendering page, page request is not successful');
+        rendering_done = 1;
+        clearTimeout(get_pageTimeout);
+        return;
+    }
+    
+    // Get the page content and print it to stdout
     page_content = page.content;
     if (debug === 1) {
         console.log(': ===== PAGE MARKUP BEGINS =====');
         console.log(page_content.toString('utf8'));
         console.log('');
         console.log(': ===== PAGE MARKUP ENDS =====');
-
-
     }
     // Do we want a rendered image of this page ?
     if (generate_page_image === 1) {
@@ -313,6 +323,7 @@ page.onResourceError = function(resourceError) {
     // Is the resource the URL of the main page ?
     if (url === resourceError.url) {
         // Error loading main page, set page status to fail
+        console.out('Error loading main page');
         page_status = "fail";
     }
 };
@@ -517,8 +528,15 @@ service = server.listen(port, function(request, response) {
 
     // Are we getting a web page
     if (parser.pathname === '/GET') {
-        // Look for a url, page_image and get_computed_styles variable in the query string
+        if (debug === 1) {
+            t = new Date();
+            console.out('Start GET of web page at ' + t.toLocaleTimeString());
+        }
+        // Look for a url, page_image, username, password and get_computed_styles
+        // variable in the query string
         page_image_file_name = getParameterByName('page_image', parser.href);
+        username = getParameterByName('username', parser.href);
+        password = getParameterByName('password', parser.href);
         get_computed_styles = getParameterByName('get_computed_styles', parser.href);
         url = parser.href;
         n = url.indexOf("url=");
@@ -544,6 +562,15 @@ service = server.listen(port, function(request, response) {
             generate_page_image = 1;
         } else {
             generate_page_image = 0;
+        }
+
+        // Did we get a HTTP 401 authentication user parameter?
+        if (username != '') {
+            if (debug === 1) {
+                console.out('Set username = ' + username + ' password = ' + password);
+            }
+            page.settings.userName = username;
+            page.settings.password = password;
         }
 
         // Did we get a get_computed_styles parameter?
