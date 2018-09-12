@@ -817,7 +817,7 @@ sub Crawler_Decode_Content {
 sub Crawler_Get_Generated_Content {
     my ($resp, $url, $image_file) = @_;
 
-    my ($markup, $header, $content);
+    my ($markup, $header, $content, $user, $password);
 
     #
     # Do we have a valid HTTP::Response object ?
@@ -835,11 +835,19 @@ sub Crawler_Get_Generated_Content {
     $header = $resp->headers;
     if ( $header->content_type =~ /text\/html/ ) {
         #
+        # Do we have HTTP 401 authentication credentials?
+        #
+        if ( defined($header->header("WPSS-HTTP-401-user")) ) {
+            $user = $header->header("WPSS-HTTP-401-user");
+            $password = $header->header("WPSS-HTTP-401-password");
+        }
+        
+        #
         # Get page markup
         #
         print "Get content using PhantomJS\n" if $debug;
         $markup = Crawler_Phantomjs_Page_Markup($url, $phantomjs_cookie_file,
-                                                 $image_file);
+                                                $image_file, $user, $password);
 
         #
         # Did we get content ?
@@ -1561,6 +1569,7 @@ sub Crawler_Get_HTTP_Response {
     my ($done) = 0;
     my ($robots_cleared) = 0;
     my ($use_simple_request) = 1;
+    my ($used_401_credentials) = 0;
 
     #
     # Do we have a user agent ?
@@ -1683,6 +1692,19 @@ sub Crawler_Get_HTTP_Response {
                 print "Use LWP::RobotUA to get content\n" if $debug;
                 $resp = $user_agent->request($req);
             }
+            
+            #
+            # Did we use HTTP 401 credentials? If so add the details as
+            # custom headers in the HTTP::Response object so we can
+            # use them later.
+            #
+            if ( $used_401_credentials && defined($resp) ) {
+                $header = $resp->headers;
+                $header->push_header("WPSS-HTTP-401-user" => $user);
+                $header->push_header("WPSS-HTTP-401-password" => $password);
+                $header->push_header("WPSS-HTTP-401-hostport" => "$host:$port");
+                $header->push_header("WPSS-HTTP-401-realm" => $realm);
+            }
         }
 
         #
@@ -1770,49 +1792,61 @@ sub Crawler_Get_HTTP_Response {
                         $realm =~ s/^.*="//;
                         ($user, $password) = &$http_401_callback_function($this_url,
                                                                           $realm);
-
+                        $http_401_credentials{$path} = "$user:$password";
+                    }
+                    
+                    #
+                    # Add credentials to request if we have them
+                    #
+                    if ( defined($http_401_credentials{$path}) ) {
+                        ($user, $password) = split(/:/, $http_401_credentials{$path}, 2);
+                    }
+                    else {
+                        $user ="";
+                    }
+                    
+                    #
+                    # Do we have credentials ?
+                    #
+                    if ( $user ne "" ) {
                         #
-                        # Add credentials to request if we have them
+                        # Do we have a port number in the host field ?
                         #
-                        if ( $user ne "" ) {
-                            #
-                            # Do we have a port number in the host field ?
-                            #
-                            if ( $host =~ /:/ ) {
-                                ($host, $port) = split(/:/, $host);
-                            }
-                            else {
-                                if ( $protocol =~ /https/i ) {
-                                    #
-                                    # Default port to 443
-                                    #
-                                    $port = 443;
-                                }
-                                else {
-                                    #
-                                    # Default port to 80
-                                    #
-                                    $port = 80;
-                                }
-                            }
-
-                            #
-                            # Add credentials to the user agent
-                            #
-                            print "Add login credentials to user agent (user=$user, password=$password, host=$host:$port, realm=$realm)\n" if $debug;
-                            $user_agent->credentials("$host:$port", "$realm",
-                                                     "$user", "$password");
-                            $http_401_credentials{$path} = 1;
-
-                            #
-                            # We can't do a simple request to get a
-                            # password protected document.  The simple
-                            # request will fail, we must do a full request.
-                            #
-                            $use_simple_request = 0;
-                            $set_credentials = 1;
+                        if ( $host =~ /:/ ) {
+                            ($host, $port) = split(/:/, $host);
                         }
                         else {
+                            if ( $protocol =~ /https/i ) {
+                                #
+                                # Default port to 443
+                                #
+                                $port = 443;
+                            }
+                            else {
+                                #
+                                # Default port to 80
+                                #
+                                $port = 80;
+                            }
+                        }
+
+                        #
+                        # Add credentials to the user agent
+                        #
+                        print "Add login credentials to user agent (user=$user, password=$password, host=$host:$port, realm=$realm)\n" if $debug;
+                        $user_agent->credentials("$host:$port", "$realm",
+                                                 "$user", "$password");
+
+                        #
+                        # We can't do a simple request to get a
+                        # password protected document.  The simple
+                        # request will fail, we must do a full request.
+                        #
+                        $use_simple_request = 0;
+                        $set_credentials = 1;
+                        $used_401_credentials = 1;
+                    }
+                    else {
                             #
                             # No user, set response code to 404 to avoid
                             # retrying the GET.
@@ -1820,23 +1854,6 @@ sub Crawler_Get_HTTP_Response {
                             print "Skip retry of GET, no user supplied for 401 error\n" if $debug;
                             $http_error_code = 404;
                             $http_401_credentials{$path} = 0;
-                        }
-                    }
-                    else {
-                        #
-                        # Do we want to skip this directory ?
-                        #
-                        if ( ! $http_401_credentials{$path} ) {
-                            $http_error_code = 404;
-                        }
-                        else {
-                            #
-                            # We can't do a simple request to get a
-                            # password protected document.  The simple
-                            # request will fail, we must do a full request.
-                            #
-                            $use_simple_request = 0;
-                        }
                     }
                 }
             }
@@ -2717,6 +2734,14 @@ sub Get_Login_Form {
     my ($url, $resp) = @_;
 
     my (@forms, $this_form, $login_form, $name);
+    
+    #
+    # Do we have any content?
+    #
+    if ( length($resp->content) == 0 ) {
+        print "No content provided to Get_Login_Form\n" if $debug;
+            return($login_form);
+    }
 
     #
     # Parse forms from content
@@ -3038,6 +3063,7 @@ sub Do_Site_Login {
     #
     # Do we have a redirect ?
     #
+    $response_url = "";
     while ( $resp->is_redirect ) {
         #
         # Get redirected location
@@ -3113,22 +3139,27 @@ sub Do_Site_Login {
         #
         # Call http response or content callbacks.
         #
-        if ( ! Call_Callback_Functions($response_url, $url, $resp) ) {
-            #
-            # Exit crawler
-            #
-            return;
-        }
-
-        #
-        # Are we expecting interstitial pages after the login ?
-        #
-        for ($count = 0; $count < $login_interstitial_count; $count++) {
-            print "Submit to interstitial page # $count or $login_interstitial_count\n" if $debug;
-            ($resp, $response_url) = Submit_To_Interstitial_Page($resp, $response_url);
-            if ( ! defined($resp) ) {
+        if ( $response_url ne "" ) {
+            if ( ! Call_Callback_Functions($response_url, $url, $resp) ) {
+                #
+                # Exit crawler
+                #
                 return;
             }
+
+            #
+            # Are we expecting interstitial pages after the login ?
+            #
+            for ($count = 0; $count < $login_interstitial_count; $count++) {
+                print "Submit to interstitial page # $count or $login_interstitial_count\n" if $debug;
+                ($resp, $response_url) = Submit_To_Interstitial_Page($resp, $response_url);
+                if ( ! defined($resp) ) {
+                    return;
+                }
+            }
+        }
+        else {
+            print "No redirect URL after login\n" if $debug;
         }
     }
     else {
@@ -3209,7 +3240,8 @@ sub Is_Site_Login {
                     # login.
                     #
                     ($login_resp, $response_url) = Do_Site_Login($url, $form);
-                    if ( defined($login_resp) && ($login_resp->is_success) ) {
+                    if ( defined($login_resp) && ($login_resp->is_success)
+                         && ($response_url ne "") ) {
                         print "Page after login is $response_url\n" if $debug;
                         push(@link_href, $response_url);
                     }
@@ -3556,9 +3588,15 @@ sub Crawl_Site {
 
     #
     # Check that we can get to the English & French entry pages.
+    # Don't check if we have a login page, the site entry pages
+    # may be behind the login.
     #
-    if ( ! Entry_Pages_Valid("$site_dir_e/$site_entry_e",
+    if ( defined($loginpagee) && ($loginpagee ne "") ) {
+        print "Skip site entry page checks, we have a login page\n" if $debug;
+    }
+    elsif ( ! Entry_Pages_Valid("$site_dir_e/$site_entry_e",
                              "$site_dir_f/$site_entry_f") ) {
+        print "Failed to get entry pages\n" if $debug;
         return(1);
     }
 
