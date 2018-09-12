@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 610 $
+# $Revision: 902 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_json.pm $
-# $Date: 2017-12-04 10:34:59 -0500 (Mon, 04 Dec 2017) $
+# $Date: 2018-07-11 12:39:08 -0400 (Wed, 11 Jul 2018) $
 #
 # Description:
 #
@@ -20,6 +20,7 @@
 #     Open_Data_JSON_Check_Data
 #     Open_Data_JSON_Read_Data
 #     Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes
+#     Open_Data_JSON_Get_Content_Results
 #
 # Terms and Conditions of Use
 #
@@ -87,6 +88,7 @@ BEGIN {
                   Open_Data_JSON_Check_Data
                   Open_Data_JSON_Read_Data
                   Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes
+                  Open_Data_JSON_Get_Content_Results
                   );
     $VERSION = "1.0";
 }
@@ -103,6 +105,7 @@ my (%testcase_data, $results_list_addr, $dictionary_ptr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count, $python_path, $json_schema_validator);
 my ($filename, $python_file, $python_output, $separator);
+my (@content_results_list);
 
 #
 # Data file object attribute names (use the same names as used for
@@ -336,6 +339,11 @@ sub Initialize_Test_Results {
     #
     $current_open_data_profile = $open_data_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
+    
+    #
+    # Initialize globals
+    #
+    @content_results_list = ();
 }
 
 #***********************************************************************
@@ -397,6 +405,47 @@ sub Record_Result {
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
         push (@$results_list_addr, $result_object);
+
+        #
+        # Print error string to stdout
+        #
+        Print_Error($line, $column, $text, "$testcase : $error_string");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Record_Content_Result
+#
+# Parameters: testcase - testcase identifier
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             error_string - error string
+#
+# Description:
+#
+#   This function records the testcase result and stores it in the
+# list of content errors.
+#
+#***********************************************************************
+sub Record_Content_Result {
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+
+    my ($result_object);
+
+    #
+    # Is this testcase included in the profile
+    #
+    if ( defined($testcase) && defined($$current_open_data_profile{$testcase}) ) {
+        #
+        # Create result object and save details
+        #
+        $result_object = tqa_result_object->new($testcase, $check_fail,
+                                                Open_Data_Testcase_Description($testcase),
+                                                $line, $column, $text,
+                                                $error_string, $current_url);
+        push (@content_results_list, $result_object);
 
         #
         # Print error string to stdout
@@ -925,9 +974,9 @@ sub Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes {
                 #
                 if ( defined($leaf_nodes{"$node"}) ) {
                     if ( $record_errors ) {
-                        Record_Result("OD_DATA", $row_number, 0, "",
-                                      String_Value("Duplicate JSON-CSV data item field name") .
-                                      " \"$node\"");
+                        Record_Content_Result("TP_PW_OD_CONT", $row_number, 0, "",
+                                              String_Value("Duplicate JSON-CSV data item field name") .
+                                              " \"$node\"");
                     }
                 }
                 else {
@@ -995,7 +1044,7 @@ sub Check_JSON_CSV_Data {
     my ($key, $value, $field_count, $expected_field_count);
     my (%data_checksum, $checksum, $column_object, @json_csv_columns);
     my (%leaf_nodes, @expected_leaf_nodes, @leaf_node_names);
-    my (%column_objects);
+    my (%column_objects, $data1, $value_type);
 
     #
     # Get the data array and first object item in the array
@@ -1125,6 +1174,7 @@ sub Check_JSON_CSV_Data {
                     if ( $column_object->type() eq "numeric" ) {
                         $column_object->sum($value);
                     }
+                    $value_type = "numeric";
                 }
                 #
                 # Does this appear to be numeric data (float)?
@@ -1140,20 +1190,40 @@ sub Check_JSON_CSV_Data {
                     if ( $column_object->type() eq "numeric" ) {
                         $column_object->sum($value);
                     }
+                    $value_type = "numeric";
+                }
+                #
+                # Does this appear to be date (YYYY-MM-DD)?
+                #
+                elsif ( $value =~ /^\s*\d\d\d\d\-\d\d\-\d\d\s*$/ ) {
+                    if ( $column_object->type() eq "" ) {
+                        $column_object->type("date");
+                    }
+
+                    #
+                    # Add the current value to the column sum.
+                    #
+                    if ( $column_object->type() eq "date" ) {
+                        $data1 = $value;
+                        $data1 =~ s/\-//g;
+                        $column_object->sum($data1);
+                    }
+                    $value_type = "date";
                 }
                 #
                 # Blank field, skip it.
                 #
                 elsif ( $value =~ /^[\s\n\r]*$/ ) {
+                    $value_type = "blank";
                 }
                 #
                 # Text field
                 #
                 else {
                     $column_object->type("text");
+                    $value_type = "text";
                 }
-                print "Column data = \"$value\", type = " . $column_object->type() .
-                      "\n" if $debug;
+                print "Column data = \"$value\", type = $value_type\n" if $debug;
 
                 #
                 # If the cell is not blank, increment the non-blank count
@@ -1199,7 +1269,7 @@ sub Check_JSON_CSV_Data {
             #
             print "Check for duplicate row, checksum = $checksum\n" if $debug;
             if ( defined($data_checksum{$checksum}) ) {
-                Record_Result("OD_DATA", ($i + 1), 0, encode_utf8(to_json($item)),
+                Record_Content_Result("TP_PW_OD_CONT", ($i + 1), 0, encode_utf8(to_json($item)),
                               String_Value("Duplicate data array content, first instance at") .
                               " " . $data_checksum{$checksum});
             }
@@ -1547,6 +1617,35 @@ sub Open_Data_JSON_Read_Data {
     #
     unlink($filename);
     return($ref);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_JSON_Get_Content_Results
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function runs the list of content errors found.
+#
+#***********************************************************************
+sub Open_Data_JSON_Get_Content_Results {
+    my ($this_url) = @_;
+
+    my (@empty_list);
+
+    #
+    # Does this URL match the last one analysed by the
+    # Open_Data_JSON_Check_Data function?
+    #
+    print "Open_Data_JSON_Get_Content_Results url = $this_url\n" if $debug;
+    if ( $current_url eq $this_url ) {
+        return(@content_results_list);
+    }
+    else {
+        return(@empty_list);
+    }
 }
 
 #***********************************************************************
