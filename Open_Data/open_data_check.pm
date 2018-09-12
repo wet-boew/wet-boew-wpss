@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 629 $
+# $Revision: 917 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_check.pm $
-# $Date: 2017-12-12 15:02:51 -0500 (Tue, 12 Dec 2017) $
+# $Date: 2018-07-19 14:53:27 -0400 (Thu, 19 Jul 2018) $
 #
 # Description:
 #
@@ -19,9 +19,11 @@
 #     Open_Data_Check_Testcase_URL
 #     Open_Data_Check_Read_URL_Help_File
 #     Open_Data_Check
+#     Open_Data_Check_Content
 #     Open_Data_Check_Zip_Content
 #     Open_Data_Check_Read_JSON_Description
 #     Open_Data_Check_Dataset_Data_Files
+#     Open_Data_Check_Dataset_Data_Files_Content
 #     Open_Data_Check_Get_Headings_List
 #     Open_Data_Check_Get_Row_Column_Counts
 #
@@ -70,6 +72,7 @@ use data_file_object;
 use language_map;
 use open_data_csv;
 use open_data_json;
+use open_data_marc;
 use open_data_testcases;
 use open_data_txt;
 use open_data_xml;
@@ -93,9 +96,11 @@ BEGIN {
                   Open_Data_Check_Testcase_URL
                   Open_Data_Check_Read_URL_Help_File
                   Open_Data_Check
+                  Open_Data_Check_Content
                   Open_Data_Check_Zip_Content
                   Open_Data_Check_Read_JSON_Description
                   Open_Data_Check_Dataset_Data_Files
+                  Open_Data_Check_Dataset_Data_Files_Content
                   Open_Data_Check_Get_Headings_List
                   Open_Data_Check_Get_Row_Column_Counts
                   );
@@ -113,7 +118,7 @@ my (%testcase_data, %open_data_profile_map);
 my ($current_open_data_profile, $current_url, $results_list_addr);
 my ($current_open_data_profile_name);
 my (@supporting_doc_url, %expected_row_count, %first_url_count);
-my (%expected_column_count);
+my (@content_results_list);
 my (@data_dictionary_file_name, @alternate_data_file_name);
 my (@data_file_required_lang, %data_file_objects);
 
@@ -274,6 +279,7 @@ sub Set_Open_Data_Check_Language {
     #
     Set_Open_Data_CSV_Language($language);
     Set_Open_Data_JSON_Language($language);
+    Set_Open_Data_MARC_Language($language);
     Set_Open_Data_TXT_Language($language);
     Set_Open_Data_XML_Language($language);
 }
@@ -302,6 +308,7 @@ sub Set_Open_Data_Check_Debug {
     #
     Set_Open_Data_CSV_Debug($debug);
     Set_Open_Data_JSON_Debug($debug);
+    Set_Open_Data_MARC_Debug($debug);
     Set_Open_Data_TXT_Debug($debug);
     Set_Open_Data_XML_Debug($debug);
     Set_Open_Data_Testcase_Debug($debug);
@@ -480,6 +487,7 @@ sub Set_Open_Data_Check_Testcase_Data {
     #
     Set_Open_Data_CSV_Testcase_Data($testcase, $data);
     Set_Open_Data_JSON_Testcase_Data($testcase, $data);
+    Set_Open_Data_MARC_Testcase_Data($testcase, $data);
     Set_Open_Data_TXT_Testcase_Data($testcase, $data);
     Set_Open_Data_XML_Testcase_Data($testcase, $data);
 }
@@ -516,6 +524,7 @@ sub Set_Open_Data_Check_Test_Profile {
     #
     Set_Open_Data_CSV_Test_Profile($profile, $open_data_checks);
     Set_Open_Data_JSON_Test_Profile($profile, $open_data_checks);
+    Set_Open_Data_MARC_Test_Profile($profile, $open_data_checks);
     Set_Open_Data_TXT_Test_Profile($profile, $open_data_checks);
     Set_Open_Data_XML_Test_Profile($profile, $open_data_checks);
 }
@@ -545,6 +554,7 @@ sub Initialize_Test_Results {
     #
     # Initialize flags and counters
     #
+    @content_results_list = ();
 }
 
 #***********************************************************************
@@ -604,6 +614,47 @@ sub Record_Result {
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
         push (@$results_list_addr, $result_object);
+
+        #
+        # Print error string to stdout
+        #
+        Print_Error($line, $column, $text, "$testcase : $error_string");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Record_Content_Result
+#
+# Parameters: testcase - testcase identifier
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             error_string - error string
+#
+# Description:
+#
+#   This function records the testcase result and stores it in the
+# list of content errors.
+#
+#***********************************************************************
+sub Record_Content_Result {
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+
+    my ($result_object);
+
+    #
+    # Is this testcase included in the profile
+    #
+    if ( defined($testcase) && defined($$current_open_data_profile{$testcase}) ) {
+        #
+        # Create result object and save details
+        #
+        $result_object = tqa_result_object->new($testcase, $check_fail,
+                                                Open_Data_Testcase_Description($testcase),
+                                                $line, $column, $text,
+                                                $error_string, $current_url);
+        push (@content_results_list, $result_object);
 
         #
         # Print error string to stdout
@@ -966,6 +1017,26 @@ sub Check_Data_File_URL {
         #
         print "JSON data file\n" if $debug;
         @other_results = Open_Data_JSON_Check_Data($url, $data_file_object,
+                                                   $current_open_data_profile_name,
+                                                   $filename,
+                                                   $dictionary);
+    }
+    #
+    # Is this a MARC file ?
+    #
+    elsif ( ($mime_type =~ /application\/marc/i) ||
+            ($format =~ /^mrc$/i) ||
+            ($url =~ /\.mrc$/i) ) {
+        #
+        # MARC file type
+        #
+        $data_file_object = data_file_object->new($url, "MARC");
+        
+        #
+        # Check MARC data file
+        #
+        print "MARC data file\n" if $debug;
+        @other_results = Open_Data_MARC_Check_Data($url, $data_file_object,
                                                    $current_open_data_profile_name,
                                                    $filename,
                                                    $dictionary);
@@ -1531,6 +1602,149 @@ sub Open_Data_Check {
     # Add testcase help URL to results
     #
     print "Open_Data_Check results\n" if $debug;
+    foreach $result_object (@tqa_results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(Open_Data_Check_Testcase_URL($tcid)) ) {
+            $result_object->help_url(Open_Data_Check_Testcase_URL($tcid));
+        }
+
+        #
+        # Print testcase information
+        #
+        if ( $debug ) {
+            print "Testcase: $tcid\n";
+            print "  URL   = " . $result_object->url . "\n";
+            print "  message  = " . $result_object->message . "\n";
+            print "  source line  = " . $result_object->source_line . "\n";
+        }
+    }
+
+    #
+    # Return list of results
+    #
+    return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Check_Data_File_Content
+#
+# Parameters: url - open data file URL
+#
+# Description:
+#
+#   This function checks a data file's content.  It checks that
+#     - for CSV files, there is no leading or trailing
+#       whitespace in cell content
+#
+#***********************************************************************
+sub Check_Data_File_Content {
+    my ($url) = @_;
+
+    my (@results, $data_file_object);
+
+    #
+    # Get the data file type (e.g. CSV).
+    #
+    print "Check_Data_File_Content\n" if $debug;
+    if ( defined($data_file_objects{$url}) ) {
+        $data_file_object = $data_file_objects{$url};
+    }
+    else {
+        print "Unknown data file URL $url\n" if $debug;
+    }
+
+    #
+    # Is this a CSV file ?
+    #
+    if ( defined($data_file_object) && $data_file_object->type() eq "CSV" ) {
+        print "CSV data file\n" if $debug;
+        @results = Open_Data_CSV_Get_Content_Results($url);
+    }
+    #
+    # Is this a JSON file ?
+    #
+    elsif ( defined($data_file_object) && $data_file_object->type() eq "JSON" ) {
+        print "JSON data file\n" if $debug;
+        @results = Open_Data_JSON_Get_Content_Results($url);
+    }
+    #
+    # Is this a MARC file ?
+    #
+    elsif ( defined($data_file_object) && $data_file_object->type() eq "MARC" ) {
+        print "MARC data file\n" if $debug;
+
+        #
+        # No content checks implemented
+        #
+    }
+    #
+    # Is this XML ?
+    #
+    elsif ( defined($data_file_object) && $data_file_object->type() eq "XML" ) {
+        print "XML data file\n" if $debug;
+    }
+    elsif ( defined($data_file_object) ) {
+        print "Unexpected data file type " . $data_file_object->type() . "\n" if $debug;
+    }
+
+    #
+    # Return results
+    #
+    return(@results);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Check_Content
+#
+# Parameters: url - open data file URL
+#             data_file_type - type of dataset file
+#
+# Description:
+#
+#   This function runs a number of Open Data content checks on a Dataset URLs.
+#  The checks depend on the data file type.
+#    DICTIONARY - a data dictionary file
+#    DATA - a data file
+#    RESOURCE - a resource file
+#    API - a data API
+#
+#***********************************************************************
+sub Open_Data_Check_Content {
+    my ($url, $data_file_type) = @_;
+
+    my (@tqa_results_list, $result_object, $tcid);
+
+    #
+    # Initialize the test case pass/fail table.
+    #
+    print "Open_Data_Check_Content: url = $url\n" if $debug;
+
+    #
+    # Is this a data file
+    #
+    if ( $data_file_type =~ /DATA/i ) {
+        #
+        # Check data content
+        #
+        @tqa_results_list = Check_Data_File_Content($url);
+    }
+    
+    #
+    # Is this a data dictionary file
+    #
+    elsif ( $data_file_type =~ /DICTIONARY/i ) {
+        #
+        # Check dictionary content
+        #
+        @tqa_results_list = Open_Data_XML_Dictionary_Content_Check($url);
+    }
+
+    #
+    # Add testcase help URL to results
+    #
+    print "Open_Data_Check_Data_Content results\n" if $debug;
     foreach $result_object (@tqa_results_list) {
         $tcid = $result_object->testcase();
         if ( defined(Open_Data_Check_Testcase_URL($tcid)) ) {
@@ -2170,7 +2384,7 @@ sub Check_Data_File_Languages {
 
 #***********************************************************************
 #
-# Name: Check_CSV_Data_File_Content
+# Name: Check_CSV_Data_File_Rows_Columns
 #
 # Parameters: url_lang_map - hash table of data file URLs
 #
@@ -2185,19 +2399,20 @@ sub Check_Data_File_Languages {
 #   for numeric columns, if the sum of the content is the same
 #
 #***********************************************************************
-sub Check_CSV_Data_File_Content {
+sub Check_CSV_Data_File_Rows_Columns {
     my (%url_lang_map) = @_;
 
     my (@url_list, $list_item, $url, $eng_url);
     my ($lang_count, $lang_item_addr, $lang_data_file_object);
     my ($data_file_object, $rows, $cols, $eng_rows, $eng_cols);
     my ($column_objects, $eng_column_objects);
-    my ($col_obj, $eng_col_obj, $i);
+    my ($col_obj, $eng_col_obj, $i, $expected_col_obj);
+    my ($expected_cols, $expected_column_objects, $expected_columns_url);
 
     #
     # Check each entry in the URL language map
     #
-    print "Check_CSV_Data_File_Content\n" if $debug;
+    print "Check_CSV_Data_File_Rows_Columns\n" if $debug;
     foreach $eng_url (sort(keys(%url_lang_map))) {
         #
         # Get the data file object
@@ -2228,22 +2443,48 @@ sub Check_CSV_Data_File_Content {
         $lang_count = @$lang_item_addr;
         
         #
+        # Get the row & column counts from the English URL
+        #
+        ($eng_rows, $eng_cols) = Open_Data_CSV_Check_Get_Row_Column_Counts($data_file_object);
+
+        #
+        # Get the column object list
+        #
+        $eng_column_objects = Open_Data_CSV_Check_Get_Column_Object_List($data_file_object);
+
+        #
+        # Do we have an expected column count?
+        #
+        if ( defined($expected_cols) ) {
+            #
+            # Does this file's column count match the expected count?
+            #
+            if ( $eng_cols != $expected_cols ) {
+                Record_Content_Result("TP_PW_OD_CONT", -1, -1, "",
+                                      String_Value("Column count mismatch, found") .
+                                      "$eng_cols " . String_Value("in") . " $eng_url\n" .
+                                      String_Value("expecting") .
+                                      $expected_cols . String_Value("as found in") .
+                                      $expected_columns_url);
+            }
+        }
+        else {
+            #
+            # Record this file's column count and column objects as the
+            # expected count and headings for all other files.
+            #
+            $expected_cols = $eng_cols;
+            $expected_column_objects = $eng_column_objects;
+            $expected_columns_url = $eng_url;
+        }
+
+        #
         # Do we have more than 1 language?
         #
         if ( $lang_count < 2 ) {
             print "Skip check, only have $lang_count language versions\n" if $debug;
             next;
         }
-
-        #
-        # Get the row & column counts from the English URL
-        #
-        ($eng_rows, $eng_cols) = Open_Data_CSV_Check_Get_Row_Column_Counts($data_file_object);
-        
-        #
-        # Get the column object list
-        #
-        $eng_column_objects = Open_Data_CSV_Check_Get_Column_Object_List($data_file_object);
 
         #
         # Now check all other language variants to see if the
@@ -2311,12 +2552,23 @@ sub Check_CSV_Data_File_Content {
                     $col_obj = $$column_objects[$i];
                     
                     #
-                    # Do the column types match?
+                    # If we did not determine the column content type
+                    # (e.g. may be all blanks), skip checks.
                     #
                     print "Column types for column $i, " .
                            $col_obj->type() . " and " .
                            $eng_col_obj->type() . "\n" if $debug;
-                    if ( $col_obj->type() ne $eng_col_obj->type() ) {
+                    print "Column non-blank cell count for column $i, " .
+                           $col_obj->non_blank_cell_count() . " and " .
+                           $eng_col_obj->non_blank_cell_count() . "\n" if $debug;
+                    if ( ($col_obj->type() eq "") || ($eng_col_obj->type() eq "") ) {
+                        print "Column data type not determined\n" if $debug;
+                        next
+                    }
+                    #
+                    # Do the column types match?
+                    #
+                    elsif ( $col_obj->type() ne $eng_col_obj->type() ) {
                          Record_Result("OD_DATA", -1, -1, "",
                                       String_Value("Column type mismatch for column") .
                                       " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
@@ -2326,29 +2578,25 @@ sub Check_CSV_Data_File_Content {
                                       $eng_col_obj->type() .
                                       String_Value("as found in") . $eng_url);
                     }
-                    else {
-                        #
-                        # Do the number of non-blank cells match?
-                        #
-                        print "Column non-blank cell count for column $i, " .
-                               $col_obj->non_blank_cell_count() . " and " .
-                               $eng_col_obj->non_blank_cell_count() . "\n" if $debug;
-                        if ( $col_obj->non_blank_cell_count() != $eng_col_obj->non_blank_cell_count() ) {
-                            Record_Result("OD_DATA", -1, -1, "",
-                                          String_Value("Non blank cell count mismatch for column") .
-                                          " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
-                                          String_Value("found") . " " . $col_obj->non_blank_cell_count() .
-                                          " " . String_Value("in") . " $url\n" .
-                                          String_Value("expecting") .
-                                          $eng_col_obj->non_blank_cell_count() .
-                                          String_Value("as found in") . $eng_url);
-                        }
+                    #
+                    # Do the number of non-blank cells match?
+                    #
+                    elsif ( $col_obj->non_blank_cell_count() != $eng_col_obj->non_blank_cell_count() ) {
+                        Record_Result("OD_DATA", -1, -1, "",
+                                      String_Value("Non blank cell count mismatch for column") .
+                                      " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
+                                      String_Value("found") . " " . $col_obj->non_blank_cell_count() .
+                                      " " . String_Value("in") . " $url\n" .
+                                      String_Value("expecting") .
+                                      $eng_col_obj->non_blank_cell_count() .
+                                      String_Value("as found in") . $eng_url);
                     }
                     
                     #
-                    # Is this a numeric column type?
+                    # Is this a numeric or date (YYYY-MM-DD) column type?
                     #
-                    if ( $col_obj->type() eq "numeric" ) {
+                    if ( ($col_obj->type() eq "numeric") ||
+                         ($col_obj->type() eq "date") ) {
                         #
                         # Do the column sums match?
                         #
@@ -2596,9 +2844,10 @@ sub Compare_CSV_JSON_CSV_Data_File_Content {
         }
     }
 }
+
 #***********************************************************************
 #
-# Name: Check_JSON_CSV_Data_File_Content
+# Name: Check_JSON_CSV_Data_File_Fields
 #
 # Parameters: url_list - address of list of urls
 #             dictionary - address of a hash table for data dictionary
@@ -2618,7 +2867,7 @@ sub Compare_CSV_JSON_CSV_Data_File_Content {
 # data array.
 #
 #***********************************************************************
-sub Check_JSON_CSV_Data_File_Content {
+sub Check_JSON_CSV_Data_File_Fields {
     my ($url_list, $dictionary, %url_lang_map) = @_;
 
     my (@url_list, $list_item, $url, $eng_url, $format, $item);
@@ -2632,7 +2881,7 @@ sub Check_JSON_CSV_Data_File_Content {
     #
     # Create a hash table of all URLs
     #
-    print "Check_JSON_CSV_Data_File_Content\n" if $debug;
+    print "Check_JSON_CSV_Data_File_Fields\n" if $debug;
     foreach $item (@$url_list) {
         #
         # The URL may include a format specifier (e.g. CSV)
@@ -2785,7 +3034,7 @@ sub Check_JSON_CSV_Data_File_Content {
 #
 # Description:
 #
-#   This function performs checks on the dataset files as a
+#   This function performs technical checks on the dataset files as a
 # collection.  It checks for
 #  - language specific files (e.g. has a language suffix).
 #  - the presence of a file for each language.
@@ -2798,7 +3047,7 @@ sub Open_Data_Check_Dataset_Data_Files {
 
     my (@tqa_results_list, @url_list, $list_item, $format, $url, $eng_url);
     my (%url_lang_map, $lang_item_addr, $data_file_object, %file_checksums);
-    my ($checksum);
+    my ($checksum, $url_lang);
 
     #
     # Do we have a valid profile ?
@@ -2849,13 +3098,14 @@ sub Open_Data_Check_Dataset_Data_Files {
             
         #
         # Get English version of this URL (assuming it has a
-        # language component).
+        # language component).   Also get the language of this URL.
         #
         $eng_url = URL_Check_Get_English_URL($url);
         if ( $eng_url eq "" ) {
             $eng_url = $url;
         }
-        print "URL = $url, English URL = $eng_url\n" if $debug;
+        $url_lang = URL_Check_GET_URL_Language($url);
+        print "URL = $url, language = $url_lang, English URL = $eng_url\n" if $debug;
             
         #
         # Save this URL in the url language map if it is not the
@@ -2865,6 +3115,16 @@ sub Open_Data_Check_Dataset_Data_Files {
             my (@url_map_list) = ($url);
             $url_lang_map{$eng_url} = \@url_map_list;
             print "Create new language map indexed by $eng_url\n" if $debug;
+            
+            #
+            # If this URL's language is English, and the English URL does not
+            # match this URL (can be the base for mixed case or upper case
+            # URL paths), save the URL map list under the real URL as well
+            #
+            if ( ($url_lang eq "eng") && ($url ne $eng_url) ) {
+                print "Cross link language map for $url also\n" if $debug;
+                $url_lang_map{$url} = \@url_map_list;
+            }
         }
         else {
             #
@@ -2913,19 +3173,38 @@ sub Open_Data_Check_Dataset_Data_Files {
     Check_Data_File_Languages(%url_lang_map);
     
     #
-    # Check CSV file content for rows/column matches and other content checks
+    # Check CSV file content for rows/column matches and other technical checks
     #
-    Check_CSV_Data_File_Content(%url_lang_map);
+    Check_CSV_Data_File_Rows_Columns(%url_lang_map);
 
     #
     # Check JSON-CSV file content for item/field matches and other content checks
     #
-    Check_JSON_CSV_Data_File_Content($url_list, $dictionary, %url_lang_map);
+    Check_JSON_CSV_Data_File_Fields($url_list, $dictionary, %url_lang_map);
 
     #
     # Return results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Check_Dataset_Data_Files_Content
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function runs the list of content errors found.
+#
+#***********************************************************************
+sub Open_Data_Check_Dataset_Data_Files_Content {
+
+    #
+    # Return content check results
+    #
+    return(@content_results_list);
 }
 
 #***********************************************************************
