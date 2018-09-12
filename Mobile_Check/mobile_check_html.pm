@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check_html.pm
 #
-# $Revision: 167 $
-# $URL: svn://10.36.20.203/Mobile_Check/Tools/mobile_check_html.pm $
-# $Date: 2016-12-21 08:15:44 -0500 (Wed, 21 Dec 2016) $
+# $Revision: 776 $
+# $URL: svn://10.36.148.185/Mobile_Check/Tools/mobile_check_html.pm $
+# $Date: 2018-03-15 13:50:46 -0400 (Thu, 15 Mar 2018) $
 #
 # Description:
 #
@@ -52,17 +52,20 @@ package mobile_check_html;
 
 use strict;
 use File::Basename;
+use HTML::Parser;
 
 #
 # Use WPSS_Tool program modules
 #
 use crawler;
 use css_validate;
+use html_landmark;
 use javascript_validate;
 use mobile_check_css;
 use mobile_check_image;
 use mobile_testcases;
 use tqa_result_object;
+use tqa_tag_object;
 use url_check;
 
 #***********************************************************************
@@ -97,6 +100,31 @@ my ($results_list_addr, $current_url, $max_inline_css, $max_inline_js);
 my ($inside_noscript, $iframe_count, $content_line_count, $inside_body);
 my ($min_image_height, $min_image_width, $max_image_reduction_percent);
 my (%image_dimensions_cache, $max_iframe_count);
+my (@tag_order_stack);
+my ($current_tag_object, $current_landmark, $landmark_marker);
+
+#
+# List of HTML tags that do not have an explicit end tag.
+#
+my (%html_tags_with_no_end_tag) = (
+        "area", "area",
+        "base", "base",
+        "br", "br",
+        "col", "col",
+        "command", "command",
+        "embed", "embed",
+        "frame", "frame",
+        "hr", "hr",
+        "img", "img",
+        "input", "input",
+        "keygen", "keygen",
+        "link", "link",
+        "meta", "meta",
+        "param", "param",
+        "source", "source",
+#        "track", "track",
+        "wbr", "wbr",
+);
 
 #
 # Status values
@@ -155,6 +183,11 @@ sub Set_Mobile_Check_HTML_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+
+    #
+    # Set debug flag for supporting modules
+    #
+    HTML_Landmark_Debug($debug);
 }
 
 #**********************************************************************
@@ -403,6 +436,8 @@ sub Record_Result {
                                                 Mobile_Testcase_Description($testcase),
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
+        $result_object->landmark($current_landmark);
+        $result_object->landmark_marker($landmark_marker);
         push (@$results_list_addr, $result_object);
 
         #
@@ -428,14 +463,17 @@ sub Initialize_Parser_Variables {
     
     my (@lines);
 
-  #
-  # Initialize variables
-  #
-  $iframe_count = 0;
-  $inside_body = 0;
-  $inside_noscript = 0;
-  @lines = split(/\n/, $$content);
-  $content_line_count = @lines;
+    #
+    # Initialize variables
+    #
+    $iframe_count = 0;
+    $inside_body = 0;
+    $inside_noscript = 0;
+    @lines = split(/\n/, $$content);
+    $content_line_count = @lines;
+    @tag_order_stack = ();
+    $current_landmark = "";
+    $landmark_marker = "";
 }
 
 #***********************************************************************
@@ -765,9 +803,25 @@ sub Start_Handler {
     my ( $self, $tagname, $line, $column, $text, %attr_hash ) = @_;
 
     #
-    # Check body tag
+    # Create a new tag object
     #
     print "Start_Handler tag $tagname at $line:$column\n" if $debug;
+    $current_tag_object = tqa_tag_object->new($tagname, $line, $column,
+                                              \%attr_hash);
+    push(@tag_order_stack, $current_tag_object);
+
+    #
+    # Compute the current landmark and add it to the tag object.
+    #
+    ($current_landmark, $landmark_marker) = HTML_Landmark($tagname, $line,
+                       $column, $current_landmark, $landmark_marker,
+                       \@tag_order_stack, %attr_hash);
+    $current_tag_object->landmark($current_landmark);
+    $current_tag_object->landmark_marker($landmark_marker);
+
+    #
+    # Check body tag
+    #
     $tagname =~ s/\///g;
     if ( $tagname eq "body" ) {
         Body_Tag_Handler( $self, $line, $column, $text, %attr_hash );
@@ -793,6 +847,16 @@ sub Start_Handler {
     elsif ( $tagname eq "noscript" ) {
         Noscript_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
+
+    #
+    # Is this a tag that has no end tag ? If so we must set the last tag
+    # seen value here rather than in the End_Handler function.
+    #
+    if ( defined ($html_tags_with_no_end_tag{$tagname}) ) {
+        $current_tag_object = pop(@tag_order_stack);
+        $current_landmark = $current_tag_object->landmark();
+        $landmark_marker = $current_tag_object->landmark_marker();
+    }
 }
 
 #***********************************************************************
@@ -815,6 +879,8 @@ sub Start_Handler {
 sub End_Handler {
     my ( $self, $tagname, $line, $column, $text, %attr_hash ) = @_;
 
+    my ($popped_tag, $last_item);
+    
     #
     # Check body tag
     #
@@ -828,6 +894,27 @@ sub End_Handler {
     #
     elsif ( $tagname eq "noscript" ) {
         End_Noscript_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    # Pop last tag of the stack
+    #
+    if ( @tag_order_stack > 0 ) {
+        $current_tag_object = pop(@tag_order_stack);
+        if ( @tag_order_stack > 0 ) {
+            $last_item = @tag_order_stack - 1;
+            $current_tag_object = $tag_order_stack[$last_item];
+            $current_landmark = $current_tag_object->landmark();
+            $landmark_marker = $current_tag_object->landmark_marker();
+        }
+        else {
+            $current_landmark = "";
+            $landmark_marker = "";
+        }
+    }
+    else {
+        $current_landmark = "";
+        $landmark_marker = "";
     }
 }
 

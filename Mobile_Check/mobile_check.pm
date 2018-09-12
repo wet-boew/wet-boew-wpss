@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 391 $
-# $URL: svn://10.36.20.203/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2017-07-04 13:42:07 -0400 (Tue, 04 Jul 2017) $
+# $Revision: 776 $
+# $URL: svn://10.36.148.185/Mobile_Check/Tools/mobile_check.pm $
+# $Date: 2018-03-15 13:50:46 -0400 (Thu, 15 Mar 2018) $
 #
 # Description:
 #
@@ -109,7 +109,7 @@ my (%testcase_data, %mobile_check_profile_map, $current_mobile_check_profile);
 my ($results_list_addr, $current_url, $max_allowed_css, $max_allowed_js);
 my ($max_hostname_count, $favicon_size, %favicon_urls, $max_allowed_image);
 my (@redirect_ignore_text_patterns, @redirect_ignore_url_patterns);
-my (%style_count, %supporting_file_size);
+my (%style_count, %supporting_file_size, $current_landmark, $landmark_marker);
 
 #
 # Status values
@@ -441,7 +441,8 @@ sub Initialize_Test_Results {
     #
     $current_mobile_check_profile = $mobile_check_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
-
+    $current_landmark = "";
+    $landmark_marker = "";
 }
 
 #**********************************************************************
@@ -534,6 +535,8 @@ sub Record_Result {
                                                 Mobile_Testcase_Description($testcase),
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
+        $result_object->landmark($current_landmark);
+        $result_object->landmark_marker($landmark_marker);
         push (@$results_list_addr, $result_object);
 
         #
@@ -996,6 +999,8 @@ sub Check_Favicon_Link {
     #
     # Check all favicons
     #
+    $current_landmark = "head";
+    $landmark_marker = "<head>";
     foreach $favicon_url (@favicon_list) {
         #
         # Get the favicon URL if we have not already seen it
@@ -1080,6 +1085,12 @@ sub Check_Broken_Redirect_Links {
     while ( ($section, $list_addr) = each %$link_sets ) {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
+            #
+            # Get landmark details
+            #
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
+
             #
             # Exclude <noscript> links and links from
             # conditional includes.
@@ -1250,6 +1261,12 @@ sub Check_CSS_Links {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
             #
+            # Get landmark details
+            #
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
+
+            #
             # Exclude <noscript> links, links from
             # conditional includes or generated content.
             #
@@ -1338,6 +1355,12 @@ sub Check_JS_Links {
     while ( ($section, $list_addr) = each %$link_sets ) {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
+            #
+            # Get landmark details
+            #
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
+
             #
             # Exclude <noscript> links and links from
             # conditional includes or generated content.
@@ -1467,6 +1490,12 @@ sub Check_Image_Links {
         print "Check links in section $section\n" if $debug;
         foreach $link (@$list_addr) {
             #
+            # Get landmark details
+            #
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
+
+            #
             # Exclude <noscript> links, links from conditional
             # includes and generated content links.
             #
@@ -1566,6 +1595,8 @@ sub Check_Hostnames {
             # Get the link attributes
             #
             %attr = $link->attr();
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
 
             #
             # Exclude <noscript> links and links from
@@ -1678,6 +1709,8 @@ sub Mobile_Check_Links {
     $current_mobile_check_profile = $mobile_check_profile_map{$profile};
     $results_list_addr = $tqa_results_list;
     $current_url = $url;
+    $current_landmark = "";
+    $landmark_marker = "";
 
     #
     # Are any of the testcases defined in this testcase profile ?
