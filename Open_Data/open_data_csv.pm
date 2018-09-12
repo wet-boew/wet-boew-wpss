@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 701 $
+# $Revision: 946 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2018-02-02 08:56:51 -0500 (Fri, 02 Feb 2018) $
+# $Date: 2018-08-27 13:52:01 -0400 (Mon, 27 Aug 2018) $
 #
 # Description:
 #
@@ -21,6 +21,7 @@
 #     Open_Data_CSV_Check_Get_Row_Column_Counts
 #     Open_Data_CSV_Check_Get_Column_Object_List
 #     Open_Data_CSV_Compare_JSON_CSV
+#     Open_Data_CSV_Get_Content_Results
 #
 # Terms and Conditions of Use
 #
@@ -92,6 +93,7 @@ BEGIN {
                   Open_Data_CSV_Check_Get_Row_Column_Counts
                   Open_Data_CSV_Check_Get_Column_Object_List
                   Open_Data_CSV_Compare_JSON_CSV
+                  Open_Data_CSV_Get_Content_Results
                   );
     $VERSION = "1.0";
 }
@@ -103,10 +105,11 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (%testcase_data, $results_list_addr);
+my (%testcase_data, $results_list_addr, @content_results_list);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($csv_validator, $last_csv_headings_list);
+my ($leading_trailing_whitespace_count);
 
 my ($max_error_message_string)= 2048;
 my ($runtime_error_reported) = 0;
@@ -119,6 +122,36 @@ my ($row_count_attribute) = "Row Count";
 my ($column_list_attribute) = "Column List";
 
 #
+# Minimum percentage to report inconsistent column data type errors.
+#
+my ($min_consistent_type_percent) = 2.0;
+
+#
+# Minimum percentage of non blank cells used to determine column
+# data type.
+#
+my ($min_non_blank_cell_percentage) = 10.0;
+
+#
+# Set of ASCII characters that are non-printable. Table is indexed
+# by the decimal ASCII code value.
+#
+my (%non_printable_ascii) = (
+    "9",  "Horizontal tab",
+    "10", "Line feed",
+    "11", "Vertical tab",
+    "12", "Form feed",
+    "13", "Carriage return",
+    "129", "",
+    "141", "",
+    "143", "",
+    "144", "",
+    "157", "",
+    "160", "Non-breaking space",
+    "173", "Soft hyphen",
+);
+
+#
 # Status values
 #
 my ($check_fail)       = 1;
@@ -127,6 +160,7 @@ my ($check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
+    "All cells in column",           "All cells in column",
     "and",                           "and",
     "at line number",                "at line number",
     "Blank column header",           "Blank column header",
@@ -140,17 +174,27 @@ my %string_table_en = (
     "Empty line as first line of multi-line field", "Empty line as first line of multi-line field",
     "Expected a heading after 2 blank lines", "Expected a heading after 2 blank lines",
     "expecting",                     "expecting",
+    "expecting values to be of type", "expecting values to be of type",
     "failed for value",              "failed for value",
+    "field value",                   "field value",
+    "First instance at",             "First instance at row",
     "found",                         "found",
     "Found an ordered list item in an unordered list", "Found an ordered list item in an unordered list",
     "Found an unordered list item in an ordered list", "Found an unordered list item in an ordered list",
     "Found at",                      "Found at",
+    "Found at row",                  "Found at row",
+    "have identical content",        "have identical content",
     "Heading must be a single line", "Heading must be a single line",
+    "Inconsistent data type in column", "Inconsistent data type in column",
+    "Inconsistent field values for column", "Inconsistent field values for column",
     "Inconsistent list item prefix, found", "Inconsistent list item prefix, found",
     "Inconsistent number of fields, found", "Inconsistent number of fields, found",
+    "instances of leading or trailing whitespace characters in field values", "instances of leading or trailing whitespace characters in field values",
+    "Leading or trailing whitespace characters in field value", "Leading or trailing whitespace characters in field value",
     "Leading or trailing whitespace characters in heading", "Leading or trailing whitespace characters in heading",
     "List item prefix character found for list of 1 item", "List item prefix character found for list of 1 item",
     "List item value",               "List item value",
+    "Long numeric value may be truncated", "Long numeric value may be truncated",
     "Missing header row or terms",   "Missing header row or terms",
     "Missing header row terms",      "Missing header row terms",
     "Missing list item prefix character", "Missing list item prefix character",
@@ -160,11 +204,15 @@ my %string_table_en = (
     "No content in file",            "No content in file",
     "No content in row",             "No content in row",
     "Parse error in line",           "Parse error in line",
+    "Possible Excel formula as field value", "Possible Excel formula as field value",
     "row",                           "row",
     "Runtime Error",                 "Runtime Error",
+    "Total of",                      "Total of",
+    "values of type",                "values of type",
     );
 
 my %string_table_fr = (
+    "All cells in column",           "Toutes les cellules dans la colonne",
     "and",                           "et",
     "at line number",                "au numéro de ligne",
     "Blank column header",           "En-tête de colonne vide",
@@ -178,17 +226,27 @@ my %string_table_fr = (
     "Duplicate row content, first instance at", "Dupliquer le contenu en ligne, première instance à ligne",
     "Expected a heading after 2 blank lines", "Attendu un en-tête après 2 lignes vides",
     "expecting",                     "expectant",
+    "expecting values to be of type", "ettendant que les valeurs soient de type",
     "failed for value",              "a échoué pour la valeur",
+    "field value",                   "valeurs de champ",
+    "First instance at",             "Première instance à la rangée",
     "found",                         "trouver",
     "Found an ordered list item in an unordered list", "Trouver un élément de liste ordonnée dans une liste non ordonnée",
     "Found an unordered list item in an ordered list", "Trouver un élément de liste non ordonnée dans une liste ordonnée",
     "Found at",                      "Trouvé à",
+    "Found at row",                  "Trouvé à la rangée",
+    "have identical content",        "avoir un contenu identique",
     "Heading must be a single line", "Le titre doit être une seule ligne",
+    "Inconsistent data type in column", "Type de données incohérent dans la colonne",
+    "Inconsistent field values for column", "Valeurs de champ incohérentes pour la colonne",
     "Inconsistent list item prefix, found", "Préfixe d'élément de liste incompatible, trouvé",
     "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté",
+    "instances of leading or trailing whitespace characters in field values", "occurrences de caractères espaces avant ou arrière dans les valeurs de champ",
+    "Leading or trailing whitespace characters in field value", "Caractères d'espacement avant ou arrière dans la valeur du champ",
     "Leading or trailing whitespace characters in heading", "Caractères blancs avancés ou arrivant dans le titre",
     "List item value",               "Valeur de l'élément de liste",
     "List item prefix character found for list of 1 item", "Caractère de préfixe d'élément de liste trouvé pour la liste de 1 élément",
+    "Long numeric value may be truncated", "La valeur numérique longue peut être tronquée",
     "Missing header row or terms",   "Ligne ou termes d'en-tête manquants",
     "Missing header row terms",      "Manquant termes de lignes d'en-tête",
     "Missing list item prefix character", "Caractère de préfixe d'élément de liste manquant",
@@ -198,8 +256,11 @@ my %string_table_fr = (
     "No content in file",            "Aucun contenu dans fichier",
     "No content in row",             "Aucun contenu dans ligne",
     "Parse error in line",           "Parse error en ligne",
+    "Possible Excel formula as field value", "Formule Excel possible en tant que valeur de champ",
     "row",                           "ligne",
     "Runtime Error",                 "Erreur D'Exécution",
+    "Total of",                      "Total de",
+    "values of type",                "valeurs de type",
     );
 
 #
@@ -311,11 +372,29 @@ sub String_Value {
 #***********************************************************************
 sub Set_Open_Data_CSV_Testcase_Data {
     my ($testcase, $data) = @_;
+    
+    my ($type, $value);
 
     #
-    # Copy the data into the table
+    # Is this data for the minimum percentage for checking data type
+    # consistency ?
     #
-    $testcase_data{$testcase} = $data;
+    if ( $testcase eq "TP_PW_OD_CONT" ) {
+        ($type, $value) = split(/\s/, $data, 2);
+
+        #
+        # Is this a minimum percentage ?
+        #
+        if ( defined($value) && ($type eq "DATA_TYPE_CONSISTENCY_PERCENT") ) {
+            $min_consistent_type_percent = $value;
+        }
+    }
+    else {
+        #
+        # Copy the data into the table
+        #
+        $testcase_data{$testcase} = $data;
+    }
 }
 
 #***********************************************************************
@@ -365,6 +444,8 @@ sub Initialize_Test_Results {
     #
     $current_open_data_profile = $open_data_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
+    @content_results_list = ();
+    $leading_trailing_whitespace_count = 0;
 }
 
 #***********************************************************************
@@ -443,6 +524,47 @@ sub Record_Result {
 
 #***********************************************************************
 #
+# Name: Record_Content_Result
+#
+# Parameters: testcase - testcase identifier
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             error_string - error string
+#
+# Description:
+#
+#   This function records the testcase result and stores it in the
+# list of content errors.
+#
+#***********************************************************************
+sub Record_Content_Result {
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+
+    my ($result_object);
+
+    #
+    # Is this testcase included in the profile
+    #
+    if ( defined($testcase) && defined($$current_open_data_profile{$testcase}) ) {
+        #
+        # Create result object and save details
+        #
+        $result_object = tqa_result_object->new($testcase, $check_fail,
+                                                Open_Data_Testcase_Description($testcase),
+                                                $line, $column, $text,
+                                                $error_string, $current_url);
+        push (@content_results_list, $result_object);
+
+        #
+        # Print error string to stdout
+        #
+        Print_Error($line, $column, $text, "$testcase : $error_string");
+    }
+}
+
+#***********************************************************************
+#
 # Name: Check_First_Data_Row
 #
 # Parameters: dictionary - address of a hash table for data dictionary
@@ -465,6 +587,7 @@ sub Check_First_Data_Row {
     my ($dictionary, $report_errors, @fields) = @_;
 
     my ($count, $field, @unmatched_fields, %headers, $field_num);
+    my ($non_dict_term);
     my (@headings) = ();
     
     #
@@ -536,13 +659,6 @@ sub Check_First_Data_Row {
     #
     if ( $count == @fields ) {
         print "All fields match a term\n" if $debug;
-        
-        #
-        # Create a list of dictionary objects for the headings
-        #
-        foreach $field (@fields) {
-            push(@headings, $$dictionary{$field});
-        }
     }
     #
     # Did we get a match on atleast 25% of the fields ? If so we expect
@@ -563,7 +679,28 @@ sub Check_First_Data_Row {
                       String_Value("Missing header row or terms") .
                       " \"" . join(", ", @unmatched_fields) . "\"");
     }
-    
+
+    #
+    # Create a list of dictionary objects for the headings.
+    # Create temporary objects for headings that were not found
+    # in the dictionary.
+    #
+    foreach $field (@fields) {
+        if ( defined($$dictionary{$field}) ) {
+            push(@headings, $$dictionary{$field});
+        }
+        else {
+            #
+            # Create a new dictionary object and set it's in_dictionary
+            # attribute to false.
+            #
+            $non_dict_term = open_data_dictionary_object->new();
+            $non_dict_term->term($field);
+            $non_dict_term->in_dictionary(0);
+            push(@headings, $non_dict_term);
+        }
+    }
+
     #
     # Check for leading or trailing whitespace in header row values
     #
@@ -1422,6 +1559,108 @@ sub Check_Single_Line_Field {
 
 #***********************************************************************
 #
+# Name: Cleanse_Value
+#
+# Parameters: data - a string
+#
+# Description:
+#
+#   This function cleanses a string by
+#    - removing punctuation
+#    - converting the string to lower case
+#    - remove pluralization (i.e. trailing s in words)
+#    - removing white space
+#  Cleansed strings are used to detect inconsistent presentations of
+# otherwise identical values.  If a cleansed string has fewer than 10
+# or greater than 100 characters, an empty string is returned.  Strings
+# that are shorter or longer than these limits are not likely to be
+# proper names or values from a controlled vocabulary.  By returning
+# an empty string, further checking of these strings can be avoided
+# (to avoid storage and performance problems).
+#
+#***********************************************************************
+sub Cleanse_Value {
+    my ($data) =@_;
+    
+    #
+    # Remove punctuation characters
+    #
+    $data =~ s/[[:punct:]]//g;
+    
+    #
+    # Convert to lower case
+    #
+    $data = lc($data);
+    
+    #
+    # Remove trailing 's' characters (pluralisation)
+    #
+    $data .= " ";
+    $data =~ s/s\s/ /g;
+    
+    #
+    # Remove all whitespace characters
+    #
+    $data =~ s/\s+//g;
+    
+    #
+    # Is the cleansed string too short or too long?
+    #
+    if ( (length($data) < 10) || (length($data) > 100) ) {
+        $data = "";
+    }
+    
+    #
+    # Return the cleansed string
+    #
+    return($data);
+}
+
+#***********************************************************************
+#
+# Name: Convert_Nonprintable_to_Hex
+#
+# Parameters: data - a string
+#
+# Description:
+#
+#   This function scans the supplied string and converts nonprintable
+# characters (e.g. some character codes greater than 127) into hex codes
+#
+#***********************************************************************
+sub Convert_Nonprintable_to_Hex {
+    my ($data) = @_;
+    
+    my ($hex_str, $j, $ch, $hex_ch);
+    
+    #
+    # Convert non-printable characters into their hex
+    # code values so differences are visable.
+    #
+    $hex_str = "";
+    foreach ($j = 0; $j < length($data); $j++) {
+        $ch = substr($data, $j, 1);
+        
+        #
+        # Is this character non-printable?
+        #
+        if ( defined($non_printable_ascii{ord($ch)}) ) {
+            $hex_ch = sprintf("{0x%X}", ord($ch));
+            $hex_str .= $hex_ch;
+        }
+        else {
+            $hex_str .= $ch;
+        }
+    }
+    
+    #
+    # Return the string
+    #
+    return($hex_str);
+}
+
+#***********************************************************************
+#
 # Name: Open_Data_CSV_Check_Data
 #
 # Parameters: this_url - a URL
@@ -1440,13 +1679,17 @@ sub Open_Data_CSV_Check_Data {
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($line, @fields, $line_no, $status, $field_count);
-    my ($csv_file, $csv_file_name, $rows, $message, $content);
+    my ($csv_file, $csv_file_name, $rows, $message, $content, $data1);
     my ($row_content, $eval_output, @headings, $i, $regex, $heading, $data);
     my ($have_bom, %row_checksum, $checksum, $headings_count);
     my (%duplicate_columns, %duplicate_columns_flag, $j, $this_field);
     my ($duplicate_columns_ptr, $duplicate_column_list, $other_heading);
     my (%blank_zero_column_flag, $parse_error_reported, @lines);
-    my (@csv_columns, $column_object);
+    my (@csv_columns, $column_object, @previous_row, @identical_cell_content);
+    my (@column_value_types, $value_type_ptr, $value_type, $type_count);
+    my ($computed_value_type, $non_blank_line_count, $cleansed_value);
+    my ($table_addr, $other_line_no, $type_line, $value_type_row_ptr);
+    my (@column_value_types_row, @column_value_types_value, $type_value);
 
     #
     # Do we have a valid profile ?
@@ -1600,7 +1843,7 @@ sub Open_Data_CSV_Check_Data {
             for ($i = 0; $i < $field_count; $i++) {
                 $blank_zero_column_flag{$i} = 1;
                 $heading = $fields[$i];
-                
+
                 #
                 # Are we missing a column heading?
                 #
@@ -1613,6 +1856,17 @@ sub Open_Data_CSV_Check_Data {
                 #
                 $column_object = csv_column_object->new($heading);
                 push(@csv_columns, $column_object);
+                
+                #
+                # Create a table of value types and first row for this column
+                #
+                if ( ! defined($column_value_types[$i]) ) {
+                    my (%value_type_count, %value_type_first_row);
+                    my (%value_type_first_value);
+                    $column_value_types[$i] = \%value_type_count;
+                    $column_value_types_row[$i] = \%value_type_first_row;
+                    $column_value_types_value[$i] = \%value_type_first_value;
+                }
             }
             
             #
@@ -1678,6 +1932,28 @@ sub Open_Data_CSV_Check_Data {
                 $column_object = $csv_columns[$i];
                 
                 #
+                # Is this the 2nd row in the CSV? If so set the
+                # identical cell content flag and save the cell content
+                #
+                if ( $line_no == 2 ) {
+                    $previous_row[$i] = $data;
+                    $identical_cell_content[$i] = 1;
+                }
+                #
+                # Has the cell content been identical for all previous rows?
+                #
+                elsif ( $identical_cell_content[$i] ) {
+                    #
+                    # Check to see if the content of this row's cell differs
+                    # from the previous row. If it does not clear the
+                    # identical cell content flag.
+                    #
+                    if ( $previous_row[$i] ne $data ) {
+                        $identical_cell_content[$i] = 0;
+                    }
+                }
+
+                #
                 # Does this appear to be numeric data (integer)?
                 #
                 if ( $data =~ /^\s*\-?\d+\s*$/ ) {
@@ -1690,6 +1966,22 @@ sub Open_Data_CSV_Check_Data {
                     #
                     if ( $column_object->type() eq "numeric" ) {
                         $column_object->sum($data);
+                    }
+                    
+                    #
+                    # Increment the count of numeric values
+                    #
+                    $value_type = "numeric";
+                    $value_type_ptr = $column_value_types[$i];
+                    if ( ! defined($$value_type_ptr{$value_type}) ) {
+                        $$value_type_ptr{$value_type} = 1;
+                        $value_type_ptr = $column_value_types_row[$i];
+                        $$value_type_ptr{$value_type} = $line_no;
+                        $value_type_ptr = $column_value_types_value[$i];
+                        $$value_type_ptr{$value_type} = $data;
+                    }
+                    else {
+                        $$value_type_ptr{$value_type} = $$value_type_ptr{$value_type} + 1;
                     }
                 }
                 #
@@ -1706,20 +1998,85 @@ sub Open_Data_CSV_Check_Data {
                     if ( $column_object->type() eq "numeric" ) {
                         $column_object->sum($data);
                     }
+
+                    #
+                    # Increment the count of numeric values
+                    #
+                    $value_type = "numeric";
+                    $value_type_ptr = $column_value_types[$i];
+                    if ( ! defined($$value_type_ptr{$value_type}) ) {
+                        $$value_type_ptr{$value_type} = 1;
+                        $value_type_ptr = $column_value_types_row[$i];
+                        $$value_type_ptr{$value_type} = $line_no;
+                        $value_type_ptr = $column_value_types_value[$i];
+                        $$value_type_ptr{$value_type} = $data;
+                    }
+                    else {
+                        $$value_type_ptr{$value_type} = $$value_type_ptr{$value_type} + 1;
+                    }
+                }
+                #
+                # Does this appear to be date (YYYY-MM-DD)?
+                #
+                elsif ( $data =~ /^\s*\d\d\d\d\-\d\d\-\d\d\s*$/ ) {
+                    if ( $column_object->type() eq "" ) {
+                        $column_object->type("date");
+                    }
+
+                    #
+                    # Add the current value to the column sum.
+                    #
+                    if ( $column_object->type() eq "date" ) {
+                        $data1 = $data;
+                        $data1 =~ s/\-//g;
+                        $column_object->sum($data1);
+                    }
+                    
+                    #
+                    # Increment the count of date values
+                    #
+                    $value_type = "date";
+                    $value_type_ptr = $column_value_types[$i];
+                    if ( ! defined($$value_type_ptr{$value_type}) ) {
+                        $$value_type_ptr{$value_type} = 1;
+                        $value_type_ptr = $column_value_types_row[$i];
+                        $$value_type_ptr{$value_type} = $line_no;
+                        $value_type_ptr = $column_value_types_value[$i];
+                        $$value_type_ptr{$value_type} = $data;
+                    }
+                    else {
+                        $$value_type_ptr{$value_type} = $$value_type_ptr{$value_type} + 1;
+                    }
                 }
                 #
                 # Blank field, skip it.
                 #
                 elsif ( $data =~ /^[\s\n\r]*$/ ) {
+                    $value_type = "blank";
                 }
                 #
                 # Text field
                 #
                 else {
                     $column_object->type("text");
+
+                    #
+                    # Increment the count of text values
+                    #
+                    $value_type = "text";
+                    $value_type_ptr = $column_value_types[$i];
+                    if ( ! defined($$value_type_ptr{$value_type}) ) {
+                        $$value_type_ptr{$value_type} = 1;
+                        $value_type_ptr = $column_value_types_row[$i];
+                        $$value_type_ptr{$value_type} = $line_no;
+                        $value_type_ptr = $column_value_types_value[$i];
+                        $$value_type_ptr{$value_type} = $data;
+                    }
+                    else {
+                        $$value_type_ptr{$value_type} = $$value_type_ptr{$value_type} + 1;
+                    }
                 }
-                print "Column data = \"$data\", type = " . $column_object->type() .
-                      "\n" if $debug;
+                print "Column data = \"$data\", type = $value_type\n" if $debug;
                 
                 #
                 # If the cell is not blank, increment the non-blank count
@@ -1734,9 +2091,11 @@ sub Open_Data_CSV_Check_Data {
                 if ( defined($headings[$i]) ) {
                     $heading = $headings[$i];
                     $regex = $heading->regex();
+                    $message = $heading->term();
                 }
                 else {
                     $regex = "";
+                    $message = "";
                 }
                 
                 #
@@ -1754,8 +2113,129 @@ sub Open_Data_CSV_Check_Data {
                                       " \"$regex\" " .
                                       String_Value("failed for value") .
                                       " \"$data\" " .
-                                      String_Value("Column") . " \"" .
-                                      $heading->term() . "\" (#" . ($i + 1) . ")");
+                                      String_Value("Column") .
+                                      " \"$message\" (#" . ($i + 1) . ")");
+                    }
+                }
+                
+                #
+                # If this is a numeric value, check that the number of digits
+                # does not exceed 255. The value may be truncated by
+                # spreadsheet tools (e.g. Excel).
+                #
+                if ( ($value_type eq "numeric") && (length($data) > 255) ) {
+                    Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                                          String_Value("Long numeric value may be truncated") .
+                                          " \"$data\" " .
+                                          String_Value("Column") .
+                                          " \"$message\" (#" . ($i + 1) . ")");
+                }
+                #
+                # Check for leading - (minus sign) or + (plus sign) followed
+                # by just digits or decimal point. This is not an Excel formula.
+                #
+                elsif ( $data =~ /^[+\-][\d\.]+$/i ) {
+                    print "Ignore positive or negative number, not a formula\n" if $debug;
+                }
+                #
+                # Check for leading =, - or + character followed by a letter
+                # or parenthesis (ignore digits).  This may be interpreted by
+                # Excel as a formula (e.g. =SUM(A1:F1)).
+                #
+                elsif ( $data =~ /^[=+\-].*[A-Z\d\.\(]+.*/i ) {
+                    Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                                          String_Value("Possible Excel formula as field value") .
+                                          " \"$data\" " .
+                                          String_Value("Column") .
+                                          " \"$message\" (#" . ($i + 1) . ")");
+                }
+                #
+                # Check for leading space followed by =, - or + character
+                # followed by a letter, digit or parenthesis.  This is a
+                # work around to prevent Excel from interpreting the value as
+                # a formula (e.g. =SUM(A1:F1)). This is a valid case for
+                # a single leading space character that should not be reported
+                # as an error in the next check.
+                #
+                elsif ( $data =~ /^\s[=+\-][A-Z\d\(].*/i ) {
+                    print "Ignore single leading whitespace in field that may be interpreted as a formula\n" if $debug;
+                }
+                #
+                # Check for leading or trailing whitespace in the value.
+                # This whitespace is unnecessary and should not be in
+                # the value.
+                #
+                elsif ( ($data =~ /^\s+/) || ($data =~ /\s+$/) ) {
+                    #
+                    # Only record the first instance of the error as there
+                    # may be many instances in the data.
+                    #
+                    if ( $leading_trailing_whitespace_count == 0 ) {
+                        Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                                              String_Value("Leading or trailing whitespace characters in field value") .
+                                              " \"$data\" " .
+                                              String_Value("Column") .
+                                              " \"$message\" (#" . ($i + 1) . ")");
+                    }
+                    $leading_trailing_whitespace_count++;
+                }
+                
+                #
+                # Check for possible inconsistencies in the spacing,
+                # punctuation or capitalization of text values.
+                #
+                if ( $value_type eq "text" ) {
+                    #
+                    # Remove leading/trailing whitespace as those are
+                    # already reported and we want to avoid multiple
+                    # errors for the same problem.
+                    #
+                    $data =~ s/^\s+//;
+                    $data =~ s/\s+$//;
+                    $cleansed_value = Cleanse_Value($data);
+                    
+                    #
+                    # Did we get a cleansed value?
+                    #
+                    if ( $cleansed_value ne "" ) {
+                        print "Cleansed value is \"$cleansed_value\"\n" if $debug;
+                        
+                        #
+                        # Get the cleansed value table for this column
+                        #
+                        $table_addr = $column_object->cleansed_value_table();
+                        
+                        #
+                        # Does this cleansed value appear in the table?
+                        #
+                        if ( defined($$table_addr{$cleansed_value}) ) {
+                            #
+                            # Get the uncleansed values and line number
+                            #
+                            ($other_line_no, $data1) = split(/:/, $$table_addr{$cleansed_value}, 2);
+                            
+                            #
+                            # Do the uncleansed values match?
+                            # Do a case insensitive check.
+                            #
+                            if ( lc($data) ne lc($data1) ) {
+                                Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                                                      String_Value("Inconsistent field values for column") .
+                                                      " \"$message\" (#" . ($i + 1) . ")\n " .
+                                                      String_Value("found") . " \"" .
+                                                      Convert_Nonprintable_to_Hex($data) . "\"\n " .
+                                                      String_Value("expecting") . " \"" .
+                                                      Convert_Nonprintable_to_Hex($data1) . "\"\n " .
+                                                      String_Value("Found at row") . " $other_line_no");
+                            }
+                        }
+                        else {
+                            #
+                            # Save this cleansed value in the table.
+                            # Include the row number in the value.
+                            #
+                            $$table_addr{$cleansed_value} = "$line_no:$data";
+                        }
                     }
                 }
             }
@@ -1772,7 +2252,7 @@ sub Open_Data_CSV_Check_Data {
         #
         print "Check for duplicate row, checksum = $checksum\n" if $debug;
         if ( defined($row_checksum{$checksum}) ) {
-            Record_Result("OD_DATA", $line_no, 0, "$line",
+            Record_Content_Result("TP_PW_OD_CONT", $line_no, 0, "$line",
                           String_Value("Duplicate row content, first instance at") .
                           " " . $row_checksum{$checksum});
         }
@@ -1905,6 +2385,167 @@ sub Open_Data_CSV_Check_Data {
     elsif ( $line_no == 0 ) {
         Record_Result("OD_VAL", -1, 0, "", String_Value("No content in file"));
     }
+    #
+    # Perform some content checks
+    #
+    else {
+        #
+        # Check the percentage of blank cells in columns.  If the
+        # percentage is very high, change the data value type to
+        # unknown.
+        #
+        print "Check for high percentage of blank cells in columns\n" if $debug;
+        for ($i = 0; $i < $field_count; $i++) {
+            $column_object = $csv_columns[$i];
+            $non_blank_line_count = $column_object->non_blank_cell_count();
+            
+            if ( ($non_blank_line_count * 100.0 / $line_no) < $min_non_blank_cell_percentage ) {
+                print "Non blank cell count below acceptable percentage\n" if $debug;
+                $column_object->type("");
+            }
+        }
+
+        #
+        # Check for identical content in all cells in each column.
+        # Only check this if we have at least 10 rows of data
+        #
+        if ( $line_no > 9 ) {
+            print "Check for identical content in columns\n" if $debug;
+            for ($i = 0; $i < $field_count; $i++) {
+                if ( $identical_cell_content[$i] ) {
+                    print "Column $i has identical content in all cells\n" if $debug;
+                    
+                    #
+                    # Check for blank content or 0 content.  We allow columns
+                    # of those values.
+                    #
+                    if ( ($previous_row[$i] =~ /^[\s\n\r]*$/) ||
+                         ($previous_row[$i] eq "0") ) {
+                        print "Ignore blank or 0 column\n" if $debug;
+                        next;
+                    }
+                    
+                    #
+                    # Get heading label
+                    #
+                    $heading = $headings[$i];
+                    if ( defined($heading) ) {
+                        $message = $heading->term();
+                    }
+                    else {
+                        $message = "";
+                    }
+                    
+                    #
+                    # Record error
+                    #
+                    Record_Content_Result("TP_PW_OD_CONT", -1, ($i + 1), "",
+                                          String_Value("All cells in column") .
+                                          " \"$message\" (#" . ($i + 1) . ") " .
+                                          String_Value("have identical content") .
+                                          " \"" . $previous_row[$i] . "\"");
+                }
+            }
+        }
+
+        #
+        # Check that the content in a column is of a consistent type (e.g.
+        # numeric, text, date, etc.).
+        # Only check this if we have at least 100 rows of data
+        #
+        if ( $line_no > 99 ) {
+            print "Check for content consistency in columns\n" if $debug;
+            for ($i = 0; $i < $field_count; $i++) {
+                #
+                # Get address of table of value counts by data type
+                #
+                $value_type_ptr = $column_value_types[$i];
+                $column_object = $csv_columns[$i];
+                
+                #
+                # Get the number of non blank lines. Use this for
+                # checking the number of cells of a particular type.
+                # Blank cells could match any type.
+                #
+                $non_blank_line_count = $column_object->non_blank_cell_count();
+                
+                #
+                # Do we still have over 99 data items?
+                #
+                if ( $non_blank_line_count < 100 ) {
+                    print "Skip data type consistency check for column $i, fewer than 99 values\n" if $debug;
+                    next;
+                }
+                
+                #
+                # Determine the column type based on the most frequent
+                # data value type. The initial type was determined from
+                # type of the first row.
+                #
+                $computed_value_type = $column_object->type();
+                $type_count = $$value_type_ptr{$computed_value_type};
+                foreach $value_type (keys(%$value_type_ptr)) {
+                    if ( $$value_type_ptr{$value_type} > $type_count ) {
+                        $computed_value_type = $value_type;
+                        $type_count = $$value_type_ptr{$value_type};
+                    }
+                }
+
+                #
+                # Check each data type to see if there are any significant
+                # inconsistencies. Report a problem if a data type is less
+                # than minimum percentage of all values.
+                #
+                foreach $value_type (keys(%$value_type_ptr)) {
+                    #
+                    # Is this value type less than 1% of all values?
+                    #
+                    $type_count = $$value_type_ptr{$value_type};
+                    print "Value count for column $i type $value_type is $type_count\n" if $debug;
+                    if ( ($type_count * 100.0 / $non_blank_line_count) < $min_consistent_type_percent ) {
+                        #
+                        # Get heading label
+                        #
+                        $heading = $headings[$i];
+                        if ( defined($heading) ) {
+                            $message = $heading->term();
+                        }
+                        else {
+                            $message = "";
+                        }
+                        
+                        #
+                        # Get the first row with this type
+                        #
+                        $value_type_row_ptr = $column_value_types_row[$i];
+                        $type_line = $$value_type_row_ptr{$value_type};
+                        $value_type_row_ptr = $column_value_types_value[$i];
+                        $type_value = $$value_type_row_ptr{$value_type};
+
+                        #
+                        # Record error
+                        #
+                        Record_Content_Result("TP_PW_OD_CONT", -1, ($i + 1), "",
+                                              String_Value("Inconsistent data type in column") .
+                                              " \"$message\" (#" . ($i + 1) . ") " .
+                                              String_Value("found") . " $type_count " .
+                                              String_Value("values of type") .
+                                              " $value_type " .
+                                              String_Value("expecting values to be of type") .
+                                              " $computed_value_type. " .
+                                              String_Value("First instance at") .
+                                              " $type_line, " .
+                                              String_Value("field value") .
+                                              " \"$type_value\"");
+                    }
+                }
+            }
+        }
+    }
+    
+    #
+    # Close the CSV file
+    #
     close($csv_file);
     
     #
@@ -1972,7 +2613,7 @@ sub Open_Data_CSV_Check_Data {
                     }
                 }
                 print "Duplicate columns $duplicate_column_list\n" if $debug;
-                Record_Result("OD_DATA", -1, $i + 1, "$line",
+                Record_Result("OD_DATA", -1, $i + 1, "",
                               String_Value("Duplicate content in columns") .
                               " $duplicate_column_list");
             }
@@ -1996,6 +2637,16 @@ sub Open_Data_CSV_Check_Data {
                   " type " . $column_object->type . " Non-blank cell count " .
                   $column_object->non_blank_cell_count . "\n";
         }
+    }
+    
+    #
+    # Did we find more than 1 instance of leading or trailing whitespace in
+    # field values?
+    #
+    if ( $leading_trailing_whitespace_count > 1 ) {
+        Record_Content_Result("TP_PW_OD_CONT", -1, -1, "",
+                              String_Value("Total of") . " $leading_trailing_whitespace_count " .
+                              String_Value("instances of leading or trailing whitespace characters in field values"));
     }
     
     #
@@ -2279,6 +2930,35 @@ sub Open_Data_CSV_Compare_JSON_CSV {
     return(@tqa_results_list);
 }
         
+#***********************************************************************
+#
+# Name: Open_Data_CSV_Get_Content_Results
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function runs the list of content errors found.
+#
+#***********************************************************************
+sub Open_Data_CSV_Get_Content_Results {
+    my ($this_url) = @_;
+
+    my (@empty_list);
+
+    #
+    # Does this URL match the last one analysed by the
+    # Open_Data_CSV_Check_Data function?
+    #
+    print "Open_Data_CSV_Get_Content_Results url = $this_url\n" if $debug;
+    if ( $current_url eq $this_url ) {
+        return(@content_results_list);
+    }
+    else {
+        return(@empty_list);
+    }
+}
+
 #***********************************************************************
 #
 # Mainline
