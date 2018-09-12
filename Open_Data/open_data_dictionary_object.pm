@@ -3,7 +3,7 @@
 # Name: open_data_dictionary_object.pm
 #
 # $Revision: 234 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_dictionary_object.pm $
+# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_dictionary_object.pm $
 # $Date: 2017-01-12 13:43:35 -0500 (Thu, 12 Jan 2017) $
 #
 # Description:
@@ -19,6 +19,7 @@
 #    new - create new object instance
 #    condition - get/set data condition value
 #    id - get/set the id value
+#    in_dictionary - get/set the in dictionary value
 #    regex - get/set data regex value
 #    related_resource - get/set related resource value
 #    type - get/set the type value
@@ -110,7 +111,14 @@ sub Open_Data_Dictionary_Object_Debug {
 # Description:
 #
 #   This function creates a new open_data_dictionary_object item and
-# initializes its data items.
+# initializes its data items. Object attributes are:
+#    condition - conditions for CVS data cells.
+#    id - id value from the XML data dictionary for this term
+#    in_dictionary - flag to indicate if the term is in a dictionary.
+#    regex - regular expression to be applied to data values
+#    related_resource - related resources such as controlled vocabularies
+#    term - dictionary term
+#    type - data type of values (e.g. numeric, date, text, etc.)
 #
 #********************************************************
 sub new {
@@ -128,6 +136,7 @@ sub new {
     #
     $self->{"condition"} = "";
     $self->{"id"} = "";
+    $self->{"in_dictionary"} = 1;
     $self->{"regex"} = "";
     $self->{"related_resource"} = "";
     $self->{"term"} = "";
@@ -194,6 +203,35 @@ sub id {
     }
     else {
         return($self->{"id"});
+    }
+}
+
+#********************************************************
+#
+# Name: in_dictionary
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the in_dictionary
+# attribute of the data dictionary object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub in_dictionary {
+    my ($self, $value) = @_;
+
+    #
+    # Was an in_dictionary value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"in_dictionary"} = $value;
+    }
+    else {
+        return($self->{"in_dictionary"});
     }
 }
 
