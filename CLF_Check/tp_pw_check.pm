@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 508 $
+# $Revision: 771 $
 # $URL: svn://10.36.148.185/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2017-09-29 13:40:04 -0400 (Fri, 29 Sep 2017) $
+# $Date: 2018-03-15 13:49:24 -0400 (Thu, 15 Mar 2018) $
 #
 # Description:
 #
@@ -66,9 +66,11 @@ use File::Temp qw/ tempfile tempdir /;
 #
 use clf_check;
 use crawler;
+use html_landmark;
 use testcase_data_object;
 use textcat;
 use tqa_result_object;
+use tqa_tag_object;
 use url_check;
 
 #***********************************************************************
@@ -110,7 +112,8 @@ my ($current_heading_level, $have_text_handler, %section_h1_count);
 my (%found_template_markers, $current_clf_check_profile_name);
 my ($valid_search_actions, $expected_search_inputs);
 my ($in_search_form, $in_noscript, @heading_level_stack);
-my ($current_anchor_mailto);
+my ($current_anchor_mailto, @tag_order_stack);
+my ($current_tag_object, $current_landmark, $landmark_marker);
 
 my ($max_error_message_string) = 2048;
 
@@ -136,6 +139,29 @@ my (%critical_template_file_suffix) = (
     "svg", 1,
     "swf", 1,
     "txt", 1,
+);
+
+#
+# List of HTML tags that do not have an explicit end tag.
+#
+my (%html_tags_with_no_end_tag) = (
+        "area", "area",
+        "base", "base",
+        "br", "br",
+        "col", "col",
+        "command", "command",
+        "embed", "embed",
+        "frame", "frame",
+        "hr", "hr",
+        "img", "img",
+        "input", "input",
+        "keygen", "keygen",
+        "link", "link",
+        "meta", "meta",
+        "param", "param",
+        "source", "source",
+#        "track", "track",
+        "wbr", "wbr",
 );
 
 #
@@ -790,6 +816,9 @@ sub Initialize_Test_Results {
     #
     # Initialize flags and counters
     #
+    $current_landmark = "";
+    $landmark_marker = "";
+    @tag_order_stack = ();
     $current_clf_check_profile_name = $profile;
     $found_frame_tag = 0;
     $current_heading_level = 0;
@@ -862,6 +891,8 @@ sub Record_Result {
                                                 Testcase_Description($testcase),
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
+        $result_object->landmark($current_landmark);
+        $result_object->landmark_marker($landmark_marker);
         push (@$results_list_addr, $result_object);
 
         #
@@ -1512,6 +1543,23 @@ sub Start_Handler {
     my ($id);
 
     #
+    # Create a new tag object
+    #
+    print "Start_Handler tag $tagname at $line:$column\n" if $debug;
+    $current_tag_object = tqa_tag_object->new($tagname, $line, $column,
+                                              \%attr_hash);
+    push(@tag_order_stack, $current_tag_object);
+
+    #
+    # Compute the current landmark and add it to the tag object.
+    #
+    ($current_landmark, $landmark_marker) = HTML_Landmark($tagname, $line,
+                       $column, $current_landmark, $landmark_marker,
+                       \@tag_order_stack, %attr_hash);
+    $current_tag_object->landmark($current_landmark);
+    $current_tag_object->landmark_marker($landmark_marker);
+
+    #
     # Check for start of content section
     #
     $content_section_handler->check_start_tag($tagname, $line, $column,
@@ -1592,6 +1640,15 @@ sub Start_Handler {
         Start_Section_Tag_Handler($self, $line, $column, $text, %attr_hash);
     }
 
+    #
+    # Is this a tag that has no end tag ? If so we must set the last tag
+    # seen value here rather than in the End_Handler function.
+    #
+    if ( defined ($html_tags_with_no_end_tag{$tagname}) ) {
+        $current_tag_object = pop(@tag_order_stack);
+        $current_landmark = $current_tag_object->landmark();
+        $landmark_marker = $current_tag_object->landmark_marker();
+    }
 }
 
 #***********************************************************************
@@ -1801,6 +1858,7 @@ sub End_Handler {
     my ( $self, $tagname, $line, $column, $text, @attr ) = @_;
 
     my (%attr_hash) = @attr;
+    my ($popped_tag, $last_item);
 
     #
     # If this is an end anchor tag, reset current anchor href to empty string
@@ -1839,6 +1897,27 @@ sub End_Handler {
     # Is this the end of a content area ?
     #
     $content_section_handler->check_end_tag($tagname, $line, $column);
+
+    #
+    # Pop last tag of the stack
+    #
+    if ( @tag_order_stack > 0 ) {
+        $current_tag_object = pop(@tag_order_stack);
+        if ( @tag_order_stack > 0 ) {
+            $last_item = @tag_order_stack - 1;
+            $current_tag_object = $tag_order_stack[$last_item];
+            $current_landmark = $current_tag_object->landmark();
+            $landmark_marker = $current_tag_object->landmark_marker();
+        }
+        else {
+            $current_landmark = "";
+            $landmark_marker = "";
+        }
+    }
+    else {
+        $current_landmark = "";
+        $landmark_marker = "";
+    }
 }
 
 #***********************************************************************
@@ -2502,6 +2581,8 @@ sub Check_Template_Links {
         #
         foreach $link (@$list_addr) {
             $link_url = $link->abs_url;
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
 
             #
             # Break URL into components
@@ -2698,6 +2779,8 @@ sub Check_Site_Includes_Links {
         #
         foreach $link (@$list_addr) {
             $link_url = $link->abs_url;
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
 
             #
             # Break URL into components
@@ -2822,6 +2905,8 @@ sub Check_New_Window_Attribute {
     # Get attributes of the anchor tag
     #
     %attr = $link->attr;
+    $current_landmark = $link->landmark();
+    $landmark_marker = $link->landmark_marker();
 
     #
     # Does the link open in a new window ? i.e. target="_blank"
@@ -2898,6 +2983,12 @@ sub Check_Application_Template_Navigation {
         $i = 0;
         foreach $link (@$list_addr) {
             #
+            # Get landmark details
+            #
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
+
+            #
             # Check anchor links only
             #
             $i++;
@@ -2936,6 +3027,12 @@ sub Check_Application_Template_Navigation {
         #
         foreach $link (@$list_addr) {
             #
+            # Get landmark details
+            #
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
+
+            #
             # Check anchor links only
             #
             if ( $link->link_type eq "a" ) {
@@ -2965,6 +3062,12 @@ sub Check_Application_Template_Navigation {
         # "Open in new window" status.
         #
         foreach $link (@$list_addr) {
+            #
+            # Get landmark details
+            #
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
+
             #
             # Check anchor links only
             #
@@ -3054,6 +3157,8 @@ sub Check_Web_Analytics_Link {
         #
         foreach $link (@$list_addr) {
             $link_url = $link->abs_url;
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
 
             #
             # Check each possible analytics pattern
@@ -3087,6 +3192,8 @@ sub Check_Web_Analytics_Link {
     # Did we not find an analytics link ?
     #
     if ( ! $found_analytics_link ) {
+        $current_landmark = "body";
+        $landmark_marker = "<body>";
         Record_Result("TP_PW_ANALYTICS", -1, -1, "",
                       String_Value("Did not find web analytics code") .
                                   String_Value("expecting one of") .
@@ -3136,6 +3243,8 @@ sub TP_PW_Check_Links {
     #
     $current_clf_check_profile = $clf_check_profile_map{$profile};
     $results_list_addr = \@local_tqa_results_list;
+    $current_landmark = "";
+    $landmark_marker = "";
 
     #
     # Are any of the testcases defined in this module

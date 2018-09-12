@@ -67,10 +67,12 @@ use HTML::Entities;
 # Use WPSS_Tool program modules
 #
 use content_sections;
+use html_landmark;
 use language_map;
 use pdf_files;
 use textcat;
 use tqa_result_object;
+use tqa_tag_object;
 use url_check;
 
 #***********************************************************************
@@ -113,8 +115,9 @@ my (%parent_subsection_heading_value, %parent_subsection_heading_location);
 my (%peer_subsection_heading_value, %peer_subsection_heading_location);
 my ($current_heading_level, $results_list_addr);
 my (@content_headings, $content_section_handler, %inside_html_tag);
-my ($dc_title_text, $dcterms_title_text);
+my ($dc_title_text, $dcterms_title_text, @tag_order_stack);
 my (%subsection_text, $have_text_handler, $title_text, @all_headings);
+my ($current_tag_object, $current_landmark, $landmark_marker);
 
 #
 # Create a blank content check profile that is used when extracting headings
@@ -133,6 +136,26 @@ my ($line_break_after_tags) = " h1 h2 h3 h4 h5 h6 ol ul ";
 # List of URL suffixes taht should be HTML content
 #
 my (@html_suffix_list) = (".html", ".HTML", ".htm", ".HTM");
+
+my (%html_tags_with_no_end_tag) = (
+        "area", "area",
+        "base", "base",
+        "br", "br",
+        "col", "col",
+        "command", "command",
+        "embed", "embed",
+        "frame", "frame",
+        "hr", "hr",
+        "img", "img",
+        "input", "input",
+        "keygen", "keygen",
+        "link", "link",
+        "meta", "meta",
+        "param", "param",
+        "source", "source",
+#        "track", "track",
+        "wbr", "wbr",
+);
 
 #
 # Status values
@@ -269,6 +292,11 @@ sub Set_Content_Check_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+
+    #
+    # Set debug flag for supporting modules
+    #
+    HTML_Landmark_Debug($debug);
 }
 
 #***********************************************************************
@@ -649,6 +677,8 @@ sub Record_Result {
                                                 $$testcase_description{$testcase},
                                                 -1, -1, "",
                                                 $error_string, $current_url);
+        $result_object->landmark($current_landmark);
+        $result_object->landmark_marker($landmark_marker);
 
         #
         # Save result object in list of results
@@ -1237,6 +1267,22 @@ sub Start_Handler {
     my (%attr_hash) = @attr;
 
     #
+    # Create a new tag object
+    #
+    $current_tag_object = tqa_tag_object->new($tagname, $line, $column,
+                                              \%attr_hash);
+    push(@tag_order_stack, $current_tag_object);
+
+    #
+    # Compute the current landmark and add it to the tag object.
+    #
+    ($current_landmark, $landmark_marker) = HTML_Landmark($tagname, $line,
+                       $column, $current_landmark, $landmark_marker,
+                       \@tag_order_stack, %attr_hash);
+    $current_tag_object->landmark($current_landmark);
+    $current_tag_object->landmark_marker($landmark_marker);
+
+    #
     # Check html tag
     #
     if ( $tagname eq "html" ) {
@@ -1276,6 +1322,16 @@ sub Start_Handler {
     if ( $content_section_handler->current_content_section eq "CONTENT" ) {
         $found_content_section = 1;
     }
+
+    #
+    # Is this a tag that has no end tag ? If so we must set the last tag
+    # seen value here rather than in the End_Handler function.
+    #
+    if ( defined ($html_tags_with_no_end_tag{$tagname}) ) {
+        $current_tag_object = pop(@tag_order_stack);
+        $current_landmark = $current_tag_object->landmark();
+        $landmark_marker = $current_tag_object->landmark_marker();
+    }
 }
 
 #***********************************************************************
@@ -1299,6 +1355,7 @@ sub End_Handler {
     my ( $self, $tagname, $line, $column, $text, @attr ) = @_;
 
     my (%attr_hash) = @attr;
+    my ($last_item);
 
     #
     # Check heading tag
@@ -1318,6 +1375,27 @@ sub End_Handler {
     # Is this the end of a content area ?
     #
     $content_section_handler->check_end_tag($tagname, $line, $column);
+
+    #
+    # Pop last tag of the stack
+    #
+    if ( @tag_order_stack > 0 ) {
+        $current_tag_object = pop(@tag_order_stack);
+        if ( @tag_order_stack > 0 ) {
+            $last_item = @tag_order_stack - 1;
+            $current_tag_object = $tag_order_stack[$last_item];
+            $current_landmark = $current_tag_object->landmark();
+            $landmark_marker = $current_tag_object->landmark_marker();
+        }
+        else {
+            $current_landmark = "";
+            $landmark_marker = "";
+        }
+    }
+    else {
+        $current_landmark = "";
+        $landmark_marker = "";
+    }
 }
 
 #***********************************************************************
@@ -1478,7 +1556,10 @@ sub HTML_Content_Check {
     #
     $html_lang = "";
     undef %inside_html_tag;
-    
+    @tag_order_stack = ();
+    $current_landmark = "";
+    $landmark_marker = "";
+
     #
     # Add handlers for some of the HTML tags
     #
