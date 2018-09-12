@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 599 $
+# $Revision: 774 $
 # $URL: svn://10.36.148.185/Link_Check/Tools/link_checker.pm $
-# $Date: 2017-11-28 15:23:50 -0500 (Tue, 28 Nov 2017) $
+# $Date: 2018-03-15 13:50:11 -0400 (Thu, 15 Mar 2018) $
 #
 # Description:
 #
@@ -131,6 +131,7 @@ my (%visited_link_object_cache, %visited_url_http_status);
 my (%visited_url_http_resp, $results_list_addr, $current_url);
 my (%link_check_profile_map, $current_link_check_profile);
 my (%site_title_lang_map, $accepted_content_encodings);
+my ($current_landmark, $landmark_marker);
 
 my ($max_redirects) = 10;
 my ($debug) = 0;
@@ -597,6 +598,8 @@ sub Initialize_Link_Checker_Variables {
     #
     $results_list_addr = $list_addr;
     $current_link_check_profile = $link_check_profile_map{$profile};
+    $current_landmark = "";
+    $landmark_marker = "";
 
     #
     # Create user agent
@@ -1544,6 +1547,8 @@ sub Record_Result {
                                                 $$testcase_description{$testcase},
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
+        $result_object->landmark($current_landmark);
+        $result_object->landmark_marker($landmark_marker);
         push (@$results_list_addr, $result_object);
 
         #
@@ -1667,6 +1672,8 @@ sub Cross_Language_Link {
     # testcase message.
     #
     if ( $rc == 1 ) {
+        $current_landmark = $link->landmark();
+        $landmark_marker = $link->landmark_marker();
         Record_Result("CROSS_LANGUAGE", $link->line_no, $link->column_no,
                       $link->source_line,
                       "href= " . $link->href . "\n" .
@@ -2421,6 +2428,8 @@ sub Link_Checker {
     #
     foreach $link (@$links) {
         $this_link = $link->abs_url;
+        $current_landmark = $link->landmark();
+        $landmark_marker = $link->landmark_marker();
         print "Check new link $this_link, anchor = " . $link->anchor . "\n" if $debug;
 
         #
