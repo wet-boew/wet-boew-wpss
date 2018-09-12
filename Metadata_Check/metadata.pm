@@ -316,7 +316,7 @@ sub Read_Compressed_Metadata_Thesaurus_File {
         #
         if ( $term ne "" ) {
             $terms{lc($term)} = lc($term);
-            print "Save DC_Subject term \"$term\" as \"" . lc($term) . "\"\n" if $debug;
+            #print "Save DC_Subject term \"$term\" as \"" . lc($term) . "\"\n" if $debug;
         }
     }
     close(THESAURUS);
