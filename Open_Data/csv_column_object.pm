@@ -2,9 +2,9 @@
 #
 # Name: csv_column_object.pm
 #
-# $Revision: 333 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/csv_column_object.pm $
-# $Date: 2017-04-11 12:53:09 -0400 (Tue, 11 Apr 2017) $
+# $Revision: 888 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/csv_column_object.pm $
+# $Date: 2018-07-09 10:53:57 -0400 (Mon, 09 Jul 2018) $
 #
 # Description:
 #
@@ -17,6 +17,7 @@
 #
 # Class Methods
 #    new - create new object instance
+#    cleansed_value_table - get the cleansed value table
 #    heading - get/set csv column heading
 #    increment_non_blank_cell_count - increment non_blank_cell_count value
 #    non_blank_cell_count - get/set non_blank_cell_count value
@@ -116,6 +117,7 @@ sub new {
     my ($class, $heading) = @_;
     
     my ($self) = {};
+    my (%cleansed_value_table);
 
     #
     # Bless the reference as a csv_column_object class item
@@ -126,6 +128,7 @@ sub new {
     # Save arguments as object data items and initialize
     # other object data.
     #
+    $self->{"cleansed_value_table"} = \%cleansed_value_table;
     $self->{"heading"} = $heading;
     $self->{"non_blank_cell_count"} = 0;
     $self->{"sum"} = 0;
@@ -142,6 +145,27 @@ sub new {
     return($self);
 }
     
+#********************************************************
+#
+# Name: cleansed_value_table
+#
+# Parameters: self - class reference
+#
+# Description:
+#
+#   This function returns the address of the cleansed value
+# table for this column object.
+#
+#********************************************************
+sub cleansed_value_table {
+    my ($self) = @_;
+
+    #
+    # Return address of hash table
+    #
+    return($self->{"cleansed_value_table"});
+}
+
 #********************************************************
 #
 # Name: heading
