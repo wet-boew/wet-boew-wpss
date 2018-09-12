@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision: 234 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_config.txt $
-# $Date: 2017-01-12 13:43:35 -0500 (Thu, 12 Jan 2017) $
+# $Revision: 818 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_config.txt $
+# $Date: 2018-04-12 14:55:29 -0400 (Thu, 12 Apr 2018) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -63,6 +63,7 @@ tcid OD_DATA
 # PWGSC Open Data testcases
 #
 tcid TP_PW_OD_BOM
+tcid TP_PW_OD_CONT
 tcid TP_PW_OD_DATA
 tcid TP_PW_OD_DD
 
@@ -98,6 +99,13 @@ Testcase_Data OD_URL DICTIONARY Dictionnaire de données
 #
 Testcase_Data TP_PW_OD_DATA REQUIRED_LANG en
 Testcase_Data TP_PW_OD_DATA REQUIRED_LANG fr
+
+#
+# Percentage for reporting data type consistency errors.
+# If the percentage of data values not matching the CSV column
+# data type exceeds this value, an error is reported.
+#
+Testcase_Data TP_PW_OD_CONT DATA_TYPE_CONSISTENCY_PERCENT 2.0
 
 #
 #***********************************************************************
