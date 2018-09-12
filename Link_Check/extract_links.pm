@@ -61,9 +61,11 @@ use content_sections;
 use css_extract_links;
 use css_validate;
 use extract_anchors;
+use html_landmark;
 use language_map;
 use link_object;
 use pdf_extract_links;
+use tqa_tag_object;
 use url_check;
 use xml_extract_links;
 
@@ -100,7 +102,8 @@ my (@text_handler_tag_list, @text_handler_text_list);
 my ($current_text_handler_tag, $inside_anchor, $last_image_link);
 my ($inside_figure, $have_figcaption, $figcaption_text, $inside_noscript);
 my ($image_in_figure_with_no_alt, @object_reference_list, @list_location);
-my ($last_generated_content);
+my ($last_generated_content, $current_landmark, @tag_order_stack);
+my ($current_tag_object, $landmark_marker);
 my ($last_url) = "";
 my (%html_tags_with_no_end_tag) = (
         "area", "area",
@@ -147,6 +150,7 @@ sub Extract_Links_Debug {
     #
     Link_Object_Debug($debug);
     CSS_Extract_Links_Debug($debug);
+    HTML_Landmark_Debug($debug);
     PDF_Extract_Links_Debug($debug);
     XML_Extract_Links_Debug($debug);
 }
@@ -251,8 +255,11 @@ sub Initialize_Link_Parser_Variables {
     $current_anchor_reference = undef;
     $have_text_handler = 0;
     $current_lang = "eng";
-    push(@lang_stack, $current_lang);
-    push(@tag_lang_stack, "top");
+    $current_landmark = "";
+    $landmark_marker = "";
+    @lang_stack = ($current_lang);
+    @tag_lang_stack = ("top");
+    @tag_order_stack = ();
     $last_lang_tag = "top";
     $in_head_section = 0;
     $last_heading_text = "";
@@ -722,6 +729,8 @@ sub Anchor_Tag_Handler {
                                                          $content_lines[$line - 1]);
             $current_anchor_reference->attr(%attr);
             $current_anchor_reference->noscript($inside_noscript);
+            $current_anchor_reference->landmark($current_landmark);
+            $current_anchor_reference->landmark_marker($landmark_marker);
             push (@$link_object_reference, $current_anchor_reference);
             print " Anchor at $line, $column href = $href\n" if $debug;
 
@@ -817,6 +826,8 @@ sub Frame_Tag_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Frame at $line, $column src = $src\n" if $debug;
 
@@ -891,6 +902,8 @@ sub Embed_Tag_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Embed at $line, $column src = $src\n" if $debug;
 
@@ -955,6 +968,8 @@ sub Area_Tag_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Area at $line, $column href = $href\n" if $debug;
 
@@ -1013,6 +1028,8 @@ sub Audio_Tag_Handler {
         $link->attr(%attr);
         $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         print " Audio at $line, $column src = $src\n" if $debug;
 
         #
@@ -1076,6 +1093,8 @@ sub Object_Tag_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Object at $line, $column data = $href\n" if $debug;
 
@@ -1192,6 +1211,8 @@ sub Link_Tag_Handler {
         $link->attr(%attr);
         $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         print " Link at $line, $column href = $href\n" if $debug;
 
         #
@@ -1256,6 +1277,8 @@ sub Longdesc_Attribute_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Longdesc at $line, $column href = $href\n" if $debug;
 
@@ -1307,6 +1330,8 @@ sub Cite_Attribute_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " cite at $line, $column href = $href\n" if $debug;
 
@@ -1358,6 +1383,8 @@ sub Image_Tag_Handler {
         $link->attr(%attr);
         $link->noscript($inside_noscript);
         push (@$link_object_reference, $link);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         print " Image at $line, $column src = $src\n" if $debug;
 
         #
@@ -1465,6 +1492,8 @@ sub Input_Tag_Handler {
                                      $content_lines[$line - 1]);
             $link->attr(%attr);
             $link->noscript($inside_noscript);
+            $link->landmark($current_landmark);
+            $link->landmark_marker($landmark_marker);
             push (@$link_object_reference, $link);
             print " Image in input at $line, $column src = $src\n" if $debug;
 
@@ -1580,6 +1609,8 @@ sub Script_Tag_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Script at $line, $column src = $src\n" if $debug;
 
@@ -1644,6 +1675,8 @@ sub Source_Tag_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Source at $line, $column src = $src\n" if $debug;
 
@@ -1762,6 +1795,8 @@ sub Track_Tag_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Track at $line, $column src = $src\n" if $debug;
 
@@ -1827,6 +1862,8 @@ sub Video_Tag_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Video at $line, $column src = $src\n" if $debug;
 
@@ -1870,6 +1907,8 @@ sub Video_Tag_Handler {
                                  $content_lines[$line - 1]);
         $link->attr(%attr);
         $link->noscript($inside_noscript);
+        $link->landmark($current_landmark);
+        $link->landmark_marker($landmark_marker);
         push (@$link_object_reference, $link);
         print " Video at $line, $column poster = $poster\n" if $debug;
 
@@ -2397,6 +2436,22 @@ sub Start_Handler {
                                               %attr_hash);
 
     #
+    # Create a new tag object
+    #
+    $current_tag_object = tqa_tag_object->new($tagname, $line, $column,
+                                              \%attr_hash);
+    push(@tag_order_stack, $current_tag_object);
+
+    #
+    # Compute the current landmark and add it to the tag object.
+    #
+    ($current_landmark, $landmark_marker) = HTML_Landmark($tagname, $line,
+                       $column, $current_landmark, $landmark_marker,
+                       \@tag_order_stack, %attr_hash);
+    $current_tag_object->landmark($current_landmark);
+    $current_tag_object->landmark_marker($landmark_marker);
+
+    #
     # Check for lang attribute
     #
     Check_Lang_Attribute($tagname, $line, $column, @attr);
@@ -2566,6 +2621,16 @@ sub Start_Handler {
         Cite_Attribute_Handler( $self, $tagname, $line, $column, $text,
                                     %attr_hash );
     }
+
+    #
+    # Is this a tag that has no end tag ? If so we must set the last tag
+    # seen value here rather than in the End_Handler function.
+    #
+    if ( defined ($html_tags_with_no_end_tag{$tagname}) ) {
+        $current_tag_object = pop(@tag_order_stack);
+        $current_landmark = $current_tag_object->landmark();
+        $landmark_marker = $current_tag_object->landmark_marker();
+    }
 }
 
 #***********************************************************************
@@ -2640,6 +2705,7 @@ sub End_Handler {
     my ( $self, $tagname, $line, $column, $text, @attr ) = @_;
 
     my (%attr_hash) = @attr;
+    my ($last_item);
 
     #
     # Check anchor tags
@@ -2713,6 +2779,28 @@ sub End_Handler {
     # Check for end of a document section
     #
     $content_section_handler->check_end_tag($tagname, $line, $column);
+
+    #
+    # Pop last tag of the stack
+    #
+    if ( @tag_order_stack > 0 ) {
+        $current_tag_object = pop(@tag_order_stack);
+        if ( @tag_order_stack > 0 ) {
+            $last_item = @tag_order_stack - 1;
+            $current_tag_object = $tag_order_stack[$last_item];
+            $current_landmark = $current_tag_object->landmark();
+            $landmark_marker = $current_tag_object->landmark_marker();
+        }
+        else {
+            $current_landmark = "";
+            $landmark_marker = "";
+        }
+    }
+    else {
+        $current_landmark = "";
+        $landmark_marker = "";
+    }
+    print "End_Handler: tag $tagname, landmark $current_landmark\n" if $debug;
 }
 
 #***********************************************************************
@@ -2722,6 +2810,7 @@ sub End_Handler {
 # Parameters: this_url - URL of document to extract links from
 #             this_base - the base value from the response object (resp->base)
 #             this_lang - language of URL
+#             label - label for the content type (original, modified, etc)
 #             content - content pointer
 #
 # Description:
@@ -2731,7 +2820,7 @@ sub End_Handler {
 #
 #***********************************************************************
 sub HTML_Extract_Links {
-    my ( $this_url, $this_base, $this_lang, $content ) = @_;
+    my ( $this_url, $this_base, $this_lang, $label, $content ) = @_;
 
     my ($parser, $i, @link_objects, $link, $link_addr, $subsection_name);
 
@@ -2789,9 +2878,10 @@ sub HTML_Extract_Links {
     #
     if ( $debug ) {
         foreach $subsection_name (sort(keys %subsection_links)) {
-            print "Extract_Links::HTML_Extract_Links, subsection = $subsection_name\n";
             if ( defined($subsection_links{$subsection_name}) ) {
                 $link_addr = $subsection_links{$subsection_name};
+                print "Extract_Links::HTML_Extract_Links, $label subsection = $subsection_name count " .
+                      scalar(@$link_addr) . "\n";
 
                 #
                 # Print list of links returned
@@ -2800,6 +2890,7 @@ sub HTML_Extract_Links {
                     print "Link at Line/column: " . $_->line_no . ":" . $_->column_no .
                           " type = " . $_->link_type .
                           " lang = " . $_->lang . "\n";
+                    print "  Landmark = " . $_->landmark . "\n";
                     print "  Anchor = \"" . $_->anchor .
                           "\" alt = \"" . $_->alt .
                           "\" href = " .
@@ -2910,7 +3001,7 @@ sub Extract_Links_From_HTML {
         # Get links for original markup
         #
         print "Extract links from original markup\n" if $debug;
-        @links = HTML_Extract_Links($url, $base, $lang, $content);
+        @links = HTML_Extract_Links($url, $base, $lang, "original", $content);
         %saved_subsection_links = %subsection_links;
 
         #
@@ -2940,7 +3031,7 @@ sub Extract_Links_From_HTML {
         #
         %subsection_links = ();
         print "Extract links from modified (removed conditional comments) markup\n" if $debug;
-        @other_links = HTML_Extract_Links($url, $base, $lang,
+        @other_links = HTML_Extract_Links($url, $base, $lang, "conditional",
                                           \$modified_content);
 
         #
@@ -3062,7 +3153,7 @@ sub Extract_Links_From_HTML {
             #
             %saved_subsection_links = %subsection_links;
             %subsection_links = ();
-            @other_links = HTML_Extract_Links($url, $base, $lang,
+            @other_links = HTML_Extract_Links($url, $base, $lang, "generated",
                                               \$modified_content);
 
             #
@@ -3125,7 +3216,7 @@ sub Extract_Links_From_HTML {
                         }
                         
                         #
-                        # Did we find the link ? If so copy all the links before
+                        # Did we find the link? If so copy all the links before
                         # the match into the merged list
                         #
                         if ( $found ) {
@@ -3287,6 +3378,18 @@ sub Extract_Links_From_HTML {
         }
     }
         
+    #
+    # Print out count of each sections link set
+    #
+    if ( $debug ) {
+        foreach $subsection_name (sort(keys %subsection_links)) {
+            if ( defined($subsection_links{$subsection_name}) ) {
+                $link_addr = $subsection_links{$subsection_name};
+                print "Extract_Links::Extract_Links_From_HTML, subsection = $subsection_name count " .
+                      scalar(@$link_addr) . "\n";
+            }
+        }
+    }
     #
     # Return array of link objects
     #
