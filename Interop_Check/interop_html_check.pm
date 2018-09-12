@@ -56,6 +56,7 @@ package interop_html_check;
 
 use strict;
 use HTML::Entities;
+use HTML::Parser;
 use URI::URL;
 use File::Basename;
 use JSON::PP;
@@ -64,10 +65,12 @@ use JSON::PP;
 # Use WPSS_Tool program modules
 #
 use content_check;
+use html_landmark;
 use interop_testcases;
 use interop_xml_check;
 use link_checker;
 use tqa_result_object;
+use tqa_tag_object;
 use url_check;
 
 #***********************************************************************
@@ -116,7 +119,8 @@ my (@other_rdfa_lite_attributes) = ("prefix", "resource");
 my (@vocab_tag_stack, @typeof_tag_stack, $inside_vocab, $inside_typeof);
 my (%schema_details, $current_schema_types, $current_schema_properties);
 my ($current_schema_details, $current_schema_vocab, @typeof_stack);
-my ($current_typeof_value);
+my ($current_typeof_value, @tag_order_stack);
+my ($current_tag_object, $current_landmark, $landmark_marker);
 
 my ($max_error_message_string) = 2048;
 
@@ -161,7 +165,7 @@ my (%html_tags_with_no_end_tag) = (
         "meta", "meta",
         "param", "param",
         "source", "source",
-        "track", "track",
+#        "track", "track",
         "wbr", "wbr",
 );
 
@@ -274,6 +278,11 @@ sub Set_Interop_HTML_Check_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+
+    #
+    # Set debug flag for supporting modules
+    #
+    HTML_Landmark_Debug($debug);
 }
 
 #**********************************************************************
@@ -528,6 +537,9 @@ sub Initialize_Test_Results {
     undef($current_schema_details);
     undef($current_schema_properties);
     undef($current_schema_types);
+    @tag_order_stack = ();
+    $current_landmark = "";
+    $landmark_marker = "";
 }
 
 #***********************************************************************
@@ -586,6 +598,8 @@ sub Record_Result {
                                                 Interop_Testcase_Description($testcase),
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
+        $result_object->landmark($current_landmark);
+        $result_object->landmark_marker($landmark_marker);
         push (@$results_list_addr, $result_object);
 
         #
@@ -1202,10 +1216,26 @@ sub Start_Handler {
     my (%attr_hash) = @attr;
 
     #
+    # Create a new tag object
+    #
+    print "Start_Handler tag $tagname at $line:$column\n" if $debug;
+    $current_tag_object = tqa_tag_object->new($tagname, $line, $column,
+                                              \%attr_hash);
+    push(@tag_order_stack, $current_tag_object);
+
+    #
+    # Compute the current landmark and add it to the tag object.
+    #
+    ($current_landmark, $landmark_marker) = HTML_Landmark($tagname, $line,
+                       $column, $current_landmark, $landmark_marker,
+                       \@tag_order_stack, %attr_hash);
+    $current_tag_object->landmark($current_landmark);
+    $current_tag_object->landmark_marker($landmark_marker);
+
+    #
     # Check meta tags
     #
     $tagname =~ s/\///g;
-    print "Start_Handler tag $tagname at $line:$column\n" if $debug;
     if ( $tagname eq "meta" ) {
         Meta_Tag_Handler( $line, $column, $text, %attr_hash );
     }
@@ -1241,6 +1271,16 @@ sub Start_Handler {
             push(@typeof_stack, $current_typeof_value);
         }
     }
+
+    #
+    # Is this a tag that has no end tag ? If so we must set the last tag
+    # seen value here rather than in the End_Handler function.
+    #
+    if ( defined ($html_tags_with_no_end_tag{$tagname}) ) {
+        $current_tag_object = pop(@tag_order_stack);
+        $current_landmark = $current_tag_object->landmark();
+        $landmark_marker = $current_tag_object->landmark_marker();
+    }
 }
 
 #***********************************************************************
@@ -1263,7 +1303,7 @@ sub Start_Handler {
 sub End_Handler {
     my ( $self, $tagname, $line, $column, $text, %attr ) = @_;
 
-    my ($popped_tag);
+    my ($popped_tag, $last_item);
 
     #
     # Does this tag have an explicit end tag ?
@@ -1319,6 +1359,27 @@ sub End_Handler {
                 $current_typeof_value = $typeof_stack[$#typeof_stack - 1];
             }
         }
+    }
+
+    #
+    # Pop last tag of the stack
+    #
+    if ( @tag_order_stack > 0 ) {
+        $current_tag_object = pop(@tag_order_stack);
+        if ( @tag_order_stack > 0 ) {
+            $last_item = @tag_order_stack - 1;
+            $current_tag_object = $tag_order_stack[$last_item];
+            $current_landmark = $current_tag_object->landmark();
+            $landmark_marker = $current_tag_object->landmark_marker();
+        }
+        else {
+            $current_landmark = "";
+            $landmark_marker = "";
+        }
+    }
+    else {
+        $current_landmark = "";
+        $landmark_marker = "";
     }
 }
 
@@ -2066,6 +2127,8 @@ sub Interop_HTML_Check_Links {
     #
     $current_interop_check_profile = $interop_check_profile_map{$profile};
     $results_list_addr = \@local_results_list;
+    $current_landmark = "";
+    $landmark_marker = "";
 
     #
     # Clean up the title to make comparisons easier
@@ -2082,7 +2145,9 @@ sub Interop_HTML_Check_Links {
         #
         foreach $link (@$list_addr) {
             $link_type = $link->link_type;
-            
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
+
             #
             # Ignore mailto links
             #
