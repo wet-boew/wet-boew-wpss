@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 351 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2017-04-25 14:53:54 -0400 (Tue, 25 Apr 2017) $
+# $Revision: 808 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_xml.pm $
+# $Date: 2018-04-06 14:03:03 -0400 (Fri, 06 Apr 2018) $
 #
 # Description:
 #
@@ -19,6 +19,7 @@
 #     Open_Data_XML_Check_Data
 #     Open_Data_XML_Check_Dictionary
 #     Open_Data_XML_Check_API
+#     Open_Data_XML_Dictionary_Content_Check
 #
 # Terms and Conditions of Use
 #
@@ -81,6 +82,7 @@ BEGIN {
                   Set_Open_Data_XML_Test_Profile
                   Open_Data_XML_Check_Data
                   Open_Data_XML_Check_Dictionary
+                  Open_Data_XML_Dictionary_Content_Check
                   Open_Data_XML_Check_API
                   );
     $VERSION = "1.0";
@@ -1062,6 +1064,23 @@ sub Open_Data_XML_Check_Dictionary {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_XML_Dictionary_Content_Check
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function returns the list of content errors for the data dictionary.
+#
+#***********************************************************************
+sub Open_Data_XML_Dictionary_Content_Check {
+    my ($this_url) = @_;
+
+    return(Open_Data_XML_Dictionary_Get_Content_Results($this_url));
 }
 
 #***********************************************************************
