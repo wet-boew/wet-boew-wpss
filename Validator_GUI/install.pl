@@ -3,9 +3,9 @@
 #
 # Name:   install.pl
 #
-# $Revision: 635 $
+# $Revision: 919 $
 # $URL: svn://10.36.148.185/Validator_GUI/Tools/install.pl $
-# $Date: 2017-12-13 14:03:24 -0500 (Wed, 13 Dec 2017) $
+# $Date: 2018-07-19 14:57:43 -0400 (Thu, 19 Jul 2018) $
 #
 # Synopsis: install.pl [ uninstall ] [ -no_pause ]
 #
@@ -47,6 +47,7 @@
 
 use strict;
 use File::Basename;
+use File::Copy;
 use File::Path qw(make_path remove_tree);
 use Cwd;
 use Sys::Hostname;
@@ -66,6 +67,9 @@ my ($perl_install) = "";
 my ($debug) = 0;
 my ($uninstall) = 0;
 my ($pause_before_exit) = 1;
+my ($default_python_path) = "/usr/bin/python";
+my ($default_perl_path) = "/usr/bin/perl";
+
 
 #
 # String table for UI strings.
@@ -296,6 +300,35 @@ sub Write_Log_Header {
 
 #**********************************************************************
 #
+# Name: OS_Version
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function prints the operating system version to the
+# log file.
+#
+#**********************************************************************
+sub OS_Version {
+    my ($version);
+
+    #
+    # Get the os version
+    #
+    Write_To_Log("Get OS version");
+    if ( $is_windows ) {
+        $version = `wmic os get Caption,CSDVersion /value 2>\&1`;
+        Write_To_Log("  Windows version = $version");
+    }
+    else {
+        $version = `uname -a 2>\&1`;
+        Write_To_Log("  Linux version = $version");
+    }
+}
+
+#**********************************************************************
+#
 # Name: Check_Java
 #
 # Parameters: none
@@ -314,14 +347,9 @@ sub Check_Java {
     #
     Write_To_Log("Check Java version");
     print "Check Java version\n";
-    if ( $is_windows ) {
-        $version = `java -version 2>\&1`;
-    }
-    else {
-        $version = `java -version 2>\&1`;
-    }
+    $version = `java -version 2>\&1`;
     Write_To_Log("  Version = $version");
-    
+
     #
     # Try to get the version number from the version output
     #
@@ -857,6 +885,188 @@ sub Check_Python_Modules {
 
 #**********************************************************************
 #
+# Name: Set_Hash_Bang
+#
+# Parameters: file - name of file
+#             hash_bang_line - the hash bang line required
+#
+# Description:
+#
+#   This function reads the named file to check if it has the required
+# hash bang line.  If ti does not, the line is inserted into the file.
+#
+#**********************************************************************
+sub Set_Hash_Bang {
+    my ($file, $hash_bang_line) = @_;
+
+    my ($dir, $new_file, $line, @fields);
+
+    #
+    # Open the file to get the first line.
+    #
+    print "Set_Hash_Bang of file $file to $hash_bang_line\n" if $debug;
+    if ( ! open(OLD_FILE, "$file") ) {
+        print "\n*****\n";
+        print "Failed to open file $file\n";
+        print "\n*****\n";
+        Write_To_Log("Failed to to open file $file");
+        Write_To_Log("Failed install.pl");
+        Exit_With_Pause(1);
+    }
+
+    #
+    # Get the first line and split on whitespace.  This gives us the
+    # hash bang and arguments (if present).
+    #
+    Write_To_Log("Check hash bang of file $file");
+    $line = <OLD_FILE>;
+    @fields = split(/\s+/, $line);
+
+    #
+    # Do we have a hash bang line?
+    #
+    if ( defined($fields[0]) && ($fields[0] =~ /^#!/) ) {
+        #
+        # Does the hash bang match the one we want?
+        #
+        if ( $fields[0] eq $hash_bang_line ) {
+            #
+            # Hash bangs match, we don't have anything to do
+            #
+            Write_To_Log("Hash bang value matches required value");
+            close(OLD_FILE);
+        }
+        else {
+            #
+            # Have to insert a new hash bang line.  Copy old file into
+            # a new file with the required hash bang line.
+            #
+            $new_file = "$file.new";
+            unlink($new_file);
+            if ( ! open(NEW_FILE, "> $new_file") ) {
+                print "\n*****\n";
+                print "Failed to create file in directory $program_dir/bin\n";
+                print "\n*****\n";
+                Write_To_Log("Failed to create file in $new_file in directory $program_dir/bin");
+                Write_To_Log("Failed install.pl");
+                Exit_With_Pause(1);
+            }
+
+            #
+            # Write new hash bang with any optional arguments
+            #
+            print NEW_FILE "$hash_bang_line";
+            shift(@fields);
+            if ( @fields > 0 ) {
+                print NEW_FILE " " . join(" ", @fields);
+            }
+            print NEW_FILE "\n";
+
+            #
+            # Copy the rest of the lines from the old to the new file
+            #
+            while ( $line = <OLD_FILE> ) {
+                print NEW_FILE "$line";
+            }
+            close(OLD_FILE);
+            close(NEW_FILE);
+
+            #
+            # Remove the old file and rename the new one to the old file's
+            # name.
+            #
+            unlink($file);
+            copy($new_file, $file);
+            unlink($new_file);
+        }
+    }
+    else {
+        print "No hash bang line in file\n" if $debug;
+        Write_To_Log("No hash bang line in file");
+    }
+}
+
+#**********************************************************************
+#
+# Name: Set_Python_Hash_Bang
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function sets the hash bang line (first line) of Python
+# programs to ensure the proper python installation is used.  The
+# python that is in the current path is used if it is different
+# from the default (/usr/bin/python).
+#
+#**********************************************************************
+sub Set_Python_Hash_Bang {
+
+    my ($python_path, $dir, $file, $rc);
+
+    #
+    # Is this a Windows install, if so return as nothing needs to be done
+    #
+    if ( $is_windows ) {
+        return;
+    }
+    
+    #
+    # Get path to python from the current PATH.
+    #
+    $python_path = `which python`;
+    chomp($python_path);
+    
+    #
+    # Is the path different from the default?
+    #
+    if ( $python_path eq $default_python_path ) {
+        Write_To_Log("Python path matches default path");
+        return;
+    }
+    
+    #
+    # Check for .py files in the bin directory
+    #
+    chdir("$program_dir/bin");
+    opendir($dir, ".");
+    while ( $file = readdir $dir ) {
+        if ( -f $file && ($file =~ /\.py$/) ) {
+            #
+            # Create a copy of the python script with a new hash bang line
+            #
+            print "Python file = $file\n" if $debug;
+            Set_Hash_Bang($file, "#!$python_path");
+        }
+    }
+    closedir($dir);
+    chdir("$program_dir");
+    
+    #
+    # Since this is not the default python location, we have to create
+    # a link in the python modules folder to allow the locally installed
+    # modules be found.  The expectation is that modules are under a
+    # usr/local path.
+    #
+    # Get the bin directory for python, then the "local" directory
+    # and finally the top level directory for the local python installation.
+    #
+    $python_path = dirname($python_path);
+    $python_path = dirname($python_path);
+    $python_path = dirname($python_path);
+    
+    #
+    # Create a link in the python modules folder to this python path. The
+    # link name is "usr".
+    #
+    chdir("$program_dir/python");
+    $python_path =~ s/^\///g;
+    Write_To_Log("Create python \"usr/\" link as ln -s \"$python_path\" usr");
+    $rc = system("ln -s \"$python_path\" usr");
+}
+
+#**********************************************************************
+#
 # Name: Check_Python
 #
 # Parameters: none
@@ -1005,6 +1215,89 @@ sub Check_Python {
     # Check for specific python modules
     #
     Check_Python_Modules();
+    
+    #
+    # Set python hash bang in .py files for Linux
+    #
+    Set_Python_Hash_Bang();
+}
+
+#**********************************************************************
+#
+# Name: Set_Perl_Hash_Bang
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function sets the hash bang line (first line) of perl
+# programs to ensure the proper perl installation is used.  The
+# perl that is in the current path is used if it is different
+# from the default (/usr/bin/perl).
+#
+#**********************************************************************
+sub Set_Perl_Hash_Bang {
+
+    my ($perl_path, $dir, $file);
+
+    #
+    # Is this a Windows install, if so return as nothing needs to be done
+    #
+    if ( $is_windows ) {
+        return;
+    }
+
+    #
+    # Get path to perl from the current PATH.
+    #
+    $perl_path = `which perl`;
+    chomp($perl_path);
+
+    #
+    # Is the path different from the default?
+    #
+    if ( $perl_path eq $default_perl_path ) {
+        Write_To_Log("Perl path matches default path");
+        return;
+    }
+
+    #
+    # Check for .pl files in the current directory
+    #
+    chdir("$program_dir");
+    opendir($dir, ".");
+    while ( $file = readdir $dir ) {
+        if ( -f $file && ($file =~ /\.pl$/) ) {
+            #
+            # Create a copy of the perl script with a new hash bang line
+            #
+            print "Perl file = $file\n" if $debug;
+            if ( $file eq "install.pl" ) {
+                print "Skip install.pl program\n" if $debug;
+            }
+            else {
+                Set_Hash_Bang($file, "#!$perl_path");
+            }
+        }
+    }
+    closedir($dir);
+
+    #
+    # Check for .pl files in the bin directory
+    #
+    chdir("$program_dir/bin");
+    opendir($dir, ".");
+    while ( $file = readdir $dir ) {
+        if ( -f $file && ($file =~ /\.pl$/) ) {
+            #
+            # Create a copy of the perl script with a new hash bang line
+            #
+            print "Perl file = $file\n" if $debug;
+            Set_Hash_Bang($file, "#!$perl_path");
+        }
+    }
+    closedir($dir);
+    chdir("$program_dir");
 }
 
 #**********************************************************************
@@ -1102,6 +1395,11 @@ sub Check_Perl {
     else {
         $perl_install = "";
     }
+
+    #
+    # Set perl hash bang in .pl files for Linux
+    #
+    Set_Perl_Hash_Bang();
 }
 
 #**********************************************************************
@@ -1657,6 +1955,9 @@ foreach (@ARGV) {
     elsif ( /-no_pause/ ) {
         $pause_before_exit = 0;
     }
+    elsif ( /-debug/ ) {
+        $debug = 1;
+    }
 }
 
 #
@@ -1669,7 +1970,7 @@ if ( $^O =~ /MSWin32/ ) {
     $is_windows = 1;
 } else {
     #
-    # Not Windows.
+    # Not Windows (should be Linux).
     #
     $is_windows = 0;
 }
@@ -1695,6 +1996,11 @@ if ($uninstall){
     #
     Delete_Everything();
 }else{
+    #
+    # Get OS version
+    #
+    OS_Version();
+
     #
     # Check for Java version
     #
