@@ -65,6 +65,7 @@ use content_sections;
 use crawler;
 use css_check;
 use css_validate;
+use html_landmark;
 use image_details;
 use javascript_check;
 use javascript_validate;
@@ -158,6 +159,7 @@ my (%tqa_check_profile_map, $current_tqa_check_profile,
     %form_id_values, %input_form_id, %audio_track_kind_map, $inside_audio,
     @list_heading_text, $form_count, @content_lines, @table_is_layout,
     %f32_reported, @inside_dd, $main_content_start,
+    $current_landmark, $landmark_marker,
 );
 
 my ($is_valid_html) = -1;
@@ -734,6 +736,150 @@ my (%landmark_role) = (
 );
 
 #
+# Required context roles for WAI-ARIA role values
+#   https://www.w3.org/TR/wai-aria-1.1/
+# Key is a role and the value is a space seperated list of context roles.
+#
+my (%aria_required_context_roles) = (
+    "cell",         "row",
+    "columnheader", "row",
+    "gridcell",     "row",
+    "listitem",     "group list",
+    "menuitem",     "group menu menubar",
+    "menuitemcheckbox", "menu menubar",
+    "menuitemradio", "group menu menubar",
+    "option",       "listbox",
+    "row",          "grid rowgroup table treegrid",
+    "rowgroup",     "grid table treegrid",
+    "rowheader",    "row",
+    "tab",          "tablist",
+    "treeitem",     "group tree",
+);
+
+#
+# Used in roles for WAI-ARIA attributes
+#   https://www.w3.org/TR/wai-aria-1.1/
+# Key is an attribute name and the value is a space seperated list of roles.
+#
+my (%aria_used_in_roles) = (
+    "aria-activedescendant", "application composite group textbox",
+    "aria-selected",         "gridcell option row tab",
+    "aria-autocomplete",     "combobox textbox",
+    "aria-checked",          "checkbox option radio switch",
+    "aria-colcount",         "table",
+    "aria-colindex",         "cell row",
+    "aria-colspan",          "cell",
+    "aria-expanded",         "button combobox document link section sectionhead window",
+    "aria-level",            "grid heading listitem row tablist",
+    
+);
+
+#
+# Implicit WAI-ARIA roles for HTML tags
+#   https://www.w3.org/TR/html-aria/#docconformance
+# Key is a HTML tag and the value is a space separated list of implicit roles.
+#
+my (%implicit_aria_roles) = (
+    "a",                "link",
+    "area",             "link",
+    "article",          "article",
+    "aside",            "complementary",
+    "body",             "document",
+    "button",           "button",
+    "datalist",         "listbox",
+    "dd",               "definition",
+    "details",          "group",
+    "dl",               "list",
+    "dialog",           "dialog",
+    "dt",               "listitem",
+    "fieldset",         "group",
+    "figure",           "figure",
+    "footer",           "contentinfo",
+    "form",             "form",
+    "h1",               "heading",
+    "h2",               "heading",
+    "h3",               "heading",
+    "h4",               "heading",
+    "h5",               "heading",
+    "h6",               "heading",
+    "header",           "banner",
+    "img",              "img",
+    "input",            "button checkbox radio searchbox slider spinbutton textbox",
+    "li",               "listitem",
+    "link",             "link",
+    "main",             "main",
+    "math",             "math",
+    "menu",             "menu",
+    "menuitem",         "menuitem menuitemcheckbox menuitemradio",
+    "nav",              "navigation",
+    "ol",               "list",
+    "optgroup",         "group",
+    "option",           "option",
+    "output",           "status",
+    "progress",         "progressbar",
+    "section",          "region",
+    "select",           "combobox listbox",
+    "summary",          "button",
+    "table",            "table",
+    "textarea",         "textbox",
+    "tbody",            "rowgroup",
+    "thead",            "rowgroup",
+    "tfoot",            "rowgroup",
+    "td",               "cell",
+    "th",               "columnheader rowheader",
+    "tr",               "row",
+    "ul",               "list",
+);
+
+#
+#
+# NOTE: The following data structure is not being used. It is
+# left here for potential use in determining the role of a HTML
+# tag in the case that the tag may have different roles based
+# on other attributes or values.
+#
+# Conditions for implicit WAI-ARIA roles for HTML tags
+#   https://www.w3.org/TR/html-aria/
+# Key is a HTML tag and the value is a condition and role.
+# The conditions are coded as a colon seperated list of condition
+# type, value(s) and the implicit role. If there are multiple
+# conditions, the conditions are separated by spaces.
+# The condition types are
+#
+#    attr:<name>:<role> - attribute required on tag
+#      <name> - name of attribute
+#      <role> - implicit WAI-ARIA role
+#
+#    attrvalue:<name>:<value>:<role> - attribute with specific value required
+#      <name> - name of attribute
+#      <value> - specific value
+#      <role> - implicit WAI-ARIA role
+#
+#
+my (%implicit_aria_role_conditions) = (
+    "a",                "attr:href:link",
+    "area",             "attr:href:link",
+    "button",           "attrvalue:type:menu:button",
+    "input",            "attrvalue:type:button:button " .
+                        "attrvalue:type:checkbox:checkbox " .
+                        "attrvalue:type:email:textbox " .
+                        "attrvalue:type:image:button " .
+                        "attrvalue:type:number:spinbutton " .
+                        "attrvalue:type:radio:radio " .
+                        "attrvalue:type:range:slider" .
+                        "attrvalue:type:reset:button " .
+                        "attrvalue:type:search:searchbox " .
+                        "attrvalue:type:submit:button " .
+                        "attrvalue:type:tel:textbox " .
+                        "attrvalue:type:text:textbox " .
+                        "attrvalue:type:url:textbox",
+    "link",             "attr:href:link",
+    "menuitem",         "attrvalue:type:command:menuitem " .
+                        "attrvalue:type:checkbox:menuitemcheckbox " .
+                        "attrvalue:type:radio:menuitemradio",
+);
+
+#
 # Tags for which we ignore any id attribute to suppress
 # any WCAG_2.0-F77 errors.
 #
@@ -783,6 +929,7 @@ my %string_table_en = (
     "E-mail domain",                 "E-mail domain ",
     "End tag",                       "End tag",
     "Expecting end tag",             "Expecting end tag",
+    "expecting one of",              "expecting one of ",
     "Fails validation",              "Fails validation, see validation results for details.",
     "followed by",                   " followed by ",
     "for tag",                       " for tag ",
@@ -853,6 +1000,9 @@ my %string_table_en = (
     "Missing longdesc content for",  "Missing 'longdesc' content for ",
     "Missing rel attribute in",      "Missing 'rel' attribute in ",
     "Missing rel value in",          "Missing 'rel' value in ",
+    "Missing required context role for", "Missing required context role for",
+    "Missing required context role for implicit role", "Missing required context role for implicit role",
+    "Missing required context role for WAI-ARIA attribute", "Missing required context role for WAI-ARIA attribute",
     "Missing src attribute",         "Missing 'src' attribute ",
     "Missing src value",             "Missing 'src' value ",
     "Missing table summary",         "Missing table 'summary'",
@@ -963,6 +1113,7 @@ my %string_table_fr = (
     "E-mail domain",                   "Domaine du courriel ",
     "End tag",                         "Balise de fin",
     "Expecting end tag",               "S'attendant balise de fin",
+    "expecting one of",                "expectant une de ",
     "Fails validation",                "Échoue la validation, voir les résultats de validation pour plus de détails.",
     "followed by",                     " suivie par ",
     "for tag",                         " pour balise ",
@@ -1033,6 +1184,9 @@ my %string_table_fr = (
     "Missing longdesc content for",  "Contenu de l'élément 'longdesc' manquant pour ",
     "Missing rel attribute in",      "Attribut 'rel' manquant dans ",
     "Missing rel value in",          "Valeur manquante dans 'rel' ",
+    "Missing required context role for", "Le rôle de contexte requis manquant pour",
+    "Missing required context role for implicit role", "Le rôle de contexte requis manquant pour le rôle implicite",
+    "Missing required context role for WAI-ARIA attribute", "Rôle de contexte requis manquant pour l'attribut WAI-ARIA",
     "Missing src attribute",         "Valeur manquante dans 'src' ",
     "Missing src value",             "Missing 'src' value ",
     "Missing table summary",         "Résumé de tableau manquant",
@@ -1127,6 +1281,7 @@ sub Set_HTML_Check_Debug {
     #
     # Set debug flag for supporting modules
     #
+    HTML_Landmark_Debug($debug);
     XML_TTML_Text_Debug($debug);
 }
 
@@ -1315,6 +1470,8 @@ sub Initialize_Test_Results {
     #
     $current_a_href        = "";
     $current_heading_level = 0;
+    $current_landmark      = "";
+    $landmark_marker       = "";
     %label_for_location    = ();
     %accesskey_location    = ();
     %input_id_location     = ();
@@ -1393,8 +1550,8 @@ sub Initialize_Test_Results {
     %abbr_acronym_title_text_lang_map = ();
     %abbr_acronym_title_text_lang_location = ();
     $current_lang          = "eng";
-    push(@lang_stack, $current_lang);
-    push(@tag_lang_stack, "top");
+    @lang_stack            = ($current_lang);
+    @tag_lang_stack        = ("top");
     $last_lang_tag         = "top";
     @list_item_count       = ();
     $current_list_level    = -1;
@@ -1543,6 +1700,8 @@ sub Record_Result {
                                                 $line, $column, $source_line,
                                                 $error_string, $current_url);
         $result_object->testcase_groups(TQA_Testcase_Groups($testcase));
+        $result_object->landmark($current_landmark);
+        $result_object->landmark_marker($landmark_marker);
         push (@$results_list_addr, $result_object);
 
         #
@@ -4254,14 +4413,21 @@ sub Possible_Pseudo_Heading {
     #
     # If this emphasis is inside a block tag such as <caption>, it
     # is ignored as it is not a heading.  Also ignore it if it is
-    # a table header (<th>, <td>).
+    # a table header (<th>, <td>).  Check for emphasis inside a
+    # heading tag (e.g. <h3><div><strong>Heading text</strong></div></h3>).
     #
     print "Possible_Pseudo_Heading\n" if $debug;
     if ( Have_Text_Handler_For_Tag("caption") ||
+            Have_Text_Handler_For_Tag("h1") ||
+            Have_Text_Handler_For_Tag("h2") ||
+            Have_Text_Handler_For_Tag("h3") ||
+            Have_Text_Handler_For_Tag("h4") ||
+            Have_Text_Handler_For_Tag("h5") ||
+            Have_Text_Handler_For_Tag("h6") ||
             Have_Text_Handler_For_Tag("summary") ||
             Have_Text_Handler_For_Tag("td") ||
             Have_Text_Handler_For_Tag("th")    ) {
-        print "Ignore possible pseudo-heading inside block tag\n" if $debug;
+        print "Ignore possible pseudo-heading inside block/heading/table tag\n" if $debug;
     }
     #
     # Does the text end with a period ? This suggests it is a sentence
@@ -8378,14 +8544,15 @@ sub End_Details_Tag_Handler {
         # Remove the summary content to see if we have any additional details
         # content.
         #
-        $clean_text = quotemeta($clean_text);
-        $clean_text =~ s/$summary_tag_content//o;
+        print "Remove summary content \"$summary_tag_content\"\n" if $debug;
+        eval {$clean_text =~ s/$summary_tag_content//};
     }
 
     #
     # Is there any details text ?
     #
     $clean_text =~ s/\s//g;
+    print "Check for empty details content \"$clean_text\"\n" if $debug;
     if ( $clean_text eq "" ) {
         if ( $tag_is_visible ) {
             Record_Result("WCAG_2.0-G115", $line, $column,
@@ -10614,6 +10781,101 @@ sub Check_OnFocus_Attribute {
     }
 }
 
+
+#***********************************************************************
+#
+# Name: Check_Role_Attribute
+#
+# Parameters: tagname - tag name
+#             role_list - list of role values
+#
+# Description:
+#
+#   This function checks the implicit and explicit ARIA role attributes
+# of tags in the tag stack to see if they match one of the supplied
+# roles.  This function returns the first role match.
+#
+#***********************************************************************
+sub Check_Role_Attribute {
+    my ($tagname, $role_list) = @_;
+
+    my ($context_role, $tag, $tag_role, $attr_addr, $found_role);
+    my ($found_required_context_role, $implicit_roles);
+
+    #
+    # Step up the tag stack looking for a tag with an appropriate
+    # role value
+    #
+    print "Check_Role_Attribute: Check for roles $role_list\n" if $debug;
+    $found_required_context_role = 0;
+    $found_role = "";
+    foreach $tag (reverse @tag_order_stack) {
+        #
+        # Check for a role attribute on the tag item
+        #
+        $attr_addr = $tag->attr();
+        print "Check role value in tag " . $tag->tag() . "\n" if $debug;
+        if ( defined($attr_addr) && defined($$attr_addr{"role"}) ) {
+            $tag_role = $$attr_addr{"role"};
+
+            #
+            # Does the role match one of the required roles?
+            #
+            foreach $context_role (split(/\s+/, $role_list)) {
+                if ( $tag_role eq $context_role ) {
+                    print "Found required context role $tag_role in tag\n" if $debug;
+                    $found_required_context_role = 1;
+                    $found_role = $tag_role;
+                    last;
+                }
+            }
+        }
+
+        #
+        # Did we find a required context role value?
+        #
+        if ( $found_required_context_role ) {
+            last;
+        }
+
+        #
+        # Check the tag's implicit role
+        #
+        $implicit_roles = $tag->implicit_role();
+        if ( defined($implicit_roles) && ($implicit_roles ne "") ) {
+            #
+            # Check all possible implicit roles
+            #
+            print "Check tag's implicit roles $implicit_roles\n" if $debug;
+            foreach $tag_role (split(/\s+/, $implicit_roles)) {
+                #
+                # Does the role match one of the required context roles?
+                #
+                foreach $context_role (split(/\s+/, $role_list)) {
+                    if ( $tag_role eq $context_role ) {
+                        print "Found required context role $tag_role in tag\n" if $debug;
+                        $found_required_context_role = 1;
+                        $found_role = $tag_role;
+                        last;
+                    }
+                }
+
+                #
+                # Did we find the required context role value?
+                #
+                if ( $found_required_context_role ) {
+                    last;
+                }
+            }
+        }
+    }
+    
+    #
+    # Return the matched role value
+    #
+    return($found_role);
+}
+
 #***********************************************************************
 #
 # Name: Check_Aria_Role_Attribute
@@ -10634,6 +10896,7 @@ sub Check_Aria_Role_Attribute {
     my ($tagname, $line, $column, $text, %attr) = @_;
 
     my ($role, $last_main, $last_line, $last_column);
+    my ($context_role, $context_role_list);
 
     #
     # Check for possible role attribute
@@ -10748,6 +11011,26 @@ sub Check_Aria_Role_Attribute {
                 $main_content_start = "<$tagname role=\"main\">:$line:$column";
             }
         }
+        
+        #
+        # Check for any required context roles
+        #
+        if ( defined($aria_required_context_roles{$role}) ) {
+            $context_role_list = $aria_required_context_roles{$role};
+            print "Role $role requires context roles of $context_role_list\n" if $debug;
+            $context_role = Check_Role_Attribute($tagname, $context_role_list);
+
+            #
+            # Did we find a required context role value?
+            #
+            if ( $context_role eq "" ) {
+                Record_Result("WCAG_2.0-H88", $line, $column, $text,
+                              String_Value("Missing required context role for") .
+                              " role=\"$role\" " .
+                              String_Value("expecting one of") .
+                              " \"$context_role_list\"");
+            }
+        }
 
 #
 # Skip check for role="presentation".  Generated markup from WET pages
@@ -10767,6 +11050,35 @@ sub Check_Aria_Role_Attribute {
 #                          " role=\"$role\" " .
 #                          String_Value("in tag used to convey information or relationships"));
 #        }
+    }
+
+    #
+    # Check any implicit role(s) for this tag to ensure any required
+    # context roles are present.
+    #
+    if ($current_tag_object->implicit_role() ne "" ) {
+        $role = $current_tag_object->implicit_role();
+        print "Check implicit role $role for this tag\n" if $debug;
+        
+        #
+        # Check for any required context roles
+        #
+        if ( defined($aria_required_context_roles{$role}) ) {
+            $context_role_list = $aria_required_context_roles{$role};
+            print "Role $role requires context roles of $context_role_list\n" if $debug;
+            $context_role = Check_Role_Attribute($tagname, $context_role_list);
+
+            #
+            # Did we find a required context role value?
+            #
+            if ( $context_role eq "" ) {
+                Record_Result("WCAG_2.0-H88", $line, $column, $text,
+                              String_Value("Missing required context role for implicit role") .
+                              " \"$role\" " .
+                              String_Value("expecting one of") .
+                              " \"$context_role_list\"");
+            }
+        }
     }
 }
 
@@ -10792,7 +11104,7 @@ sub Check_Aria_Role_Attribute {
 sub Check_Aria_Attributes {
     my ($self, $tagname, $line, $column, $text, $attrseq, %attr) = @_;
 
-    my ($value, $tcid);
+    my ($value, $tcid, $attribute, $roles_list, $context_role);
 
     #
     # Check for aria-label attribute
@@ -10833,6 +11145,27 @@ sub Check_Aria_Attributes {
         #
         if ( $inside_anchor && $have_text_handler && ($attr{"aria-label"} ne "") ) {
             push(@text_handler_all_text, "ALT:" . $attr{"aria-label"});
+        }
+    }
+    
+    #
+    # Do we have an ARIA attribute that has some role attribute requirements
+    #
+    foreach $attribute (keys(%attr)) {
+        if ( defined($aria_used_in_roles{$attribute}) ) {
+            $roles_list = $aria_used_in_roles{$attribute};
+            $context_role = Check_Role_Attribute($tagname, $roles_list);
+
+            #
+            # Did we find a required context role value?
+            #
+            if ( $context_role eq "" ) {
+                Record_Result("WCAG_2.0-H88", $line, $column, $text,
+                              String_Value("Missing required context role for WAI-ARIA attribute") .
+                              " \"$attribute\" " .
+                              String_Value("expecting one of") .
+                              " \"$roles_list\"");
+            }
         }
     }
 
@@ -11387,11 +11720,24 @@ sub Start_Handler {
     push(@tag_order_stack, $current_tag_object);
 
     #
+    # Compute the current landmark and implicit roled and add
+    # them to the tag object.
+    #
+    ($current_landmark, $landmark_marker) = HTML_Landmark($tagname, $line,
+                       $column, $current_landmark, $landmark_marker,
+                       \@tag_order_stack, %attr_hash);
+    $current_tag_object->landmark($current_landmark);
+    $current_tag_object->landmark_marker($landmark_marker);
+    if ( defined($implicit_aria_roles{$tagname}) ) {
+        $current_tag_object->implicit_role($implicit_aria_roles{$tagname});
+    }
+
+    #
     # Check attributes
     #
     Check_Attributes($self, $tagname, $line, $column, $text, $attrseq,
                      %attr_hash);
-
+                     
     #
     # Check for start of content section
     #
@@ -11866,6 +12212,8 @@ sub Start_Handler {
     if ( defined ($html_tags_with_no_end_tag{$tagname}) ) {
         $last_close_tag = $tagname;
         $current_tag_object = pop(@tag_order_stack);
+        $current_landmark = $current_tag_object->landmark();
+        $landmark_marker = $current_tag_object->landmark_marker();
     }
 
     #
@@ -12245,12 +12593,13 @@ sub End_Anchor_Tag_Handler {
         # We include heading text if the link appears in a list.
         #
         if ( ($current_list_level > 0) &&
-             ($inside_list_item[$current_list_level - 1]) ) {
-            print "Link inside a list item with heading text " . $list_heading_text[$current_list_level - 1] . "\n" if $debug;
-            $link_text = $list_heading_text[$current_list_level - 1] . $all_anchor_text;
+             ($inside_list_item[$current_list_level]) ) {
+            $link_text = join(",", @list_heading_text);
+            print "Link inside a list item with heading text \"$link_text\"\n" if $debug;
+            $link_text = $link_text . $all_anchor_text;
         }
         else {
-            $link_text = $all_anchor_text;
+            $link_text = $last_heading_text . $all_anchor_text;
         }
 
         #
@@ -12508,6 +12857,8 @@ sub Check_End_Tag_Order {
             $last_start_tag = $current_tag_object->tag;
             $location = $current_tag_object->line_no . ":" .
                         $current_tag_object->column_no;
+            $current_landmark = $current_tag_object->landmark();
+            $landmark_marker = $current_tag_object->landmark_marker();
         }
         else {
             $last_start_tag = "";
@@ -12515,6 +12866,8 @@ sub Check_End_Tag_Order {
             $current_tag_styles = "";
             $tag_is_visible = 1;
             $tag_is_hidden = 0;
+            $current_landmark = "";
+            $landmark_marker = "";
         }
         print "Pop tag off tag order stack $last_start_tag at $location\n" if $debug;
         print "Check tag with tag order stack $tagname at $line:$column\n" if $debug;
@@ -13128,12 +13481,16 @@ sub End_Handler {
         $tag_is_visible = $tag_item->is_visible;
         $tag_is_hidden = $tag_item->is_hidden;
         $last_start_tag = $tag_item->tag;
+        $current_landmark = $tag_item->landmark();
+        $landmark_marker = $tag_item->landmark_marker();
     }
     else {
         $current_tag_styles = "";
         $tag_is_visible = 1;
         $tag_is_hidden = 0;
         $last_start_tag = "";
+        $current_landmark = "";
+        $landmark_marker = "";
     }
     print "Restore tag_is_visible = $tag_is_visible for last start tag $last_start_tag\n" if $debug;
     print "Restore tag_is_hidden = $tag_is_hidden for last start tag $last_start_tag\n" if $debug;
@@ -13872,15 +14229,15 @@ sub Trim_Whitespace {
     my ($string) = @_;
 
     #
-    # Remove leading & trailing whitespace
+    # Remove leading & trailing whitespace and convert any HTML
+    # non-breaking whitespace into a space.
     #
-    $string =~ s/\r*$/ /g;
-    $string =~ s/\n*$/ /g;
     $string =~ s/\&nbsp;/ /g;
+    $string =~ s/[\n\r\s]*$/ /g;
     $string =~ s/^\s*//g;
-    $string =~ s/\s*$//g;
+
     #
-    # Compress whitespace
+    # Compress multiple whitespace characters into a single character.
     #
     $string =~ s/\s+/ /g;
 
