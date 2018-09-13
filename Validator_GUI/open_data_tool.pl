@@ -3,9 +3,9 @@
 #
 # Name:   open_data_tool.pl
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 947 $
+# $URL: svn://10.36.148.185/Validator_GUI/Tools/open_data_tool.pl $
+# $Date: 2018-08-27 13:54:29 -0400 (Mon, 27 Aug 2018) $
 #
 # Synopsis: open_data_tool.pl
 #
@@ -46,7 +46,7 @@
 use File::Basename;
 use strict;
 
-my (@paths, $this_path, $program_dir, $program_name, $paths, $rc);
+my (@paths, $this_path, $program_dir, $program_name, $paths, $rc, $perl_path);
 
 #
 # Get our program directory, where we find supporting files
@@ -79,9 +79,21 @@ chdir($program_dir);
 
 if ( $^O =~ /MSWin32/ ) {
     #
-    # Windows.
+    # Windows. Get path to Perl executable
     #
-    $rc = system(".\\wpss_tool.pl -open_data @ARGV");
+    $perl_path = `where perl`;
+    chomp($perl_path);
+
+    if ( $perl_path eq "" ) {
+        $rc = system(".\\wpss_tool.pl -open_data @ARGV");
+    }
+    else {
+        #
+        # This is a work around for PSPC Windows 10 PCs which do not
+        # always pass on command line arguments to Perl programs.
+        #
+        $rc = system("perl wpss_tool.pl -open_data @ARGV");
+    }
 } else {
     #
     # Not Windows.
