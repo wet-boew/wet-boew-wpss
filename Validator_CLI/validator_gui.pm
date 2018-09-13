@@ -94,6 +94,7 @@ use Term::ReadKey;
 # Use WPSS_Tool program modules
 #
 use tqa_result_object;
+use url_check;
 use validator_xml;
 
 #***********************************************************************
@@ -158,9 +159,9 @@ my ($testcase_profile_groups_values, %report_options_values);
 my ($testcase_profile_groups_config_option);
 
 my ($csv_results_fh, $csv_results_file_name, $csv_object);
-my (@csv_results_fields) = ("type", "url", "testcase", "description", "line_no",
-                            "column_no", "page_no","source_line","message",
-                            "help_url");
+my (@csv_results_fields) = ("type", "url", "testcase", "description", "landmark",
+                            "landmark_marker", "line_no", "column_no", "page_no",
+                            "source_line", "message", "help_url");
 if ( $have_threads ) {
     share(\$csv_results_file_name);
 }
@@ -519,9 +520,10 @@ sub Print_TQA_Result_to_CSV {
     # Save fields of the result object in the CSV file
     #
     @fields = ($tab_label, $result_object->url, $result_object->testcase,
-               $result_object->description, $result_object->line_no,
-               $result_object->column_no, $result_object->page_no,
-               $result_object->source_line);
+               $result_object->description, $result_object->landmark,
+               $result_object->landmark_marker,
+               $result_object->line_no, $result_object->column_no,
+               $result_object->page_no, $result_object->source_line);
 
     #
     # Add message field. Limit text to 10K characters
@@ -605,6 +607,16 @@ sub Validator_GUI_Print_TQA_Result {
                                    String_Value("Page") .
                                    "%3d", $result_object->page_no);
             Update_Results_Tab($tab_label, $output_line);
+        }
+
+        #
+        # Print landmark
+        #
+        if ( $result_object->landmark ne "" ) {
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "Landmark: " . $result_object->landmark);
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "Landmark marker: " . $result_object->landmark_marker);
         }
 
         #
@@ -1013,6 +1025,18 @@ sub Validator_GUI_Print_Error {
     }
 }
 
+sub show_call_stack {
+  my ( $path, $line, $subr );
+  my $max_depth = 30;
+  my $i = 1;
+ print "--- Begin stack trace ---\n";
+    while ( (my @call_details = (caller($i++))) && ($i<$max_depth) ) {
+      print "$call_details[1] line $call_details[2] in function $call_details[3]\n";
+    }
+    print "--- End stack trace ---\n";
+  }
+
+
 #***********************************************************************
 #
 # Name: Validator_GUI_Start_URL
@@ -1033,6 +1057,15 @@ sub Validator_GUI_Start_URL {
 
     my ($url_line);
 
+    #
+    # Do we have a URL?
+    #
+    if ( ! defined($url) ) {
+        print "Missing url Validator_GUI_Start_URL\n" if $debug;
+        show_call_stack();
+        $url = "";
+    }
+    
     #
     # Do we want XML output ?
     #
@@ -1079,6 +1112,13 @@ sub Validator_GUI_End_URL {
     my ($tab_label, $url, $referrer, $supporting_file, $count) = @_;
 
     my ($output_line);
+
+    #
+    # Do we have a URL?
+    #
+    if ( ! defined($url) ) {
+        $url = "";
+    }
 
     #
     # Do we want XML output ?
@@ -1473,14 +1513,28 @@ sub Validator_GUI_401_Login {
     my ($url, $realm) = @_;
 
     my ($user, $password);
+    my ($protocol, $domain, $file_path, $query, $new_url);
 
     #
-    # Do we already have credentials (e.g. through configuration) ?
+    # Get the site domain, then check to see if we already
+    # have credentials (e.g. through configuration) for the exact url?
     #
+    print "Validator_GUI_401_Login, get credentials for $url\n" if $debug;
+    ($protocol, $domain, $file_path, $query, $new_url) = URL_Check_Parse_URL($url);
+    $new_url = "$protocol//$domain";
+    print "Site domain = $new_url\n" if $debug;
     if ( defined($url_401_user{$url}) && defined($url_401_password{$url}) ) {
-        print "Use 401 credentials from profile configuration\n" if $debug;
+        print "Use 401 credentials from profile configuration for $url\n" if $debug;
         $user = $url_401_user{$url};
         $password = $url_401_password{$url};
+    }
+    #
+    # Check for credentials for the site domain
+    #
+    elsif ( defined($url_401_user{$new_url}) && defined($url_401_password{$new_url}) ) {
+        print "Use 401 credentials from profile configuration for $new_url\n" if $debug;
+        $user = $url_401_user{$new_url};
+        $password = $url_401_password{$new_url};
     }
     #
     # If the URL is an empty string, it means that we are attempting to
@@ -2094,6 +2148,13 @@ sub Read_Crawl_File {
             ($key, $url, $type, $value) = split(/\s+/, $line);
 
             #
+            # Strip of any trailing / of on the URL
+            #
+            if ( defined($url) ) {
+                $url =~ s/\/$//g;
+            }
+
+            #
             # Is this a username or password ?
             #
             if ( defined($value) && ($type eq "user") ) {
@@ -2127,6 +2188,12 @@ sub Read_Crawl_File {
     }
     if ( $crawl_details{"siteentrye"} eq "" ) {
         $crawl_details{"siteentrye"} = $crawl_details{"siteentryf"};
+    }
+    if ( $crawl_details{"loginpagef"} eq "" ) {
+        $crawl_details{"loginpagef"} = $crawl_details{"loginpagee"};
+    }
+    if ( $crawl_details{"logoutpagef"} eq "" ) {
+        $crawl_details{"logoutpagef"} = $crawl_details{"logoutpagee"};
     }
 
     #
@@ -2165,6 +2232,16 @@ sub Read_Crawl_File {
     if ( $crawl_details{"sitedire"} eq "" ) {
         print "Missing English Site Directory field\n";
         exit(1);
+    }
+    
+    #
+    # Print crawl details
+    #
+    if ( $debug ) {
+        print "Read_Crawl_File: Crawl details\n";
+        foreach $key (sort(keys(%crawl_details))) {
+            print "$key : " . $crawl_details{$key} . "\n";
+        }
     }
 
     #
