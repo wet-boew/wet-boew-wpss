@@ -2,9 +2,9 @@
 #
 # Name:   epub_html_check.pm
 #
-# $Revision: 708 $
+# $Revision: 931 $
 # $URL: svn://10.36.148.185/TQA_Check/Tools/epub_html_check.pm $
-# $Date: 2018-02-02 09:05:18 -0500 (Fri, 02 Feb 2018) $
+# $Date: 2018-07-27 11:24:32 -0400 (Fri, 27 Jul 2018) $
 #
 # Description:
 #
@@ -92,9 +92,10 @@ my (%testcase_data, $results_list_addr);
 my (%epub_check_profile_map, $current_epub_check_profile, $current_url);
 my ($first_heading, $page_break_count, @tag_stack, @tag_text_stack);
 my ($have_text_handler, @text_handler_tag_list, $current_text_handler_tag);
-my ($page_break_tag_index, @tag_stack, @text_handler_text_list);
-my (%epub_nav_types, $illustration_count, $inside_landmarks);
-my (%landmark_types);
+my ($page_break_tag_index, @text_handler_text_list);
+my (%epub_nav_types, $illustration_count, $inside_landmarks, $table_count);
+my (%landmark_types, $section_level, %section_heading_level);
+my (@heading_level_stack);
 
 #
 # Required landmark type to be found in landmarks section
@@ -175,11 +176,15 @@ my %string_table_en = (
     "Heading level",                "Heading level",
     "Invalid tag used for page break", "Invalid tag used for 'pagebreak'",
     "is greater than first heading","is greater than first heading",
+    "is greater than parent section heading level", "is greater than parent <section> heading level",
+    "is not in order, expecting",   "is not in order, expecting",
+    "is the same as the first section heading level", "is the same as the first <section> heading level",
     "matching for",                 "matching for",
     "Missing attribute",            "Missing attribute",
     "Missing content in",           "Missing content in",
     "Missing landmark navigation type", "Missing landmark navigation type",
     "or",                           "or",
+    "Section heading level",        "<section> heading level"
 );
 
 #
@@ -193,11 +198,15 @@ my %string_table_fr = (
     "Heading level",                "Niveau d'en-tête",
     "Invalid tag used for page break", "Balise non valide utilisée pour le 'pagebreak'",
     "is greater than first heading","est plus grand que le premier titre",
+    "is greater than parent section heading level", "est supérieur au niveau de titre parent <section>",
+    "is not in order, expecting",   "n'est pas en ordre, s'attendant",
+    "is the same as the first section heading level", "est le même que le premier niveau de titre <section>",
     "matching for",                 "correspondant à",
     "Missing attribute",            "attribut manquant",
     "Missing content in",           "Contenu manquant dans",
     "Missing landmark navigation type", "Type de navigation landmark manquant",
     "or",                           "ou",
+    "Section heading level",        "<section> niveau d'en-tête"
 );
 
 #
@@ -1045,43 +1054,121 @@ sub Start_Figure_Tag_Handler {
 # Description:
 #
 #   This function handles the h tag, it checks to see if headings
-# are created in order (h1, h2, h3, ...).
+# are created in order (h1, h2, h3, ...). It also checks to see if the
+# heading level is not higher than the first heading in the <section>.
 #
 #***********************************************************************
 sub Start_H_Tag_Handler {
     my ($self, $tagname, $line, $column, $text, %attr) = @_;
 
-    my ($level);
+    my ($level, $parent_heading, $previous_heading, $message);
 
     #
     # Get heading level number from the tag
     #
     $level = $tagname;
     $level =~ s/^h//g;
+    print "Start_H_Tag_Handler, level = $level\n" if $debug;
 
     #
-    # Have we seen a heading before in this file?
+    # Have we seen a heading before in this file? (zero value means no
+    # heading seen yet).
     #
-    if ( $first_heading ne "" ) {
-        #
-        # This heading number must be greater than or equal to the first heading
-        #
-        if ( $level < $first_heading ) {
-            print "New heading level number $level is greater than first heading $first_heading\n" if $debug;
-            Record_Result("EPUB-TITLES-002", $line, $column, $text,
-                          String_Value("Heading level") .
-                          " '<h$level>' " .
-                          String_Value("is greater than first heading") .
-                          " '<h$first_heading>'");
-        }
-    }
-    else {
+    if ( $first_heading == 0 ) {
         #
         # This is the first heading, save the level
         #
         $first_heading = $level;
         print "First heading level is $level\n" if $debug;
     }
+
+    #
+    # Is this the first heading in the current section?
+    #
+    if ( $section_heading_level{$section_level} == 0 ) {
+        #
+        # Record this heading level, we should not see another
+        # heading in this section with a semantically higher heading level.
+        #
+        $section_heading_level{$section_level} = $level;
+    }
+
+    #
+    # This heading number must be greater than or equal to the first heading.
+    # Heading levels are the inverse of the heading number
+    #
+    if ( $level < $first_heading ) {
+        print "New heading level number $level is less than first heading $first_heading\n" if $debug;
+        Record_Result("EPUB-TITLES-002", $line, $column, $text,
+                      String_Value("Heading level") .
+                      " '<h$level>' " .
+                      String_Value("is greater than first heading") .
+                      " '<h$first_heading>'");
+    }
+    #
+    # If this is a nested section, the heading level number
+    # must not be semantically greater than the parent section
+    #
+    elsif ( $section_level > 1 ) {
+        $parent_heading = $section_heading_level{($section_level - 1)};
+        print "Parent section heading level is $parent_heading\n" if $debug;
+        if ( $level < $parent_heading) {
+            Record_Result("EPUB-TITLES-002", $line, $column, $text,
+                          String_Value("Section heading level") .
+                          " '<h$level>' " .
+                          String_Value("is greater than parent section heading level") .
+                          " '<h$parent_heading>'");
+        }
+    }
+
+    #
+    # Check the heading level stack for a heading that has
+    # a lower number (i.e. is semantically a higher level heading).
+    #
+    if ( @heading_level_stack > 0 ) {
+        $previous_heading = pop(@heading_level_stack);
+        print "Check previous heading level $previous_heading\n" if $debug;
+        while ( (@heading_level_stack > 0) && ($previous_heading > $level) ) {
+            #
+            # Pop a heading off the stack until we find a heading with a
+            # number less than this one.
+            #
+            $previous_heading = pop(@heading_level_stack);
+            print "Check previous heading level $previous_heading\n" if $debug;
+        }
+        print "Current heading level = $level, parent heading level = $previous_heading\n" if $debug;
+        
+        #
+        # Check to see if the new heading number is the same as the
+        # parent heading or is exactly 1 greater than the parent heading number.
+        #
+        if ( ($level != $previous_heading) && ($level != ($previous_heading + 1)) ) {
+            #
+            # Heading level error.  This heading should be either 1 greater
+            # than the previous heading level or 1 greater than the last
+            # heading number less than this one.
+            #
+            $message = String_Value("Heading level") . " '<h$level>' " .
+                       String_Value("is not in order, expecting") .
+                       " '<h" . ($previous_heading + 1) . ">' ";
+            if ( $level != $previous_heading ) {
+                $message .= String_Value("or") .
+                            " '<h" . ($previous_heading + 1) . ">'";
+            }
+            Record_Result("EPUB-TITLES-002", $line, $column, $text,
+                          $message);
+        }
+        
+        #
+        # Save the parent heading back onto the heading stack
+        #
+        push(@heading_level_stack, $previous_heading);
+    }
+
+    #
+    # Save this heading level
+    #
+    push(@heading_level_stack, $level);
 }
 
 #***********************************************************************
@@ -1253,6 +1340,102 @@ sub End_Nav_Tag_Handler {
 
 #***********************************************************************
 #
+# Name: Start_Section_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - heading tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             level - heading level
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the section tag, it increments the section
+# level count and initialized the child heading count.
+#
+#***********************************************************************
+sub Start_Section_Tag_Handler {
+    my ($self, $tagname, $line, $column, $text, %attr) = @_;
+
+    #
+    # Initialise heading number and count.
+    #
+    print "Start_Section_Tag_Handler\n" if $debug;
+    $section_level++;
+    $section_heading_level{$section_level} = 0;
+}
+
+#***********************************************************************
+#
+# Name: End_Section_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end section </section> tag.
+#
+#***********************************************************************
+sub End_Section_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    #
+    # Decrement section level
+    #
+    if ( $section_level > 0 ) {
+        $section_level--;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Start_Table_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             tagname - heading tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             level - heading level
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the table tag.  If the table is not a layout
+# table, it increments the count of table in the file.
+#
+#***********************************************************************
+sub Start_Table_Tag_Handler {
+    my ($self, $tagname, $line, $column, $text, %attr) = @_;
+
+    #
+    # Check for role="presentation" that indicates this is a layout
+    # table.
+    #
+    if ( defined($attr{"role"}) &&
+         ($attr{"role"} eq "presentation") ) {
+        #
+        # Skip layout table
+        #
+        print "Skip layout table\n" if $debug;
+    }
+    else {
+        #
+        # Increment table count
+        #
+        $table_count++;
+        print "Found table #$table_count\n" if $debug;
+    }
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -1325,6 +1508,20 @@ sub Start_Handler {
     elsif ( $tagname eq "nav" ) {
         Start_Nav_Tag_Handler($self, $tagname, $line, $column, $text, %attr);
     }
+
+    #
+    # Check section tag
+    #
+    elsif ( $tagname eq "section" ) {
+        Start_Section_Tag_Handler($self, $tagname, $line, $column, $text, %attr);
+    }
+
+    #
+    # Check table tag
+    #
+    elsif ( $tagname eq "table" ) {
+        Start_Table_Tag_Handler($self, $tagname, $line, $column, $text, %attr);
+    }
 }
 
 #***********************************************************************
@@ -1374,6 +1571,13 @@ sub End_Handler {
     #
     if ( $tagname eq "nav" ) {
         End_Nav_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    # Check section tag
+    #
+    elsif ( $tagname eq "section" ) {
+        End_Section_Tag_Handler($self, $line, $column, $text);
     }
 }
 
@@ -1447,13 +1651,16 @@ sub EPUB_HTML_Check {
         #
         $current_text_handler_tag = "";
         %epub_nav_types = ();
-        $first_heading = "";
+        $first_heading = 0;
         $have_text_handler = 0;
+        @heading_level_stack = ();
         $illustration_count = 0;
         $inside_landmarks = 0;
         %landmark_types = ();
         $page_break_count = 0;
         $page_break_tag_index = 0;
+        $section_level = 0;
+        $table_count = 0;
         @tag_stack = ();
         @text_handler_tag_list = ();
 
@@ -1501,6 +1708,12 @@ sub EPUB_HTML_Check {
         #
         print "Set illustration count to $illustration_count\n" if $debug;
         $epub_item_object->illustration_count($illustration_count);
+
+        #
+        # Set the number of tables for this file
+        #
+        print "Set table count to $table_count\n" if $debug;
+        $epub_item_object->table_count($table_count);
 
         #
         # If this file is a navigation file, set the types found in the file
