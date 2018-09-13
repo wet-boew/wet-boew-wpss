@@ -68,35 +68,18 @@ BEGIN {
 }
 
 my %string_table_en = (
-    "Crawled URL report header",	"The following is a list of crawled URLs from your site.
-
-Site:
-",
-    "Validation report header",	"The following is a list of web documents from your site that contain validation errors.
-
-Site:
-",
-    "Metadata report header",	"The following is a list of web documents from your site that contain Metadata Check errors.
-
-Site:
-",
     "ACC report header", "The following is a list of web documents from your site that contain Accessibility Check errors.
 
 Site:
 ",
-   "CLF report header", "The following is a list of web documents from your site that contain Layout and Design Check errors.
+    "CLF report header", "The following is a list of web documents from your site that contain Layout and Design Check errors.
 
 Site:
 ",
-   "Interop report header", "The following is a list of web documents from your site that contain Interoperability Check errors.
+    "Content report header", "The following is a list of files that contain Content Check violations.
 
-Site:
 ",
-    "Link report header", "The following is a list of web documents from your site that contain Link Check violations.
-
-Site:
-",
-    "Mobile report header", "The following is a list of web documents from your site that contain Mobile Check violations.
+    "Crawled URL report header",	"The following is a list of crawled URLs from your site.
 
 Site:
 ",
@@ -112,8 +95,28 @@ Site:
 
 Site:
 ",
+    "Interop report header", "The following is a list of web documents from your site that contain Interoperability Check errors.
+
+Site:
+",
+    "Link report header", "The following is a list of web documents from your site that contain Link Check violations.
+
+Site:
+",
+    "Metadata report header",	"The following is a list of web documents from your site that contain Metadata Check errors.
+
+Site:
+",
+    "Mobile report header", "The following is a list of web documents from your site that contain Mobile Check violations.
+
+Site:
+",
     "Open Data report header", "The following is a list of documents that contain Open Data Check violations.
 
+",
+    "Validation report header",	"The following is a list of web documents from your site that contain validation errors.
+
+Site:
 ",
     "Image report header",	"The following is a list of images from your site.",
     "Headings report header", "The following is a report of headings within documents from your site.",
@@ -137,13 +140,15 @@ Site:
     "Interop Testcase Profile",	"Interoperability Testcase Profile",
     "Mobile Testcase Profile",	"Mobile Testcase Profile",
     "Open Data Testcase Profile", "Open Data Testcase Profile",
+    "Content Testcase Profile", "Content Testcase Profile",
     "Department Check Testcase Profile",	"Department Check Testcase Profile",
     "ACC",  			"ACC",
     "CLF",        "CLF",
     "INT",        "Interop",
     "Link", 			"Link",
     "Mobile",  		"Mobile",
-    "Department", 			"Department",
+    "Content",  	"Content",
+    "Department", "Department",
     "Document Features",		"Document Features",
     "Document Features Profile",	"Document Features Profile",
     "pass", 			"pass",
@@ -196,18 +201,6 @@ Site:
     );
 
 my %string_table_fr = (
-    "Crawled URL report header",	"Ce qui suit est une liste de URL explorés de votre site.
-
-Site:
-",
-    "Validation report header",	"Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de validation.
-
-Site:
-",
-    "Metadata report header",	"Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de métadonnées.
-
-Site:
-",
     "ACC report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs d'accessibilité.
 
 Site:
@@ -216,15 +209,10 @@ Site:
 
 Site:
 ",
-    "Interop report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs Interoperability.
+    "Content report header", "Ce qui suit est une liste de fichiers qui contient des erreurs de contenu.
 
-Site:
 ",
-    "Link report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de liens.
-
-Site:
-",
-    "Mobile report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de mobile.
+    "Crawled URL report header",	"Ce qui suit est une liste de URL explorés de votre site.
 
 Site:
 ",
@@ -236,12 +224,32 @@ Site:
 
 Site:
 ",
-    "Document List report header",	"Ce qui suit est une liste triée des documents Web de votre site. 
+    "Document List report header",	"Ce qui suit est une liste triée des documents Web de votre site.
 
 Site :
 ",
+    "Interop report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs Interoperability.
+
+Site:
+",
+    "Link report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de liens.
+
+Site:
+",
+    "Metadata report header",	"Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de métadonnées.
+
+Site:
+",
+    "Mobile report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de mobile.
+
+Site:
+",
     "Open Data report header", "Ce qui suit est une liste de documents qui contiennent des violations de données ouvertes.
 
+",
+    "Validation report header",	"Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de validation.
+
+Site:
 ",
     "Image report header",	"Ce qui suit est une liste d'images triée de votre site.",
     "Headings report header", "Ce qui suit est un rapport des En-têtes dans les documents de votre site",
@@ -265,7 +273,8 @@ Site :
     "Interop Testcase Profile",	"Profil des cas de test de Interoperability",
     "Mobile Testcase Profile",	"Profil des cas de test de Mobile",
     "Open Data Testcase Profile",  "Profil des cas de test de Données Ouvertes",
-    "Department Check Testcase Profile",	"Profil des cas de test de département ",
+    "Content Testcase Profile", "Profil des cas de test de Contenu",
+    "Department Check Testcase Profile",	"Profil des cas de test de département",
     "Yes",			"Oui",
     "No",			"Non",
     "Report testcases that pass","Rapporter les cas de test qui passent",
