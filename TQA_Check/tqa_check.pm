@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 7556 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2016-03-30 08:23:57 -0400 (Wed, 30 Mar 2016) $
+# $Revision: 895 $
+# $URL: svn://10.36.148.185/TQA_Check/Tools/tqa_check.pm $
+# $Date: 2018-07-09 11:06:56 -0400 (Mon, 09 Jul 2018) $
 #
 # Description:
 #
@@ -79,6 +79,7 @@ use javascript_check;
 use javascript_validate;
 use link_checker;
 use link_object;
+use marc_check;
 use metadata;
 use metadata_result_object;
 use pdf_check;
@@ -138,6 +139,8 @@ my ($MAX_IMAGE_COUNT) = 10000;
 #
 my ($tqa_check_pass)       = 0;
 my ($tqa_check_fail)       = 1;
+
+my ($current_landmark, $landmark_marker);
 
 #
 # String table for error strings.
@@ -230,6 +233,7 @@ sub Set_TQA_Check_Debug {
     PDF_Check_Debug($this_debug);
     TQA_Testcase_Debug($this_debug);
     Set_HTML_Check_Debug($this_debug);
+    Set_MARC_Check_Debug($this_debug);
     Set_XML_Check_Debug($this_debug);
     Set_CSV_Check_Debug($this_debug);
 
@@ -283,6 +287,7 @@ sub Set_TQA_Check_Language {
     Set_JavaScript_Check_Language($language);
     Set_PDF_Check_Language($language);
     Set_HTML_Check_Language($language);
+    Set_MARC_Check_Language($language);
     TQA_Testcase_Language($language);
     Set_XML_Check_Language($language);
     Set_CSV_Check_Language($language);
@@ -361,6 +366,7 @@ sub Set_TQA_Check_Testcase_Data {
     Set_JavaScript_Check_Testcase_Data($testcase, $data);
     Set_PDF_Check_Testcase_Data($testcase, $data);
     Set_HTML_Check_Testcase_Data($testcase, $data);
+    Set_MARC_Check_Testcase_Data($testcase, $data);
     Set_XML_Check_Testcase_Data($testcase, $data);
     Set_CSV_Check_Testcase_Data($testcase, $data);
 
@@ -397,6 +403,7 @@ sub Set_TQA_Check_Test_Profile {
     Set_JavaScript_Check_Test_Profile($profile, $tqa_checks);
     Set_PDF_Check_Test_Profile($profile, $tqa_checks);
     Set_HTML_Check_Test_Profile($profile, $tqa_checks);
+    Set_MARC_Check_Test_Profile($profile, $tqa_checks);
     Set_XML_Check_Test_Profile($profile, $tqa_checks);
     Set_CSV_Check_Test_Profile($profile, $tqa_checks);
 
@@ -439,6 +446,7 @@ sub Set_TQA_Check_Valid_Markup {
     Set_EPUB_Check_Valid_Markup(1);
     Set_CSS_Check_Valid_Markup(1);
     Set_JavaScript_Check_Valid_Markup(1);
+    Set_MARC_Check_Valid_Markup(1);
     Set_XML_Check_Valid_Markup(1);
 
     #
@@ -462,6 +470,9 @@ sub Set_TQA_Check_Valid_Markup {
                 ($mime_type =~ "text\/javascript") ||
                 ($this_url =~ /\.js$/i) ) {
             Set_JavaScript_Check_Valid_Markup($validity);
+        }
+        elsif ( $mime_type =~ "application\/marc" ) {
+            Set_MARC_Check_Valid_Markup($validity);
         }
         elsif ( ($mime_type =~ /application\/atom\+xml/) ||
                 ($mime_type =~ /application\/rss\+xml/) ||
@@ -494,7 +505,8 @@ sub Initialize_Test_Results {
     #
     $current_tqa_check_profile = $tqa_check_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
-
+    $current_landmark = "";
+    $landmark_marker = "";
 }
 
 #***********************************************************************
@@ -554,6 +566,8 @@ sub Record_Result {
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
         $result_object->testcase_groups(TQA_Testcase_Groups($testcase));
+        $result_object->landmark($current_landmark);
+        $result_object->landmark_marker($landmark_marker);
         push (@$results_list_addr, $result_object);
 
         #
@@ -772,6 +786,14 @@ sub TQA_Check {
             ($mime_type =~ /text\/javascript/) ) {
         @tqa_results_list = JavaScript_Check($this_url, $language, $profile,
                                              $content);
+    }
+    #
+    # Is it MARC content?
+    #
+    elsif ( ($mime_type =~ /application\/marc/) ||
+            ($this_url =~ /\.mrc$/i) ) {
+        @tqa_results_list = MARC_Check($this_url, $language, $profile,
+                                      $content);
     }
     #
     # Is it PDF content?
@@ -1020,6 +1042,8 @@ sub Check_Link_Anchor_Alt_Title_Check {
             $link_type = $link->link_type;
             $in_list = $link->in_list;
             $list_heading = $link->list_heading;
+            $current_landmark = $link->landmark();
+            $landmark_marker = $link->landmark_marker();
             print "Check link anchor = \"$anchor\", lang = $lang, alt = \"$alt\" url = $link_url at $line_no:$column_no\n" if $debug;
 
             #
@@ -1347,6 +1371,8 @@ sub Check_Navigation_Links {
                 # Navigation links out of order
                 #
                 print "Navigation link $anchor ($new_order) out of order, last link was $last_link_anchor ($last_order)\n" if $debug;
+                $current_landmark = $link->landmark();
+                $landmark_marker = $link->landmark_marker();
                 Record_Result("WCAG_2.0-F66", $link->line_no, $link->column_no,
                               $link->source_line,
                               String_Value("Navigation link") . "\"$anchor\"" .
@@ -1458,6 +1484,8 @@ sub TQA_Check_Links {
     #
     $current_tqa_check_profile = $tqa_check_profile_map{$profile};
     $results_list_addr = \@local_tqa_results_list;
+    $current_landmark = "";
+    $landmark_marker = "";
 
     #
     # Save URL in global variable
@@ -2032,6 +2060,8 @@ sub TQA_Check_Images {
     #
     $current_tqa_check_profile = $tqa_check_profile_map{$profile};
     $results_list_addr = \@local_tqa_results_list;
+    $current_landmark = "";
+    $landmark_marker = "";
 
     #
     # Save URL in global variable
