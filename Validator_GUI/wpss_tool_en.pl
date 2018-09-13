@@ -76,5 +76,15 @@ if ( $program_dir eq "." ) {
 # Run the wpss_tool.pl program
 #
 chdir($program_dir);
-$rc = system(".\\wpss_tool.pl -eng @ARGV");
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $rc = system(".\\wpss_tool.pl -eng @ARGV");
+} else {
+    #
+    # Not Windows.
+    #
+    $rc = system("./wpss_tool.pl -eng @ARGV");
+}
 exit($rc);
