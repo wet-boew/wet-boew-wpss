@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml_dictionary.pm
 #
-# $Revision: 536 $
+# $Revision: 816 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_xml_dictionary.pm $
-# $Date: 2017-10-24 12:57:44 -0400 (Tue, 24 Oct 2017) $
+# $Date: 2018-04-12 14:54:04 -0400 (Thu, 12 Apr 2018) $
 #
 # Description:
 #
@@ -17,6 +17,7 @@
 #     Set_Open_Data_XML_Dictionary_Testcase_Data
 #     Set_Open_Data_XML_Dictionary_Test_Profile
 #     Open_Data_XML_Dictionary_Check_Dictionary
+#     Open_Data_XML_Dictionary_Get_Content_Results
 #
 # Terms and Conditions of Use
 #
@@ -79,6 +80,7 @@ BEGIN {
                   Set_Open_Data_XML_Dictionary_Testcase_Data
                   Set_Open_Data_XML_Dictionary_Test_Profile
                   Open_Data_XML_Dictionary_Check_Dictionary
+                  Open_Data_XML_Dictionary_Get_Content_Results
                   );
     $VERSION = "1.0";
 }
@@ -90,7 +92,7 @@ BEGIN {
 #***********************************************************************
 
 my ($debug) = 0;
-my (%testcase_data, $results_list_addr);
+my (%testcase_data, $results_list_addr, @content_results_list);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count, $save_text_between_tags, $saved_text, $heading_count);
 my ($current_dictionary, %term_location, @required_description_languages);
@@ -160,6 +162,7 @@ my %string_table_en = (
     "out of range 1900-2100",      " out of range 1900-2100",
     "Previous instance found at",  "Previous instance found at line ",
     "tags found in",               "tags found in",
+    "Whitespace characters in label", "Whitespace characters in label",
     "Year",                        "Year ",
     );
 
@@ -211,6 +214,7 @@ my %string_table_fr = (
     "out of range 1900-2100",      " hors de portée 1900-2000",
     "Previous instance found at",  "Instance précédente trouvée à la ligne ",
     "tags found in",               "balises trouvées dans",
+    "Whitespace characters in label", "Caractères d'espaces dans l'étiquette",
     "Year",                        "Année ",
     );
 
@@ -393,6 +397,7 @@ sub Initialize_Test_Results {
     #
     $current_open_data_profile = $open_data_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
+    @content_results_list = ();
 
     #
     # Initialize variables
@@ -469,6 +474,47 @@ sub Record_Result {
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
         push (@$results_list_addr, $result_object);
+
+        #
+        # Print error string to stdout
+        #
+        Print_Error($line, $column, $text, "$testcase : $error_string");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Record_Content_Result
+#
+# Parameters: testcase - testcase identifier
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             error_string - error string
+#
+# Description:
+#
+#   This function records the testcase result and stores it in the
+# list of content errors.
+#
+#***********************************************************************
+sub Record_Content_Result {
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+
+    my ($result_object);
+
+    #
+    # Is this testcase included in the profile
+    #
+    if ( defined($testcase) && defined($$current_open_data_profile{$testcase}) ) {
+        #
+        # Create result object and save details
+        #
+        $result_object = tqa_result_object->new($testcase, $check_fail,
+                                                Open_Data_Testcase_Description($testcase),
+                                                $line, $column, $text,
+                                                $error_string, $current_url);
+        push (@content_results_list, $result_object);
 
         #
         # Print error string to stdout
@@ -1463,7 +1509,24 @@ sub End_Label_Tag_Handler {
                           $self->current_column, $self->original_string,
                           String_Value("Missing text in") . " <label>");
         }
+        #
+        # Have a label
+        #
         else {
+            #
+            # Does the heading have any whitespace in the label?
+            #
+            if ( $saved_text =~ /(\r|\n|\s)+/ ) {
+                #
+                # Found white space inside the label string.
+                # This is a content error not a technical error.
+                #
+                Record_Content_Result("TP_PW_OD_CONT", $self->current_line,
+                                      $self->current_column, $self->original_string,
+                                      String_Value("Whitespace characters in label") .
+                                      " \"$saved_text\"");
+            }
+            
             #
             # We have a label, have we seen it before?
             #
@@ -1749,7 +1812,7 @@ sub Dictionary_End_Handler {
 #
 # Description:
 #
-#   This function runs a number of open data checks on XML data file content.
+#   This function runs a number of open data checks on XML data file syntax.
 #
 #***********************************************************************
 sub Open_Data_XML_Dictionary_Check_Dictionary {
@@ -1828,6 +1891,35 @@ sub Open_Data_XML_Dictionary_Check_Dictionary {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_XML_Dictionary_Get_Content_Results
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function runs the list of content errors found.
+#
+#***********************************************************************
+sub Open_Data_XML_Dictionary_Get_Content_Results {
+    my ($this_url) = @_;
+
+    my (@empty_list);
+    
+    #
+    # Does this URL match the last one analysed by the
+    # Open_Data_XML_Dictionary_Check_Dictionary function?
+    #
+    print "Open_Data_XML_Dictionary_Get_Content_Results: url = $this_url\n" if $debug;
+    if ( $current_url eq $this_url ) {
+        return(@content_results_list);
+    }
+    else {
+        return(@empty_list);
+    }
 }
 
 #***********************************************************************
