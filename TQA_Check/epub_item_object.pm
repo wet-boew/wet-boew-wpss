@@ -2,9 +2,9 @@
 #
 # Name: epub_item_object.pm
 #
-# $Revision: 706 $
+# $Revision: 761 $
 # $URL: svn://10.36.148.185/TQA_Check/Tools/epub_item_object.pm $
-# $Date: 2018-02-02 09:02:57 -0500 (Fri, 02 Feb 2018) $
+# $Date: 2018-03-12 11:18:11 -0400 (Mon, 12 Mar 2018) $
 #
 # Description:
 #
@@ -25,6 +25,7 @@
 #    nav_types - get/set the set of navigation types found in a navigation file
 #    page_count - get/set the number of pages (i.e. number of page breaks)
 #    properties - get/set the properties value
+#    table_count - get/set the number of tables
 #
 # Terms and Conditions of Use
 #
@@ -138,6 +139,7 @@ sub new {
     $self->{"nav_types"} = \%nav_types_table;
     $self->{"page_count"} = 0;
     $self->{"properties"} = \%properties_table;
+    $self->{"table_count"} = 0;
 
     #
     # Print object details
@@ -365,6 +367,35 @@ sub properties {
     }
     else {
         return(%$table_addr);
+    }
+}
+
+#********************************************************
+#
+# Name: table_count
+#
+# Parameters: self - class reference
+#             table_count - count of tables (optional)
+#
+# Description:
+#
+#   This function either sets or returns the table_count
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub table_count {
+    my ($self, $table_count) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($table_count) ) {
+        $self->{"table_count"} = $table_count;
+    }
+    else {
+        return($self->{"table_count"});
     }
 }
 
