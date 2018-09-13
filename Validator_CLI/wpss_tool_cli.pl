@@ -1,5 +1,5 @@
-#!/opt/common/perl/bin/perl
 #!/usr/bin/perl -w
+#!/opt/common/perl/bin/perl
 #***********************************************************************
 #
 # Name:   wpss_tool_cli.pl
@@ -49,5 +49,15 @@ if ( $program_dir eq "." ) {
 # Run the wpss_tool.pl program
 #
 chdir($program_dir);
-$rc = system(".\\wpss_tool.pl -cli @ARGV");
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $rc = system(".\\wpss_tool.pl -cli @ARGV");
+} else {
+    #
+    # Not Windows.
+    #
+    $rc = system("./wpss_tool.pl -cli @ARGV");
+}
 exit($rc);
