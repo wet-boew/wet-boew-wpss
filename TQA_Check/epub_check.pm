@@ -2,9 +2,9 @@
 #
 # Name:   epub_check.pm
 #
-# $Revision: 707 $
+# $Revision: 763 $
 # $URL: svn://10.36.148.185/TQA_Check/Tools/epub_check.pm $
-# $Date: 2018-02-02 09:04:04 -0500 (Fri, 02 Feb 2018) $
+# $Date: 2018-03-12 11:19:54 -0400 (Mon, 12 Mar 2018) $
 #
 # Description:
 #
@@ -123,6 +123,7 @@ my %string_table_en = (
     "Missing landmarks navigation list", "Missing landmarks navigation list",
     "Missing list of illustrations", "Missing list of illustrations",
     "Missing list of pages",      "Missing list of pages",
+    "Missing list of tables",     "Missing list of tables",
     "Missing table of content",   "Missing table of content",
     );
 
@@ -131,6 +132,7 @@ my %string_table_fr = (
     "Missing landmarks navigation list", "Liste de navigation des landmarks manquants",
     "Missing list of illustrations", "Liste manquante d'illustrations",
     "Missing list of pages",      "Liste manquante de pages",
+    "Missing list of tables",     "Liste manquante de tables",
     "Missing table of content",   "Table des matières manquante",
     );
 
@@ -552,7 +554,7 @@ sub Check_Navigation_File {
     my ($epub_opf_object, $nav_item_object, $this_url) = @_;
     
     my (%epub_nav_types, $page_count, $illustration_count, $list_item);
-    my ($manifest_list);
+    my ($manifest_list, $table_count);
 
     #
     # Navigation file specific checks
@@ -570,8 +572,8 @@ sub Check_Navigation_File {
     }
     
     #
-    # Count the number of page breaks and illustrations found in content
-    # documents.
+    # Count the number of page breaks, illustrations and tables found in
+    # content documents.
     #
     $page_count = 0;
     $illustration_count = 0;
@@ -579,6 +581,7 @@ sub Check_Navigation_File {
     for $list_item (@$manifest_list) {
         $page_count += $list_item->page_count();
         $illustration_count += $list_item->illustration_count();
+        $table_count += $list_item->table_count();
     }
     
     #
@@ -596,6 +599,15 @@ sub Check_Navigation_File {
     if ( ($illustration_count > 5) && ( ! defined($epub_nav_types{"loi"})) ) {
         Record_Result("EPUB-ACCESS-002", -1, 0, "",
                       String_Value("Missing list of illustrations"));
+    }
+
+    #
+    # Do we have an table count with no list of tables?
+    # Set threshold for the list at 5 tables.
+    #
+    if ( ($table_count > 5) && ( ! defined($epub_nav_types{"lot"})) ) {
+        Record_Result("EPUB-ACCESS-002", -1, 0, "",
+                      String_Value("Missing list of tables"));
     }
 
     #
