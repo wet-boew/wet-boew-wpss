@@ -561,6 +561,7 @@ sub Get_English_Path {
     #
     ($file_name, $language_suffix, $file_suffix) = $file_path =~ /^([\w\/\-_\.]*[\-_])([a-zA-Z]{1,3})\.(.*)/;
     print "Get_English_Path file name = $file_name, language_suffix = $language_suffix, file_suffix = $file_suffix\n" if $debug;
+    $language_suffix = lc($language_suffix);
 
     #
     # Check for a 3 character language
