@@ -24,6 +24,8 @@
 #    column_no - source column number
 #    description - testcase description
 #    help_url - testcase help URL
+#    landmark - get/set landmark
+#    landmark_marker - get/set landmark marker
 #    line_no - source line number
 #    message - test case message
 #    page_no - source page number
@@ -154,6 +156,8 @@ sub new {
     $self->{"description"} = $description;
     $self->{"column_no"} = $column_no;
     $self->{"help_url"} = "";
+    $self->{"landmark"} = "";
+    $self->{"landmark_marker"} = "";
     $self->{"line_no"} = $line_no;
     $self->{"message"} = $message;
     $self->{"page_no"} = -1;
@@ -306,6 +310,64 @@ sub help_url {
     }
     else {
         return($self->{"help_url"});
+    }
+}
+
+#********************************************************
+#
+# Name: landmark
+#
+# Parameters: self - class reference
+#             landmark - landmark name (optional)
+#
+# Description:
+#
+#   This function either sets or returns the landmark
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub landmark {
+    my ($self, $landmark) = @_;
+
+    #
+    # Was a landmark value supplied ?
+    #
+    if ( defined($landmark) ) {
+        $self->{"landmark"} = $landmark;
+    }
+    else {
+        return($self->{"landmark"});
+    }
+}
+
+#********************************************************
+#
+# Name: landmark_marker
+#
+# Parameters: self - class reference
+#             landmark_marker - landmark marker (optional)
+#
+# Description:
+#
+#   This function either sets or returns the landmark
+# marker attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub landmark_marker {
+    my ($self, $landmark_marker) = @_;
+
+    #
+    # Was a landmark marker value supplied ?
+    #
+    if ( defined($landmark_marker) ) {
+        $self->{"landmark_marker"} = $landmark_marker;
+    }
+    else {
+        return($self->{"landmark_marker"});
     }
 }
 
