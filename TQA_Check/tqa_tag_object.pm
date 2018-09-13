@@ -17,13 +17,16 @@
 #
 # Class Methods
 #    new - create new object instance
-#    attr - hash table of attributes
-#    column_no - source column number
-#    is_hidden - tag is hidden
-#    is_visible - tag is visible
-#    line_no - source line number
-#    styles - computed style selectors
-#    tag - tag name
+#    attr - get/set hash table of attributes
+#    column_no - get/set source column number
+#    implicit_role - get/set the implicit role value
+#    is_hidden - get/set tag is hidden flag
+#    is_visible - get/set tag is visible flag
+#    landmark - get/set landmark
+#    landmark_marker - get/set landmark marker
+#    line_no - get/set source line number
+#    styles - get/set computed style selectors
+#    tag - get/set tag name
 #
 # Terms and Conditions of Use
 #
@@ -132,8 +135,11 @@ sub new {
     #
     $self->{"attr"} = $attr;
     $self->{"column_no"} = $column_no;
+    $self->{"implicit_role"} = "";
     $self->{"is_hidden"} = 0;
     $self->{"is_visible"} = 1;
+    $self->{"landmark"} = "";
+    $self->{"landmark_marker"} = "";
     $self->{"line_no"} = $line_no;
     $self->{"styles"} = "";
     $self->{"tag"} = $tag;
@@ -212,6 +218,35 @@ sub column_no {
 
 #********************************************************
 #
+# Name: implicit_role
+#
+# Parameters: self - class reference
+#             role - role value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the implicit_role
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub implicit_role {
+    my ($self, $role) = @_;
+
+    #
+    # Was a role value supplied ?
+    #
+    if ( defined($role) ) {
+        $self->{"implicit_role"} = $role;
+    }
+    else {
+        return($self->{"implicit_role"});
+    }
+}
+
+#********************************************************
+#
 # Name: is_hidden
 #
 # Parameters: self - class reference
@@ -265,6 +300,64 @@ sub is_visible {
     }
     else {
         return($self->{"is_visible"});
+    }
+}
+
+#********************************************************
+#
+# Name: landmark
+#
+# Parameters: self - class reference
+#             landmark - landmark name (optional)
+#
+# Description:
+#
+#   This function either sets or returns the landmark
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub landmark {
+    my ($self, $landmark) = @_;
+
+    #
+    # Was a landmark value supplied ?
+    #
+    if ( defined($landmark) ) {
+        $self->{"landmark"} = $landmark;
+    }
+    else {
+        return($self->{"landmark"});
+    }
+}
+
+#********************************************************
+#
+# Name: landmark_marker
+#
+# Parameters: self - class reference
+#             landmark_marker - landmark marker (optional)
+#
+# Description:
+#
+#   This function either sets or returns the landmark
+# marker attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub landmark_marker {
+    my ($self, $landmark_marker) = @_;
+
+    #
+    # Was a landmark marker value supplied ?
+    #
+    if ( defined($landmark_marker) ) {
+        $self->{"landmark_marker"} = $landmark_marker;
+    }
+    else {
+        return($self->{"landmark_marker"});
     }
 }
 
