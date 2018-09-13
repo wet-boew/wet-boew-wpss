@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 276 $
-# $URL: svn://10.36.20.203/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2017-02-10 15:33:10 -0500 (Fri, 10 Feb 2017) $
+# $Revision: 756 $
+# $URL: svn://10.36.148.185/Validator_GUI/Tools/validator_gui.pm $
+# $Date: 2018-03-12 10:56:38 -0400 (Mon, 12 Mar 2018) $
 #
 # Description:
 #
@@ -114,6 +114,7 @@ use Text::CSV;
 #
 use crawler;
 use tqa_result_object;
+use url_check;
 use validator_xml;
 
 #***********************************************************************
@@ -195,9 +196,9 @@ my ($testcase_profile_groups_values, %report_options_values);
 my ($testcase_profile_groups_config_option, $profile_directory);
 
 my ($csv_results_fh, $csv_results_file_name, $csv_object);
-my (@csv_results_fields) = ("type", "url", "testcase", "description", "line_no",
-                            "column_no", "page_no","source_line","message",
-                            "help_url");
+my (@csv_results_fields) = ("type", "url", "testcase", "description", "landmark",
+                            "landmark_marker", "line_no", "column_no", "page_no",
+                            "source_line", "message", "help_url");
 if ( $have_threads ) {
     share(\$csv_results_file_name);
 }
@@ -782,9 +783,10 @@ sub Print_TQA_Result_to_CSV {
     # Save fields of the result object in the CSV file
     #
     @fields = ($tab_label, $result_object->url, $result_object->testcase,
-               $result_object->description, $result_object->line_no,
-               $result_object->column_no, $result_object->page_no,
-               $result_object->source_line);
+               $result_object->description, $result_object->landmark,
+               $result_object->landmark_marker,
+               $result_object->line_no, $result_object->column_no,
+               $result_object->page_no, $result_object->source_line);
 
     #
     # Add message field. Limit text to 10K characters
@@ -863,6 +865,16 @@ sub Validator_GUI_Print_TQA_Result {
                                    String_Value("Page") .
                                    "%3d ", $result_object->page_no);
             Update_Results_Tab($tab_label, $output_line);
+        }
+
+        #
+        # Print landmark
+        #
+        if ( $result_object->landmark ne "" ) {
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "Landmark: " . $result_object->landmark);
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "Landmark marker: " . $result_object->landmark_marker);
         }
 
         #
@@ -2590,14 +2602,28 @@ sub Validator_GUI_401_Login {
     my ($url, $realm) = @_;
 
     my ($user, $password);
+    my ($protocol, $domain, $file_path, $query, $new_url);
 
     #
-    # Do we already have credentials (e.g. through configuration) ?
+    # Get the site domain, then check to see if we already
+    # have credentials (e.g. through configuration) for the exact url?
     #
+    print "Validator_GUI_401_Login, get credentials for $url\n" if $debug;
+    ($protocol, $domain, $file_path, $query, $new_url) = URL_Check_Parse_URL($url);
+    $new_url = "$protocol//$domain";
+    print "Site domain = $new_url\n" if $debug;
     if ( defined($url_401_user{$url}) && defined($url_401_password{$url}) ) {
-        print "Use 401 credentials from profile configuration\n" if $debug;
+        print "Use 401 credentials from profile configuration for $url\n" if $debug;
         $user = $url_401_user{$url};
         $password = $url_401_password{$url};
+    }
+    #
+    # Check for credentials for the site domain
+    #
+    elsif ( defined($url_401_user{$new_url}) && defined($url_401_password{$new_url}) ) {
+        print "Use 401 credentials from profile configuration for $new_url\n" if $debug;
+        $user = $url_401_user{$new_url};
+        $password = $url_401_password{$new_url};
     }
     else {
         #
@@ -3212,6 +3238,14 @@ sub GUI_Do_Load_URL_List_from_File_Click {
                 #
                  elsif ( $field_name eq "HTTP_401" ) {
                     ($field_name, $url, $type, $value) = split(/\s+/, $line);
+                    print "HTTP 401 credentials for $url, $type, $value\n" if $debug;
+                    
+                    #
+                    # Strip of any trailing / of on the URL
+                    #
+                    if ( defined($url) ) {
+                        $url =~ s/\/$//g;
+                    }
 
                     #
                     # Is this a username or password ?
@@ -3995,6 +4029,130 @@ sub Add_Report_Option_Testcase_Profile_Group_Selector {
 
 #***********************************************************************
 #
+# Name: Parse_Site_URL
+#
+# Parameters: url - URL
+#
+# Description:
+#
+#   This function parses a URL to split it into its directory and
+# file name components.
+#
+#***********************************************************************
+sub Parse_Site_URL {
+    my ($url) = @_;
+
+    my ($site_dir, $site_page, $protocol, $domain, $file_path, $query);
+    my ($dir, $file);
+
+    #
+    # Do we have a leading http ?
+    #
+    print "Parse_Site_URL, url = $url\n" if $debug;
+    if ( ! ($url =~ /^http[s]?:/i) ) {
+        #
+        # Missing protocol, add http:// to the URL
+        #
+        print "No protocol in URL, adding http://\n" if $debug;
+        $url = "http://" . $url;
+    }
+
+    #
+    # Get components of the URL, we expect 1 of the following
+    #   http://domain/path?query
+    #   http://domain/path#anchor
+    #   https://domain/path?query
+    #   https://domain/path#anchor
+    #
+    ($protocol, $domain, $file_path, $query) =
+          $url =~ /^(http[s]?:)\/\/?([^\/\s]+)\/([\/\w\-\.]*[^#?]*)(.*)?$/io;
+
+    #
+    # Did we get a domain ?
+    #
+    if ( ! defined($domain) ) {
+        #
+        # Perhaps we are missing the / after the domain ?
+        #  http://domain?query
+        #
+        ($protocol, $domain, $query) =
+          $url =~ /^(http[s]?:)\/\/?([^\/\s#?]*)(.*)?$/io;
+        $file_path = "/";
+    }
+
+    #
+    # Make sure protocol is in lowercase
+    #
+    if ( defined($protocol) ) {
+        $protocol =~ tr/A-Z/a-z/;
+    }
+    else {
+        print "Error, missing or malformed protocol\n" if $debug;
+        print String_Value("Malformed URL") . " $url\n";
+        exit(1);
+    }
+
+    #
+    # Did we get a domain ?
+    #
+    if ( ! defined($domain) ) {
+        #
+        # Perhaps we are missing the / after the domain ?
+        #  http://domain?query
+        #
+        ($protocol, $domain, $query) =
+          $url =~ /^(http[s]?:)\/\/?([^\/\s#?]*)(.*)?$/io;
+        $file_path = "/";
+    }
+
+    #
+    # Change double slash (//) into a single slash in the file path
+    #
+    while ( $file_path =~ /\/\// ) {
+        $file_path =~ s/\/\//\//g;
+    }
+
+    #
+    # If we again didn't get anthing, return empty strings
+    #
+    if ( ! defined($domain) ) {
+        $site_dir = "";
+        $site_page = "";
+    }
+
+    #
+    # Reconstruct the URL properly
+    #
+    if ( $file_path ne "/" ) {
+        #
+        # Get directory portion from the file path
+        #
+        $dir = dirname($file_path);
+        if ( $dir eq "." ) {
+            $dir = "";
+            $site_dir = "$protocol//$domain";
+        }
+        else {
+            $site_dir = "$protocol//$domain/$dir";
+        }
+        $file = basename($file_path);
+        $site_page = "$file$query";
+    }
+    else {
+        $site_dir = "$protocol//$domain";
+        $site_page = "/$query";
+    }
+    $site_dir =~ s/\/$//g;
+
+    #
+    # Return directory and page components
+    #
+    print "Site directory = $site_dir, page = $site_page\n" if $debug;
+    return($site_dir, $site_page);
+}
+
+#***********************************************************************
+#
 # Name: Load_Site_Config
 #
 # Parameters: self - reference to main dialog
@@ -4008,7 +4166,7 @@ sub Load_Site_Config {
     my ($self) = @_;
 
     my ($filename, $line, $field_name, $value, $name, $type, $url);
-    my ($valid_value, $got_group_profile);
+    my ($valid_value, $got_group_profile, $site_dir, $site_entry);
 
     #
     # Did we load a file previously? If not use
@@ -4081,6 +4239,7 @@ sub Load_Site_Config {
                 if ( ! defined($value) ) {
                     next;
                 }
+                print "Load_Site_Config, field = $field_name\n" if $debug;
 
                 #
                 # Check configuration field name
@@ -4130,6 +4289,14 @@ sub Load_Site_Config {
                 #
                 elsif ( $field_name eq "HTTP_401" ) {
                     ($field_name, $url, $type, $value) = split(/\s+/, $line);
+                    print "HTTP 401 credentials for $url, $type, $value\n" if $debug;
+
+                    #
+                    # Strip of any trailing / of on the URL
+                    #
+                    if ( defined($url) ) {
+                        $url =~ s/\/$//g;
+                    }
 
                     #
                     # Is this a username or password ?
@@ -4154,6 +4321,54 @@ sub Load_Site_Config {
                 elsif ( $field_name eq "enable_generated_markup" ) {
                     ($field_name, $value) = split(/\s+/, $line, 2);
                     $enable_generated_markup = $value;
+                }
+                #
+                # Do we have a site_url_eng field
+                # (combination of site directory and entry page) ?
+                #
+                elsif ( $field_name eq "site_url_eng" ) {
+                    ($field_name, $value) = split(/\s+/, $line, 2);
+                    $value =~ s/\/*$//g;
+                    ($site_dir, $site_entry) = Parse_Site_URL($value);
+
+                    #
+                    # Load values into main dialog
+                    #
+                    $name = $site_configuration_fields{"sitedire"};
+                    print "Set configuration item $name to $site_dir\n" if $debug;
+                    $main_window->ConfigTabs->$name->Text("$site_dir");
+                    $name = $site_configuration_fields{"siteentrye"};
+                    print "Set configuration item $name to $site_entry\n" if $debug;
+                    $main_window->ConfigTabs->$name->Text("$site_entry");
+
+                    #
+                    # Update the configuration
+                    #
+                    Win32::GUI::DoEvents();
+                }
+                #
+                # Do we have a site_url_fra field
+                # (combination of site directory and entry page) ?
+                #
+                elsif ( $field_name eq "site_url_fra" ) {
+                    ($field_name, $value) = split(/\s+/, $line, 2);
+                    $value =~ s/\/*$//g;
+                    ($site_dir, $site_entry) = Parse_Site_URL($value);
+
+                    #
+                    # Load values into main dialog
+                    #
+                    $name = $site_configuration_fields{"sitedirf"};
+                    print "Set configuration item $name to $site_dir\n" if $debug;
+                    $main_window->ConfigTabs->$name->Text("$site_dir");
+                    $name = $site_configuration_fields{"siteentryf"};
+                    print "Set configuration item $name to $site_entry\n" if $debug;
+                    $main_window->ConfigTabs->$name->Text("$site_entry");
+
+                    #
+                    # Update the configuration
+                    #
+                    Win32::GUI::DoEvents();
                 }
             }
             close(FILE);
