@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision: 179 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/open_data_testcases.pm $
-# $Date: 2016-12-21 08:50:20 -0500 (Wed, 21 Dec 2016) $
+# $Revision: 802 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_testcases.pm $
+# $Date: 2018-04-05 11:52:49 -0400 (Thu, 05 Apr 2018) $
 #
 # Description:
 #
@@ -110,6 +110,7 @@ my (%testcase_description_en) = (
 # PWGSC Open Data checkpoints
 #
 "TP_PW_OD_BOM",     "TP_PW_OD_BOM: UTF-8 BOM",
+"TP_PW_OD_CONT",    "TP_PW_OD_CONT: Content",
 "TP_PW_OD_DATA",    "TP_PW_OD_DATA: PWGSC Data Quality",
 "TP_PW_OD_DD",      "TP_PW_OD_DD: Data Dictionary",
 );
@@ -127,6 +128,7 @@ my (%testcase_description_fr) = (
 # PWGSC Open Data checkpoints
 #
 "TP_PW_OD_BOM",     "TP_PW_OD_BOM: UTF-8 BOM",
+"TP_PW_OD_CONT",    "TP_PW_OD_CONT: Contenu",
 "TP_PW_OD_DATA",    "TP_PW_OD_DATA: Qualité des données de TPSGC",
 "TP_PW_OD_DD",      "TP_PW_OD_DD: XML Dictionnaire",
 );
