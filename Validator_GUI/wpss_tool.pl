@@ -4,13 +4,13 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 709 $
+# $Revision: 932 $
 # $URL: svn://10.36.148.185/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2018-02-02 09:06:47 -0500 (Fri, 02 Feb 2018) $
+# $Date: 2018-07-27 11:27:02 -0400 (Fri, 27 Jul 2018) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
-#                        [ -disable_generated_markup ]
+#                        [ -disable_generated_markup ] [ -report_passes_only ]
 #
 # Where: -debug enables program debugging.
 #        -fra use French interface
@@ -22,6 +22,7 @@
 #        -monitor enable program resource usage monitoring
 #        -no_login don't prompt for firewall login
 #        -disable_generated_markup don't get generated source markup
+#        -report_passes_only option to report only passes
 #
 # Description:
 #
@@ -147,7 +148,8 @@ my ($loginpagee, $logoutpagee, $loginpagef, $logoutpagef);
 my ($loginformname, $logininterstitialcount, $logoutinterstitialcount);
 my ($firewall_check_url, $maximum_errors_per_url);
 my ($enable_generated_markup, $cmnd_line_disable_generated_markup);
-my (%gui_config);
+my (%gui_config, %epub_file_count, %tab_reported_doc_count);
+my (%epub_error_count);
 my ($report_passes_only) = 0;
 my ($ui_pm_dir) = "GUI";
 my ($no_login_mode) = 0;
@@ -207,7 +209,7 @@ my ($user_agent_name) = "wpss_test.pl";
 my (%report_options, %results_file_suffixes);
 my ($crawled_urls_tab, $validation_tab, $metadata_tab, $doc_list_tab,
     $acc_tab, $link_tab, $dept_tab, $doc_features_tab, $mobile_tab,
-    $clf_tab, $interop_tab, $open_data_tab, $crawllimit);
+    $clf_tab, $interop_tab, $open_data_tab, $content_tab, $crawllimit);
 my (@csv_summary_results_fields) = ("type", "SC", "tc label", "tcid", "URL count", "Error count", "Help URL");
 
 #
@@ -321,6 +323,11 @@ my (%open_data_check_profiles_languages);
 my (@open_data_file_details_fields) = ("type", "url", "mime-type", "sha1 checksum",
                                        "size", "component size", "rows",
                                        "columns", "headings");
+
+#
+# Open data content check variables
+#
+my (%content_error_instance_count, %content_error_url_count);
 
 #
 # Document Features variables
@@ -4109,6 +4116,24 @@ sub HTTP_Response_Callback {
         }
 
         #
+        # Is the file a MARC file ?
+        #
+        elsif ( ($mime_type =~ /application\/marc/) ||
+                ($url =~ /\.mrc$/i) ) {
+            #
+            # Save web page details
+            #
+            $web_page_details_values{"url"} = $url;
+            $web_page_details_values{"lang"} = "";
+            $web_page_details_values{"content size"} = length($content);
+
+            #
+            # Perform TQA check of CSV content
+            #
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+        }
+
+        #
         # Unknown mime-type, save URL as non-HTML primary format
         #
         else {
@@ -4919,6 +4944,9 @@ sub URL_List_Callback {
             if ( defined($resp) ) {
                 $error = String_Value("HTTP Error") . " " .
                                       $resp->status_line;
+                if ( defined($resp->header("Client-Warning")) ) {
+                    $error .= ", " . $resp->header("Client-Warning");
+                }
             }
             else {
                 $error = String_Value("Malformed URL");
@@ -4980,6 +5008,30 @@ sub URL_List_Callback {
 
 #***********************************************************************
 #
+# Name: show_call_stack
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function generates a stack trace of function calls.
+#
+#***********************************************************************
+sub show_call_stack {
+    my ($path, $line, $subr, $message);
+    my $max_depth = 30;
+    my $i = 1;
+    
+    $message = "--- Begin stack trace ---\n";
+    while ( (my @call_details = (caller($i++))) && ($i<$max_depth) ) {
+      $message .=  "$call_details[1] line $call_details[2] in function $call_details[3]\n";
+    }
+    $message .= "--- End stack trace ---\n";
+    return($message);
+}
+
+#***********************************************************************
+#
 # Name: Runtime_Error_Callback
 #
 # Parameters: message - runtime error message
@@ -4994,12 +5046,13 @@ sub URL_List_Callback {
 sub Runtime_Error_Callback {
     my ($message) = @_;
 
-    my ($tab);
+    my ($tab, $call_stack);
 
     #
     # Add a note to all tabs indicating that analysis failed due
     # runtime error.
     #
+    $call_stack = show_call_stack();
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
                   $doc_list_tab, $doc_features_tab, $interop_tab) {
@@ -5238,6 +5291,11 @@ sub Save_Testcase_Summary_CSV {
         return;
     }
     binmode $csv_results_fh, ":utf8";
+    
+    #
+    # Add UTF-8 BOM
+    #
+    print $csv_results_fh chr(0xFEFF);
     print "Testcase results summary file name = $shared_testcase_results_summary_csv_filename\n" if $debug;
 
     #
@@ -5464,6 +5522,33 @@ sub Save_Testcase_Summary_CSV {
     }
 
     #
+    # Print summary results table for open data content Check
+    #
+    if ( defined($content_tab) ) {
+        foreach $tcid (sort(keys %content_error_url_count)) {
+            #
+            # Get testcase label by removing the description portion
+            # (characters after the colon).
+            #
+            $tc_label = $tcid;
+            $tc_label =~ s/:.*//g;
+
+            #
+            # Save fields of the result object in the CSV file
+            #
+            @fields = ($content_tab, "", $tc_label, $tcid, $content_error_url_count{$tcid},
+                       $content_error_instance_count{$tcid},
+                       Open_Data_Check_Testcase_URL($tcid));
+
+            $status = $csv_object->print($csv_results_fh, \@fields);
+            if ( ! $status ) {
+                print "Error in CSV print, status = $status, " .
+                      $csv_object->error_diag() . ", tab = $content_tab\n";
+            }
+        }
+    }
+    
+    #
     # Print summary results table for open data Check
     #
     if ( defined($open_data_tab) ) {
@@ -5489,7 +5574,7 @@ sub Save_Testcase_Summary_CSV {
             }
         }
     }
-    
+
     #
     # Close the CSV file
     #
@@ -5601,7 +5686,7 @@ sub Print_Results_Header {
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
                   $doc_list_tab, $doc_features_tab, $interop_tab,
-                  $mobile_tab, $open_data_tab) {
+                  $mobile_tab, $open_data_tab, $content_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Clear_Results($tab);
             Validator_GUI_Update_Results($tab,
@@ -5663,6 +5748,10 @@ sub Print_Results_Header {
                                String_Value("Document List report header") .
                                      $site_entries);
     }
+    if ( defined($content_tab) ) {
+        Validator_GUI_Update_Results($content_tab,
+                                     String_Value("Content report header"));
+    }
     if ( defined($open_data_tab) ) {
         Validator_GUI_Update_Results($open_data_tab,
                                      String_Value("Open Data report header"));
@@ -5714,6 +5803,11 @@ sub Print_Results_Header {
                                  String_Value("Department Check Testcase Profile")
                                      . " " . $dept_check_profile);
     }
+    if ( defined($content_tab) ) {
+        Validator_GUI_Update_Results($content_tab,
+                                     String_Value("Content Testcase Profile")
+                                     . " " . $open_data_check_profile);
+    }
     if ( defined($open_data_tab) ) {
         Validator_GUI_Update_Results($open_data_tab,
                                      String_Value("Open Data Testcase Profile")
@@ -5736,7 +5830,7 @@ sub Print_Results_Header {
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
                   $doc_list_tab, $doc_features_tab, $interop_tab,
-                  $mobile_tab, $open_data_tab) {
+                  $mobile_tab, $open_data_tab, $content_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
             Validator_GUI_Start_Analysis($tab, $date,
@@ -5765,7 +5859,7 @@ sub Print_Results_Summary_Table {
     # Print results table header
     #
     foreach $tab ($link_tab, $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                  $interop_tab, $open_data_tab) {
+                  $interop_tab, $open_data_tab, $content_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
             Validator_GUI_Update_Results($tab,
@@ -5963,6 +6057,32 @@ sub Print_Results_Summary_Table {
     }
 
     #
+    # Print summary results table for Open Data content Check
+    #
+    if ( defined($content_tab) ) {
+        foreach $tcid (sort(keys %content_error_url_count)) {
+            Validator_GUI_Update_Results($content_tab, $tcid);
+            $line = sprintf("  URLs %5d " . String_Value("instances") .
+                            " %5d ", $content_error_url_count{$tcid},
+                            $content_error_instance_count{$tcid});
+
+            #
+            # Add help link, if there is one
+            #
+            if ( defined( Open_Data_Check_Testcase_URL($tcid) ) ) {
+                $line .= " " . String_Value("help") .
+                         " " . Open_Data_Check_Testcase_URL($tcid);
+            }
+
+            #
+            # Print summary line
+            #
+            Validator_GUI_Update_Results($content_tab, $line);
+            Validator_GUI_Update_Results($content_tab, "");
+        }
+    }
+
+    #
     # Print summary results table for open data Check
     #
     if ( defined($open_data_tab) ) {
@@ -5991,7 +6111,8 @@ sub Print_Results_Summary_Table {
     #
     # Print blank line after table.
     #
-    foreach $tab ($acc_tab, $link_tab, $metadata_tab, $interop_tab, $open_data_tab, $dept_tab) {
+    foreach $tab ($acc_tab, $link_tab, $metadata_tab, $interop_tab,
+                  $open_data_tab, $content_tab, $dept_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
         }
@@ -6048,7 +6169,7 @@ sub Print_Results_Footer {
     foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
                   $metadata_tab, $acc_tab, $dept_tab, $doc_features_tab,
                   $clf_tab, $interop_tab, $mobile_tab, $open_data_tab,
-                  $doc_list_tab) {
+                  $content_tab, $doc_list_tab) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
 
@@ -6189,6 +6310,9 @@ sub Check_Page_URL {
         if ( defined($resp) ) {
             $error = String_Value("HTTP Error") . " " .
                                   $resp->status_line;
+            if ( defined($resp->header("Client-Warning")) ) {
+                $error .= ", " . $resp->header("Client-Warning");
+            }
         }
         else {
             $error = String_Value("Malformed URL");
@@ -6582,7 +6706,6 @@ sub Initialize_Tool_Globals {
     # Set global report_fails_only flag
     #
     $report_fails_only = $options{"report_fails_only"};
-    $report_passes_only = $options{"report_passes_only"};
     $shared_save_content = $options{"save_content"};
     $process_pdf = $options{"process_pdf"};
     
@@ -6716,6 +6839,7 @@ sub Initialize_Tool_Globals {
         $document_count{$tab} = 0;
         $error_count{$tab} = 0;
         $fault_count{$tab} = 0;
+        $tab_reported_doc_count{$tab} = 0;
     }
 
     #
@@ -6780,6 +6904,11 @@ sub Initialize_Tool_Globals {
         return;
     }
     binmode $files_details_fh, ":utf8";
+
+    #
+    # Add UTF-8 BOM and column headings
+    #
+    print $files_details_fh chr(0xFEFF);
     print $files_details_fh join(",", @web_page_details_fields) . "\r\n";
 
     #
@@ -6794,6 +6923,11 @@ sub Initialize_Tool_Globals {
         return;
     }
     binmode $links_details_fh, ":utf8";
+
+    #
+    # Add UTF-8 BOM and column headings
+    #
+    print $files_details_fh chr(0xFEFF);
     print $links_details_fh join(",", @links_details_fields) . "\r\n";
 }
 
@@ -6859,71 +6993,78 @@ sub Perform_Site_Crawl {
     Print_Results_Header($site_dir_e, $site_dir_f);
 
     #
-    # Make sure we can get at the English entry page before we start
-    # the crawl.
+    # Check to see if English and French entry pages exist.
+    # If we have login/logout pages, those will be checked instead
+    # (the entry pages may be behind the login).
     #
-    $resp_url = Check_Page_URL("$site_dir_e/$site_entry_e", 1);
-    if ( $resp_url eq "" ) {
-        return;
-    }
-
-    #
-    # Did the response change the site directory ? if so our crawl will
-    # fail.
-    #
-    if ( index($resp_url, $site_dir_e) != 0 ) {
-        Validator_GUI_Print_Error($crawled_urls_tab,
-                                  String_Value("Entry page") .
-                                  "$site_dir_e/$site_entry_e" .
-                                  String_Value("rewritten to") .
-                                  $resp_url);
+    if ( (! defined($loginpagee)) || ($loginpagee eq "") ) {
+        #
+        # Make sure we can get at the English entry page before we start
+        # the crawl.
+        #
+        $resp_url = Check_Page_URL("$site_dir_e/$site_entry_e", 1);
+        if ( $resp_url eq "" ) {
+            return;
+        }
 
         #
-        # Get current time/date
+        # Did the response change the site directory ? if so our crawl will
+        # fail.
         #
-        ($sec, $min, $hour, $mday, $mon, $year) = (localtime)[0,1,2,3,4,5];
-        $mon++;
-        $year += 1900;
-        $date = sprintf("%02d:%02d:%02d %4d/%02d/%02d", $hour, $min, $sec,
-                        $year, $mon, $mday);
+        if ( index($resp_url, $site_dir_e) != 0 ) {
+            Validator_GUI_Print_Error($crawled_urls_tab,
+                                      String_Value("Entry page") .
+                                      "$site_dir_e/$site_entry_e" .
+                                      String_Value("rewritten to") .
+                                      $resp_url);
 
-        Validator_GUI_End_Analysis($crawled_urls_tab, $date,
-                                   String_Value("Analysis terminated"));
-        return;
-    }
+            #
+            # Get current time/date
+            #
+            ($sec, $min, $hour, $mday, $mon, $year) = (localtime)[0,1,2,3,4,5];
+            $mon++;
+            $year += 1900;
+            $date = sprintf("%02d:%02d:%02d %4d/%02d/%02d", $hour, $min, $sec,
+                            $year, $mon, $mday);
 
-    #
-    # Make sure we can get at the French entry page before we start
-    # the crawl.
-    #
-    $resp_url = Check_Page_URL("$site_dir_f/$site_entry_f", 1);
-    if ( $resp_url eq "" ) {
-        return;
-    }
-
-    #
-    # Did the response change the site directory ? if so our crawl will
-    # fail.
-    #
-    if ( index($resp_url, $site_dir_f) != 0 ) {
-        Validator_GUI_Print_Error($crawled_urls_tab,
-                                  String_Value("Entry page") .
-                                  "$site_dir_f/$site_entry_f" .
-                                  String_Value("rewritten to") .
-                                  $resp_url);
+            Validator_GUI_End_Analysis($crawled_urls_tab, $date,
+                                       String_Value("Analysis terminated"));
+            return;
+        }
 
         #
-        # Get current time/date
+        # Make sure we can get at the French entry page before we start
+        # the crawl.
         #
-        ($sec, $min, $hour, $mday, $mon, $year) = (localtime)[0,1,2,3,4,5];
-        $mon++;
-        $year += 1900;
-        $date = sprintf("%02d:%02d:%02d %4d/%02d/%02d", $hour, $min, $sec,
-                        $year, $mon, $mday);
+        $resp_url = Check_Page_URL("$site_dir_f/$site_entry_f", 1);
+        if ( $resp_url eq "" ) {
+            return;
+        }
 
-        Validator_GUI_End_Analysis($crawled_urls_tab, $date,
-                                   String_Value("Analysis terminated"));
-        return;
+        #
+        # Did the response change the site directory ? if so our crawl will
+        # fail.
+        #
+        if ( index($resp_url, $site_dir_f) != 0 ) {
+            Validator_GUI_Print_Error($crawled_urls_tab,
+                                      String_Value("Entry page") .
+                                      "$site_dir_f/$site_entry_f" .
+                                      String_Value("rewritten to") .
+                                      $resp_url);
+
+            #
+            # Get current time/date
+            #
+            ($sec, $min, $hour, $mday, $mon, $year) = (localtime)[0,1,2,3,4,5];
+            $mon++;
+            $year += 1900;
+            $date = sprintf("%02d:%02d:%02d %4d/%02d/%02d", $hour, $min, $sec,
+                            $year, $mon, $mday);
+
+            Validator_GUI_End_Analysis($crawled_urls_tab, $date,
+                                       String_Value("Analysis terminated"));
+            return;
+        }
     }
 
     #
@@ -7134,16 +7275,19 @@ sub Increment_Counts_and_Print_URL {
         #
         if ( $report_passes_only ) {
             if ( ! $has_errors ) {
-                Print_URL_To_Tab($tab, $url, $document_count{$tab});
+                $tab_reported_doc_count{$tab}++;
+                Print_URL_To_Tab($tab, $url, $tab_reported_doc_count{$tab});
             }
         }
         elsif ( $report_fails_only ) {
             if ( $has_errors ) {
-                Print_URL_To_Tab($tab, $url, $error_count{$tab});
+                $tab_reported_doc_count{$tab}++;
+                Print_URL_To_Tab($tab, $url, $tab_reported_doc_count{$tab});
             }
         }
         else {
-            Print_URL_To_Tab($tab, $url, $document_count{$tab});
+            $tab_reported_doc_count{$tab}++;
+            Print_URL_To_Tab($tab, $url, $tab_reported_doc_count{$tab});
         }
     }
 }
@@ -7189,7 +7333,7 @@ sub Perform_Markup_Validation {
     }
     else {
         #
-        # Validate the HTML content.
+        # Validate the content.
         #
         print "Perform_Markup_Validation on URL\n  --> $url\n" if $debug;
         @results_list = Validate_Markup($url, $markup_validate_profile,
@@ -7216,6 +7360,9 @@ sub Perform_Markup_Validation {
             }
             elsif ( $result_object->testcase eq "JAVASCRIPT_VALIDATION" ) {
                 $is_valid_markup{"application/x-javascript"} = ($result_object->status == 0);
+            }
+            elsif ( $result_object->testcase eq "MARC_VALIDATION" ) {
+                $is_valid_markup{"application/marc"} = ($result_object->status == 0);
             }
             elsif ( $result_object->testcase eq "XML_VALIDATION" ) {
                 $is_valid_markup{"text/xml"} = ($result_object->status == 0);
@@ -8513,19 +8660,21 @@ sub Perform_Link_Check {
     #
     $clean_url = $url;
     $clean_url =~ s/"/""/g;
-    foreach $link (@links) {
-        #
-        # Print details for anchor links only.
-        # Skip javascript and mailto links.
-        #
-        $href = $link->abs_url();
-        if ( ($link->link_type() eq "a") &&
-             ! ($href =~ /^javascript:/) &&
-             ! ($href =~ /^mailto:/) ) {
-            $href =~ s/"/""/g;
-            print $links_details_fh "\"$url\"," . $link->link_type() . "," .
-                                    $link->line_no() . "," .
-                                    $link->column_no() . ",\"$href\"\r\n";
+    if ( defined($links_details_fh) ) {
+        foreach $link (@links) {
+            #
+            # Print details for anchor links only.
+            # Skip javascript and mailto links.
+            #
+            $href = $link->abs_url();
+            if ( ($link->link_type() eq "a") &&
+                 ! ($href =~ /^javascript:/) &&
+                 ! ($href =~ /^mailto:/) ) {
+                $href =~ s/"/""/g;
+                print $links_details_fh "\"$url\"," . $link->link_type() . "," .
+                                        $link->line_no() . "," .
+                                        $link->column_no() . ",\"$href\"\r\n";
+            }
         }
     }
     
@@ -8665,6 +8814,7 @@ sub Perform_Link_Check {
 # Name: Record_EPUB_Accessibility_Check_Results
 #
 # Parameters: url - dataset file URL
+#             file_number - EPUB file number
 #             results - list of testcase results
 #
 # Description:
@@ -8673,16 +8823,16 @@ sub Perform_Link_Check {
 #
 #***********************************************************************
 sub Record_EPUB_Accessibility_Check_Results {
-    my ($url, @results) = @_;
+    my ($url, $file_number, @results) = @_;
 
 
     my ($url_status, $status, $result_object);
-    my (%local_tqa_error_url_count);
+    my (%local_tqa_error_url_count, $number);
 
     #
     # Check EPUB accessibility results
     #
-    print "Record EPUB accessibility check results\n" if $debug;
+    print "Record EPUB accessibility check results, file number = $file_number\n" if $debug;
     $url_status = $tool_success;
     foreach $result_object (@results) {
         if ( $result_object->status != $tool_success ) {
@@ -8693,12 +8843,72 @@ sub Record_EPUB_Accessibility_Check_Results {
             last;
         }
     }
+    
+    #
+    # Check EPUB file number.  If the number is 0, this is the
+    # main EPUB file container.
+    #
+    if ( defined($acc_tab) && ($url ne "") ) {
+        if ( $file_number == 0 ) {
+            $epub_file_count{$acc_tab} = 0;
+            $epub_error_count{$acc_tab} = 0;
+            $document_count{$acc_tab}++;
+        }
 
-    #
-    # Increment document & error counters
-    #
-    Increment_Counts_and_Print_URL($acc_tab, $url,
-                                   ($url_status == $tool_error));
+        #
+        # Increment error counter
+        #
+        if ( $url_status == $tool_error ) {
+            $error_count{$acc_tab}++;
+            $epub_error_count{$acc_tab}++;
+        }
+
+        #
+        # Print URL
+        #
+        if ( $report_passes_only ) {
+            if ( $url_status != $tool_error ) {
+                if ( $epub_error_count{$acc_tab} == 1 ) {
+                    $tab_reported_doc_count{$acc_tab}++;
+                    $number = $tab_reported_doc_count{$acc_tab};
+                }
+                else {
+                    $epub_file_count{$acc_tab}++;
+                    $number = $tab_reported_doc_count{$acc_tab} . "." .
+                              $epub_file_count{$acc_tab};
+                }
+                Print_URL_To_Tab($acc_tab, $url, $number);
+            }
+        }
+        elsif ( $report_fails_only ) {
+            if ( $url_status == $tool_error ) {
+                if ( $epub_error_count{$acc_tab} == 1 ) {
+                    $tab_reported_doc_count{$acc_tab}++;
+                    $number = $tab_reported_doc_count{$acc_tab};
+                }
+                else {
+                    $epub_file_count{$acc_tab}++;
+                    $number = $tab_reported_doc_count{$acc_tab} . "." .
+                              $epub_file_count{$acc_tab};
+                }
+                Print_URL_To_Tab($acc_tab, $url, $number);
+            }
+        }
+        else {
+            $epub_file_count{$acc_tab}++;
+            if ( $epub_error_count{$acc_tab} == 1 ) {
+                $tab_reported_doc_count{$acc_tab}++;
+                $number = $tab_reported_doc_count{$acc_tab};
+            }
+            else {
+                $number = $tab_reported_doc_count{$acc_tab} . "." .
+                          $epub_file_count{$acc_tab};
+            }
+            Print_URL_To_Tab($acc_tab, $url, $number);
+        }
+print "tab_reported_doc_count = " . $tab_reported_doc_count{$acc_tab} . "\n" if $debug;
+print "epub_error_count = " . $epub_error_count{$acc_tab} . "\n" if $debug;
+    }
 
     #
     # Print results if it is a failure.
@@ -8802,7 +9012,7 @@ sub Perform_EPUB_Check {
     #
     # Record results
     #
-    Record_EPUB_Accessibility_Check_Results($url, @tqa_results_list);
+    Record_EPUB_Accessibility_Check_Results($url, 0, @tqa_results_list);
 
     #
     # Get the META-INF/container.xml file and the list of OPF rootfiles
@@ -8815,12 +9025,11 @@ sub Perform_EPUB_Check {
     print "Parse and get the META-INF/container.xml and OPF file\n" if $debug;
     ($results_list_addr, $opf_file_names, $epub_uncompressed_dir) =
         EPUB_Check_Get_OPF_File($url, $resp, $tqa_check_profile, $content);
-    $file_count = 1;
 
     #
     # Record results
     #
-    Record_EPUB_Accessibility_Check_Results($url, @$results_list_addr);
+    Record_EPUB_Accessibility_Check_Results($url, $file_count, @$results_list_addr);
     Validator_GUI_End_URL($crawled_urls_tab, "$url:META-INF/container.xml", "", 0);
 
     #
@@ -8833,6 +9042,7 @@ sub Perform_EPUB_Check {
         # first OPF file represents the default rendition of the EPUB, and
         # this rendition must be the accessible one.
         #
+        $file_count++;
         foreach $opf_file_name (reverse(@$opf_file_names)) {
             Validator_GUI_Start_URL($crawled_urls_tab, "$url:$opf_file_name", "",
                                     0, $document_count{$crawled_urls_tab} . ".$file_count");
@@ -8846,6 +9056,7 @@ sub Perform_EPUB_Check {
             # Record results
             #
             Record_EPUB_Accessibility_Check_Results("$url:$opf_file_name",
+                                                    $file_count,
                                                     @$results_list_addr);
             Validator_GUI_End_URL($crawled_urls_tab, "$url:$opf_file_name", "", 0);
         }
@@ -8899,6 +9110,7 @@ sub Perform_EPUB_Check {
                 # Record accessibility results
                 #
                 Record_EPUB_Accessibility_Check_Results("$url:$file_name",
+                                                        $file_count,
                                                         @tqa_results_list);
                 Validator_GUI_End_URL($crawled_urls_tab, "$url:$file_name", "", 0);
             }
@@ -8948,6 +9160,7 @@ sub Perform_EPUB_Check {
                 # Record accessibility results
                 #
                 Record_EPUB_Accessibility_Check_Results("$url:$file_name",
+                                                        $file_count,
                                                         @tqa_results_list);
                 Validator_GUI_End_URL($crawled_urls_tab, "$url:$file_name", "", 0);
             }
@@ -9053,6 +9266,91 @@ sub Record_Open_Data_Check_Results {
     #
     foreach (keys %local_open_data_error_url_count) {
         $open_data_error_url_count{$_}++;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Record_Open_Data_Content_Check_Results
+#
+# Parameters: url - dataset file URL
+#             results - list of testcase results
+#
+# Description:
+#
+#   This function records open data content checks results.
+#
+#***********************************************************************
+sub Record_Open_Data_Content_Check_Results {
+    my ( $url, @results ) = @_;
+
+    my ($url_status, $status, $result_object);
+    my (%local_open_data_error_url_count);
+
+    #
+    # Check open data results
+    #
+    print "Record open data content check results\n" if $debug;
+    $url_status = $tool_success;
+    foreach $result_object (@results) {
+        if ( $result_object->status != $tool_success ) {
+            #
+            # Open data error, we can stop looking for more errors
+            #
+            $url_status = $tool_error;
+            last;
+        }
+    }
+
+    #
+    # Increment document & error counters
+    #
+    Increment_Counts_and_Print_URL($content_tab, $url,
+                                   ($url_status == $tool_error));
+
+    #
+    # Print results if it is a failure.
+    #
+    if ( ($url_status == $tool_error) && ( ! $report_passes_only ) ) {
+        #
+        # Print failures
+        #
+        foreach $result_object (@results) {
+            $status = $result_object->status;
+            if ( defined($status) && ($status != 0) ) {
+                #
+                # Increment error instance count
+                #
+                if ( ! defined($content_error_instance_count{$result_object->description}) ) {
+                    $content_error_instance_count{$result_object->description} = 1;
+                }
+                else {
+                    $content_error_instance_count{$result_object->description}++;
+                }
+
+                #
+                # Set URL error count
+                #
+                $local_open_data_error_url_count{$result_object->description} = 1;
+
+                #
+                # Print error
+                #
+                Validator_GUI_Print_TQA_Result($content_tab, $result_object);
+            }
+        }
+
+        #
+        # Add blank line in report
+        #
+        Validator_GUI_Update_Results($content_tab, "");
+    }
+
+    #
+    # Set global URL error count
+    #
+    foreach (keys %local_open_data_error_url_count) {
+        $content_error_url_count{$_}++;
     }
 }
 
@@ -9192,7 +9490,7 @@ sub Perform_Open_Data_Check {
                 $checksum = $sha->hexdigest;
 
                 #
-                # Perform checks on this content
+                # Perform technical checks on this file
                 #
                 @results = Open_Data_Check($member_url, $format,
                                            $open_data_check_profile,
@@ -9214,6 +9512,12 @@ sub Perform_Open_Data_Check {
                     $rows = "";
                     $cols = "";
                 }
+
+                #
+                # Perform content checks on this file
+                #
+                @results = Open_Data_Check_Content($member_url, $data_file_type);
+                Record_Open_Data_Content_Check_Results($member_url, @results);
 
                 #
                 # Add file details to CSV
@@ -9270,6 +9574,12 @@ sub Perform_Open_Data_Check {
                                    $filename, \%open_data_dictionary,
                                    $checksum);
         Record_Open_Data_Check_Results($url, @results);
+
+        #
+        # Perform content checks on this file
+        #
+        @results = Open_Data_Check_Content($url, $data_file_type);
+        Record_Open_Data_Content_Check_Results($url, @results);
 
         #
         # If we are doing process monitoring, print out some resource
@@ -9338,6 +9648,11 @@ sub Open_Data_Callback {
     Crawler_Abort_Crawl(0);
     
     #
+    # Clean up any temporary file from a possible previous analysis run
+    #
+    Remove_Temporary_Files();
+
+    #
     # Create open data files details temporary file
     #
     ($files_details_fh, $shared_file_details_filename) =
@@ -9345,10 +9660,15 @@ sub Open_Data_Callback {
                 SUFFIX => '.csv',
                 TMPDIR => 1);
     if ( ! defined($files_details_fh) ) {
-        print "Error: Failed to create temporary file in Initialize_Tool_Globals\n";
+        print "Error: Failed to create temporary file in Open_Data_Callback\n";
         return;
     }
     binmode $files_details_fh, ":utf8";
+
+    #
+    # Add UTF-8 BOM and column headings
+    #
+    print $files_details_fh chr(0xFEFF);
     print $files_details_fh join(",", @open_data_file_details_fields) . "\r\n";
 
     #
@@ -9462,7 +9782,11 @@ sub Open_Data_Callback {
             # Error getting open data URL
             #
             if ( defined($resp) ) {
-                $error = String_Value("HTTP Error") . " " . $resp->status_line;
+                $error = String_Value("HTTP Error") . " " .
+                                      $resp->status_line;
+                if ( defined($resp->header("Client-Warning")) ) {
+                    $error .= ", " . $resp->header("Client-Warning");
+                }
             }
             else {
                 $error = String_Value("Malformed URL");
@@ -9581,6 +9905,9 @@ sub Open_Data_Callback {
                     if ( defined($resp) ) {
                         $error = String_Value("HTTP Error") . " " .
                                               $resp->status_line;
+                        if ( defined($resp->header("Client-Warning")) ) {
+                            $error .= ", " . $resp->header("Client-Warning");
+                        }
                     }
                     else {
                         $error = String_Value("Malformed URL");
@@ -9693,7 +10020,7 @@ sub Open_Data_Callback {
         #
         # Add a note to all tabs indicating that analysis was aborted.
         #
-        foreach $tab ($crawled_urls_tab, $open_data_tab) {
+        foreach $tab ($crawled_urls_tab, $open_data_tab, $content_tab, $acc_tab) {
             Validator_GUI_Update_Results($tab,
                                          String_Value("Analysis Aborted"),
                                          0);
@@ -9720,11 +10047,20 @@ sub Open_Data_Callback {
                                                           \@data_url_list,
                                                           \%open_data_dictionary);
 
-
             #
             # Record results
             #
             Record_Open_Data_Check_Results("", @results);
+            
+            #
+            # Get the content check results
+            #
+            @results = Open_Data_Check_Dataset_Data_Files_Content();
+
+            #
+            # Record results
+            #
+            Record_Open_Data_Content_Check_Results("", @results);
         }
     }
 
@@ -9948,7 +10284,7 @@ sub Open_Data_Runtime_Error_Callback {
     # Add a note to all tabs indicating that analysis failed due
     # runtime error.
     #
-    foreach $tab ($crawled_urls_tab, $open_data_tab, $doc_list_tab) {
+    foreach $tab ($crawled_urls_tab, $open_data_tab, $content_tab, $acc_tab, $doc_list_tab) {
         Validator_GUI_Update_Results($tab, "", 0);
         Validator_GUI_Update_Results($tab,
                                      String_Value("Runtime Error Analysis Aborted"),
@@ -10069,6 +10405,8 @@ sub Setup_Open_Data_Tool_GUI {
     $results_file_suffixes{$link_tab} = "link";
     $acc_tab = String_Value("ACC");
     $results_file_suffixes{$acc_tab} = "acc";
+    $content_tab = String_Value("Content");
+    $results_file_suffixes{$content_tab} = "cont";
     $doc_list_tab = String_Value("Document List");
     $results_file_suffixes{$doc_list_tab} = "urls";
 
@@ -10092,6 +10430,7 @@ sub Setup_Open_Data_Tool_GUI {
     Validator_GUI_Add_Results_Tab($validation_tab);
     Validator_GUI_Add_Results_Tab($link_tab);
     Validator_GUI_Add_Results_Tab($acc_tab);
+    Validator_GUI_Add_Results_Tab($content_tab);
     Validator_GUI_Add_Results_Tab($doc_list_tab);
 
     #
@@ -10146,6 +10485,9 @@ while ( @ARGV > 0 ) {
     }
     elsif ( $ARGV[0] eq "-open_data" ) {
         $open_data_mode = 1;
+    }
+    elsif ( $ARGV[0] eq "-report_passes_only" ) {
+        $report_passes_only = 1;
     }
     else {
         #
