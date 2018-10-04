@@ -84,7 +84,7 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
 my ($doctype_label, $doctype_version, $doctype_class, $html5_validate_jar);
-my ($java_options, $version);
+my ($java_options, $version, $perl_path);
 my ($runtime_error_reported) = 0;
 
 my ($debug) = 0;
@@ -758,9 +758,29 @@ if ( $program_dir eq "." ) {
 #
 if ( $^O =~ /MSWin32/ ) {
     #
-    # Windows.
+    # Windows. Get path to Perl executable
     #
-    $validate_cmnd = ".\\bin\\win_validate.pl";
+    $perl_path = `where perl`;
+    chomp($perl_path);
+
+    #
+    # Is Perl not in the PATH (i.e. use file type to associate
+    # perl script to perl program)?
+    #
+    if ( $perl_path eq "" ) {
+        $validate_cmnd = ".\\bin\\win_validate.pl";
+    }
+    else {
+        #
+        # This is a work around for PSPC Windows 10 PCs which do not
+        # always pass on command line arguments to Perl programs.
+        #
+        $validate_cmnd = "perl .\\bin\\win_validate.pl";;
+    }
+
+    #
+    # HTML 5 validator JAR path
+    #
     $html5_validate_jar = ".\\lib\\vnu.jar";
     
     #
