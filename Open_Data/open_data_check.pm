@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 917 $
+# $Revision: 1002 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_check.pm $
-# $Date: 2018-07-19 14:53:27 -0400 (Thu, 19 Jul 2018) $
+# $Date: 2018-10-03 11:38:35 -0400 (Wed, 03 Oct 2018) $
 #
 # Description:
 #
@@ -973,6 +973,7 @@ sub Check_Data_File_URL {
     # Is this a CSV file ?
     #
     if ( ($mime_type =~ /text\/x-comma-separated-values/) ||
+         ($mime_type =~ /application\/csv/) ||
          ($mime_type =~ /text\/csv/) ||
          ($format =~ /^csv$/i) ||
          ($url =~ /\.csv$/i) ) {
