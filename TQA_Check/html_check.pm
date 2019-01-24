@@ -690,7 +690,8 @@ my %valid_xhtml_rel_values = ();
 
 #
 # Valid values for the rel attribute of tags
-#  Source: http://www.w3.org/TR/2011/WD-html5-20110525/links.html#linkTypes
+#  Source: https://www.w3.org/TR/html5/links.html#sec-link-types
+#          https://www.w3.org/TR/resource-hints/
 #  Value "shortcut" is not listed in the above page but is a valid value
 #  for <link> tags.
 #  Date: 2012-11-09
@@ -698,7 +699,7 @@ my %valid_xhtml_rel_values = ();
 my %valid_html5_rel_values = (
    "a",    " alternate author bookmark external help license next nofollow noreferrer prefetch prev search sidebar tag ",
    "area", " alternate author bookmark external help license next nofollow noreferrer prefetch prev search sidebar tag ",
-   "link", " alternate author help icon license next pingback prefetch prev search shortcut sidebar stylesheet tag ",
+   "link", " alternate author dns-prefetch help icon license next pingback preconnect prefetch prerender prev search shortcut sidebar stylesheet tag ",
 );
 
 #
@@ -888,6 +889,21 @@ my (%tags_to_ignore_id_attribute) = (
 );
 
 #
+# Set of elements that are not valid ancestors for a hierarchically
+# correct main element.
+#  Reference: http://w3c.github.io/html/grouping-content.html#the-main-element
+#             https://stackoverflow.com/questions/20815584/should-the-main-tag-be-inside-section-tag
+#
+my (%invalid_main_ancestors) = (
+    "article",     1,
+    "aside",       1,
+    "footer",      1,
+    "header",      1,
+    "nav",         1,
+    "section",     1,
+);
+
+#
 # String table for error strings.
 #
 my %string_table_en = (
@@ -975,6 +991,7 @@ my %string_table_en = (
     "Link contains JavaScript",      "Link contains JavaScript",
     "Link inside of label",          "Link inside of <label>",
     "link",                          "link",
+    "Main landmark must not be nested in", "Landmark 'main' must not be nested in",
     "Meta refresh with timeout",     "Meta 'refresh' with timeout ",
     "Meta viewport maximum-scale less than 5.0", "Meta viewport maximum-scale less than 5.0",
     "Meta viewport with user-scalable disabled", "Meta viewport with user-scalable disabled",
@@ -1156,9 +1173,10 @@ my %string_table_fr = (
     "label not allowed for",           "<label> pas permis pour ",
     "Label not explicitly associated to", "Étiquette pas explicitement associée à la ",
     "Label referenced by",             "<label> référencé par",
-    "Link contains JavaScript",      "Lien contient du JavaScript",
+    "Link contains JavaScript",        "Lien contient du JavaScript",
     "Link inside of label",            "lien dans une <label>",
-    "link",                          "lien",
+    "link",                            "lien",
+    "Main landmark must not be nested in", "Le point de repère 'main' ne doit pas être imbriqué",
     "Meta refresh with timeout",       "Méta 'refresh' avec délai d'inactivité ",
     "Meta viewport maximum-scale less than 5.0", "Meta viewport maximale échelle inférieure à 5,0",
     "Meta viewport with user-scalable disabled", "Meta viewport utilisateur évolutive désactivée",
@@ -7088,42 +7106,80 @@ sub Link_Tag_Handler {
 #
 # Description:
 #
-#   This function handles main tags.
+#   This function handles main tags. It checks if the element is hidden
+# and if not, that it is the only main landmark. It also checks that
+# the main landmark does not have an illegal ancestor.
 #
 #***********************************************************************
 sub Main_Tag_Handler {
-    my ( $line, $column, $text, %attr ) = @_;
+    my ($line, $column, $text, %attr) = @_;
     
-    my ($last_main, $last_line, $last_column);
+    my ($last_main, $last_line, $last_column, $tag, $first_tag);
 
     #
-    # Have we already seen a <main> or a <section> or <div> tag
-    # with a role="main" attribute?
+    # Is there a hidden attribute on this tag? If so we don't consider
+    # it a main content.
     #
-    if ( $main_content_start ne "" ) {
-        #
-        # Multiple main content areas in page.
-        #
-        ($last_main, $last_line, $last_column) = split(/:/, $main_content_start);
-
-        #
-        # Check line and column of this tag and last main tag.
-        # If we have <main role="main">, don't report an error.
-        #
-        if ( ($line != $last_line) || ($column != $last_column) ) {
-            print "Multiple main content areas\n" if $debug;
-            Record_Result("WCAG_2.0-SC1.3.1", $line, $column, $text,
-                          String_Value("Multiple main content areas found, previous instance found") .
-                          " $last_main " . String_Value("at line:column") .
-                          " $last_line:$last_column");
-        }
+    if ( defined($attr{"hidden"}) ) {
+        print "Hidden <main>, don't check for duplicate main sections\n" if $debug;
     }
     else {
         #
-        # Record the details of the start of the main content area
+        # Have we already seen a <main> or a <section> or <div> tag
+        # with a role="main" attribute?
         #
-        print "Found main content at <main>\n" if $debug;
-        $main_content_start = "<main>:$line:$column";
+        if ( $main_content_start ne "" ) {
+            #
+            # Multiple main content areas in page.
+            #
+            ($last_main, $last_line, $last_column) = split(/:/, $main_content_start);
+
+            #
+            # Check line and column of this tag and last main tag.
+            # If we have <main role="main">, don't report an error.
+            #
+            if ( ($line != $last_line) || ($column != $last_column) ) {
+                print "Multiple main content areas\n" if $debug;
+                Record_Result("WCAG_2.0-SC1.3.1", $line, $column, $text,
+                              String_Value("Multiple main content areas found, previous instance found") .
+                              " $last_main " . String_Value("at line:column") .
+                              " $last_line:$last_column");
+            }
+        }
+        else {
+            #
+            # Record the details of the start of the main content area
+            #
+            print "Found main content at <main>\n" if $debug;
+            $main_content_start = "<main>:$line:$column";
+            
+            #
+            # Does this main have an invalid ancestor?
+            #
+            print "Check for illegal ancestor element\n" if $debug;
+            $first_tag = 1;
+            foreach $tag (reverse @tag_order_stack) {
+                #
+                # Skip the current tag as it may be a <section> with role=main
+                # so is not really an ancestor tag.
+                #
+                if ( $first_tag ) {
+                    $first_tag = 0;
+                    next;
+                }
+                
+                #
+                # Is this an invalid ancestor tag?
+                #
+                if ( defined($invalid_main_ancestors{$tag->tag}) ) {
+                    print "Illegal ancestor ancestor " . $tag->tag . " found\n" if $debug;
+                    Record_Result("WCAG_2.0-SC1.3.1", $line, $column, $text,
+                                  String_Value("Main landmark must not be nested in") .
+                                  " <" . $tag->tag . ">");
+                    last;
+                }
+            }
+        }
     }
 }
 
@@ -10896,7 +10952,7 @@ sub Check_Aria_Role_Attribute {
     my ($tagname, $line, $column, $text, %attr) = @_;
 
     my ($role, $last_main, $last_line, $last_column);
-    my ($context_role, $context_role_list);
+    my ($context_role, $context_role_list, $tag, $first_tag);
 
     #
     # Check for possible role attribute
@@ -10984,31 +11040,67 @@ sub Check_Aria_Role_Attribute {
         #
         if ( $role eq "main" ) {
             #
-            # Have we already seen a <main> or a <section> or <div> tag
-            # with a role="main" attribute?
+            # Is there a hidden attribute on this tag? If so we don't consider
+            # it a main content.
             #
-            if ( $main_content_start ne "" ) {
-                #
-                # Multiple main content areas in page.
-                #
-                ($last_main, $last_line, $last_column) = split(/:/, $main_content_start);
-                
-                #
-                # Check line and column of this tag and last main tag.
-                # If we have <main role="main">, don't report an error.
-                #
-                if ( ($line != $last_line) || ($column != $last_column) ) {
-                    Record_Result("WCAG_2.0-SC1.3.1", $line, $column, $text,
-                                  String_Value("Multiple main content areas found, previous instance found") .
-                                  " $last_main " . String_Value("at line:column") .
-                                  " $last_line:$last_column");
-                }
+            if ( defined($attr{"hidden"}) ) {
+                print "Hidden role=\"main\", don't check for duplicate main sections\n" if $debug;
             }
             else {
                 #
-                # Record the details of the start of the main content area
+                # Have we already seen a <main> or a <section> or <div> tag
+                # with a role="main" attribute?
                 #
-                $main_content_start = "<$tagname role=\"main\">:$line:$column";
+                if ( $main_content_start ne "" ) {
+                    #
+                    # Multiple main content areas in page.
+                    #
+                    ($last_main, $last_line, $last_column) = split(/:/, $main_content_start);
+                
+                    #
+                    # Check line and column of this tag and last main tag.
+                    # If we have <main role="main">, don't report an error.
+                    #
+                    if ( ($line != $last_line) || ($column != $last_column) ) {
+                        Record_Result("WCAG_2.0-SC1.3.1", $line, $column, $text,
+                                      String_Value("Multiple main content areas found, previous instance found") .
+                                      " $last_main " . String_Value("at line:column") .
+                                      " $last_line:$last_column");
+                    }
+                }
+                else {
+                    #
+                    # Record the details of the start of the main content area
+                    #
+                    $main_content_start = "<$tagname role=\"main\">:$line:$column";
+
+                    #
+                    # Does this main have an invalid ancestor?
+                    #
+                    print "Check for illegal ancestor element\n" if $debug;
+                    $first_tag = 1;
+                    foreach $tag (reverse @tag_order_stack) {
+                        #
+                        # Skip the current tag as it may be a <section> with role=main
+                        # so is not really an ancestor tag.
+                        #
+                        if ( $first_tag ) {
+                            $first_tag = 0;
+                            next;
+                        }
+
+                        #
+                        # Is this an invalid ancestor tag?
+                        #
+                        if ( defined($invalid_main_ancestors{$tag->tag}) ) {
+                            print "Illegal ancestor " . $tag->tag . " found\n" if $debug;
+                            Record_Result("WCAG_2.0-SC1.3.1", $line, $column, $text,
+                                          String_Value("Main landmark must not be nested in") .
+                                          " <" . $tag->tag . ">");
+                            last;
+                        }
+                    }
+                }
             }
         }
         
