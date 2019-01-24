@@ -15,6 +15,7 @@
 #     XML_Validate_Language
 #     XML_Validate_Debug
 #     XML_Validate_Xerces
+#     XML_Validate_File
 #
 # Terms and Conditions of Use
 #
@@ -76,6 +77,7 @@ BEGIN {
                   XML_Validate_Language
                   XML_Validate_Debug
                   XML_Validate_Xerces
+                  XML_Validate_File
                   );
     $VERSION = "1.0";
 }
@@ -374,7 +376,7 @@ sub XML_Validate_Xerces {
         #
         # Did we find a fatal error line ?
         #
-        elsif ( $line =~ /^\[Fatal\] /i ) {
+        elsif ( $line =~ /^\[Fatal Error\] /i ) {
             $line =~ s/ $base_filename:/ $base_url:/;
             $errors .= "$line\n";
         }
@@ -569,6 +571,130 @@ sub XML_Validate_Content {
     # Return result list
     #
     return(@results_list);
+}
+
+#***********************************************************************
+#
+# Name: XML_Validate_File
+#
+# Parameters: this_url - a URL
+#             xml_filename - name of XML content file
+#             has_schema - a flag to indicate if a schema or DTD
+#               is specified in the content.
+#             tcid - testcase identifier
+#             tc_desc - testcase description
+#
+# Description:
+#
+#   This function runs the command line Xerces validator for XML files.
+# The function is used in the case that the Perl XML::Parser module
+# fails due to very large XML files.
+#
+#***********************************************************************
+sub XML_Validate_File {
+    my ($this_url, $xml_filename, $has_schema, $tcid, $tc_desc) = @_;
+
+    my (@results_list, $result_object);
+
+    my ($result_object, $output, @lines, $line, $errors, $base_url);
+    my ($xml_fh, $validation_run, $base_filename);
+    my ($protocol, $domain, $file_path, $query, $url);
+
+    #
+    # Validate XML using the Xerces parser
+    #
+    print "XML_Validate_File url = $this_url\n" if $debug;
+
+    #
+    # Run the Xerces validator
+    #
+    print "Run Xerces validator\n --> $xerces_validate_cmnd $xml_filename 2>\&1\n" if $debug;
+    $output = `$xerces_validate_cmnd \"$xml_filename\" 2>\&1`;
+
+    #
+    # Did the file validate ?
+    #
+    @lines = split(/\n/, $output);
+    $validation_run = 0;
+    $base_filename = basename($xml_filename);
+    ($protocol, $domain, $file_path, $query, $url) = URL_Check_Parse_URL($this_url);
+    $base_url = basename($file_path);
+    foreach $line (@lines) {
+        #
+        # Did we fine an Error line ?
+        #
+        if ( $line =~ /^\[Error\] /i ) {
+            $line =~ s/ $base_filename:/ $base_url:/;
+            $errors .= "$line\n";
+        }
+        #
+        # Did we find a fatal error line ?
+        #
+        elsif ( $line =~ /^\[Fatal Error\] /i ) {
+            $line =~ s/ $base_filename:/ $base_url:/;
+            $errors .= "$line\n";
+        }
+        #
+        # Did we get a "Cannot find the declaration of element" error?
+        # If we don't have a schema or DTD specification, ignore this message
+        #
+        elsif ( ($line =~ / Cannot find the declaration of element /i) &&
+                (! $has_schema ) ) {
+            #
+            # Ignore this error
+            #
+            print "Ignore 'Cannot find the declaration of element' error, we don't have a DTD or schema\n" if $debug;
+        }
+        #
+        #
+        # Do we have end of validation ? (implies that the validation
+        # process ran).
+        #
+        elsif ( $line =~ /: \d+ ms \(\d+ elems/ ) {
+            $validation_run = 1;
+        }
+    }
+
+    #
+    # Did we find any error messages ?
+    #
+    if ( defined($errors) && ($errors ne "") ) {
+        print "Validation failed\n" if $debug;
+        #
+        # Validation failed
+        #
+        print "XML Xerces Validation failed\n$output\n" if $debug;
+        $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
+                                                -1, -1, "",
+                                                String_Value("XML validation failed") .
+                                                " $errors", $this_url);
+    }
+    elsif ( ! $validation_run ) {
+        #
+        # An error trying to run the tool
+        #
+        print "Error running xerces XML validation\n" if $debug;
+        print STDERR "Error running xerces XML validation\n";
+        print STDERR "  $xerces_validate_cmnd \"$xml_filename\" 2>\&1\n";
+        print STDERR "$output\n";
+
+        #
+        # Report runtime error only once
+        #
+        if ( ! $runtime_error_reported ) {
+            $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
+                                                    -1, -1, "",
+                                                    String_Value("Runtime Error") .
+              " \"$xerces_validate_cmnd \"$xml_filename\"\"\n" .
+                                                    " \"$output\"", $this_url);
+            $runtime_error_reported = 1;
+        }
+    }
+
+    #
+    # Return result object
+    #
+    return($result_object);
 }
 
 #***********************************************************************
