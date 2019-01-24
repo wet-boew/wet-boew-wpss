@@ -2,9 +2,9 @@
 #
 # Name:   open_data_marc.pm
 #
-# $Revision: 915 $
+# $Revision: 1096 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_marc.pm $
-# $Date: 2018-07-19 14:51:09 -0400 (Thu, 19 Jul 2018) $
+# $Date: 2018-12-13 12:15:56 -0500 (Thu, 13 Dec 2018) $
 #
 # Description:
 #
@@ -17,6 +17,7 @@
 #     Set_Open_Data_MARC_Testcase_Data
 #     Set_Open_Data_MARC_Test_Profile
 #     Open_Data_MARC_Check_Data
+#     Open_Data_MARC_Get_Content_Results
 #
 # Terms and Conditions of Use
 #
@@ -76,6 +77,7 @@ BEGIN {
                   Set_Open_Data_MARC_Testcase_Data
                   Set_Open_Data_MARC_Test_Profile
                   Open_Data_MARC_Check_Data
+                  Open_Data_MARC_Get_Content_Results
                   );
     $VERSION = "1.0";
 }
@@ -89,6 +91,7 @@ BEGIN {
 my ($debug) = 0;
 my (%testcase_data, $results_list_addr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
+my (@content_results_list);
 
 my ($max_error_message_string)= 2048;
 
@@ -265,6 +268,7 @@ sub Initialize_Test_Results {
     #
     $current_open_data_profile = $open_data_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
+    @content_results_list = ();
 }
 
 #***********************************************************************
@@ -334,6 +338,47 @@ sub Record_Result {
 
 #***********************************************************************
 #
+# Name: Record_Content_Result
+#
+# Parameters: testcase - testcase identifier
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             error_string - error string
+#
+# Description:
+#
+#   This function records the testcase result and stores it in the
+# list of content errors.
+#
+#***********************************************************************
+sub Record_Content_Result {
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+
+    my ($result_object);
+
+    #
+    # Is this testcase included in the profile
+    #
+    if ( defined($testcase) && defined($$current_open_data_profile{$testcase}) ) {
+        #
+        # Create result object and save details
+        #
+        $result_object = tqa_result_object->new($testcase, $check_fail,
+                                                Open_Data_Testcase_Description($testcase),
+                                                $line, $column, $text,
+                                                $error_string, $current_url);
+        push (@content_results_list, $result_object);
+
+        #
+        # Print error string to stdout
+        #
+        Print_Error($line, $column, $text, "$testcase : $error_string");
+    }
+}
+
+#***********************************************************************
+#
 # Name: Open_Data_MARC_Check_Data
 #
 # Parameters: this_url - a URL
@@ -381,9 +426,10 @@ sub Open_Data_MARC_Check_Data {
     Initialize_Test_Results($profile, \@tqa_results_list);
     
     #
-    # Validate the MARC file
+    # Validate the MARC file.  Record the result as a content error
+    # not an Open Data error.
     #
-    @tqa_results_list = MARC_Validate_Content($this_url, "", $filename, "OD_VAL",
+    @content_results_list = MARC_Validate_Content($this_url, "", $filename, "OD_VAL",
                                        "OD_VAL:" . String_Value("Fails validation"));
 
     #
@@ -401,6 +447,35 @@ sub Open_Data_MARC_Check_Data {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_MARC_Get_Content_Results
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function runs the list of content errors found.
+#
+#***********************************************************************
+sub Open_Data_MARC_Get_Content_Results {
+    my ($this_url) = @_;
+
+    my (@empty_list);
+
+    #
+    # Does this URL match the last one analysed by the
+    # Open_Data_MARC_Check_Data function?
+    #
+    print "Open_Data_MARC_Get_Content_Results url = $this_url\n" if $debug;
+    if ( $current_url eq $this_url ) {
+        return(@content_results_list);
+    }
+    else {
+        return(@empty_list);
+    }
 }
 
 #***********************************************************************
