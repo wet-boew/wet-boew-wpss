@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 774 $
+# $Revision: 1060 $
 # $URL: svn://10.36.148.185/Link_Check/Tools/link_checker.pm $
-# $Date: 2018-03-15 13:50:11 -0400 (Thu, 15 Mar 2018) $
+# $Date: 2018-11-07 08:32:16 -0500 (Wed, 07 Nov 2018) $
 #
 # Description:
 #
@@ -1891,7 +1891,7 @@ sub Anchor_In_HTML {
         # Check to see if this anchor is in the list of anchors in the
         # document.
         #
-        $anchor =~ s/^.*#//g;
+        $anchor =~ s/^#//;
         if ( ($anchor ne "" ) &&
              (index($anchor_list, " $anchor ") == -1) ) {
             #
@@ -1990,7 +1990,7 @@ sub Link_Checker_Get_Link_Status {
         # and <url>#anchor2 (1 get versus 2).
         #
         $request_url = $this_link;
-        if ( defined($link->query) && ($link->query =~ /#/) ) {
+        if ( defined($link->query) && ($link->query =~ /^#/) ) {
             $request_url =~ s/#.*//g;
         }
 
@@ -2138,7 +2138,7 @@ sub Link_Checker_Get_Link_Status {
             #
             if ( ($resp->is_success)
                  && defined($link->query)
-                 && ($link->query =~ /#/) ) {
+                 && ($link->query =~ /^#/) ) {
                 #
                 # Is this named anchor in the document ?
                 #
