@@ -3,9 +3,9 @@
 #
 # Name:   install.pl
 #
-# $Revision: 919 $
+# $Revision: 1158 $
 # $URL: svn://10.36.148.185/Validator_GUI/Tools/install.pl $
-# $Date: 2018-07-19 14:57:43 -0400 (Thu, 19 Jul 2018) $
+# $Date: 2019-01-18 13:27:07 -0500 (Fri, 18 Jan 2019) $
 #
 # Synopsis: install.pl [ uninstall ] [ -no_pause ]
 #
@@ -366,11 +366,19 @@ sub Check_Java {
     }
 
     #
-    # Is this verions 8 (major = 1, minor = 8) or greater ?
+    # Is this Oracle Java version 8 (major = 1, minor = 8) or greater ?
     #
-    if ( ($major == 1) && ($minor >= 8) ) {
+    if ( ($lead =~ /^java /i) && ($major == 1) && ($minor >= 8) ) {
         #
         # Have Java 8
+        #
+    }
+    #
+    # Is this Open Java version 11 (major = 11) or greater ?
+    #
+    elsif ( ($lead =~ /^openjdk /i) && ($major == 11) ) {
+        #
+        # Have Openjdk Java 11
         #
     }
     else {
