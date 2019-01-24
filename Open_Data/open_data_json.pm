@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 902 $
+# $Revision: 1036 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_json.pm $
-# $Date: 2018-07-11 12:39:08 -0400 (Wed, 11 Jul 2018) $
+# $Date: 2018-10-29 14:11:50 -0400 (Mon, 29 Oct 2018) $
 #
 # Description:
 #
@@ -21,6 +21,7 @@
 #     Open_Data_JSON_Read_Data
 #     Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes
 #     Open_Data_JSON_Get_Content_Results
+#     Open_Data_JSON_Check_Get_Headings_List
 #
 # Terms and Conditions of Use
 #
@@ -89,6 +90,7 @@ BEGIN {
                   Open_Data_JSON_Read_Data
                   Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes
                   Open_Data_JSON_Get_Content_Results
+                  Open_Data_JSON_Check_Get_Headings_List
                   );
     $VERSION = "1.0";
 }
@@ -105,7 +107,7 @@ my (%testcase_data, $results_list_addr, $dictionary_ptr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count, $python_path, $json_schema_validator);
 my ($filename, $python_file, $python_output, $separator);
-my (@content_results_list);
+my (@content_results_list, $last_json_headings_list);
 
 #
 # Data file object attribute names (use the same names as used for
@@ -344,6 +346,7 @@ sub Initialize_Test_Results {
     # Initialize globals
     #
     @content_results_list = ();
+    $last_json_headings_list = "";
 }
 
 #***********************************************************************
@@ -1091,6 +1094,7 @@ sub Check_JSON_CSV_Data {
     # Save the list of JSON-CSV column heading objects for this URL
     #
     $data_file_object->attribute($column_list_attribute, \@json_csv_columns);
+    $last_json_headings_list = join(",", @json_csv_columns);
 
     #
     # Check each item in the array for
@@ -1645,6 +1649,33 @@ sub Open_Data_JSON_Get_Content_Results {
     }
     else {
         return(@empty_list);
+    }
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_JSON_Check_Get_Headings_List
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function returns the headings list found in the last JSON-CSV file
+# analysed.
+#
+#***********************************************************************
+sub Open_Data_JSON_Check_Get_Headings_List {
+    my ($this_url) = @_;
+
+    #
+    # Check that the last URL process matches the one requested
+    #
+    if ( $this_url eq $current_url ) {
+        print "Open_Data_JSON_Check_Get_Headings_List url = $this_url, headings list = $last_json_headings_list\n" if $debug;
+        return($last_json_headings_list);
+    }
+    else {
+        return("");
     }
 }
 
