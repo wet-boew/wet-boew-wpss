@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 946 $
+# $Revision: 1157 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2018-08-27 13:52:01 -0400 (Mon, 27 Aug 2018) $
+# $Date: 2019-01-18 13:25:47 -0500 (Fri, 18 Jan 2019) $
 #
 # Description:
 #
@@ -109,7 +109,9 @@ my (%testcase_data, $results_list_addr, @content_results_list);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($csv_validator, $last_csv_headings_list);
-my ($leading_trailing_whitespace_count);
+my ($leading_trailing_whitespace_count, $dollar_symbol_found);
+my ($thousands_separator_found, $thousands_separator_count);
+my ($dollar_symbol_count);
 
 my ($max_error_message_string)= 2048;
 my ($runtime_error_reported) = 0;
@@ -167,6 +169,7 @@ my %string_table_en = (
     "Column",                        "Column",
     "CSV and JSON-CSV values do not match for column", "CSV and JSON-CSV values do not match for column",
     "csv-validator failed",          "csv-validator failed",
+    "Currency value found",          "Currency value found",
     "Data pattern",                  "Data pattern",
     "Duplicate column header",       "Duplicate column header",
     "Duplicate content in columns",  "Duplicate content in columns",
@@ -176,6 +179,7 @@ my %string_table_en = (
     "expecting",                     "expecting",
     "expecting values to be of type", "expecting values to be of type",
     "failed for value",              "failed for value",
+    "Field length",                  "Field length",
     "field value",                   "field value",
     "First instance at",             "First instance at row",
     "found",                         "found",
@@ -189,12 +193,15 @@ my %string_table_en = (
     "Inconsistent field values for column", "Inconsistent field values for column",
     "Inconsistent list item prefix, found", "Inconsistent list item prefix, found",
     "Inconsistent number of fields, found", "Inconsistent number of fields, found",
+    "instances of currency values",  "instances of currency values",
     "instances of leading or trailing whitespace characters in field values", "instances of leading or trailing whitespace characters in field values",
+    "instances of thousands separator values", "instances of thousands separator values",
     "Leading or trailing whitespace characters in field value", "Leading or trailing whitespace characters in field value",
     "Leading or trailing whitespace characters in heading", "Leading or trailing whitespace characters in heading",
     "List item prefix character found for list of 1 item", "List item prefix character found for list of 1 item",
     "List item value",               "List item value",
     "Long numeric value may be truncated", "Long numeric value may be truncated",
+    "Long text value may be truncated", "Long text value may be truncated.",
     "Missing header row or terms",   "Missing header row or terms",
     "Missing header row terms",      "Missing header row terms",
     "Missing list item prefix character", "Missing list item prefix character",
@@ -207,6 +214,7 @@ my %string_table_en = (
     "Possible Excel formula as field value", "Possible Excel formula as field value",
     "row",                           "row",
     "Runtime Error",                 "Runtime Error",
+    "Thousands separator value found", "Thousands separator value found",
     "Total of",                      "Total of",
     "values of type",                "values of type",
     );
@@ -219,6 +227,7 @@ my %string_table_fr = (
     "Column",                        "Colonne",
     "CSV and JSON-CSV values do not match for column", "Les valeurs CSV et JSON-CSV ne correspondent pas à la colonne",
     "csv-validator failed",          "csv-validator a échoué",
+    "Currency value found",          "Valeur monétaire trouvée",
     "Data pattern",                  "Modèle de données",
     "Duplicate column header",       "En-tête de colonne en double",
     "Duplicate content in columns",  "Dupliquer le contenu dans les colonnes",
@@ -228,6 +237,7 @@ my %string_table_fr = (
     "expecting",                     "expectant",
     "expecting values to be of type", "ettendant que les valeurs soient de type",
     "failed for value",              "a échoué pour la valeur",
+    "Field length",                  "Longueur du champ",
     "field value",                   "valeurs de champ",
     "First instance at",             "Première instance à la rangée",
     "found",                         "trouver",
@@ -241,12 +251,15 @@ my %string_table_fr = (
     "Inconsistent field values for column", "Valeurs de champ incohérentes pour la colonne",
     "Inconsistent list item prefix, found", "Préfixe d'élément de liste incompatible, trouvé",
     "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté",
+    "instances of currency values",  "instances de valeurs monétaires",
     "instances of leading or trailing whitespace characters in field values", "occurrences de caractères espaces avant ou arrière dans les valeurs de champ",
+    "instances of thousands separator values", "instances de milliers séparateurs",
     "Leading or trailing whitespace characters in field value", "Caractères d'espacement avant ou arrière dans la valeur du champ",
     "Leading or trailing whitespace characters in heading", "Caractères blancs avancés ou arrivant dans le titre",
     "List item value",               "Valeur de l'élément de liste",
     "List item prefix character found for list of 1 item", "Caractère de préfixe d'élément de liste trouvé pour la liste de 1 élément",
     "Long numeric value may be truncated", "La valeur numérique longue peut être tronquée",
+    "Long text value may be truncated", "La longueur du texte peut être tronquée.",
     "Missing header row or terms",   "Ligne ou termes d'en-tête manquants",
     "Missing header row terms",      "Manquant termes de lignes d'en-tête",
     "Missing list item prefix character", "Caractère de préfixe d'élément de liste manquant",
@@ -259,6 +272,7 @@ my %string_table_fr = (
     "Possible Excel formula as field value", "Formule Excel possible en tant que valeur de champ",
     "row",                           "ligne",
     "Runtime Error",                 "Erreur D'Exécution",
+    "Thousands separator value found", "Valeur de séparateur en milliers trouvée",
     "Total of",                      "Total de",
     "values of type",                "valeurs de type",
     );
@@ -446,6 +460,10 @@ sub Initialize_Test_Results {
     $results_list_addr = $local_results_list_addr;
     @content_results_list = ();
     $leading_trailing_whitespace_count = 0;
+    $dollar_symbol_found = 0;
+    $dollar_symbol_count = 0;
+    $thousands_separator_found = 0;
+    $thousands_separator_count = 0;
 }
 
 #***********************************************************************
@@ -1424,12 +1442,6 @@ sub Check_Multi_Line_Field {
                 $list_type = "";
                 $last_item_label = "";
                 print "End of list encountered\n" if $debug;
-
-                #
-                # Don't report lists with 1 item as an error.
-                #
-                #Check_List_Length($line, $line_no, $field_number,
-                #                  $list_item_count, $list_item);
             }
             #
             # Was the last line text also? If so we are inside a paragraph
@@ -1493,68 +1505,6 @@ sub Check_Multi_Line_Field {
                           String_Value("List item value") . " \"$single_line\"");
         }
     }
-    
-    #
-    # Are we still in a list? (list is the only content in the field).
-    # Check the number of list items, if we have only 1, we don't
-    # need a list item prefix character.
-    #
-    if ( $in_list ) {
-        print "Field only contains a list with $list_item_count items using prefix \"$list_item_prefix\"\n" if $debug;
-        
-        #
-        # If we had only 1 item in the list, we do not need a list
-        # item prefix character.
-        #
-        # Don't report lists with 1 item as an error.
-        #
-        #Check_List_Length($line, $line_no, $field_number,
-        #                  $list_item_count, $list_item);
-    }
-}
-
-#***********************************************************************
-#
-# Name: Check_Single_Line_Field
-#
-# Parameters: line - the row from the CSV file
-#             line_no - the line number from the CSV file
-#             field - The entire content of the field
-#             field_number - the field number
-#
-# Description:
-#
-#   This function checks fields the contains single lines of text.
-# It checks:
-#   if a list item prefix appears on the line
-#
-#***********************************************************************
-sub Check_Single_Line_Field {
-    my ($line, $line_no, $field, $field_number) = @_;
-
-    my ($single_line, $i, $in_list, $list_item_prefix, $list_item_count);
-    my ($item_prefix, $blank_line_count, $in_list_item, $list_item);
-    my ($last_list_item);
-
-    #
-    # Is this an unordered list item? (i.e. starts with a dash,
-    # asterisk or bullet).
-    #
-    print "Check_Single_Line_Field line $line_no, column $field_number\n" if $debug;
-    if ( $field =~ /^\s*([\-\*])\s+[^\s]+.*$/ ) {
-        #
-        # Get the list item prefix character
-        #
-        ($item_prefix) = $field =~ /^\s*([\-\*])\s+[^\s]+.*$/io;
-        print "Unnecessary list item prefix found for list of 1 items\n" if $debug;
-
-        #
-        # Don't report lists with 1 item as an error.
-        #
-#       Record_Result("OD_DATA", $line_no, $field_number, $line,
-#                     String_Value("List item prefix character found for list of 1 item") .
-#                     " \"$field\"");
-    }
 }
 
 #***********************************************************************
@@ -1583,10 +1533,13 @@ sub Cleanse_Value {
     my ($data) =@_;
     
     #
-    # Remove punctuation characters
+    # Remove punctuation characters that
+    #  - follows a letter or whitespace
+    #  - preceeds a letter or whitespace
     #
-    $data =~ s/[[:punct:]]//g;
-    
+    $data =~ s/([a-z\s])[[:punct:]]/$1/gi;
+    $data =~ s/[[:punct:]]([a-z\s])/$1/gi;
+
     #
     # Convert to lower case
     #
@@ -1798,19 +1751,9 @@ sub Open_Data_CSV_Check_Data {
             #print "Field # $i, value = \"" . $fields[$i] . "\"\n" if $debug;
 
             #
-            # Do we have exactly 1 line in this field?
-            #
-            if ( @lines == 1 ) {
-                #
-                # Perform single-line field content checks
-                #
-                Check_Single_Line_Field($line, $line_no, $fields[$i],
-                                        ($i + 1));
-            }
-            #
             # Do we have more than 1 line in this field?
             #
-            elsif ( @lines > 1 ) {
+            if ( @lines > 1 ) {
                 #
                 # Perform multi-line field content checks
                 #
@@ -1931,6 +1874,19 @@ sub Open_Data_CSV_Check_Data {
                 $data = $fields[$i];
                 $column_object = $csv_columns[$i];
                 
+                #
+                # Do we have a heading object for this field?
+                #
+                if ( defined($headings[$i]) ) {
+                    $heading = $headings[$i];
+                    $regex = $heading->regex();
+                    $message = $heading->term();
+                }
+                else {
+                    $regex = "";
+                    $message = "";
+                }
+
                 #
                 # Is this the 2nd row in the CSV? If so set the
                 # identical cell content flag and save the cell content
@@ -2055,7 +2011,7 @@ sub Open_Data_CSV_Check_Data {
                     $value_type = "blank";
                 }
                 #
-                # Text field
+                # No recognized format, assume this is a text field
                 #
                 else {
                     $column_object->type("text");
@@ -2075,6 +2031,53 @@ sub Open_Data_CSV_Check_Data {
                     else {
                         $$value_type_ptr{$value_type} = $$value_type_ptr{$value_type} + 1;
                     }
+                    
+                    #
+                    # Check for possible currency value with leading or
+                    # trailing dollar symbol.
+                    #
+                    if ( ($data =~ /^\$\s*\d+(\.\d+)$/) ||
+                         ($data =~ /^\d+(\.\d+)\s*\$$/) ) {
+                        #
+                        # Have we already reported a currency value?
+                        # Only report the first instance to avoid a, possibly,
+                        # large number of errors.
+                        #
+                        print "Found currency value\n" if $debug;
+                        $dollar_symbol_count++;
+                        if ( ! $dollar_symbol_found ) {
+                            $dollar_symbol_found = 1;
+                            Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                                                  String_Value("Currency value found") .
+                                                  " \"$data\" " .
+                                                  String_Value("Column") .
+                                                  " \"$message\" (#" . ($i + 1) . ")");
+                         }
+                    }
+
+                    #
+                    # Check for possible comma or space characters in numbers.
+                    # This could be separators for thousands, millions, etc.
+                    # e.g. 1,000 or 1 000.
+                    #
+                    if ( ($data =~ /^(\$){0,1}\s*\d+([, ]\d\d\d)+(\.\d+)*$/) ||
+                         ($data =~ /^\d+([, ]\d\d\d)+(\.\d+)*\s*(\$){0,1}$/) ) {
+                        #
+                        # Have we already reported a thousands separator value?
+                        # Only report the first instance to avoid a, possibly,
+                        # large number of errors.
+                        #
+                        print "Found thousands separator value\n" if $debug;
+                        $thousands_separator_count++;
+                        if ( ! $thousands_separator_found ) {
+                            $thousands_separator_found = 1;
+                            Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                                                  String_Value("Thousands separator value found") .
+                                                  " \"$data\" " .
+                                                  String_Value("Column") .
+                                                  " \"$message\" (#" . ($i + 1) . ")");
+                         }
+                    }
                 }
                 print "Column data = \"$data\", type = $value_type\n" if $debug;
                 
@@ -2085,19 +2088,6 @@ sub Open_Data_CSV_Check_Data {
                     $column_object->increment_non_blank_cell_count();
                 }
 
-                #
-                # Do we have a heading object for this field?
-                #
-                if ( defined($headings[$i]) ) {
-                    $heading = $headings[$i];
-                    $regex = $heading->regex();
-                    $message = $heading->term();
-                }
-                else {
-                    $regex = "";
-                    $message = "";
-                }
-                
                 #
                 # Do we have a regular expression pattern for this heading ?
                 #
@@ -2185,6 +2175,20 @@ sub Open_Data_CSV_Check_Data {
                 # punctuation or capitalization of text values.
                 #
                 if ( $value_type eq "text" ) {
+                    #
+                    # Check that the number of characters does not exceed
+                    # 32767. The value may be truncated by spreadsheet
+                    # tools (e.g. Excel).
+                    #
+                    if ( length($data) > 32767 ) {
+                        Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                                              String_Value("Long text value may be truncated") .
+                                              " " . String_Value("Field length") .
+                                              " " . length($data) . " " .
+                                              String_Value("Column") .
+                                              " \"$message\" (#" . ($i + 1) . ")");
+                    }
+                    
                     #
                     # Remove leading/trailing whitespace as those are
                     # already reported and we want to avoid multiple
@@ -2284,7 +2288,7 @@ sub Open_Data_CSV_Check_Data {
                 # Do we have any non-blank/non-zero data in this field ?
                 # If so reset the blank column flag
                 #
-                if ( ($fields[$i] ne "") && ($fields[$i] ne "0") ) {
+                if ( ($fields[$i] ne "") &&  ! ($fields[$i] =~ /^0(\.0+)?$/) ) {
                     $blank_zero_column_flag{$i} = 0;
                 }
 
@@ -2416,11 +2420,11 @@ sub Open_Data_CSV_Check_Data {
                     print "Column $i has identical content in all cells\n" if $debug;
                     
                     #
-                    # Check for blank content or 0 content.  We allow columns
-                    # of those values.
+                    # Check for blank content or 0 or 0.0... content.  We
+                    # allow columns of those values.
                     #
                     if ( ($previous_row[$i] =~ /^[\s\n\r]*$/) ||
-                         ($previous_row[$i] eq "0") ) {
+                         ($previous_row[$i] =~ /^0(\.0+)?$/) ) {
                         print "Ignore blank or 0 column\n" if $debug;
                         next;
                     }
@@ -2573,7 +2577,7 @@ sub Open_Data_CSV_Check_Data {
             #
             if ( defined($blank_zero_column_flag{$i}) && $blank_zero_column_flag{$i} ) {
                 #
-                # Skip this field for duplicates reporting
+                # Skip this column for duplicates reporting
                 #
                 next;
             }
@@ -2596,7 +2600,6 @@ sub Open_Data_CSV_Check_Data {
                 if ( @headings > 0 ) {
                     $duplicate_column_list = "\"" . $heading->term() .
                                              "\" (#" . ($i + 1) . ")";
-                    $duplicate_column_list = join(", ", keys(%$duplicate_columns_ptr));
                     foreach $j (keys(%$duplicate_columns_ptr)) {
                         $other_heading = $headings[$j];
                         $duplicate_column_list .= ", \"" . $other_heading->term() .
@@ -2613,7 +2616,7 @@ sub Open_Data_CSV_Check_Data {
                     }
                 }
                 print "Duplicate columns $duplicate_column_list\n" if $debug;
-                Record_Result("OD_DATA", -1, $i + 1, "",
+                Record_Content_Result("TP_PW_OD_CONT", -1, $i + 1, "",
                               String_Value("Duplicate content in columns") .
                               " $duplicate_column_list");
             }
@@ -2649,6 +2652,24 @@ sub Open_Data_CSV_Check_Data {
                               String_Value("instances of leading or trailing whitespace characters in field values"));
     }
     
+    #
+    # Did we find more than 1 instance of currency values?
+    #
+    if ( $dollar_symbol_count > 1 ) {
+        Record_Content_Result("TP_PW_OD_CONT", -1, -1, "",
+                              String_Value("Total of") . " $dollar_symbol_count " .
+                              String_Value("instances of currency values"));
+    }
+
+    #
+    # Did we find more than 1 instance of thousands separator values?
+    #
+    if ( $thousands_separator_count > 1 ) {
+        Record_Content_Result("TP_PW_OD_CONT", -1, -1, "",
+                              String_Value("Total of") . " $thousands_separator_count " .
+                              String_Value("instances of thousands separator values"));
+    }
+
     #
     # Print testcase information
     #
