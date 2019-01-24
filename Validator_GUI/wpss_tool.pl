@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 932 $
+# $Revision: 1159 $
 # $URL: svn://10.36.148.185/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2018-07-27 11:27:02 -0400 (Fri, 27 Jul 2018) $
+# $Date: 2019-01-18 13:28:13 -0500 (Fri, 18 Jan 2019) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -8856,11 +8856,21 @@ sub Record_EPUB_Accessibility_Check_Results {
         }
 
         #
-        # Increment error counter
+        # Increment epub error counter
         #
         if ( $url_status == $tool_error ) {
-            $error_count{$acc_tab}++;
             $epub_error_count{$acc_tab}++;
+            
+            #
+            # Increment the accessibility tab error count
+            # only of the first epub error.  We only count the
+            # epub file for a single accessability tab error
+            # otherwise we may end up with more acc tab errors
+            # than URLs checked.
+            #
+            if ( $epub_error_count{$acc_tab} == 1 ) {
+                $error_count{$acc_tab}++;
+            }
         }
 
         #
@@ -8906,8 +8916,6 @@ sub Record_EPUB_Accessibility_Check_Results {
             }
             Print_URL_To_Tab($acc_tab, $url, $number);
         }
-print "tab_reported_doc_count = " . $tab_reported_doc_count{$acc_tab} . "\n" if $debug;
-print "epub_error_count = " . $epub_error_count{$acc_tab} . "\n" if $debug;
     }
 
     #
@@ -9373,7 +9381,7 @@ sub Perform_Open_Data_Check {
 
     my ($contents, $zip, @members, $member_name, $header, $mime_type);
     my (@results, $member_url, $member, $filename, $t, $size, $h);
-    my ($rows, $cols, $sha, $checksum);
+    my ($rows, $cols, $sha, $checksum, $resp_valid);
 
     #
     # Check for possible ZIP content (a zip file containing the
@@ -9383,19 +9391,23 @@ sub Perform_Open_Data_Check {
     if ( defined($resp) && $resp->is_success ) {
         $header = $resp->headers;
         $mime_type = $header->content_type;
+        $resp_valid = 1;
     }
     else {
         #
+        # Error in getting URL.
         # Unknown mime-type
         #
         $mime_type = "";
+        $resp_valid = 0;
     }
 
     #
     # If mime-type is a ZIP file, get at ZIP archive content.
     #
-    if ( ($mime_type =~ /application\/zip/) ||
-         ($url =~ /\.zip$/i) ) {
+    if ( $resp_valid &&
+         (($mime_type =~ /application\/zip/) ||
+          ($url =~ /\.zip$/i)) ) {
         print "Open data ZIP file\n" if $debug;
         #
         # If we are doing process monitoring, print out some resource
@@ -9428,17 +9440,24 @@ sub Perform_Open_Data_Check {
         #
         # Get file details
         #
-        $filename = $resp->header("WPSS-Content-File");
-        $size = -s $filename;
+        if ( defined($resp) && $resp->is_success ) {
+            $filename = $resp->header("WPSS-Content-File");
+            $size = -s $filename;
+
+            #
+            # Compute SHA-1 checksum for this file
+            #
+            $sha = Digest::SHA->new("SHA-1");
+            $sha->addfile($filename);
+            $checksum = $sha->hexdigest;
+        }
+        else {
+            $filename = "";
+            $size = 0;
+            $checksum = "";
+        }
         $t = $url;
         $t =~ s/"/""/g;
-
-        #
-        # Compute SHA-1 checksum for this file
-        #
-        $sha = Digest::SHA->new("SHA-1");
-        $sha->addfile($filename);
-        $checksum = $sha->hexdigest;
 
         #
         # Add file details to CSV
@@ -9553,7 +9572,7 @@ sub Perform_Open_Data_Check {
         # Treat URL as a single open data file
         #
         print "Single open data file\n" if $debug;
-        if ( defined($resp) && $resp->is_success ) {
+        if ( $resp_valid ) {
             $filename = $resp->header("WPSS-Content-File");
             $size = -s $filename;
 
