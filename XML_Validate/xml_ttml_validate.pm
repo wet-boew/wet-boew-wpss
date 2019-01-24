@@ -215,7 +215,7 @@ sub XML_TTML_Validate_Content {
     my ($this_url, $content) = @_;
 
     my (@results_list, $result_object, $validator_output, @lines);
-    my ($error, $line, $column, $message, $errors);
+    my ($error, $line, $column, $message, $errors, $other_messages);
 
     #
     # Do we have any content ?
@@ -225,8 +225,8 @@ sub XML_TTML_Validate_Content {
         #
         # Run the validator on the URL
         #
-        print "Run validator\n --> java -jar ttv.jar --quiet --hide-warnings --hide-resource-location $this_url 2>\&1\n" if $debug;
-        $validator_output = `java -jar \"$program_dir/lib/ttv.jar\" --quiet --hide-warnings --hide-resource-location $this_url 2>\&1`;
+        print "Run validator\n --> $validate_cmnd $this_url 2>\&1\n" if $debug;
+        $validator_output = `$validate_cmnd $this_url 2>\&1`;
 
         #
         # Do we have an error ? ('Error at' in the output line)
@@ -243,7 +243,26 @@ sub XML_TTML_Validate_Content {
             # Parse the validation output to get line numbers for the errors
             #
             $errors = "";
+            $other_messages = "";
             foreach $error (split(/\n/, $validator_output)) {
+                #
+                # Skip blank lines
+                #
+                if ( $error =~ /^\s*$/ ) {
+                    next;
+                }
+                #
+                # Skip warning messages from the validator (some may be
+                # present even with the --hide-warnings option)
+                #
+                elsif ( $error =~ /^WARNING:.*$/ ) {
+                    print "Skip warning message\n" if $debug;
+                    next;
+                }
+                else {
+                    print "Found error message \"$error\"\n" if $debug;
+                }
+                
                 #
                 # Get the error location and message
                 #
@@ -263,6 +282,12 @@ sub XML_TTML_Validate_Content {
                                String_Value("Source line") . " " .
                                $lines[$line - 1] . "\n\n";
                 }
+                else {
+                    #
+                    # Some other message, perhaps a runtime error
+                    #
+                    $other_messages .= "$error\n";
+                }
             }
             
             #
@@ -278,13 +303,16 @@ sub XML_TTML_Validate_Content {
                                                        $errors, $this_url);
                 push (@results_list, $result_object);
             }
-            else {
+            #
+            # A runtime error ?
+            #
+            elsif ( $other_messages ne "" ) {
                 #
                 # Some error trying to run the validator
                 #
                 print "TTML validator command failed\n" if $debug;
                 print STDERR "TTML validator command failed\n";
-                print STDERR "java -jar ttv.jar --quiet --hide-warnings --hide-resource-location $this_url\n";
+                print STDERR "$validate_cmnd $this_url\n";
                 print STDERR "$validator_output\n";
 
                 #
@@ -295,7 +323,7 @@ sub XML_TTML_Validate_Content {
                                                             1, "XML_VALIDATION",
                                                             -1, -1, "",
                                                             String_Value("Runtime Error") .
-                                                            " \"java -jar ttv.jar --quiet --hide-warnings --hide-resource-location $this_url\"\n" .
+                                                            " \"$validate_cmnd $this_url\"\n" .
                                                             " \"$validator_output\"",
                                                             $this_url);
                     $runtime_error_reported = 1;
@@ -426,6 +454,27 @@ if ( $program_dir eq "." ) {
             last;
         }
     }
+}
+
+#
+# Set TTML validate command
+# The javax.xml.bind.jar file is required for Java version 9 and later.
+#
+$validate_cmnd = "java -classpath \"$program_dir/lib/javax.xml.bind.jar;" .
+                 "$program_dir/lib/jaxb-impl-2.2.6.jar;" .
+                 "$program_dir/lib/activation.jar;" .
+                 "$program_dir/lib/ttv.jar\" " .
+                 "com.skynav.ttv.app.TimedTextVerifier " .
+                 "--quiet --hide-warnings --hide-resource-location ";
+
+#
+# Check for operating system specifics
+#
+if ( !( $^O =~ /MSWin32/ ) ) {
+    #
+    # Not Windows, change ; separator to : separator in class path,
+    #
+    $validate_cmnd =~ s/;/:/g;
 }
 
 #
