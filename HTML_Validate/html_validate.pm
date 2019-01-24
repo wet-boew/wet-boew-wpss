@@ -345,7 +345,7 @@ sub Validate_HTML5_Content {
         print "Error: Failed to create temporary file in Validate_HTML5_Content\n";
         return(@results_list);
     }
-    binmode $fh, ":encoding(UTF-8)";
+    binmode $fh;
     print $fh $$content;
     close($fh);
     
