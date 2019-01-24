@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 808 $
+# $Revision: 1137 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2018-04-06 14:03:03 -0400 (Fri, 06 Apr 2018) $
+# $Date: 2019-01-14 08:48:57 -0500 (Mon, 14 Jan 2019) $
 #
 # Description:
 #
@@ -20,6 +20,8 @@
 #     Open_Data_XML_Check_Dictionary
 #     Open_Data_XML_Check_API
 #     Open_Data_XML_Dictionary_Content_Check
+#     Open_Data_XML_Check_Get_Headings_List
+#     Open_Data_XML_Get_Content_Results
 #
 # Terms and Conditions of Use
 #
@@ -84,6 +86,8 @@ BEGIN {
                   Open_Data_XML_Check_Dictionary
                   Open_Data_XML_Dictionary_Content_Check
                   Open_Data_XML_Check_API
+                  Open_Data_XML_Check_Get_Headings_List
+                  Open_Data_XML_Get_Content_Results
                   );
     $VERSION = "1.0";
 }
@@ -99,8 +103,14 @@ my (%testcase_data, $results_list_addr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count, $save_text_between_tags, $saved_text);
 my ($have_pwgsc_data_dictionary, $have_doctype, $have_schema, $dictionary_ptr);
+my ($last_dictionary_headings_list, @content_results_list);
 
 my ($max_error_message_string)= 2048;
+
+#
+# Maximum XML file size in bytes
+#
+my ($max_xml_file_size) = 100000000;
 
 #
 # Status values
@@ -138,6 +148,7 @@ my %string_table_en = (
     "Previous instance found at",  "Previous instance found at line ",
     "tags found in",               "tags found in",
     "Unrecognized XML dictionary format", "Unrecognized XML dictionary format",
+    "XML file size exceeds maximum, validation not performed", "XML file size exceeds maximum, validation not performed",
     );
 
 my %string_table_fr = (
@@ -168,6 +179,7 @@ my %string_table_fr = (
     "Previous instance found at",  "Instance précédente trouvée à la ligne ",
     "tags found in",               "balises trouvées dans",
     "Unrecognized XML dictionary format", "Format de dictionnaire XML non reconnu",
+    "XML file size exceeds maximum, validation not performed", "La taille du fichier XML dépasse la valeur maximale, validation non effectuée",
     );
 
 #
@@ -352,6 +364,8 @@ sub Initialize_Test_Results {
     $saved_text = "";
     $have_schema = 0;
     $have_doctype = 0;
+    $last_dictionary_headings_list = "";
+    @content_results_list = ();
 }
 
 #***********************************************************************
@@ -411,6 +425,47 @@ sub Record_Result {
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
         push (@$results_list_addr, $result_object);
+
+        #
+        # Print error string to stdout
+        #
+        Print_Error($line, $column, $text, "$testcase : $error_string");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Record_Content_Result
+#
+# Parameters: testcase - testcase identifier
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             error_string - error string
+#
+# Description:
+#
+#   This function records the testcase result and stores it in the
+# list of content errors.
+#
+#***********************************************************************
+sub Record_Content_Result {
+    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+
+    my ($result_object);
+
+    #
+    # Is this testcase included in the profile
+    #
+    if ( defined($testcase) && defined($$current_open_data_profile{$testcase}) ) {
+        #
+        # Create result object and save details
+        #
+        $result_object = tqa_result_object->new($testcase, $check_fail,
+                                                Open_Data_Testcase_Description($testcase),
+                                                $line, $column, $text,
+                                                $error_string, $current_url);
+        push (@content_results_list, $result_object);
 
         #
         # Print error string to stdout
@@ -545,7 +600,7 @@ sub Data_Start_Handler {
     #
     # Check tags.
     #
-    print "Data_Start_Handler tag $tagname\n" if $debug;
+    print "Data_Start_Handler tag $tagname at " . $self->current_line . "\n" if $debug;
     $tag_count++;
 
     #
@@ -601,7 +656,7 @@ sub Data_End_Handler {
     #
     # Check tag
     #
-    print "Data_End_Handler tag $tagname\n" if $debug;
+    print "Data_End_Handler tag $tagname at " . $self->current_line . "\n" if $debug;
 
     #
     # Does this tag match a data dictionary heading ?
@@ -696,7 +751,7 @@ sub Open_Data_XML_Check_Data {
     # Initialize the test case pass/fail table.
     #
     Initialize_Test_Results($profile, \@tqa_results_list);
-
+    
     #
     # Create a document parser
     #
@@ -714,21 +769,50 @@ sub Open_Data_XML_Check_Data {
     #
     # Parse the content.
     #
-    $eval_output = eval { $parser->parsefile($filename); 1 } ;
+    $eval_output = eval { $parser->parsefile($filename); };
+    $eval_output = $@ if $@;
 
     #
     # Did the parse fail ?
     #
     if ( ! $eval_output ) {
-        $eval_output =~ s/\n at .* line \d*$//g;
-        Record_Result("OD_VAL", -1, 0, "$eval_output",
-                      String_Value("Fails validation"));
-        $validation_failed = 1;
+        #
+        # Check file size, if the file is too big the XML::Parser module
+        # may have failed.  Use a command line XML parser to validate
+        # the markup.
+        #
+        if ( (-s $filename) > $max_xml_file_size ) {
+            print "Ignore XML::Parser validation errors, file too large\n" if $debug;
+
+            #
+            # Run command line XML validator
+            #
+            $result_object = XML_Validate_File($this_url, $filename,
+                                               ($have_schema || $have_doctype),
+                                               "OD_VAL",
+                                               "OD_VAL:" . String_Value("Fails validation"));
+
+            #
+            # Did the validation fail?
+            #
+            if ( defined($result_object) ) {
+                push(@tqa_results_list, $result_object);
+                $validation_failed = 1;
+            }
+        }
+        else {
+            print "Validation failed\n\"$eval_output\"\n" if $debug;
+            $eval_output =~ s/\n at .* line \d*$//g;
+            Record_Result("OD_VAL", -1, 0, "$eval_output",
+                          String_Value("Fails validation"));
+            $validation_failed = 1;
+        }
     }
+
     #
-    # Did we find a doctye or schema ?
+    # If we don't have a validation error, did we find a doctye or schema ?
     #
-    elsif ( $have_schema || $have_doctype ) {
+    if ( (! $validation_failed) && ($have_schema || $have_doctype) ) {
         #
         # Validate the XML against doctype or schema.
         #
@@ -742,7 +826,7 @@ sub Open_Data_XML_Check_Data {
     #
     # Did we find some tags (may or may not be data) ?
     #
-    elsif ( $tag_count == 0 ) {
+    elsif ( (! $validation_failed) && ($tag_count == 0) ) {
         Record_Result("OD_VAL", -1, 0, "", String_Value("No content in file"));
         $validation_failed = 1;
     }
@@ -1032,6 +1116,11 @@ sub Open_Data_XML_Check_Dictionary {
             foreach $result_object (@other_results) {
                 push(@tqa_results_list, $result_object);
             }
+            
+            #
+            # Create a list of headings found in the data dictionary
+            #
+            $last_dictionary_headings_list = join(",", sort(keys(%$dictionary)));
         }
         #
         # Did we find some tags (may or may not be terms) ?
@@ -1178,6 +1267,62 @@ sub Open_Data_XML_Check_API {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_XML_Check_Get_Headings_List
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function returns the headings list found in the last XML
+# data dictionary file analysed.
+#
+#***********************************************************************
+sub Open_Data_XML_Check_Get_Headings_List {
+    my ($this_url) = @_;
+
+    #
+    # Check that the last URL process matches the one requested
+    #
+    if ( $this_url eq $current_url ) {
+        print "Open_Data_XML_Check_Get_Headings_List url = $this_url, headings list = $last_dictionary_headings_list\n" if $debug;
+        return($last_dictionary_headings_list);
+    }
+    else {
+        return("");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_XML_Get_Content_Results
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function runs the list of content errors found.
+#
+#***********************************************************************
+sub Open_Data_XML_Get_Content_Results {
+    my ($this_url) = @_;
+
+    my (@empty_list);
+
+    #
+    # Does this URL match the last one analysed by the
+    # Open_Data_XML_Check_Data function?
+    #
+    print "Open_Data_XML_Get_Content_Results url = $this_url\n" if $debug;
+    if ( $current_url eq $this_url ) {
+        return(@content_results_list);
+    }
+    else {
+        return(@empty_list);
+    }
 }
 
 #***********************************************************************
