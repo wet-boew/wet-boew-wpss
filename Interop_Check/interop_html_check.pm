@@ -962,6 +962,14 @@ sub Check_Property_Attribute {
     my ($content, $properties, $ref, @empty_list, $property, $found);
 
     #
+    # If this is a <meta> tag, skip check for property attribute
+    #
+    if ( $tagname eq "meta" ) {
+        print "Skip property attribute check for meta tag\n" if $debug;
+        return;
+    }
+    
+    #
     # Check for property attribute
     #
     print "Check_Property_Attribute\n" if $debug;
