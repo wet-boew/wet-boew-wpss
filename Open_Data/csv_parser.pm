@@ -2,9 +2,9 @@
 #
 # Name: csv_parser.pm
 #
-# $Revision: 268 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/csv_parser.pm $
-# $Date: 2017-02-06 15:42:30 -0500 (Mon, 06 Feb 2017) $
+# $Revision: 1061 $
+# $URL: svn://10.36.148.185/Open_Data/Tools/csv_parser.pm $
+# $Date: 2018-11-07 08:33:25 -0500 (Wed, 07 Nov 2018) $
 #
 # Description:
 #
@@ -93,10 +93,12 @@ my %string_table_en = (
     "Character position",            "Character position",
     "Double quote found in non-quoted field", "Double quote found in non-quoted field",
     "Field number",                  "Field number",
+    "File appears to be a tab separated file, no comma characters found in first line", "File appears to be a tab separated file, no comma characters found in first line.",
     "Invalid character following quoted field", "Invalid character following quoted field. Expecting comma or end of line, found",
     "Line",                          "Line",
     "Quoted field not closed before end-of-file", "Quoted field not closed before end-of-file",
     "Quoted field started at",       "Quoted field started at (line:column)",
+    "No comma characters found in first line", "No comma characters found in first line.",
     "Row",                           "Row",
     );
 
@@ -104,10 +106,12 @@ my %string_table_fr = (
     "Character position",            "Position de caractère",
     "Double quote found in non-quoted field", "Double citation trouvée dans le champ non-cité",
     "Field number",                  "Numéro de champ",
+    "File appears to be a tab separated file, no comma characters found in first line", "Le fichier semble être un fichier séparé par des tabulations, pas de virgule dans la première ligne.",
     "Invalid character following quoted field", "Caractère non valide qui suit champ cité. Expecting virgule ou fin de ligne, a trouvé",
     "Line",                          "Ligne",
     "Quoted field not closed before end-of-file", "Champ Cité pas fermé avant la fin de fichier",
     "Quoted field started at",       "Chaîne entre guillemets a commencé à (la ligne:colonne)",
+    "No comma characters found in first line", "Aucun caractère de virgule trouvé dans la première ligne.",
     "Row",                           "Rangée",
     );
 
@@ -350,6 +354,7 @@ sub getrow {
     my ($field_value) = "";
     my ($quoted_field_start) = "";
     my ($utf8) = 0;
+    my ($comma_count, $tab_count);
 
     #
     # Set status to true, assume we get a valid row
@@ -377,6 +382,59 @@ sub getrow {
         # Is the line UTF-8 ?
         #
         $utf8 = 1 if utf8::is_utf8( $line );
+        
+        #
+        # If this is the first line of the CSV file, check for comma
+        # characters.  If none are found (very unlikely in a CSV file)
+        # check for tabs as this could be a tab separated value file (tsv).
+        #
+        if ( $self->{"line_no"} == 1 ) {
+            #
+            # Count the number of commas and tabs in this line
+            #
+            $comma_count = 0;
+            $tab_count = 0;
+            foreach ($i = 0; $i < length($line); $i++) {
+                $char = substr($line, $i, 1);
+                if ( $char eq ',' ) {
+                    $comma_count++;
+                }
+                elsif ( $char =~ /\t/ ) {
+                    $tab_count++;
+                }
+            }
+
+            #
+            # Did we find any commas?
+            #
+            if ( $comma_count == 0 ) {
+                #
+                # No commas, did we find tabs?
+                #
+                if ( $tab_count > 0 ) {
+                    #
+                    # Construct error message for what appears to be a
+                    # tab separated file.
+                    #
+                    $message = String_Value("File appears to be a tab separated file, no comma characters found in first line") .
+                               "\n";
+                }
+                else {
+                    #
+                    # Construct error message for what appears to be a
+                    # corrupt CSV file.
+                    #
+                    $message = String_Value("No comma characters found in first line") .
+                               "\n";
+                }
+                $message .= String_Value("Row") . " = " . $self->{"row_no"} . " " .
+                            String_Value("Line") . " = " . $self->{"line_no"};
+                $self->{"status"} = 0;
+                $self->{"error_diag"} = $message;
+                $self->{"error_input"} = substr($line, 0, 75);
+                last;
+            }
+        }
 
         #
         # Check each character in the input line for a comma
