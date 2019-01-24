@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 1002 $
+# $Revision: 1097 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_check.pm $
-# $Date: 2018-10-03 11:38:35 -0400 (Wed, 03 Oct 2018) $
+# $Date: 2018-12-13 13:33:11 -0500 (Thu, 13 Dec 2018) $
 #
 # Description:
 #
@@ -1674,17 +1674,18 @@ sub Check_Data_File_Content {
     #
     elsif ( defined($data_file_object) && $data_file_object->type() eq "MARC" ) {
         print "MARC data file\n" if $debug;
-
-        #
-        # No content checks implemented
-        #
+        @results = Open_Data_MARC_Get_Content_Results($url);
     }
     #
     # Is this XML ?
     #
     elsif ( defined($data_file_object) && $data_file_object->type() eq "XML" ) {
         print "XML data file\n" if $debug;
+        @results = Open_Data_XML_Get_Content_Results($url);
     }
+    #
+    # Unknown file type
+    #
     elsif ( defined($data_file_object) ) {
         print "Unexpected data file type " . $data_file_object->type() . "\n" if $debug;
     }
@@ -3216,14 +3217,40 @@ sub Open_Data_Check_Dataset_Data_Files_Content {
 #
 # Description:
 #
-#   This function returns the headings list found in the last CSV file
+#   This function returns the headings list found in the last file
 # analysed.
 #
 #***********************************************************************
 sub Open_Data_Check_Get_Headings_List {
     my ($this_url) = @_;
+    
+    my ($headings);
+    
+    #
+    # Check for CSV file headings
+    #
+    $headings = Open_Data_CSV_Check_Get_Headings_List($this_url);
+    
+    #
+    # If there are no headings (not a CSV file), check
+    # for JSON-CSV headings.
+    #
+    if ( $headings eq "" ) {
+        $headings = Open_Data_JSON_Check_Get_Headings_List($this_url);
+    }
+        
+    #
+    # If there are no headings (not a CSV or JSON-CSV file), check
+    # for XML Data Dictionary headings.
+    #
+    if ( $headings eq "" ) {
+        $headings = Open_Data_XML_Check_Get_Headings_List($this_url);
+    }
 
-    return(Open_Data_CSV_Check_Get_Headings_List($this_url));
+    #
+    # Return list of headings
+    #
+    return($headings);
 }
 
 #***********************************************************************
