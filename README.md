@@ -1,7 +1,7 @@
 ## Web and Open Data Validator version 6.10.0
 
 The Web and Open Data Validator provides web developers and quality assurance testers the ability to perform a number of web site, web page validation and Open data validation tasks at one time. Web site checking includes
-- WCAG 2.0 A an AA
+- WCAG 2.0 A and AA
 - Link checking (e.g. broken links, broken anchors, cross language links)
 - Mark-up validation (HTML, CSS, XML, Javascript)
 - Mobile optimization (based on Yahoo's best practices)
