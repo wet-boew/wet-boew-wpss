@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml_dictionary.pm
 #
-# $Revision: 816 $
+# $Revision: 1487 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_xml_dictionary.pm $
-# $Date: 2018-04-12 14:54:04 -0400 (Thu, 12 Apr 2018) $
+# $Date: 2019-09-13 13:00:17 -0400 (Fri, 13 Sep 2019) $
 #
 # Description:
 #
@@ -115,9 +115,11 @@ my ($missing_heading_id) = "*** MISSING HEADING ID ***";
 # String table for error strings.
 #
 my %string_table_en = (
+    "also found for language",     "also found for language",
     "Broken link in",              "Broken link in",
     "Date",                        "Date ",
     "Date value",                  "Date value ",
+    "Description same as heading label", "Description same as heading label",
     "does not match",              "does not match",
     "Duplicate description",       "Duplicate <description>",
     "Duplicate label",             "Duplicate <label>",
@@ -126,6 +128,7 @@ my %string_table_en = (
     "Expecting a URL in",          "Expecting a URL in",
     "Fails validation",            "Fails validation",
     "for",                         "for",
+    "for language",                "for language",
     "found",                       "found",
     "found for",                   "found for",
     "found in",                    "found in",
@@ -167,9 +170,11 @@ my %string_table_en = (
     );
 
 my %string_table_fr = (
+    "also found for language",     "également trouvé pour la langue",
     "Broken link in",              "Lien brisé dans",
     "Date",                        "Date ",
     "Date value",                  "Valeur à la date ",
+    "Description same as heading label", "Description identique à l'étiquette de la rubrique",
     "does not match",              "ne correspond pas à",
     "Duplicate description",       "Doublon <description>",
     "Duplicate label",             "Doublon <label>",
@@ -178,6 +183,7 @@ my %string_table_fr = (
     "Expecting a URL in",          "Attendre un URL dans",
     "Fails validation",            "Échoue la validation",
     "for",                         "pour",
+    "for language",                "pour langue",
     "found",                       "trouvé",
     "found for",                   "trouvé pour",
     "found in",                    "trouvé dans",
@@ -502,6 +508,15 @@ sub Record_Content_Result {
     my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
     my ($result_object);
+
+    #
+    # Do we have a maximum number of errors to report and have we reached it?
+    #
+    if ( ($TQA_Result_Object_Maximum_Errors > 0) &&
+         (@content_results_list >= $TQA_Result_Object_Maximum_Errors) ) {
+        print "Skip reporting errors, maximum reached\n" if $debug;
+        return;
+    }
 
     #
     # Is this testcase included in the profile
@@ -1135,6 +1150,7 @@ sub End_Description_Tag_Handler {
     my ($self) = @_;
     
     my ($lang_table_ptr, %lang_table, $heading_table_ptr, %heading_table);
+    my ($label, $lang);
 
     #
     # Do we have a text handler ?
@@ -1146,17 +1162,35 @@ sub End_Description_Tag_Handler {
         $saved_text =~ s/\r\n|\r|\n/ /g;
         $saved_text =~ s/^\s*//g;
         $saved_text =~ s/\s*$//g;
+        print "Description = \"$saved_text\"\n" if $debug;
 
         #
         # Do we have a description ?
         #
-        if ( $saved_text ne "" ) {
-            print "Description = \"$saved_text\"\n" if $debug;
-        }
-        else {
+        if ( $saved_text eq "" ) {
             Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
                           String_Value("Missing text in") . " <description>");
+        }
+
+        #
+        # Save description
+        #
+        $found_description_languages{$current_lang} = $saved_text;
+        
+        #
+        # Is the description the same as any of the heading labels?
+        #
+        while ( ($lang, $label) = each %found_label_languages ) {
+            if ( $saved_text eq $label ) {
+                #
+                # Label matched heading.
+                #
+                Record_Result("TP_PW_OD_DD", $self->current_line,
+                              $self->current_column, $self->original_string,
+                              String_Value("Description same as heading label") .
+                              " \"$label\"");
+            }
         }
 
         #
@@ -1181,7 +1215,7 @@ sub End_Description_Tag_Handler {
                           String_Value("Previous instance found at") .
                           $$lang_table_ptr{$saved_text} .
                           String_Value("in heading") .
-                          $$heading_table_ptr{$saved_text} . "\">");
+                          $$heading_table_ptr{$saved_text});
         }
         else {
             #
@@ -1275,10 +1309,11 @@ sub Start_Heading_Tag_Handler {
 sub End_Heading_Tag_Handler {
     my ($self) = @_;
     
-    my ($new_dictionary_object, $lang, $label);
+    my ($new_dictionary_object, $lang, $label, $dup_lang);
+    my (%dup_check_descriptions);
     
     #
-    # Did we find a description in the heading ?
+    # Did we find a description in the heading?
     #
     if ( scalar(keys(%found_description_languages)) == 0 ) {
         Record_Result("TP_PW_OD_DD", $self->current_line,
@@ -1288,9 +1323,12 @@ sub End_Heading_Tag_Handler {
     }
 
     #
-    # Did we find all of the required description languages ?
+    # Did we find all of the required description languages?
     #
     foreach $lang (@required_description_languages) {
+        #
+        # Are we missing the description for this language?
+        #
         if ( ! defined($found_description_languages{$lang}) ) {
             Record_Result("TP_PW_OD_DD", $self->current_line,
                           $self->current_column, $self->original_string,
@@ -1301,7 +1339,33 @@ sub End_Heading_Tag_Handler {
     }
 
     #
-    # Did we find the expected number of descriptions in the heading ?
+    # Are there any duplicate descriptions?
+    #
+    %dup_check_descriptions = %found_description_languages;
+    foreach $lang (keys(%dup_check_descriptions)) {
+        $label = $dup_check_descriptions{$lang};
+        foreach $dup_lang (keys(%dup_check_descriptions)) {
+            #
+            # Skip the current label's language entry
+            #
+            if ( $dup_lang ne $lang ) {
+                if ( $dup_check_descriptions{$dup_lang} eq $label ) {
+                    Record_Result("TP_PW_OD_DD", $self->current_line,
+                                  $self->current_column, $self->original_string,
+                                  String_Value("Duplicate description") .
+                                  " \"$label\" " .
+                                  String_Value("for language") . " $lang " .
+                                  String_Value("also found for language") .
+                                  " $dup_lang " .
+                                  String_Value("in heading") .
+                                  " <heading id=\"$heading_id\">");
+                }
+            }
+        }
+    }
+
+    #
+    # Did we find the expected number of descriptions in the heading?
     # There may be more expected than required descriptions.
     # The expected languages are determined from the first heading.
     #
@@ -1541,7 +1605,7 @@ sub End_Label_Tag_Handler {
             }
             else {
                 #
-                # Save term and location
+                # Save label and location
                 #
                 $found_label_languages{$current_label_language} = $saved_text;
                 $term_location{$saved_text} = $self->current_line . ":" .
