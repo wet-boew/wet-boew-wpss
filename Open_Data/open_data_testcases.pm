@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision: 802 $
+# $Revision: 1499 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_testcases.pm $
-# $Date: 2018-04-05 11:52:49 -0400 (Thu, 05 Apr 2018) $
+# $Date: 2019-09-17 11:58:16 -0400 (Tue, 17 Sep 2019) $
 #
 # Description:
 #
@@ -109,10 +109,12 @@ my (%testcase_description_en) = (
 #
 # PWGSC Open Data checkpoints
 #
-"TP_PW_OD_BOM",     "TP_PW_OD_BOM: UTF-8 BOM",
-"TP_PW_OD_CONT",    "TP_PW_OD_CONT: Content",
-"TP_PW_OD_DATA",    "TP_PW_OD_DATA: PWGSC Data Quality",
-"TP_PW_OD_DD",      "TP_PW_OD_DD: Data Dictionary",
+"TP_PW_OD_BOM",              "TP_PW_OD_BOM: UTF-8 BOM",
+"TP_PW_OD_CONT",             "TP_PW_OD_CONT: Content",
+"TP_PW_OD_CONT_CONSISTENCY", "TP_PW_OD_CONT_CONSISTENCY: Data consistency",
+"TP_PW_OD_CONT_DUP",         "TP_PW_OD_CONT: Duplicate content",
+"TP_PW_OD_DATA",             "TP_PW_OD_DATA: PWGSC Data Quality",
+"TP_PW_OD_DD",               "TP_PW_OD_DD: Data Dictionary",
 );
 
 my (%testcase_description_fr) = (
@@ -127,10 +129,12 @@ my (%testcase_description_fr) = (
 #
 # PWGSC Open Data checkpoints
 #
-"TP_PW_OD_BOM",     "TP_PW_OD_BOM: UTF-8 BOM",
-"TP_PW_OD_CONT",    "TP_PW_OD_CONT: Contenu",
-"TP_PW_OD_DATA",    "TP_PW_OD_DATA: Qualité des données de TPSGC",
-"TP_PW_OD_DD",      "TP_PW_OD_DD: XML Dictionnaire",
+"TP_PW_OD_BOM",              "TP_PW_OD_BOM: UTF-8 BOM",
+"TP_PW_OD_CONT",             "TP_PW_OD_CONT: Contenu",
+"TP_PW_OD_CONT_CONSISTENCY", "TP_PW_OD_CONT_CONSISTENCY: Cohérence des données",
+"TP_PW_OD_CONT_DUP",         "TP_PW_OD_CONT: Contenu en double",
+"TP_PW_OD_DATA",             "TP_PW_OD_DATA: Qualité des données de TPSGC",
+"TP_PW_OD_DD",               "TP_PW_OD_DD: XML Dictionnaire",
 );
 
 #
