@@ -2,9 +2,9 @@
 #
 # Name:   open_data_marc.pm
 #
-# $Revision: 1096 $
+# $Revision: 1487 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_marc.pm $
-# $Date: 2018-12-13 12:15:56 -0500 (Thu, 13 Dec 2018) $
+# $Date: 2019-09-13 13:00:17 -0400 (Fri, 13 Sep 2019) $
 #
 # Description:
 #
@@ -356,6 +356,15 @@ sub Record_Content_Result {
     my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
     my ($result_object);
+
+    #
+    # Do we have a maximum number of errors to report and have we reached it?
+    #
+    if ( ($TQA_Result_Object_Maximum_Errors > 0) &&
+         (@content_results_list >= $TQA_Result_Object_Maximum_Errors) ) {
+        print "Skip reporting errors, maximum reached\n" if $debug;
+        return;
+    }
 
     #
     # Is this testcase included in the profile
