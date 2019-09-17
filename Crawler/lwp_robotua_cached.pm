@@ -339,7 +339,7 @@ sub perform_simple_request {
 				$self->{was_redirect} = $response->is_redirect && _in($request->method, $self->requests_redirectable);
 			}
 			else {
-				die "LWP::RobotUA::Cached perform_simple_request failed to open('$fpath', 'w'): $!";
+				print STDERR "LWP::RobotUA::Cached perform_simple_request failed to open('$fpath', 'w'): $!";
 			}
 		}
 	}
