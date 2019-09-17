@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 1157 $
+# $Revision: 1500 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2019-01-18 13:25:47 -0500 (Fri, 18 Jan 2019) $
+# $Date: 2019-09-17 12:00:00 -0400 (Tue, 17 Sep 2019) $
 #
 # Description:
 #
@@ -231,8 +231,8 @@ my %string_table_fr = (
     "Data pattern",                  "Modèle de données",
     "Duplicate column header",       "En-tête de colonne en double",
     "Duplicate content in columns",  "Dupliquer le contenu dans les colonnes",
-    "Empty line as first line of multi-line field", "Ligne vide comme première ligne de champ multi-lignes",
     "Duplicate row content, first instance at", "Dupliquer le contenu en ligne, première instance à ligne",
+    "Empty line as first line of multi-line field", "Ligne vide comme première ligne de champ multi-lignes",
     "Expected a heading after 2 blank lines", "Attendu un en-tête après 2 lignes vides",
     "expecting",                     "expectant",
     "expecting values to be of type", "ettendant que les valeurs soient de type",
@@ -560,6 +560,15 @@ sub Record_Content_Result {
     my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
     my ($result_object);
+
+    #
+    # Do we have a maximum number of errors to report and have we reached it?
+    #
+    if ( ($TQA_Result_Object_Maximum_Errors > 0) &&
+         (@content_results_list >= $TQA_Result_Object_Maximum_Errors) ) {
+        print "Skip reporting errors, maximum reached\n" if $debug;
+        return;
+    }
 
     #
     # Is this testcase included in the profile
@@ -1632,7 +1641,7 @@ sub Open_Data_CSV_Check_Data {
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
     my ($line, @fields, $line_no, $status, $field_count);
-    my ($csv_file, $csv_file_name, $rows, $message, $content, $data1);
+    my ($csv_file, $csv_file_name, $rows, $message, $content, $data1, $data2);
     my ($row_content, $eval_output, @headings, $i, $regex, $heading, $data);
     my ($have_bom, %row_checksum, $checksum, $headings_count);
     my (%duplicate_columns, %duplicate_columns_flag, $j, $this_field);
@@ -1643,6 +1652,7 @@ sub Open_Data_CSV_Check_Data {
     my ($computed_value_type, $non_blank_line_count, $cleansed_value);
     my ($table_addr, $other_line_no, $type_line, $value_type_row_ptr);
     my (@column_value_types_row, @column_value_types_value, $type_value);
+    my ($valid_heading, $lc_value);
 
     #
     # Do we have a valid profile ?
@@ -1792,12 +1802,28 @@ sub Open_Data_CSV_Check_Data {
                 #
                 if ( ! defined($$dictionary{$heading}) ) {
                     $heading = "Column " . ($i + 1);
+                    $valid_heading = 0;
+                }
+                else {
+                    $valid_heading = 1;
                 }
                 
                 #
                 # Create a column object
                 #
                 $column_object = csv_column_object->new($heading);
+                $column_object->valid_heading($valid_heading);
+                
+                #
+                # If this is not a valid data dictionary heading,
+                # record the value for the first data cell.  We
+                # may not have a data dictionary to check headings
+                # against, but we may still want to check CSV vs JSON-CSV
+                # headings.
+                #
+                if ( ! $valid_heading ) {
+                    $column_object->first_data($fields[$i]);
+                }
                 push(@csv_columns, $column_object);
                 
                 #
@@ -1884,7 +1910,7 @@ sub Open_Data_CSV_Check_Data {
                 }
                 else {
                     $regex = "";
-                    $message = "";
+                    $message = $column_object->first_data();
                 }
 
                 #
@@ -1918,12 +1944,41 @@ sub Open_Data_CSV_Check_Data {
                     }
 
                     #
-                    # Add the current value to the column sum.
+                    # Update sum, max and min values for column
                     #
                     if ( $column_object->type() eq "numeric" ) {
+                        #
+                        # Add the current value to the column sum.
+                        #
                         $column_object->sum($data);
+
+                        #
+                        # Do we have a max value?
+                        #
+                        if ( ! defined($column_object->max()) ) {
+                            $column_object->max($data);
+                        }
+                        #
+                        # Is this value larger than the current maximum?
+                        #
+                        elsif ( $data > $column_object->max() ) {
+                            $column_object->max($data);
+                        }
+
+                        #
+                        # Do we have a min value?
+                        #
+                        if ( ! defined($column_object->min()) ) {
+                            $column_object->min($data);
+                        }
+                        #
+                        # Is this value smaller than the current minimum?
+                        #
+                        elsif ( $data < $column_object->min() ) {
+                            $column_object->min($data);
+                        }
                     }
-                    
+
                     #
                     # Increment the count of numeric values
                     #
@@ -1949,10 +2004,39 @@ sub Open_Data_CSV_Check_Data {
                     }
 
                     #
-                    # Add the current value to the column sum.
+                    # Update sum, max and min values for column
                     #
                     if ( $column_object->type() eq "numeric" ) {
+                        #
+                        # Add the current value to the column sum.
+                        #
                         $column_object->sum($data);
+                        
+                        #
+                        # Do we have a max value?
+                        #
+                        if ( ! defined($column_object->max()) ) {
+                            $column_object->max($data);
+                        }
+                        #
+                        # Is this value larger than the current maximum?
+                        #
+                        elsif ( $data > $column_object->max() ) {
+                            $column_object->max($data);
+                        }
+
+                        #
+                        # Do we have a min value?
+                        #
+                        if ( ! defined($column_object->min()) ) {
+                            $column_object->min($data);
+                        }
+                        #
+                        # Is this value smaller than the current minimum?
+                        #
+                        elsif ( $data < $column_object->min() ) {
+                            $column_object->min($data);
+                        }
                     }
 
                     #
@@ -1980,14 +2064,53 @@ sub Open_Data_CSV_Check_Data {
                     }
 
                     #
-                    # Add the current value to the column sum.
+                    # Update sum, max and min values for column
                     #
                     if ( $column_object->type() eq "date" ) {
+                        #
+                        # Add the current value to the column sum.
+                        #
                         $data1 = $data;
                         $data1 =~ s/\-//g;
                         $column_object->sum($data1);
+
+                        #
+                        # Do we have a max value?
+                        #
+                        if ( ! defined($column_object->max()) ) {
+                            $column_object->max($data);
+                        }
+                        #
+                        # Is this value larger than the current maximum?
+                        #
+                        else {
+                            $data2 = $column_object->max();
+                            $data2 =~ s/\-//g;
+                            
+                            if ( $data1 > $data2 ) {
+                                $column_object->max($data);
+                            }
+                        }
+
+                        #
+                        # Do we have a min value?
+                        #
+                        if ( ! defined($column_object->min()) ) {
+                            $column_object->min($data);
+                        }
+                        #
+                        # Is this value smaller than the current minimum?
+                        #
+                        else {
+                            $data2 = $column_object->min();
+                            $data2 =~ s/\-//g;
+
+                            if ( $data1 < $data2 ) {
+                                $column_object->min($data);
+                            }
+                        }
                     }
-                    
+
                     #
                     # Increment the count of date values
                     #
@@ -2132,7 +2255,7 @@ sub Open_Data_CSV_Check_Data {
                 # or parenthesis (ignore digits).  This may be interpreted by
                 # Excel as a formula (e.g. =SUM(A1:F1)).
                 #
-                elsif ( $data =~ /^[=+\-].*[A-Z\d\.\(]+.*/i ) {
+                elsif ( $data =~ /^[=+\-][A-Z\d\(]+.*/i ) {
                     Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
                                           String_Value("Possible Excel formula as field value") .
                                           " \"$data\" " .
@@ -2199,15 +2322,16 @@ sub Open_Data_CSV_Check_Data {
                     $cleansed_value = Cleanse_Value($data);
                     
                     #
-                    # Did we get a cleansed value?
+                    # Did we get a cleansed value? We won't get one if the data
+                    # is either too long or too short.
                     #
                     if ( $cleansed_value ne "" ) {
                         print "Cleansed value is \"$cleansed_value\"\n" if $debug;
                         
                         #
-                        # Get the cleansed value table for this column
+                        # Get the consistent value table for this column
                         #
-                        $table_addr = $column_object->cleansed_value_table();
+                        $table_addr = $column_object->consistent_value_table();
                         
                         #
                         # Does this cleansed value appear in the table?
@@ -2220,10 +2344,9 @@ sub Open_Data_CSV_Check_Data {
                             
                             #
                             # Do the uncleansed values match?
-                            # Do a case insensitive check.
                             #
-                            if ( lc($data) ne lc($data1) ) {
-                                Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                            if ( $data ne $data1 ) {
+                                Record_Content_Result("TP_PW_OD_CONT_CONSISTENCY", $line_no, ($i + 1), "$line",
                                                       String_Value("Inconsistent field values for column") .
                                                       " \"$message\" (#" . ($i + 1) . ")\n " .
                                                       String_Value("found") . " \"" .
@@ -2238,7 +2361,54 @@ sub Open_Data_CSV_Check_Data {
                             # Save this cleansed value in the table.
                             # Include the row number in the value.
                             #
+                            print "New value for consistent value table\n" if $debug;
                             $$table_addr{$cleansed_value} = "$line_no:$data";
+                        }
+                    }
+                    #
+                    # Is the value short (i.e. fewer than 10 characters)?
+                    #
+                    elsif ( length($data) < 10 ) {
+                        #
+                        # Get the consistent value table for this column
+                        #
+                        $table_addr = $column_object->consistent_value_table();
+                        
+                        #
+                        # Get lowercase value for data
+                        #
+                        $lc_value = lc($data);
+                        print "Lower case value is \"$lc_value\"\n" if $debug;
+
+                        #
+                        # Does this lowercase value appear in the table?
+                        #
+                        if ( defined($$table_addr{$lc_value}) ) {
+                            #
+                            # Get the mixed case values and line number
+                            #
+                            ($other_line_no, $data1) = split(/:/, $$table_addr{$lc_value}, 2);
+
+                            #
+                            # Do the mixed case values match?
+                            #
+                            if ( $data ne $data1 ) {
+                                Record_Content_Result("TP_PW_OD_CONT_CONSISTENCY", $line_no, ($i + 1), "$line",
+                                                      String_Value("Inconsistent field values for column") .
+                                                      " \"$message\" (#" . ($i + 1) . ")\n " .
+                                                      String_Value("found") . " \"" .
+                                                      Convert_Nonprintable_to_Hex($data) . "\"\n " .
+                                                      String_Value("expecting") . " \"" .
+                                                      Convert_Nonprintable_to_Hex($data1) . "\"\n " .
+                                                      String_Value("Found at row") . " $other_line_no");
+                            }
+                        }
+                        else {
+                            #
+                            # Save this lowercase value in the table.
+                            # Include the row number in the value.
+                            #
+                            $$table_addr{$lc_value} = "$line_no:$data";
                         }
                     }
                 }
@@ -2256,7 +2426,7 @@ sub Open_Data_CSV_Check_Data {
         #
         print "Check for duplicate row, checksum = $checksum\n" if $debug;
         if ( defined($row_checksum{$checksum}) ) {
-            Record_Content_Result("TP_PW_OD_CONT", $line_no, 0, "$line",
+            Record_Content_Result("TP_PW_OD_CONT_DUP", $line_no, 0, "$line",
                           String_Value("Duplicate row content, first instance at") .
                           " " . $row_checksum{$checksum});
         }
@@ -2401,6 +2571,9 @@ sub Open_Data_CSV_Check_Data {
         print "Check for high percentage of blank cells in columns\n" if $debug;
         for ($i = 0; $i < $field_count; $i++) {
             $column_object = $csv_columns[$i];
+            if ( ! defined($column_object) ) {
+                next;
+            }
             $non_blank_line_count = $column_object->non_blank_cell_count();
             
             if ( ($non_blank_line_count * 100.0 / $line_no) < $min_non_blank_cell_percentage ) {
@@ -2416,6 +2589,7 @@ sub Open_Data_CSV_Check_Data {
         if ( $line_no > 9 ) {
             print "Check for identical content in columns\n" if $debug;
             for ($i = 0; $i < $field_count; $i++) {
+                $column_object = $csv_columns[$i];
                 if ( $identical_cell_content[$i] ) {
                     print "Column $i has identical content in all cells\n" if $debug;
                     
@@ -2436,6 +2610,9 @@ sub Open_Data_CSV_Check_Data {
                     if ( defined($heading) ) {
                         $message = $heading->term();
                     }
+                    elsif ( defined($column_object) ) {
+                        $message = $column_object->first_data();
+                    }
                     else {
                         $message = "";
                     }
@@ -2443,7 +2620,7 @@ sub Open_Data_CSV_Check_Data {
                     #
                     # Record error
                     #
-                    Record_Content_Result("TP_PW_OD_CONT", -1, ($i + 1), "",
+                    Record_Content_Result("TP_PW_OD_CONT_DUP", -1, ($i + 1), "",
                                           String_Value("All cells in column") .
                                           " \"$message\" (#" . ($i + 1) . ") " .
                                           String_Value("have identical content") .
@@ -2465,6 +2642,32 @@ sub Open_Data_CSV_Check_Data {
                 #
                 $value_type_ptr = $column_value_types[$i];
                 $column_object = $csv_columns[$i];
+                if ( ! defined($column_object) ) {
+                    next;
+                }
+
+                #
+                # Get heading label
+                #
+                $heading = $headings[$i];
+                if ( defined($heading) ) {
+                    $message = $heading->term();
+                    $regex = $heading->regex();
+                }
+                else {
+                    $message = $column_object->first_data();
+                    $regex = "";
+                }
+
+                #
+                # Does this heading have content regular expression? If so
+                # we don't check content consistency, the regular
+                # expression should catch anomolies.
+                #
+                if ( $regex ne "" ) {
+                    print "Column has content regular expression, skip consistency check\n" if $debug;
+                    next;
+                }
                 
                 #
                 # Get the number of non blank lines. Use this for
@@ -2508,17 +2711,6 @@ sub Open_Data_CSV_Check_Data {
                     print "Value count for column $i type $value_type is $type_count\n" if $debug;
                     if ( ($type_count * 100.0 / $non_blank_line_count) < $min_consistent_type_percent ) {
                         #
-                        # Get heading label
-                        #
-                        $heading = $headings[$i];
-                        if ( defined($heading) ) {
-                            $message = $heading->term();
-                        }
-                        else {
-                            $message = "";
-                        }
-                        
-                        #
                         # Get the first row with this type
                         #
                         $value_type_row_ptr = $column_value_types_row[$i];
@@ -2529,7 +2721,7 @@ sub Open_Data_CSV_Check_Data {
                         #
                         # Record error
                         #
-                        Record_Content_Result("TP_PW_OD_CONT", -1, ($i + 1), "",
+                        Record_Content_Result("TP_PW_OD_CONT_CONSISTENCY", -1, ($i + 1), "",
                                               String_Value("Inconsistent data type in column") .
                                               " \"$message\" (#" . ($i + 1) . ") " .
                                               String_Value("found") . " $type_count " .
@@ -2616,7 +2808,7 @@ sub Open_Data_CSV_Check_Data {
                     }
                 }
                 print "Duplicate columns $duplicate_column_list\n" if $debug;
-                Record_Content_Result("TP_PW_OD_CONT", -1, $i + 1, "",
+                Record_Content_Result("TP_PW_OD_CONT_DUP", -1, $i + 1, "",
                               String_Value("Duplicate content in columns") .
                               " $duplicate_column_list");
             }
