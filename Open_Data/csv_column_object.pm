@@ -2,9 +2,9 @@
 #
 # Name: csv_column_object.pm
 #
-# $Revision: 888 $
+# $Revision: 1498 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/csv_column_object.pm $
-# $Date: 2018-07-09 10:53:57 -0400 (Mon, 09 Jul 2018) $
+# $Date: 2019-09-17 11:57:26 -0400 (Tue, 17 Sep 2019) $
 #
 # Description:
 #
@@ -17,12 +17,17 @@
 #
 # Class Methods
 #    new - create new object instance
-#    cleansed_value_table - get the cleansed value table
+#    consistent_value_table - get the consistent value table
+#    first_data - set/get the first data cell value
 #    heading - get/set csv column heading
 #    increment_non_blank_cell_count - increment non_blank_cell_count value
+#    max - get/set maximum value (for numeric and date columns only)
+#    min - get/set minimum value (for numeric and date columns only)
 #    non_blank_cell_count - get/set non_blank_cell_count value
-#    sum - get or add to the column sum (for numeric columns only)
+#    sum - get or add to the column sum (for numeric and date columns only)
 #    type - get/set column content type value
+#    valid_heading - get/set flag if this column has a valid
+#      data dictionary heading
 #
 # Terms and Conditions of Use
 # 
@@ -117,7 +122,7 @@ sub new {
     my ($class, $heading) = @_;
     
     my ($self) = {};
-    my (%cleansed_value_table);
+    my (%consistent_value_table);
 
     #
     # Bless the reference as a csv_column_object class item
@@ -128,11 +133,15 @@ sub new {
     # Save arguments as object data items and initialize
     # other object data.
     #
-    $self->{"cleansed_value_table"} = \%cleansed_value_table;
+    $self->{"consistent_value_table"} = \%consistent_value_table;
+    $self->{"first_data"} = 1;
     $self->{"heading"} = $heading;
+    $self->{"max"} = undef;
+    $self->{"min"} = undef;
     $self->{"non_blank_cell_count"} = 0;
     $self->{"sum"} = 0;
     $self->{"type"} = "";
+    $self->{"valid_heading"} = 1;
     
     #
     # Print object details
@@ -147,23 +156,52 @@ sub new {
     
 #********************************************************
 #
-# Name: cleansed_value_table
+# Name: consistent_value_table
 #
 # Parameters: self - class reference
 #
 # Description:
 #
-#   This function returns the address of the cleansed value
+#   This function returns the address of the consistent value
 # table for this column object.
 #
 #********************************************************
-sub cleansed_value_table {
+sub consistent_value_table {
     my ($self) = @_;
 
     #
     # Return address of hash table
     #
-    return($self->{"cleansed_value_table"});
+    return($self->{"consistent_value_table"});
+}
+
+#********************************************************
+#
+# Name: first_data
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the first_data
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub first_data {
+    my ($self, $value) = @_;
+   
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"first_data"} = $value;
+    }
+    else {
+        return($self->{"first_data"});
+    }
 }
 
 #********************************************************
@@ -183,7 +221,7 @@ sub cleansed_value_table {
 #********************************************************
 sub heading {
     my ($self, $heading) = @_;
-   
+
     #
     # Was a value supplied ?
     #
@@ -216,6 +254,63 @@ sub increment_non_blank_cell_count {
     $self->{"non_blank_cell_count"}++;
 }
 
+#********************************************************
+#
+# Name: max
+#
+# Parameters: self - class reference
+#             value - cell value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the maximum column
+# value attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub max {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"max"} = $value;
+    }
+    else {
+        return($self->{"max"});
+    }
+}
+
+#********************************************************
+#
+# Name: min
+#
+# Parameters: self - class reference
+#             value - cell value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the minimum column
+# value attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub min {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"min"} = $value;
+    }
+    else {
+        return($self->{"min"});
+    }
+}
 
 #********************************************************
 #
@@ -311,6 +406,35 @@ sub type {
     }
     else {
         return($self->{"type"});
+    }
+}
+
+#********************************************************
+#
+# Name: valid_heading
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the valid_heading
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub valid_heading {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"valid_heading"} = $value;
+    }
+    else {
+        return($self->{"valid_heading"});
     }
 }
 
