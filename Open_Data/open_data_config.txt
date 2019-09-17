@@ -120,7 +120,7 @@ Testcase_Data TP_PW_OD_CONT DATA_TYPE_CONSISTENCY_PERCENT 2.0
 #***********************************************************************
 #
 Open_Data_Check_Profile_eng PWGSC OD (core)
-Open_Data_Check_Profile_fra DO TPSGC (autoriser les doublons)
+Open_Data_Check_Profile_fra DO TPSGC (core)
 
 #
 # Testcase id
