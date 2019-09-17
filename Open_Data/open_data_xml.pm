@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 1137 $
+# $Revision: 1487 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2019-01-14 08:48:57 -0500 (Mon, 14 Jan 2019) $
+# $Date: 2019-09-13 13:00:17 -0400 (Fri, 13 Sep 2019) $
 #
 # Description:
 #
@@ -20,7 +20,8 @@
 #     Open_Data_XML_Check_Dictionary
 #     Open_Data_XML_Check_API
 #     Open_Data_XML_Dictionary_Content_Check
-#     Open_Data_XML_Check_Get_Headings_List
+#     Open_Data_XML_Check_Get_Dictionary_Headings_List
+#     Open_Data_XML_Check_Get_Data_Headings_List
 #     Open_Data_XML_Get_Content_Results
 #
 # Terms and Conditions of Use
@@ -86,7 +87,8 @@ BEGIN {
                   Open_Data_XML_Check_Dictionary
                   Open_Data_XML_Dictionary_Content_Check
                   Open_Data_XML_Check_API
-                  Open_Data_XML_Check_Get_Headings_List
+                  Open_Data_XML_Check_Get_Dictionary_Headings_List
+                  Open_Data_XML_Check_Get_Data_Headings_List
                   Open_Data_XML_Get_Content_Results
                   );
     $VERSION = "1.0";
@@ -103,7 +105,7 @@ my (%testcase_data, $results_list_addr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($tag_count, $save_text_between_tags, $saved_text);
 my ($have_pwgsc_data_dictionary, $have_doctype, $have_schema, $dictionary_ptr);
-my ($last_dictionary_headings_list, @content_results_list);
+my (@content_results_list, $last_headings_list, %data_headings);
 
 my ($max_error_message_string)= 2048;
 
@@ -364,8 +366,9 @@ sub Initialize_Test_Results {
     $saved_text = "";
     $have_schema = 0;
     $have_doctype = 0;
-    $last_dictionary_headings_list = "";
     @content_results_list = ();
+    $last_headings_list = "";
+    %data_headings = ();
 }
 
 #***********************************************************************
@@ -453,6 +456,15 @@ sub Record_Content_Result {
     my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
     my ($result_object);
+
+    #
+    # Do we have a maximum number of errors to report and have we reached it?
+    #
+    if ( ($TQA_Result_Object_Maximum_Errors > 0) &&
+         (@content_results_list >= $TQA_Result_Object_Maximum_Errors) ) {
+        print "Skip reporting errors, maximum reached\n" if $debug;
+        return;
+    }
 
     #
     # Is this testcase included in the profile
@@ -627,6 +639,7 @@ sub Data_Start_Handler {
     #
     if ( defined($$dictionary_ptr{$tagname}) ) {
         print "Found start tag for dictionary heading tag $tagname\n" if $debug;
+        $data_headings{$tagname} = 1;
 
         #
         # Start a text handler to get the tag content
@@ -838,6 +851,11 @@ sub Open_Data_XML_Check_Data {
                       String_Value("No DOCTYPE or Schema found in XML file"));
         $validation_failed = 1;
     }
+    
+    #
+    # Save list of data dictionary headings found in this file
+    #
+    $last_headings_list = join(",", sort(keys(%data_headings)));
 
     #
     # Print testcase information
@@ -1096,46 +1114,40 @@ sub Open_Data_XML_Check_Dictionary {
     }
 
     #
-    # If XML/XSD validation did not fail, check the contents of the
-    # dictionary.
+    # Did we find a PWGSC Data Dictionary ?
     #
-    if ( ! $validation_failed ) {
+    if ( $have_pwgsc_data_dictionary ) {
         #
-        # Did we find a PWGSC Data Dictionary ?
+        # Parse the PWGSC data dictionary
         #
-        if ( $have_pwgsc_data_dictionary ) {
-            #
-            # Parse the PWGSC data dictionary
-            #
-            @other_results = Open_Data_XML_Dictionary_Check_Dictionary($this_url,
-                                       $profile, $filename, $dictionary);
+        @other_results = Open_Data_XML_Dictionary_Check_Dictionary($this_url,
+                                   $profile, $filename, $dictionary);
                            
-            #
-            # Add the results to the results list
-            #
-            foreach $result_object (@other_results) {
-                push(@tqa_results_list, $result_object);
-            }
+        #
+        # Add the results to the results list
+        #
+        foreach $result_object (@other_results) {
+            push(@tqa_results_list, $result_object);
+        }
             
-            #
-            # Create a list of headings found in the data dictionary
-            #
-            $last_dictionary_headings_list = join(",", sort(keys(%$dictionary)));
-        }
         #
-        # Did we find some tags (may or may not be terms) ?
+        # Create a list of headings found in the data dictionary
         #
-        elsif ( $tag_count == 0 ) {
-            Record_Result("OD_VAL", -1, 0, "",
-                          String_Value("No terms found in data dictionary"));
-        }
-        #
-        # Not a recognized XML dictionary format
-        #
-        else {
-            Record_Result("TP_PW_OD_DD", -1, 0, "",
-                          String_Value("Unrecognized XML dictionary format"));
-        }
+        $last_headings_list = join(",", sort(keys(%$dictionary)));
+    }
+    #
+    # Did we find some tags (may or may not be terms) ?
+    #
+    elsif ( $tag_count == 0 ) {
+        Record_Result("OD_VAL", -1, 0, "",
+                      String_Value("No terms found in data dictionary"));
+    }
+    #
+    # Not a recognized XML dictionary format
+    #
+    else {
+        Record_Result("TP_PW_OD_DD", -1, 0, "",
+                      String_Value("Unrecognized XML dictionary format"));
     }
 
     #
@@ -1253,6 +1265,11 @@ sub Open_Data_XML_Check_API {
     }
 
     #
+    # Save list of data dictionary headings found in this file
+    #
+    $last_headings_list = join(",", sort(keys(%data_headings)));
+
+    #
     # Print testcase information
     #
     if ( $debug ) {
@@ -1271,7 +1288,7 @@ sub Open_Data_XML_Check_API {
 
 #***********************************************************************
 #
-# Name: Open_Data_XML_Check_Get_Headings_List
+# Name: Open_Data_XML_Check_Get_Dictionary_Headings_List
 #
 # Parameters: this_url - a URL
 #
@@ -1281,15 +1298,42 @@ sub Open_Data_XML_Check_API {
 # data dictionary file analysed.
 #
 #***********************************************************************
-sub Open_Data_XML_Check_Get_Headings_List {
+sub Open_Data_XML_Check_Get_Dictionary_Headings_List {
     my ($this_url) = @_;
 
     #
     # Check that the last URL process matches the one requested
     #
     if ( $this_url eq $current_url ) {
-        print "Open_Data_XML_Check_Get_Headings_List url = $this_url, headings list = $last_dictionary_headings_list\n" if $debug;
-        return($last_dictionary_headings_list);
+        print "Open_Data_XML_Check_Get_Dictionary_Headings_List url = $this_url, headings list = $last_headings_list\n" if $debug;
+        return($last_headings_list);
+    }
+    else {
+        return("");
+    }
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_XML_Check_Get_Data_Headings_List
+#
+# Parameters: this_url - a URL
+#
+# Description:
+#
+#   This function returns the headings list found in the last XML
+# data file analysed.
+#
+#***********************************************************************
+sub Open_Data_XML_Check_Get_Data_Headings_List {
+    my ($this_url) = @_;
+
+    #
+    # Check that the last URL process matches the one requested
+    #
+    if ( $this_url eq $current_url ) {
+        print "Open_Data_XML_Check_Get_Data_Headings_List url = $this_url, headings list = $last_headings_list\n" if $debug;
+        return($last_headings_list);
     }
     else {
         return("");
