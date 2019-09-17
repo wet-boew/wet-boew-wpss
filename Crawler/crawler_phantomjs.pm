@@ -2,9 +2,9 @@
 #
 # Name:   crawler_phantomjs.pm
 #
-# $Revision: 733 $
+# $Revision: 1415 $
 # $URL: svn://10.36.148.185/Crawler/Tools/crawler_phantomjs.pm $
-# $Date: 2018-02-22 13:00:31 -0500 (Thu, 22 Feb 2018) $
+# $Date: 2019-07-30 11:59:55 -0400 (Tue, 30 Jul 2019) $
 #
 # Description:
 #
@@ -14,6 +14,7 @@
 #     Crawler_Phantomjs_Clear_Cache
 #     Crawler_Phantomjs_Config
 #     Crawler_Phantomjs_Debug
+#     Crawler_Phantomjs_Start_Markup_Server
 #     Crawler_Phantomjs_Stop_Markup_Server
 #     Crawler_Phantomjs_Page_Markup
 #
@@ -68,6 +69,7 @@ BEGIN {
     @EXPORT  = qw(Crawler_Phantomjs_Clear_Cache
                   Crawler_Phantomjs_Config
                   Crawler_Phantomjs_Debug
+                  Crawler_Phantomjs_Start_Markup_Server
                   Crawler_Phantomjs_Stop_Markup_Server
                   Crawler_Phantomjs_Page_Markup
                   );
@@ -129,6 +131,7 @@ sub Crawler_Phantomjs_Clear_Cache {
     # If we have a running markup server, stop it.
     #
     if ( $markup_server_running ) {
+        Crawler_Phantomjs_Stop_Markup_Server();
     }
 
     #
@@ -226,24 +229,44 @@ sub Crawler_Phantomjs_Stop_Markup_Server {
 
 #***********************************************************************
 #
-# Name: Start_Markup_Server
+# Name: Crawler_Phantomjs_Start_Markup_Server
 #
 # Parameters: cookie_file - path to cookie jar file
 #
 # Description:
 #
 #   This function starts the markup server process in PhantomJS.
-# Program arguments include:
+# The PhantomJS program arguments include:
 #   enable disk cache
 #   cookie jar path
 #   instruct PhantomJS to ignore SSL errors (e.g. unsigned certificates)
 #
+# Returns:
+#   1 - server started successfully
+#   0 - server did not start
+#
 #***********************************************************************
-sub Start_Markup_Server {
+sub Crawler_Phantomjs_Start_Markup_Server {
     my ($cookie_file) = @_;
 
-    my ($debug_option, $sec, $min, $hour, $time);
+    my ($debug_option, $sec, $min, $hour, $time, $output, $cmnd, $rc);
 
+    #
+    # Are we running in single page mode (start PhantonJS for each
+    # page) or using a markup server (a background process that gets
+    # pages).
+    #
+    print "Crawler_Phantomjs_Start_Markup_Server\n" if $debug;
+    if ( ! $use_markup_server ) {
+        #
+        # Not using a markup server.  Return true to indicate
+        # success.  The real success/failure will be returned
+        # when actual page markup is requested.
+        #
+        print "Not using markup server\n" if $debug;
+        return(1);
+    }
+    
     #
     # Stop any server that may be running
     #
@@ -264,15 +287,18 @@ sub Start_Markup_Server {
     #
     ($sec, $min, $hour) = (localtime)[0,1,2];
     $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
-    print "Start_Markup_Server at $time\n" if $debug;
-    print "$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" --ignore-ssl-errors=true $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt 2>> phantomjs_stderr.txt $phantomjs_server_last_arg\n" if $debug;
-    system("$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" --ignore-ssl-errors=true $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt 2>> phantomjs_stderr.txt $phantomjs_server_last_arg");
+    print "Crawler_Phantomjs_Start_Markup_Server at $time\n" if $debug;
+    $cmnd = "$phantomjs_server_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" --ignore-ssl-errors=true $phantomjs_server_arg $markup_server_port $debug_option >> phantomjs_stdout.txt 2>> phantomjs_stderr.txt $phantomjs_server_last_arg";
+    print "$cmnd\n" if $debug;
+    system($cmnd);
 
     #
     # Set flag to indicate that the markup server has been started.
     #
+    print "PhantomJS markup server running\n" if $debug;
     $markup_server_running = 1;
     sleep(5);
+    return(1);
 }
 
 #***********************************************************************
@@ -319,6 +345,7 @@ sub Single_Page_Markup {
     # Get page markup from the URL ?
     #
     print "Single_Page_Markup start $date page markup from $this_url\n" if $debug;
+    print "$phantomjs_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_arg \"$this_url\" $image_param\n" if $debug;
     $output = `$phantomjs_cmnd --disk-cache=true --cookies-file=\"$cookie_file\" $phantomjs_arg \"$this_url\" $image_param 2>> phantomjs_stderr.txt`;
     ($sec, $min, $hour) = (localtime)[0,1,2];
     $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
@@ -401,7 +428,7 @@ sub Server_Page_Markup {
     #
     print "Server_Page_Markup\n" if $debug;
     if ( ! $markup_server_running ) {
-        Start_Markup_Server($cookie_file);
+        Crawler_Phantomjs_Start_Markup_Server($cookie_file);
     }
     
     #
@@ -509,7 +536,7 @@ sub Server_Page_Markup {
         #
         # Restart the markup server
         #
-        Start_Markup_Server($cookie_file);
+        Crawler_Phantomjs_Start_Markup_Server($cookie_file);
 
         #
         # Have we already tried to get this page for the 2nd time?
