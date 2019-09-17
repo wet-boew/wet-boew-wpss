@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision: 818 $
+# $Revision: 1499 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_config.txt $
-# $Date: 2018-04-12 14:55:29 -0400 (Thu, 12 Apr 2018) $
+# $Date: 2019-09-17 11:58:16 -0400 (Tue, 17 Sep 2019) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -64,6 +64,8 @@ tcid OD_DATA
 #
 tcid TP_PW_OD_BOM
 tcid TP_PW_OD_CONT
+tcid TP_PW_OD_CONT_CONSISTENCY
+tcid TP_PW_OD_CONT_DUP
 tcid TP_PW_OD_DATA
 tcid TP_PW_OD_DD
 
@@ -106,6 +108,78 @@ Testcase_Data TP_PW_OD_DATA REQUIRED_LANG fr
 # data type exceeds this value, an error is reported.
 #
 Testcase_Data TP_PW_OD_CONT DATA_TYPE_CONSISTENCY_PERCENT 2.0
+
+#
+#***********************************************************************
+#
+# PWGSC Open Data Core
+#    http://www.tbs-sct.gc.ca/pol/doc-eng.aspx?section=text&id=25875
+#
+#  Duplicate content and data inconsistency testcases are disabled
+#
+#***********************************************************************
+#
+Open_Data_Check_Profile_eng PWGSC OD (core)
+Open_Data_Check_Profile_fra DO TPSGC (autoriser les doublons)
+
+#
+# Testcase id
+# Common Open Data testcases
+#
+tcid OD_URL
+tcid OD_ENC
+tcid OD_VAL
+tcid OD_DATA
+
+#
+# PWGSC Open Data testcases
+#
+tcid TP_PW_OD_BOM
+tcid TP_PW_OD_CONT
+#tcid TP_PW_OD_CONT_CONSISTENCY
+#tcid TP_PW_OD_CONT_DUP
+tcid TP_PW_OD_DATA
+tcid TP_PW_OD_DD
+
+#
+# Testcase data
+#
+
+#
+# Maximum file size before requiring compression (50Mb)
+#
+Testcase_Data TP_PW_OD_DATA MAX_FILE_SIZE 50000000
+
+#
+# Supporting file URL pattern
+#
+Testcase_Data OD_VAL SUPPORT_URL support
+Testcase_Data OD_VAL SUPPORT_URL soutien
+
+#
+# Alternate format data file name pattern
+#
+Testcase_Data OD_URL ALTERNATE_DATA - Alternate Format
+Testcase_Data OD_URL ALTERNATE_DATA - Format de remplacement
+
+#
+# Data dictionary file name pattern
+#
+Testcase_Data OD_URL DICTIONARY Data Dictionary
+Testcase_Data OD_URL DICTIONARY Dictionnaire de données
+
+#
+# XML Data dictionary required languages for description tag
+#
+Testcase_Data TP_PW_OD_DATA REQUIRED_LANG en
+Testcase_Data TP_PW_OD_DATA REQUIRED_LANG fr
+
+#
+# Percentage for reporting data type consistency errors.
+# If the percentage of data values not matching the CSV column
+# data type exceeds this value, an error is reported.
+#
+#Testcase_Data TP_PW_OD_CONT DATA_TYPE_CONSISTENCY_PERCENT 2.0
 
 #
 #***********************************************************************
