@@ -367,13 +367,13 @@ if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
-    $validate_cmnd = "java -jar .\\bin\\epubcheck\\epubcheck.jar -e -q";
+    $validate_cmnd = "java -Xss1024k -jar .\\bin\\epubcheck\\epubcheck.jar -e -q";
     $temp_folder = $ENV{"HOMEPATH"} . "/AppData/Local/Temp";
 } else {
     #
     # Not Windows.
     #
-    $validate_cmnd = "java -jar ./bin/epubcheck/epubcheck.jar -e -q";
+    $validate_cmnd = "java -Xss1024k -jar ./bin/epubcheck/epubcheck.jar -e -q";
     $temp_folder = "/tmp";
 }
 
