@@ -2,9 +2,9 @@
 #
 # Name: link_checker.pm	
 #
-# $Revision: 1060 $
+# $Revision: 1330 $
 # $URL: svn://10.36.148.185/Link_Check/Tools/link_checker.pm $
-# $Date: 2018-11-07 08:32:16 -0500 (Wed, 07 Nov 2018) $
+# $Date: 2019-06-04 15:03:02 -0400 (Tue, 04 Jun 2019) $
 #
 # Description:
 #
@@ -1008,7 +1008,7 @@ sub Link_Status {
     my ($domain, $file_path, $url, $is_firewall_blocked, $pattern);
     my ($protocol, $query, $new_url, $redirect_dir, $lang);
     my ($redirect_protocol, $redirect_domain, $redirect_file_path, $redirect_query);
-    my ($sec, $min, $hour, $date);
+    my ($sec, $min, $hour, $date, $just_query, $named_anchor);
     my ($redirect_count) = 0;
     my ($done) = 0;
 
@@ -1036,6 +1036,7 @@ sub Link_Status {
     if ( $redirect_dir eq "." ) {
         $redirect_dir = "";
     }
+    ($just_query, $named_anchor) = split(/#/, $query, 2);
 
     #
     # Did we get all the components ?
@@ -1076,6 +1077,7 @@ sub Link_Status {
         $req->header("Pragma" => "no-cache");
         $req->header("Cache-Control" => "no-cache");
         $req->header("Connection" => "Keep-Alive");
+        $req->header("Upgrade-Insecure-Requests" => 1);
 
         #
         # Add accepted content encodings
@@ -1142,6 +1144,28 @@ sub Link_Status {
                 $redirect_count++;
                 $header = $resp->headers;
                 $url = $header->header("Location");
+                
+                #
+                # Check for possible duplication of the query string in
+                # the redirected URL.  Some sites (e.g. www.tbs-sct.gc.ca)
+                # will duplicate the query.
+                #
+                $just_query =~ s/^\?/&/;
+                if ( ($just_query ne "") && ($url =~ /$just_query$/) ) {
+                    print "Remove duplicate query string \"$just_query\" from redirect URL\n" if $debug;
+                    $url =~ s/$just_query$//g;
+                    
+                    #
+                    # Add back any named anchor
+                    #
+                    if ( defined($named_anchor) ) {
+                        $url .= "#$named_anchor";
+                    }
+                }
+                
+                #
+                # Indicate link is redirected and same the redirect URL
+                #
                 $link->is_redirected(1);
                 $link->redirect_url($url);
 
@@ -1193,6 +1217,7 @@ sub Link_Status {
                 if ( $redirect_dir eq "." ) {
                     $redirect_dir = "";
                 }
+                ($just_query, $named_anchor) = split(/#/, $query, 2);
 
                 #
                 # Is redirect URL valid ?
