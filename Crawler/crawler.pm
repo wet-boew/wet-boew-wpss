@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 7573 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Crawler/Tools/crawler.pm $
-# $Date: 2016-05-25 08:03:22 -0400 (Wed, 25 May 2016) $
+# $Revision: 1413 $
+# $URL: svn://10.36.148.185/Crawler/Tools/crawler.pm $
+# $Date: 2019-07-30 11:57:58 -0400 (Tue, 30 Jul 2019) $
 #
 # Description:
 #
@@ -93,6 +93,7 @@ use IO::Socket::SSL qw( SSL_VERIFY_NONE );
 # Use WPSS_Tool program modules
 #
 use crawler_phantomjs;
+use crawler_puppeteer;
 use LWP::RobotUA::Cached;
 use textcat;
 use url_check;
@@ -166,6 +167,12 @@ my ($max_redirects) = 10;
 my ($max_401s) = 2;
 my ($respect_robots_txt) = 1;
 my ($max_crawl_depth) = 0;
+my ($use_puppeteer_user_agent) = 0;
+my ($use_phantomjs_user_agent) = 0;
+if ( $have_threads ) {
+    share(\$use_puppeteer_user_agent);
+    share(\$use_phantomjs_user_agent);
+}
 
 #***********************************************************************
 #
@@ -190,6 +197,7 @@ sub Set_Crawler_Debug {
     # Set debug flag in supporting modules
     #
     Crawler_Phantomjs_Debug($debug);
+    Crawler_Puppeteer_Debug($debug);
 }
 
 #***********************************************************************
@@ -316,6 +324,11 @@ sub Crawler_Config {
     # Pass configuration values to the PhantomJS module
     #
     Crawler_Phantomjs_Config(%config_vars);
+
+    #
+    # Pass configuration values to the Puppeteer module
+    #
+    Crawler_Puppeteer_Config(%config_vars);
 }
 
 #***********************************************************************
@@ -828,9 +841,8 @@ sub Crawler_Get_Generated_Content {
     }
 
     #
-    # Check for text/html mime type.  If we find it, use
-    # PhantomJS to get the markup after applying onload
-    # JavaScript
+    # Check for text/html mime type.  If we have a headless user agent, use
+    # it to get the markup after applying onload JavaScript
     #
     $header = $resp->headers;
     if ( $header->content_type =~ /text\/html/ ) {
@@ -843,17 +855,28 @@ sub Crawler_Get_Generated_Content {
         }
         
         #
-        # Get page markup
+        # Check for a puppeteer headless user agent
         #
-        print "Get content using PhantomJS\n" if $debug;
-        $markup = Crawler_Phantomjs_Page_Markup($url, $phantomjs_cookie_file,
-                                                $image_file, $user, $password);
+        if ( $use_puppeteer_user_agent ) {
+            print "Get content using Puppeteer\n" if $debug;
+            $markup = Crawler_Puppeteer_Page_Markup($url, $image_file,
+                                                    $user, $password);
+        }
+        else {
+            #
+            # Get page markup using PhamtomJS
+            #
+            print "Get content using PhantomJS\n" if $debug;
+            $markup = Crawler_Phantomjs_Page_Markup($url, $phantomjs_cookie_file,
+                                                    $image_file, $user, $password);
+        }
 
         #
         # Did we get content ?
         #
-        if ( defined($$markup{"generated_content"}) &&
+        if ( defined($markup) && defined($$markup{"generated_content"}) &&
              ($$markup{"generated_content"} ne "") ) {
+            print "Return generated markup\n" if $debug;
             return($$markup{"generated_content"});
         }
     }
@@ -867,6 +890,7 @@ sub Crawler_Get_Generated_Content {
     #
     # Return content
     #
+    print "Return non-generated markup\n" if $debug;
     return($content);
 }
 
@@ -1086,11 +1110,29 @@ sub Create_User_Agents {
     #
     $cookie_jar = HTTP::Cookies->new;
     $lwp_user_agent->cookie_jar($cookie_jar);
+    
+    #
+    # Try and start the puppeteer headless user agent
+    #
+    if ( Crawler_Puppeteer_Start_Markup_Server() ) {
+        $use_puppeteer_user_agent = 1;
+        $use_phantomjs_user_agent = 0;
+        print "Crawler_Puppeteer_Start_Markup_Server returned true\n" if $debug;
+    }
+    else {
+        #
+        # Try and start the PhantomJS headless user agent
+        #
+        $use_puppeteer_user_agent = 0;
+        print "Crawler_Puppeteer_Start_Markup_Server returned false\n" if $debug;
 
-    #
-    # Clear PhantomJS disk cache and cookie jar
-    #
-    Crawler_Phantomjs_Clear_Cache($phantomjs_cookie_file);
+        #
+        # Clear PhantomJS disk cache and cookie jar
+        #
+        Crawler_Phantomjs_Clear_Cache($phantomjs_cookie_file);
+        $use_phantomjs_user_agent = 1;
+        print "Crawler_Phantomjs_Start_Markup_Server returned true\n" if $debug;
+    }
 }
 
 #***********************************************************************
@@ -1564,6 +1606,7 @@ sub Crawler_Get_HTTP_Response {
     my ($redirect_protocol, $protocol, $host, $path, $query, $port);
     my ($redirect_file_path, $redirect_query, $redirect_dir, $new_url);
     my ($sec, $min, $hour, $date, $set_credentials, $redirect_url);
+    my ($just_query, $named_anchor);
     my ($redirect_count) = 0;
     my ($http_401_count) = 0;
     my ($done) = 0;
@@ -1587,6 +1630,7 @@ sub Crawler_Get_HTTP_Response {
     if ( $redirect_dir eq "." ) {
         $redirect_dir = "";
     }
+    ($just_query, $named_anchor) = split(/#/, $redirect_query, 2);
 
     #
     # Did the URL look like a valid URL ?
@@ -1633,6 +1677,7 @@ sub Crawler_Get_HTTP_Response {
         $req->header("Pragma" => "no-cache");
         $req->header("Cache-Control" => "no-cache");
         $req->header("Connection" => "Keep-Alive");
+        $req->header("Upgrade-Insecure-Requests" => 1);
         
         #
         # Do we set credentials on this request ?
@@ -1929,6 +1974,24 @@ sub Crawler_Get_HTTP_Response {
                 }
                 
                 #
+                # Check for possible duplication of the query string in
+                # the redirected URL.  Some sites (e.g. www.tbs-sct.gc.ca)
+                # will duplicate the query.
+                #
+                $just_query =~ s/^\?/&/;
+                if ( ($just_query ne "") && ($redirect_url =~ /$just_query$/) ) {
+                    print "Remove duplicate query string \"$just_query\" from redirect URL\n" if $debug;
+                    $redirect_url =~ s/$just_query$//g;
+
+                    #
+                    # Add back any named anchor
+                    #
+                    if ( defined($named_anchor) ) {
+                        $redirect_url .= "#$named_anchor";
+                    }
+                }
+                
+                #
                 # Does the redirect URL match the original URL (i.e. a redirect
                 # back to ourself)?
                 #
@@ -1964,6 +2027,7 @@ sub Crawler_Get_HTTP_Response {
                 if ( $redirect_dir eq "." ) {
                     $redirect_dir = "";
                 }
+                ($just_query, $named_anchor) = split(/#/, $redirect_query, 2);
 
                 #
                 # Did the URL look like a valid URL ?
@@ -3912,15 +3976,36 @@ sub Crawler_Remove_Temporary_Files {
     my ($error, $diag, $file, $message);
     
     #
-    # Stop any PhantomJS server that may be running
+    # Stop Puppeteer headless user agent and clear cache
     #
-    Crawler_Phantomjs_Stop_Markup_Server();
+    print "Crawler_Remove_Temporary_Files\n" if $debug;
+    if ( $use_puppeteer_user_agent ) {
+        #
+        # Stop any Puppeteer server that may be running
+        #
+        Crawler_Puppeteer_Stop_Markup_Server();
 
-    #
-    # Clear and remove any cache content for PhantomJS
-    #
-    Crawler_Phantomjs_Clear_Cache();
+        #
+        # Clear and remove any cache content for Puppeteer
+        #
+        Crawler_Puppeteer_Clear_Cache();
+    }
     
+    #
+    # Stop PhantomJS headless user agent and clear cache
+    #
+    if ( $use_phantomjs_user_agent ) {
+        #
+        # Stop any PhantomJS server that may be running
+        #
+        Crawler_Phantomjs_Stop_Markup_Server();
+
+        #
+        # Clear and remove any cache content for PhantomJS
+        #
+        Crawler_Phantomjs_Clear_Cache();
+    }
+
     #
     # Remove any RobotsUA cache
     #
