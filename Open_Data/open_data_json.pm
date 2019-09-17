@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 1036 $
+# $Revision: 1487 $
 # $URL: svn://10.36.148.185/Open_Data/Tools/open_data_json.pm $
-# $Date: 2018-10-29 14:11:50 -0400 (Mon, 29 Oct 2018) $
+# $Date: 2019-09-13 13:00:17 -0400 (Fri, 13 Sep 2019) $
 #
 # Description:
 #
@@ -438,6 +438,15 @@ sub Record_Content_Result {
     my ($result_object);
 
     #
+    # Do we have a maximum number of errors to report and have we reached it?
+    #
+    if ( ($TQA_Result_Object_Maximum_Errors > 0) &&
+         (@content_results_list >= $TQA_Result_Object_Maximum_Errors) ) {
+        print "Skip reporting errors, maximum reached\n" if $debug;
+        return;
+    }
+
+    #
     # Is this testcase included in the profile
     #
     if ( defined($testcase) && defined($$current_open_data_profile{$testcase}) ) {
@@ -463,6 +472,7 @@ sub Record_Content_Result {
 #
 # Parameters: json_file - JSON file object
 #             data_file_object - a data file object pointer
+#             this_url - URL of JSON file
 #
 # Description:
 #
@@ -489,7 +499,7 @@ sub Record_Content_Result {
 #
 #***********************************************************************
 sub Check_UTF8_BOM {
-    my ($json_file, $data_file_object) = @_;
+    my ($json_file, $data_file_object, $this_url) = @_;
 
     my ($line, $char, $have_bom);
 
@@ -553,8 +563,17 @@ sub Check_UTF8_BOM {
         # object.  Are we missing a UTF-8 BOM in the content?
         #
         if ( ! $have_bom ) {
-            Record_Result("OD_ENC", 1, 0, $line,
-                          String_Value("Missing UTF-8 BOM or charset=utf-8"));
+            #
+            # Don't report error if the URL is file: as it does
+            # not contain a charset.
+            #
+            if ( $this_url =~ /^file:/i ) {
+                print "Skip missing charset=utf-8 for file: URL\n" if $debug;
+            }
+            else {
+                Record_Result("OD_ENC", 1, 0, $line,
+                              String_Value("Missing UTF-8 BOM or charset=utf-8"));
+            }
         }
     }
     
@@ -627,7 +646,7 @@ sub Open_Data_JSON_Check_API {
     # Check for UTF-8 BOM (Byte Order Mark) at the top of the
     # file
     #
-    $have_bom = Check_UTF8_BOM($fh, $data_file_object);
+    $have_bom = Check_UTF8_BOM($fh, $data_file_object, $this_url);
 
     #
     # Read the content
@@ -1069,24 +1088,52 @@ sub Check_JSON_CSV_Data {
     #
     # Create a column object to track this JSON-CSV column
     #
-    if ( keys(%$dictionary_ptr) != 0 ) {
-        foreach $key (@expected_leaf_nodes) {
+    foreach $key (@expected_leaf_nodes) {
+        #
+        # Create a new column object
+        #
+        $column_object = csv_column_object->new($key);
+             
+        #
+        # Does this key match a data dictionary heading ?
+        #
+        if ( defined($$dictionary_ptr{$key}) ) {
+            $column_object->valid_heading(1);
+        }
+        else {
             #
-            # Does this key match a data dictionary heading ?
+            # No data dictionary term for this field.
+            # Save the key as a possible data heading.  We may not
+            # have a data dictionary and the key could be a match for
+            # any corresponding CSV file column heading.
             #
-            if ( defined($$dictionary_ptr{$key}) ) {
-                $column_object = csv_column_object->new($key);
-                push(@json_csv_columns, $column_object);
-                $column_objects{$key} = $column_object;
-            }
-            else {
-                #
-                # No data dictionary term for this field
-                #
+            $column_object->valid_heading(0);
+            $column_object->first_data($key);
+            
+            #
+            # Report error is there is a data dictionary
+            #
+            if ( keys(%$dictionary_ptr) != 0 ) {
                 Record_Result("TP_PW_OD_DATA", 1, 0, "",
                               String_Value("JSON-CSV item field name not in data dictionary") .
                               " \"$key\"");
             }
+        }
+            
+        #
+        # Save column object pointer in column array and hash table
+        #
+        push(@json_csv_columns, $column_object);
+        $column_objects{$key} = $column_object;
+        
+        #
+        # Save this column in the list of 'headings'
+        #
+        if ( $last_json_headings_list eq "" ) {
+            $last_json_headings_list = "$key";
+        }
+        else {
+            $last_json_headings_list .= ",$key";
         }
     }
 
@@ -1094,7 +1141,6 @@ sub Check_JSON_CSV_Data {
     # Save the list of JSON-CSV column heading objects for this URL
     #
     $data_file_object->attribute($column_list_attribute, \@json_csv_columns);
-    $last_json_headings_list = join(",", @json_csv_columns);
 
     #
     # Check each item in the array for
@@ -1112,7 +1158,7 @@ sub Check_JSON_CSV_Data {
         if ( $ref_type eq "HASH" ) {
             #
             # Get the list of leaf nodes, these are expected to be the CSV
-            # column/valie pairs.
+            # column/value pairs.
             #
             %leaf_nodes = Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes($item,
                                                          "data", ($i + 1), 1);
@@ -1240,7 +1286,12 @@ sub Check_JSON_CSV_Data {
                 # Do we have a regular expression for this heading ?
                 #
                 $heading = $$dictionary_ptr{$key};
-                $regex = $heading->regex();
+                if ( defined($heading) ) {
+                    $regex = $heading->regex();
+                }
+                else {
+                    $regex = "";
+                }
 
                 if ( $regex ne "" ) {
                     #
@@ -1273,7 +1324,7 @@ sub Check_JSON_CSV_Data {
             #
             print "Check for duplicate row, checksum = $checksum\n" if $debug;
             if ( defined($data_checksum{$checksum}) ) {
-                Record_Content_Result("TP_PW_OD_CONT", ($i + 1), 0, encode_utf8(to_json($item)),
+                Record_Content_Result("TP_PW_OD_CONT_DUP", ($i + 1), 0, encode_utf8(to_json($item)),
                               String_Value("Duplicate data array content, first instance at") .
                               " " . $data_checksum{$checksum});
             }
@@ -1454,7 +1505,7 @@ sub Open_Data_JSON_Check_Data {
     # Check for UTF-8 BOM (Byte Order Mark) at the top of the
     # file.
     #
-    $have_bom = Check_UTF8_BOM($fh, $data_file_object);
+    $have_bom = Check_UTF8_BOM($fh, $data_file_object, $this_url);
 
     #
     # Read the content
@@ -1575,7 +1626,7 @@ sub Open_Data_JSON_Read_Data {
     # Check for UTF-8 BOM (Byte Order Mark) at the top of the
     # file.
     #
-    $have_bom = Check_UTF8_BOM($fh, $data_file_object);
+    $have_bom = Check_UTF8_BOM($fh, $data_file_object, $this_url);
 
     #
     # Read the content
