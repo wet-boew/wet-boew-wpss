@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 1159 $
+# $Revision: 1505 $
 # $URL: svn://10.36.148.185/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2019-01-18 13:28:13 -0500 (Fri, 18 Jan 2019) $
+# $Date: 2019-09-17 12:45:02 -0400 (Tue, 17 Sep 2019) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -2743,6 +2743,18 @@ sub Read_Config_File {
             @fields = split(/\s+/, $_, 2);
             push(@decorative_image_urls, $fields[1]);
         }
+        elsif ( $config_type eq "default_windows_chrome_path" ) {
+            #
+            # Set Windows default chrome browser path value
+            #
+            if ( @fields > 1 ) {
+                @fields = split(/\s+/, $_, 2);
+                $crawler_config_vars{"default_windows_chrome_path"} = $fields[1];
+            }
+            else {
+                $crawler_config_vars{"default_windows_chrome_path"} = 0;
+            }
+        }
         elsif ( $config_type eq "Domain_Alias" ) {
             #
             # Save domain and its alias
@@ -2818,6 +2830,30 @@ sub Read_Config_File {
             #
             if ( @fields > 1 ) {
                 $maximum_errors_per_url = $fields[1];
+            }
+        }
+        elsif ( $config_type eq "puppeteer_chrome_min_version" ) {
+            #
+            # Set puppeteer minimum Chrome version value
+            #
+            if ( @fields > 1 ) {
+                @fields = split(/\s+/, $_, 2);
+                $crawler_config_vars{"puppeteer_chrome_min_version"} = $fields[1];
+            }
+            else {
+                $crawler_config_vars{"puppeteer_chrome_min_version"} = 0;
+            }
+        }
+        elsif ( $config_type eq "puppeteer_markup_server_port" ) {
+            #
+            # Set puppeteer server port value
+            #
+            if ( @fields > 1 ) {
+                @fields = split(/\s+/, $_, 2);
+                $crawler_config_vars{"puppeteer_markup_server_port"} = $fields[1];
+            }
+            else {
+                $crawler_config_vars{"puppeteer_markup_server_port"} = 0;
             }
         }
         elsif ( $config_type eq "Redirect_Ignore_Pattern" ) {
@@ -3868,7 +3904,7 @@ sub HTTP_Response_Callback {
             Print_Resource_Usage($url, "Perform_TQA_Check",
                                  $document_count{$crawled_urls_tab});
             Perform_TQA_Check($url, \$generated_content, $language,
-                              $mime_type, $resp);
+                              $mime_type, $resp, $logged_in);
 
             #
             # Perform CLF check
@@ -3967,7 +4003,8 @@ sub HTTP_Response_Callback {
             #
             # Perform TQA check of PDF content
             #
-            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp,
+                              $logged_in);
 
             #
             # Perform feature check
@@ -3988,7 +4025,8 @@ sub HTTP_Response_Callback {
             #
             # Perform TQA check of CSS content
             #
-            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp,
+                              $logged_in);
 
             #
             # Perform Mobile check
@@ -4005,7 +4043,8 @@ sub HTTP_Response_Callback {
             #
             # Perform TQA check of JavaScript content
             #
-            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp,
+                              $logged_in);
 
             #
             # Perform Mobile check
@@ -4029,7 +4068,8 @@ sub HTTP_Response_Callback {
             #
             # Perform TQA check of CSV content
             #
-            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp,
+                              $logged_in);
         }
 
         #
@@ -4063,7 +4103,8 @@ sub HTTP_Response_Callback {
             #
             # Perform TQA check of XML content
             #
-            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp,
+                              $logged_in);
 
             #
             # Perform Interoperability check
@@ -4130,7 +4171,8 @@ sub HTTP_Response_Callback {
             #
             # Perform TQA check of CSV content
             #
-            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp);
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp,
+                              $logged_in);
         }
 
         #
@@ -4502,7 +4544,7 @@ sub Direct_HTML_Input_Callback {
     # Perform TQA check
     #
     Perform_TQA_Check("Direct Input", \$content, $Unknown_Language, "text/html",
-                      $resp);
+                      $resp, $logged_in);
 
     #
     # Perform CLF check
@@ -6632,9 +6674,16 @@ sub Remove_Temporary_Files {
     #
     # Clean up any temporary file from a possible previous analysis run
     #
+    print "Remove_Temporary_Files\n" if $debug;
     if ( defined($shared_links_details_filename)
          && ($shared_links_details_filename ne "") ) {
-        unlink($shared_links_details_filename);
+        print "Remove link details file $shared_links_details_filename\n" if $debug;
+        if ( defined($links_details_fh) ) {
+            close($links_details_fh);
+        }
+        if ( ! unlink($shared_links_details_filename) ) {
+            print "Failed to remove file $shared_links_details_filename, error $! \n" if $debug;
+        }
     }
     if ( defined($shared_web_page_size_filename)
          && ($shared_web_page_size_filename ne "") ) {
@@ -7681,6 +7730,8 @@ sub Perform_PDF_Properties_Check {
 #             language - URL language
 #             mime_type - content mime-type
 #             resp - HTTP::Response object
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -7688,7 +7739,7 @@ sub Perform_PDF_Properties_Check {
 #
 #***********************************************************************
 sub Perform_TQA_Check {
-    my ($url, $content, $language, $mime_type, $resp) = @_;
+    my ($url, $content, $language, $mime_type, $resp, $logged_in) = @_;
 
     my ($url_status, $status, $message, $source_lin, $tcid);
     my (@tqa_results_list, $result_object, $output_line);
@@ -7763,7 +7814,8 @@ sub Perform_TQA_Check {
     # Check the document
     #
     @tqa_results_list = TQA_Check($url, $language, $tqa_check_profile,
-                                  $mime_type, $resp, $content, \@links);
+                                  $mime_type, $resp, $content, \@links,
+                                  $logged_in);
 
     #
     # If the document is an HTML document, check content and
@@ -8906,7 +8958,7 @@ sub Record_EPUB_Accessibility_Check_Results {
         }
         else {
             $epub_file_count{$acc_tab}++;
-            if ( $epub_error_count{$acc_tab} == 1 ) {
+            if ( $epub_file_count{$acc_tab} == 1 ) {
                 $tab_reported_doc_count{$acc_tab}++;
                 $number = $tab_reported_doc_count{$acc_tab};
             }
@@ -8962,6 +9014,11 @@ sub Record_EPUB_Accessibility_Check_Results {
     foreach (keys %local_tqa_error_url_count) {
         $tqa_error_url_count{$_}++;
     }
+    if ( $debug ) {
+      print "epub_file_count{acc_tab} = " . $epub_file_count{$acc_tab} . "\n";
+      print "epub_error_count{acc_tab} = " . $epub_error_count{$acc_tab} . "\n";
+      print "document_count{acc_tab} = " . $document_count{$acc_tab} . "\n";
+    }
 }
 
 #***********************************************************************
@@ -9015,7 +9072,8 @@ sub Perform_EPUB_Check {
     # Check the accessibility of the complete EPUB document
     #
     @tqa_results_list = TQA_Check($url, $language, $tqa_check_profile,
-                                  $mime_type, $resp, $content, \@links);
+                                  $mime_type, $resp, $content, \@links,
+                                  $logged_in);
 
     #
     # Record results
@@ -9979,7 +10037,7 @@ sub Open_Data_Callback {
                     # Perform TQA check
                     #
                     Perform_TQA_Check($url, \$content, $language, $mime_type,
-                                      $resp);
+                                      $resp, $logged_in);
 
                     #
                     # Get file details
