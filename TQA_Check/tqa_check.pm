@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 895 $
+# $Revision: 1503 $
 # $URL: svn://10.36.148.185/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2018-07-09 11:06:56 -0400 (Mon, 09 Jul 2018) $
+# $Date: 2019-09-17 12:40:23 -0400 (Tue, 17 Sep 2019) $
 #
 # Description:
 #
@@ -676,6 +676,8 @@ sub Check_Other_Tool_Results {
 #             resp - HTTP::Response object
 #             content - content pointer
 #             links - address of a list of link objects
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -684,7 +686,7 @@ sub Check_Other_Tool_Results {
 #***********************************************************************
 sub TQA_Check {
     my ($this_url, $language, $profile, $mime_type, $resp, 
-        $content, $links) = @_;
+        $content, $links, $logged_in) = @_;
 
     my ($extracted_content, @tqa_results_list, $do_tests, $tcid);
     my (@other_tqa_results_list, $result_object, $fault_count);
@@ -731,7 +733,7 @@ sub TQA_Check {
     #
     elsif ( $mime_type =~ /text\/html/ ) {
         @tqa_results_list = HTML_Check($this_url, $language, $profile,
-                                       $resp, $content, $links);
+                                       $resp, $content, $links, $logged_in);
         $fault_count = @tqa_results_list;
         print "HTML faults detected = $fault_count\n" if $debug;
 
