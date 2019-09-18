@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 7633 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/html_check.pm $
-# $Date: 2016-07-22 03:07:27 -0400 (Fri, 22 Jul 2016) $
+# $Revision: 1504 $
+# $URL: svn://10.36.148.185/TQA_Check/Tools/html_check.pm $
+# $Date: 2019-09-17 12:43:39 -0400 (Tue, 17 Sep 2019) $
 #
 # Description:
 #
@@ -70,8 +70,10 @@ use image_details;
 use javascript_check;
 use javascript_validate;
 use language_map;
+use tqa_pa11y;
 use pdf_check;
 use textcat;
+use tqa_pa11y;
 use tqa_result_object;
 use tqa_tag_object;
 use tqa_testcases;
@@ -148,7 +150,7 @@ my (%tqa_check_profile_map, $current_tqa_check_profile,
     @onclick_onkeypress_tag, $onclick_onkeypress_text, $have_focusable_item,
     $pseudo_header, $emphasis_count, $anchor_inside_emphasis,
     @missing_table_headers, @table_header_locations, @table_header_types,
-    $inline_style_count, %css_styles, $current_tag_object,
+    $inline_style_count, %css_styles, $current_tag_object, $parent_tag_object,
     %input_instance_not_allowed_label, %aria_describedby_location,
     %aria_labelledby_location, %fieldset_input_count,
     $current_a_arialabel, %last_option_attributes, $tag_is_visible,
@@ -158,8 +160,12 @@ my (%tqa_check_profile_map, $current_tqa_check_profile,
     %video_track_kind_map, $found_content_after_heading, $in_header_tag,
     %form_id_values, %input_form_id, %audio_track_kind_map, $inside_audio,
     @list_heading_text, $form_count, @content_lines, @table_is_layout,
-    %f32_reported, @inside_dd, $main_content_start,
-    $current_landmark, $landmark_marker,
+    %f32_reported, @inside_dd, @dt_tag_found, $main_content_start,
+    $current_landmark, $landmark_marker, $tag_is_aria_hidden,
+    $video_in_figure_with_no_caption, $parent_tag, %frame_title_location,
+    @heading_level_stack, $found_h1, %landmark_count, $inside_frame,
+    %frame_landmark_count, @tag_roles_required_children_roles,
+    $current_required_children_roles,
 );
 
 my ($is_valid_html) = -1;
@@ -172,7 +178,6 @@ my ($input_types_requiring_label) = $input_types_requiring_label_before .
 my ($input_types_not_using_label)  = " button hidden image reset submit ";
 my ($input_types_requiring_value)  = " button reset submit ";
 my ($max_error_message_string)= 2048;
-my ($click_here_patterns) =  " here click here more ici cliquez ici plus ";
 my (%section_markers) = ();
 my ($have_content_markers) = 0;
 my (@required_content_sections) = ("CONTENT");
@@ -428,17 +433,18 @@ my (%deprecated_html4_attributes) = (
 # Deprecated XHTML attributes, hash table with index being an attribute
 # and the value a list of tags (with leading and trailing space).
 # Source: http://webdesign.about.com/od/htmltags/a/bltags_deprctag.htm
+#         https://www.oreilly.com/library/view/html-and-xhtml/9780596527273/re05.html
 #
 my (%deprecated_xhtml_attributes) = (
     "align",      " applet caption div h1 h2 h3 h4 h5 h6 hr iframe img input legend object p table ",
     "alink",      " body ",
-    "alt",        " applet ",
+#    "alt",        " applet ",
     "archive",    " applet ",
     "background", " body ",
     "bgcolor",    " body table td th tr ",
     "border",     " img object ",
     "clear",      " br ",
-    "code",       " applet ",
+#    "code",       " applet ",
     "codebase",   " applet ",
     "color",      " basefont font ",
     "compact",    " dir dl menu ol ul ",
@@ -460,7 +466,7 @@ my (%deprecated_xhtml_attributes) = (
     "version",    " html ",
     "vlink",      " body ",
     "vspace",     " img object ",
-    "width",      " applet hr pre td th ",
+    "width",      " hr pre td th ",
 );
 
 #
@@ -634,7 +640,7 @@ my (%implicit_html5_end_tag_end_handler) = (
   "td", " table ",
   "th", " table ",
   "tr", " table ",
-  "track", " video ",
+  "track", " audio video ",
 );
 
 #
@@ -651,7 +657,18 @@ my (%html_tags_allowed_only_once) = (
     "body",  "body",
     "head",  "head",
     "html",  "html",
-    "title", "title",
+#    "title", "title", # title can appear in svg tag
+);
+
+#
+# List of tags and their expected child tags.
+# The child tag value may be a comma separated list of
+# tags. The list must not contain spaces.
+#
+my (%parent_child_tags) = (
+    "dl", "dd,dt,script,template",
+    "ol", "li,script,template",
+    "ul", "li,script,template",
 );
 
 #
@@ -681,6 +698,34 @@ my (%tags_allowed_alt_attribute) = (
     "area", 1,
     "img", 1,
     "input", 1,
+);
+
+#
+# List of tags that are interactive tags (i.e. will naturally receive focus)
+#   https://www.w3.org/TR/html5/dom.html#interactive-content-2
+#
+my (%interactive_tag) = (
+    "a",        1,
+    "audio",    1,
+    "button",   1,
+    "details",  1,
+    "embed",    1,
+    "iframe",   1,
+    "img",      1,
+    "input",    1,
+    "label",    1,
+    "select",   1,
+    "textarea", 1,
+    "video",    1,
+);
+
+#
+# Set of tags that are acceptable parent interactive tags. These
+# do not create a focus conflict.
+#
+my (%acceptable_parent_interactive_tag) = (
+    "details", 1,
+    "label",   1,
 );
 
 #
@@ -721,6 +766,176 @@ $valid_html5_rel_values{"link"} .= "pronunciation ";
 my ($valid_rel_values);
 
 #
+# List of valid WAI-ARIA role values and their classification
+#
+#  https://www.w3.org/WAI/PF/aria/roles#abstract_roles
+#
+my (%valid_aria_roles) = (
+    #
+    # Abstract Roles
+    #
+    # Abstract roles are used for the ontology. Authors MUST NOT use
+    # abstract roles in content.
+    #
+    "command",     "abstract",
+    "composite",   "abstract",
+    "input",       "abstract",
+    "landmark",    "abstract",
+    "range",       "abstract",
+    "roletype",    "abstract",
+    "section",     "abstract",
+    "sectionhead", "abstract",
+    "select",      "abstract",
+    "structure",   "abstract",
+    "widget",      "abstract",
+    "window",      "abstract",
+
+    #
+    # Widget Roles
+    #
+    # The following roles act as standalone user interface widgets
+    # or as part of larger, composite widgets.
+    #
+    "alert",            "widget",
+    "alertdialog",      "widget",
+    "button",           "widget",
+    "checkbox",         "widget",
+    "dialog",           "widget",
+    "gridcell",         "widget",
+    "link",             "widget",
+    "log",              "widget",
+    "marquee",          "widget",
+    "menuitem",         "widget",
+    "menuitemcheckbox", "widget",
+    "menuitemradio",    "widget",
+    "option",           "widget",
+    "progressbar",      "widget",
+    "radio",            "widget",
+    "scrollbar",        "widget",
+    "slider",           "widget",
+    "spinbutton",       "widget",
+    "status",           "widget",
+    "tab",              "widget",
+    "tabpanel",         "widget",
+    "textbox",          "widget",
+    "timer",            "widget",
+    "tooltip",          "widget",
+    "treeitem",         "widget",
+
+    #
+    # The following roles act as composite user interface widgets.
+    # These roles typically act as containers that manage other,
+    # contained widgets.
+    #
+    "combobox",   "composite",
+    "grid",       "composite",
+    "listbox",    "composite",
+    "menu",       "composite",
+    "menubar",    "composite",
+    "radiogroup", "composite",
+    "tablist",    "composite",
+    "tree",       "composite",
+    "treegrid",   "composite",
+
+    #
+    #  Document Structure
+    #
+    # The following roles describe structures that organize content
+    # in a page. Document structures are not usually interactive.
+    #
+    "article",      "document",
+    "columnheader", "document",
+    "definition",   "document",
+    "directory",    "document",
+    "document",     "document",
+    "group",        "document",
+    "heading",      "document",
+    "img",          "document",
+    "list",         "document",
+    "listitem",     "document",
+    "math",         "document",
+    "note",         "document",
+    "presentation", "document",
+    "region",       "document",
+    "row",          "document",
+    "rowgroup",     "document",
+    "rowheader",    "document",
+    "separator",    "document",
+    "toolbar",      "document",
+
+    #
+    # Landmark Roles
+    #
+    # The following roles are regions of the page intended as navigational
+    # landmarks. All of these roles inherit from the landmark base type and,
+    # with the exception of application, all are imported from the
+    # Role Attribute [ROLE]. The roles are included here in order to
+    # make them clearly part of the WAI-ARIA Role taxonomy.
+    #
+    "application",   "landmark",
+    "banner",        "landmark",
+    "complementary", "landmark",
+    "contentinfo",   "landmark",
+    "form",          "landmark",
+    "main",          "landmark",
+    "navigation",    "landmark",
+    "search",        "landmark",
+    
+    #
+    # EPUB Roles from
+    #   EPUB and WAI-ARIA structural semantis mapping
+    #   https://idpf.github.io/epub-guides/aria-mapping/
+    #
+    "cell",                 "epub",
+    "definition",           "epub",
+    "directory",            "epub",
+    "doc-abstract",         "epub",
+    "doc-acknowledgments",  "epub",
+    "doc-appendix",         "epub",
+    "doc-backlink",         "epub",
+    "doc-biblioentry",      "epub",
+    "doc-bibliography",     "epub",
+    "doc-biblioref",        "epub",
+    "doc-chapter",          "epub",
+    "doc-colophon",         "epub",
+    "doc-conclusion",       "epub",
+    "doc-cover",            "epub",
+    "doc-credit",           "epub",
+    "doc-credits",          "epub",
+    "doc-dedication",       "epub",
+    "doc-endnote",          "epub",
+    "doc-endnotes",         "epub",
+    "doc-epigraph",         "epub",
+    "doc-epilogue",         "epub",
+    "doc-errata",           "epub",
+    "doc-footnote",         "epub",
+    "doc-foreword",         "epub",
+    "doc-glossary",         "epub",
+    "doc-glossref",         "epub",
+    "doc-index",            "epub",
+    "doc-introduction",     "epub",
+    "doc-noteref",          "epub",
+    "doc-notice",           "epub",
+    "doc-pagebreak",        "epub",
+    "doc-pagelist",         "epub",
+    "doc-part",             "epub",
+    "doc-preface",          "epub",
+    "doc-prologue",         "epub",
+    "doc-pullquote",        "epub",
+    "doc-qna",              "epub",
+    "doc-subtitle",         "epub",
+    "doc-tip",              "epub",
+    "doc-toc",              "epub",
+    "figure",               "epub",
+#    "list",                 "epub",  # Already defined
+#    "listitem",             "epub",  # Already defined
+#    "row",                  "epub",  # Already defined
+    "table",                "epub",
+    "term",                 "epub",
+
+);
+
+#
 # WAI-ARIA landmark role values
 #  http://www.w3.org/TR/wai-aria/roles#landmark_roles
 #
@@ -732,7 +947,6 @@ my (%landmark_role) = (
     "form", 1,
     "main", 1,
     "navigation", 1,
-    "region", 1,
     "search", 1,
 );
 
@@ -758,6 +972,28 @@ my (%aria_required_context_roles) = (
 );
 
 #
+# Required children roles for WAI-ARIA role values
+#   https://www.w3.org/TR/wai-aria-1.1/
+# Key is a role and the value is a space seperated list of children roles.
+#
+my (%aria_required_children_roles) = (
+    "combobox",     "dialog grid listbox textbox tree",
+    "feed",         "article",
+    "grid",         "row rowgroup",
+    "list",         "group listitem",
+    "listbox",      "option",
+    "menu",         "group menuitem menuitemcheckbox menuitemradio",
+    "menubar",      "group menuitem menuitemcheckbox menuitemradio",
+    "radiogroup",   "radio",
+    "row",          "cell columnheader gridcell rowheader",
+    "rowgroup",     "row",
+    "table",        "row rowgroup",
+    "tablist",      "tab",
+    "tree",         "group treeitem",
+    "treegrid",     "row rowgroup",
+);
+
+#
 # Used in roles for WAI-ARIA attributes
 #   https://www.w3.org/TR/wai-aria-1.1/
 # Key is an attribute name and the value is a space seperated list of roles.
@@ -767,7 +1003,7 @@ my (%aria_used_in_roles) = (
     "aria-selected",         "gridcell option row tab",
     "aria-autocomplete",     "combobox textbox",
     "aria-checked",          "checkbox option radio switch",
-    "aria-colcount",         "table",
+    "aria-colcount",         "grid table",
     "aria-colindex",         "cell row",
     "aria-colspan",          "cell",
     "aria-expanded",         "button combobox document link section sectionhead window",
@@ -833,12 +1069,6 @@ my (%implicit_aria_roles) = (
 );
 
 #
-#
-# NOTE: The following data structure is not being used. It is
-# left here for potential use in determining the role of a HTML
-# tag in the case that the tag may have different roles based
-# on other attributes or values.
-#
 # Conditions for implicit WAI-ARIA roles for HTML tags
 #   https://www.w3.org/TR/html-aria/
 # Key is a HTML tag and the value is a condition and role.
@@ -881,6 +1111,377 @@ my (%implicit_aria_role_conditions) = (
 );
 
 #
+# Allowed WAI-ARIA roles for HTML tags
+#   https://w3c.github.io/html-aria/#docconformance
+# Key is a HTML tag and the value is a space separated list of allowed roles.
+# If there is no value for the valid roles, then no role may be assigned.
+# If the allowed list contains a "string:value" the string is a required
+# tag attribute and "value" is an optional value for the roles list.
+#
+my (%allowed_aria_roles) = (
+    "a",               "href: button checkbox menuitem menuitemcheckbox menuitemradio option radio switch tab treeitem",
+    "article",         "application document feed main none presentation region",
+    "area",            "",
+    "aside",           "feed none note presentation region search",
+    "audio",           "application",
+    "base",            "",
+    "body",            "",
+    "button",          "checkbox link menuitem menuitemcheckbox menuitemradio option radio switch tab",
+    "caption",         "",
+    "col",             "",
+    "colgroup",        "",
+    "datalist",        "",
+    "dd",              "",
+    "del",             "",
+    "dialog",          "alertdialog",
+    "dl",              "group list none presentation",
+    "dt",              "listitem",
+    "embed",           "application document img none presentation",
+    "figcaption",      "group none presentation",
+    "fieldlist",       "none presentation",
+    "footer",          "group none presentation",
+    "form",            "none presentation search",
+    "h1",              "none presentation tab",
+    "h2",              "none presentation tab",
+    "h3",              "none presentation tab",
+    "h4",              "none presentation tab",
+    "h5",              "none presentation tab",
+    "h6",              "none presentation tab",
+    "head",            "",
+    "header",          "banner group none presentation",
+    "hr",              "none presentation",
+    "html",            "",
+    "iframe",          "application document img none presentation",
+    "input",           "type:button link menuitem menuitemcheckbox menuitemradio option radio switch tab",
+    "input",           "type:checkbox button menuitemcheckbox option switch",
+    "input",           "type:color",
+    "input",           "type:date",
+    "input",           "type:datetime-local",
+    "input",           "type:file",
+    "input",           "type:hidden",
+    "input",           "type:image link menuitem menuitemcheckbox menuitemradio radio switch tab",
+    "input",           "type:month",
+    "input",           "type:number",
+    "input",           "type:password",
+    "input",           "type:radio menuitemradio",
+    "input",           "type:range",
+    "input",           "type:reset",
+    "input",           "type:submit",
+    "input",           "type:time",
+    "input",           "type:week",
+    "ins",             "",
+    "label",           "",
+    "legend",          "",
+    "link",            "href:",
+    "main",            "",
+    "map",             "",
+    "math",            "",
+    "meta",            "",
+    "meter",           "",
+    "noscript",        "",
+    "object",          "application document img",
+    "ol",              "directory group listbox menu menubar none presentation radiogroup tablist toolbar tree",
+    "optgroup",        "",
+    "param",           "",
+    "picture",         "",
+    "progress",        "",
+    "script",          "",
+    "slot",            "",
+    "source",          "",
+    "style",           "",
+    "SVG",             "application document img",
+    "template",        "",
+    "textarea",        "",
+    "title",           "",
+    "track",           "",
+    "ul",              "directory group listbox menu menubar none presentation radiogroup tablist toolbar tree",
+    "video",           "application",
+);
+
+#
+# Disallowed WAI-ARIA roles for HTML tags
+#   https://www.w3.org/TR/html-aria/#docconformance
+# Key is a HTML tag and the value is a space separated list of disallowed roles.
+# If the allowed list contains a "string:value" the string is a required
+# tag attribute and "value" is an optional value for the roles list
+#
+my (%disallowed_aria_roles) = (
+    "a",               "href: link",
+    "area",            "href: link",
+    "article",         "article",
+    "aside",           "complementary",
+    "body",            "document",
+    "button",          "button",
+    "datalist",        "listbox",
+    "dd",              "definition",
+    "dialog",          "dialog",
+    "dt",              "term",
+    "fieldlist",       "group",
+    "form",            "form",
+    "h1",              "aria-level: heading",
+    "h2",              "aria-level: heading",
+    "h3",              "aria-level: heading",
+    "h4",              "aria-level: heading",
+    "h5",              "aria-level: heading",
+    "h6",              "aria-level: heading",
+    "hr",              "separator",
+    "input",           "type:button button",
+    "input",           "type:checkbox checkbox",
+    "input",           "type:image button",
+    "input",           "type:number spinbutton",
+    "input",           "type:radio radio",
+    "input",           "type:range slider",
+    "input",           "type:reset button",
+    "input",           "type:submit button",
+    "link",            "href: link",
+    "main",            "main",
+    "math",            "math",
+    "nav",             "navigation",
+    "ol",              "list",
+    "optgroup",        "group",
+    "output",          "status",
+    "progress",        "progressbar",
+    "table",           "table",
+    "textarea",        "textbox",
+    "tbody",           "rowgroup",
+    "thead",           "rowgroup",
+    "tfoot",           "rowgroup",
+    "td",              "cell",
+    "th",              "columnheader rowheader",
+    "ul",              "list",
+);
+
+#
+# Valid values for WAI-ARIA attributes
+#    https://www.w3.org/TR/wai-aria-1.1/#state_prop_def
+# Attributes that do not have a fixed value set are not included
+# in the table.
+#
+# Values ID, INTEGER, NUMBER and STRING represent classes of
+# values, not literal values.
+#
+# The underscore character (_) represents a literal space in a multi-word
+# value (e.g. "hello_there" = "hello there").
+#
+my(%valid_aria_attribute_values) = (
+   "aria-activedescendant", "ID",
+   "aria-atomic",           "false true",
+   "aria-autocomplete",     "both inline list none",
+   "aria-busy",             "false true",
+   "aria-checked",          "false mixed true undefined",
+   "aria-colcount",         "INTEGER",
+   "aria-colindex",         "INTEGER",
+   "aria-colspan",          "INTEGER",
+   "aria-controls",         "ID LIST",
+   "aria-current",          "date false location page step time true",
+   "aria-describedby",      "ID LIST",
+   "aria-details",          "ID",
+   "aria-disabled",         "false true",
+   "aria-dropeffect",       "copy execute link move none popup",
+   "aria-errormessage",     "ID",
+   "aria-expanded",         "false true undefined",
+   "aria-flowto",           "ID LIST",
+   "aria-grabbed",          "false true undefined",
+   "aria-haspopup",         "dialog false grid listbox menu tree true",
+   "aria-hidden",           "false true undefined",
+   "aria-invalid",          "false grammar spelling true",
+   "aria-keyshortcuts",     "STRING",
+   "aria-label",            "STRING",
+   "aria-labelledby",       "ID LIST",
+   "aria-level",            "INTEGER",
+   "aria-live",             "assertive off polite",
+   "aria-modal",            "false true",
+   "aria-multiline",        "false true",
+   "aria-multiselectable",  "false true",
+   "aria-orientation",      "horizontal undefined vertical",
+   "aria-owns",             "ID LIST",
+   "aria-placeholder",      "STRING",
+   "aria-posinset",         "INTEGER",
+   "aria-pressed",          "false mixed true",
+   "aria-readonly",         "false true",
+   "aria-relevant",         "additions additions_text all removals text",
+   "aria-required",         "false true",
+   "aria-roledescription",  "STRING",
+   "aria-rowcount",         "INTEGER",
+   "aria-rowindex",         "INTEGER",
+   "aria-rowspan",          "INTEGER",
+   "aria-selected",         "false true undefined",
+   "aria-setsize",          "INTEGER",
+   "aria-sort",             "ascending descending none other",
+   "aria-valuemax",         "NUMBER",
+   "aria-valuemin",         "NUMBER",
+   "aria-valuenow",         "NUMBER",
+   "aria-valuetext",        "STRING",
+);
+
+#
+# ARIA roles that require accessible name to content matches
+#    https://dequeuniversity.com/rules/axe/3.2/label-content-name-mismatch
+#  https://www.w3.org/TR/wai-aria-1.1/#namefromcontent
+#
+my (%aria_accessible_name_content_match) = (
+    "button",           1,
+    "checkbox",         1,
+    "gridcell",         1,
+    "link",             1,
+    "menuitem",         1,
+    "menuitemcheckbox", 1,
+    "menuitemradio",    1,
+    "option",           1,
+    "radio",            1,
+    "searchbox",        1,
+    "switch",           1,
+    "tab",              1,
+    "treeitem",         1,
+);
+
+#
+# Allowed ARIA roles, states and properties
+#    https://www.w3.org/TR/html-aria/#allowed-aria-roles-states-and-properties
+# Global ARIA properties
+#
+# Table updated 2019-09-16
+#
+my (%global_aria_properties) = (
+    "aria-atomic",          1,
+    "aria-busy",            1,
+    "aria-controls",        1,
+    "aria-current",         1,
+    "aria-describedby",     1,
+    "aria-details",         1,
+    "aria-disabled",        1,
+    "aria-dropeffect",      1,
+    "aria-errormessage",    1,
+    "aria-flowto",          1,
+    "aria-grabbed",         1,
+    "aria-haspopup",        1,
+    "aria-hidden",          1,
+    "aria-invalid",         1,
+    "aria-keyshortcuts",    1,
+    "aria-label",           1,
+    "aria-labelledby",      1,
+    "aria-live",            1,
+    "aria-owns",            1,
+    "aria-relevant",        1,
+    "aria-roledescription", 1,
+);
+
+#
+# Allowed ARIA roles, states and properties
+#    https://www.w3.org/TR/html-aria/#allowed-aria-roles-states-and-properties
+# Specific ARIA properties for individual roles.  The table is indexed by
+# the role and the value is a space separated list of required and
+# allowed properties.
+#
+# Table updated 2019-09-16
+#
+my (%role_specific_aria_properties) = (
+    "alert",               " aria-expanded ",
+    "alertdialog",         " aria-expanded aria-modal ",
+    "application",         " aria-activedescendant aria-expanded ",
+    "article",             " aria-expanded ",
+    "banner",              " aria-expanded ",
+    "button",              " aria-expanded aria-pressed ",
+    "checkbox",            " aria-checked aria-readonly ",
+    "cell",                " aria-colspan aria-colindex aria-rowindex aria-rowspan ",
+    "columnheader",        " aria-sort aria-readonly aria-required aria-selected aria-expanded aria-colspan aria-colindex aria-rowindex aria-rowspan ",
+    "combobox",            " aria-controls aria-expanded aria-autocomplete aria-required aria-activedescendant aria-orientation ",
+    "complementary",       " aria-expanded ",
+    "contentinfo",         " aria-expanded ",
+    "definition",          " aria-expanded ",
+    "dialog",              " aria-expanded aria-modal ",
+    "directory",           " aria-expanded ",
+    "document",            " aria-expanded ",
+    "feed",                " aria-expanded ",
+    "figure",              " aria-expanded ",
+    "form",                " aria-expanded ",
+    "grid",                " aria-level aria-multiselectable aria-readonly aria-activedescendant aria-expanded aria-colcount aria-rowcount ",
+    "gridcell",            " aria-readonly aria-required aria-selected aria-expanded aria-colindex aria-colspan aria-rowindex aria-rowspan ",
+    "group",               " aria-activedescendant aria-expanded ",
+    "heading",             " aria-level aria-expanded",
+    "img",                 " aria-expanded ",
+    "link",                " aria-expanded ",
+    "list",                " aria-expanded ",
+    "listbox",             " aria-required aria-multiselectable aria-expanded aria-activedescendant aria-orientation ",
+    "listitem",            " aria-level aria-posinset aria-setsize aria-expanded ",
+    "log",                 " aria-expanded ",
+    "main",                " aria-expanded ",
+    "marquee",             " aria-expanded ",
+    "math",                " aria-expanded ",
+    "menu",                " aria-expanded aria-activedescendant aria-orientation ",
+    "menubar",             " aria-expanded aria-activedescendant aria-orientation ",
+    "menuitem",            " aria-posinset aria-setsize ",
+    "menuitemcheckbox",    " aria-checked aria-posinset aria-setsize ",
+    "menuitemradio",       " aria-checked aria-posinset aria-setsize ",
+    "navigation",          " aria-expanded ",
+    "none",                "",
+    "note",                " aria-expanded ",
+    "option",              " aria-checked aria-posinset aria-selected aria-setsize ",
+    "presentation",        "",
+    "progressbar",         " aria-valuemax aria-valuemin aria-valuenow aria-valuetext ",
+    "radio",               " aria-checked aria-posinset aria-selected aria-setsize ",
+    "radiogroup",          " aria-required aria-activedescendant aria-expanded aria-orientation ",
+    "region",              " aria-expanded ",
+    "row",                 " aria-colindex aria-rowindex aria-level aria-selected aria-activedescendant aria-expanded ",
+    "rowgroup",            "",
+    "rowheader",           " aria-readonly aria-required aria-selected aria-expanded aria-colspan aria-colindex aria-rowindex aria-rowspan ",
+    "scrollbar",           " aria-controls aria-orientation aria-valuemax aria-valuemin aria-valuenow aria-expanded aria-valuetext ",
+    "search",              " aria-expanded ",
+    "searchbox",           " aria-activedescendant aria-autocomplete aria-multiline aria-placeholder aria-readonly aria-required ",
+    "separator",           " aria-valuemax aria-valuemin aria-valuenow aria-valuetext aria-orientation ",
+    "slider",              " aria-valuemax aria-valuemin aria-valuenow aria-valuetext aria-orientation ",
+    "spinbutton",          " aria-valuemax aria-valuemin aria-valuenow aria-valuetext aria-required aria-readonly ",
+    "status",              " aria-expanded ",
+    "switch",              " aria-checked aria-readonly ",
+    "tab",                 " aria-selected aria-posinset aria-setsize aria-expanded ",
+    "table",               " aria-colcount aria-rowcount ",
+    "tablist",             " aria-level aria-activedescendant aria-orientation aria-multiselectable ",
+    "tabpanel",            " aria-expanded ",
+    "term",                " aria-expanded ",
+    "textbox",             " aria-activedescendant aria-autocomplete aria-multiline aria-placeholder aria-readonly aria-required ",
+    "timer",               " aria-expanded ",
+    "toolbar",             " aria-activedescendant aria-expanded aria-orientation ",
+    "tooltip",             " aria-expanded ",
+    "tree",                " aria-multiselectable aria-required aria-activedescendant aria-expanded aria-orientation ",
+    "treegrid",            " aria-level aria-multiselectable aria-readonly aria-activedescendant aria-expanded aria-required aria-orientation aria-colcount aria-rowcount ",
+    "treeitem",            " aria-level aria-posinset aria-setsize aria-expanded aria-checked aria-selected ",
+);
+
+#
+# Required ARIA attributes for specific ARIA roles
+#    https://www.w3.org/TR/html-aria/#allowed-aria-roles-states-and-properties
+# Specific ARIA attributes for individual roles.  The table is indexed by
+# the role and the value is a space separated list of required properties.
+#
+# Table updated 2019-09-16
+#
+my (%role_specific_required_aria_properties) = (
+    "checkbox",            " aria-checked ",
+    "combobox",            " aria-controls aria-expanded ",
+    "menuitemcheckbox",    " aria-checked ",
+    "menuitemradio",       " aria-checked ",
+    "radio",               " aria-checked ",
+    "scrollbar",           " aria-controls aria-orientation aria-valuemax aria-valuemin aria-valuenow ",
+    "separator",           " aria-valuemax aria-valuemin aria-valuenow ",
+    "slider",              " aria-valuemax aria-valuemin aria-valuenow ",
+    "spinbutton",          " aria-valuemax aria-valuemin aria-valuenow ",
+    "switch",              " aria-checked ",
+);
+
+#
+# Mapping table for HTML attributes that can be used in place of ARIA
+# attributes. The table is indexed by the HTML attribute and the
+# value is the aria equivalent attribute.
+#
+# https://www.w3.org/TR/html-aria/#allowed-aria-roles-states-and-properties
+#
+# Table updated 2019-09-16
+#
+my (%html_aria_attribute_equivalence) = (
+    "checked",             "aria-checked",
+);
+
+#
 # Tags for which we ignore any id attribute to suppress
 # any WCAG_2.0-F77 errors.
 #
@@ -904,17 +1505,37 @@ my (%invalid_main_ancestors) = (
 );
 
 #
+# Right to left languages using 3 ISO 639-2/T language codes
+#
+my (%right_to_left_languages) = (
+    "ara", 1,
+    "arc", 1,
+    "aze", 1,
+    "div", 1,
+    "heb", 1,
+    "kur", 1,
+    "fas", 1,
+    "urd", 1,
+);
+
+#
 # String table for error strings.
 #
 my %string_table_en = (
+    "Accessible name does not begin with visible text", "Accessible name does not begin with visible text",
     "Alt attribute not allowed on this tag", "'alt' attribute not allowed on this tag.",
     "Anchor and image alt text the same", "Anchor and image 'alt' text the same",
     "Anchor text is a URL",          "Anchor text is a URL",
+    "Anchor text is single character punctuation", "Anchor text is single character punctuation",
     "Anchor text same as href",      "Anchor text same as 'href'",
     "Anchor text same as title",     "Anchor text same as 'title'",
     "Anchor title same as href",     "Anchor 'title' same as 'href'",
     "and",                           "and",
+    "aria-hidden must not be present on the document body", "aria-hidden=\"true\" must not be present on the document <body>",
+    "ARIA attribute not allowed",    "ARIA attribute not allowed",
+    "ARIA role not allowed on tag",  "ARIA role not allowed on tag",
     "at line:column",                " at (line:column) ",
+    "attribute",                     "attribute",
     "Blinking text in",              "Blinking text in ",
     "Broken link in cite for",       "Broken link in 'cite' for ",
     "Broken link in longdesc for",   "Broken link in 'longdesc' for ",
@@ -923,7 +1544,9 @@ my %string_table_en = (
     "click here link found",         "'click here' link found",
     "color is",                      " color is ",
     "Combining adjacent image and text links for the same resource",   "Combining adjacent image and text links for the same resource",
+    "Container landmark is",         "Container landmark is",
     "Content does not contain letters for", "Content does not contain letters for ",
+    "Content hidden from assistive technology", "Content hidden from assistive technology",
     "Content referenced by",         "Content referenced by",
     "Content same as title for",     "Content same as 'title' for ",
     "Content type does not match",   "Content type does not match",
@@ -931,26 +1554,37 @@ my %string_table_en = (
     "defined at",                    "defined at (line:column)",
     "Deprecated attribute found",    "Deprecated attribute found ",
     "Deprecated tag found",          "Deprecated tag found ",
+    "dl must contain only dt, dd, script or template tags", "<dl> must contain only <dt>, <dd>, <script> or <template> tags",
     "DOCTYPE missing",               "DOCTYPE missing",
     "does not match content language",  "does not match content language",
     "does not match previous value", "does not match previous value",
     "Duplicate accesskey",           "Duplicate 'accesskey' ",
     "Duplicate anchor name",         "Duplicate anchor name ",
     "Duplicate attribute",           "Duplicate attribute ",
+    "Duplicate label for",           "Duplicate <label> 'for' ",
+    "Duplicate frame title",         "Duplicate <frame> title",
     "Duplicate id in headers",       "Duplicate 'id' in 'headers'",
     "Duplicate id",                  "Duplicate 'id' ",
     "Duplicate label id",            "Duplicate <label> 'id' ",
     "Duplicate table summary and caption", "Duplicate table 'summary' and <caption>",
     "Duplicate",                     "Duplicate",
     "E-mail domain",                 "E-mail domain ",
+    "Empty text alternative value",  "Empty text alternative value",
     "End tag",                       "End tag",
+    "expected",                      "expected",
+    "expecting a non-blank text value", "expecting a non-blank text value",
     "Expecting end tag",             "Expecting end tag",
+    "expecting ID value",            "expecting ID value",
+    "expecting integer value",       "expecting integer value",
+    "expecting numerical value",     "expecting numerical value",
     "expecting one of",              "expecting one of ",
     "Fails validation",              "Fails validation, see validation results for details.",
+    "Focusable content inside aria-hidden tag", "Focusable content inside aria-hidden tag",
     "followed by",                   " followed by ",
     "for tag",                       " for tag ",
     "for",                           "for ",
     "forbidden",                     "forbidden",
+    "found at",                      "found at (line:column)",
     "found in header",               "found in header",
     "found inside of link",          "found inside of link",
     "Found label before input type", "Found <label> before <input> type ",
@@ -958,9 +1592,12 @@ my %string_table_en = (
     "Found tag",                     "Found tag ",
     "Found",                         "Found",
     "found",                         "found",
+    "Frame contains more than 1 landmark with", "Frame contains more than 1 landmark with",
     "GIF animation exceeds 5 seconds",  "GIF animation exceeds 5 seconds",
     "GIF flashes more than 3 times in 1 second", "GIF flashes more than 3 times in 1 second",
     "Header defined at",             "Header defined at (line:column)",
+    "Heading level, aria-level mismatch", "Heading level, aria-level mismatch",
+    "Heading level increased by more than one, expected", "Heading level increased by more than one, expected",
     "Heading text greater than 500 characters",  "Heading text greater than 500 characters",
     "HTML language attribute",       "HTML language attribute",
     "id defined at",                 "'id' defined at (line:column)",
@@ -969,31 +1606,45 @@ my %string_table_en = (
     "in tag",                        " in tag ",
     "in",                            " in ",
     "in decorative image",           " in decorative image.",
+    "Interactive tag has an interactive parent tag", "Interactive tag has an interactive parent tag",
     "Insufficient color contrast for tag",                 "Insufficient color contrast for tag ",
     "Invalid alt text value",        "Invalid 'alt' text value",
     "Invalid aria-label text value", "Invalid 'aria-label' text value",
+    "Invalid ARIA role value",       "Invalid ARIA role value",
     "Invalid attribute combination found", "Invalid attribute combination found",
     "Invalid content for",           "Invalid content for ",
     "Invalid CSS file referenced",   "Invalid CSS file referenced",
+    "Invalid direction for left to right language", "Invalid direction for left to right language",
+    "Invalid direction for right to left language", "Invalid direction for right to left language",
+    "Invalid language attribute value", "Invalid language attribute value",
     "Invalid rel value",             "Invalid 'rel' value",
+    "Invalid text alternative value", "Invalid text alternative value",
     "Invalid title text value",      "Invalid 'title' text value",
     "Invalid title",                 "Invalid title",
     "Invalid URL in longdesc for",   "Invalid URL in 'longdesc' for ",
     "Invalid URL in src for",        "Invalid URL in 'src' for ",
+    "Invalid value for WAI-ARIA attribute", "Invalid value for WAI-ARIA attribute",
+    "Invalid WAI-ARIA attribute",    "Invalid WAI-ARIA attribute",
+    "is",                            "is",
     "is hidden",                     "is hidden",
     "is not equal to last level",    " is not equal to last level ",
     "is not visible",                "is not visible",
+    "is inside aria-hidden tag",     "is inside aria-hidden tag",
     "Label found for hidden input",  "<label> found for <input type=\"hidden\">",
     "label not allowed before",      "<label> not allowed before ",
     "label not allowed for",         "<label> not allowed for ",
     "Label not explicitly associated to", "Label not explicitly associated to ",
     "Label referenced by",           "<label> referenced by",
-    "Link contains JavaScript",      "Link contains JavaScript",
+    "Landmark",                      "Landmark",
+    "Link contains onclick",         "Link contains onclick",
+    "Link href contains JavaScript", "Link href contains JavaScript",
+    "Link href ends with #",         "Link href ends with #",
     "Link inside of label",          "Link inside of <label>",
     "link",                          "link",
     "Main landmark must not be nested in", "Landmark 'main' must not be nested in",
+    "Main landmark nested in",       "'main' landmark nested in",
     "Meta refresh with timeout",     "Meta 'refresh' with timeout ",
-    "Meta viewport maximum-scale less than 5.0", "Meta viewport maximum-scale less than 5.0",
+    "Meta viewport maximum-scale less than", "Meta viewport maximum-scale less than",
     "Meta viewport with user-scalable disabled", "Meta viewport with user-scalable disabled",
     "Metadata missing",              "Metadata missing",
     "Mismatching lang and xml:lang attributes", "Mismatching 'lang' and 'xml:lang' attributes",
@@ -1002,10 +1653,16 @@ my %string_table_en = (
     "Missing alt content for",       "Missing 'alt' content for ",
     "Missing alt or text alternative for",     "Missing 'alt' or text alternative for ",
     "Missing alt or title in",       "Missing 'alt' or 'title' in ",
+    "Missing aria-label content for", "Missing 'aria-label' content for",
+    "Missing aria-labelledby content for", "Missing 'aria-labelledby' content for",
     "Missing cite content for",      "Missing 'cite' content for ",
     "Missing close tag for",         "Missing close tag for",
     "Missing content before list",   "Missing content before list",
     "Missing content in",            "Missing content in ",
+    "Missing dd tag after last dt tag in definition list", "Missing <dd> tag after last <dt> tag in definition list",
+    "Missing dd tag between previous dt tag and this dt tag", "Missing <dd> tag between previous <dt> tag and this <dt> tag",
+    "Missing dir attribute for right to left language", "Missing 'dir' attribute for right to left language",
+    "Missing dt tag before dd tag",  "Missing <dt> tag before <dd> tag",
     "Missing event handler from pair", "Missing event handler from pair ",
     "Missing fieldset",              "Missing <fieldset> tag",
     "Missing href, id, name or xlink in <a>",  "Missing href, id, name or xlink in <a>",
@@ -1017,6 +1674,8 @@ my %string_table_en = (
     "Missing longdesc content for",  "Missing 'longdesc' content for ",
     "Missing rel attribute in",      "Missing 'rel' attribute in ",
     "Missing rel value in",          "Missing 'rel' value in ",
+    "Missing required ARIA attribute", "Missing required ARIA attribute",
+    "Missing required children roles for parent role", "Missing required children roles for parent role",
     "Missing required context role for", "Missing required context role for",
     "Missing required context role for implicit role", "Missing required context role for implicit role",
     "Missing required context role for WAI-ARIA attribute", "Missing required context role for WAI-ARIA attribute",
@@ -1024,24 +1683,29 @@ my %string_table_en = (
     "Missing src value",             "Missing 'src' value ",
     "Missing table summary",         "Missing table 'summary'",
     "Missing template comment",      "content",
-    "Missing text in table header",  "Missing text in table header ",
+    "Missing text alternative for",  "Missing text alternative for",
     "Missing text in",               "Missing text in ",
+    "Missing text in table header",  "Missing text in table header ",
     "Missing title attribute for",   "Missing 'title' attribute for ",
     "Missing title content for",     "Missing 'title' content for ",
     "Missing value attribute in",    "Missing 'value' attribute in ",
     "Missing value in",              "Missing value in ",
     "Missing xml:lang attribute",    "Missing 'xml:lang' attribute ",
     "Missing",                       "Missing",
+    "More than 1 landmark in frame", "More than 1 'landmark' in frame",
     "Mouse only event handlers found",  "Mouse only event handlers found",
     "Multiple instances of",         "Multiple instances of",
     "Multiple links with same anchor text", "Multiple links with same anchor text ",
     "Multiple links with same title text", "Multiple links with same 'title' text ",
     "Multiple main content areas found, previous instance found", "Multiple main content areas found, previous instance found",
+    "must be contained by",          "must be contained by",
+    "must not be contained in another landmark", "must not be contained in another landmark",
     "New heading level",             "New heading level ",
     "No button found in form",       "No button found in form",
     "No captions found for",         "No captions found for",
     "No closed caption content found", "No closed caption content found",
     "No content found in track",     "No content found in track",
+    "No descriptions found for",     "No descriptions found for",
     "No dt found in list",           "No <dt> found in list ",
     "No form found with",            "No form found with",
     "No headers found inside thead", "No headers found inside <thead>",
@@ -1051,35 +1715,43 @@ my %string_table_en = (
     "No legend found in fieldset",   "No <legend> found in <fieldset>",
     "No li found in list",           "No <li> found in list ",
     "No links found",                "No links found",
+    "No level one heading found",    "No level one heading found",
     "No matching noembed for embed", "No matching <noembed> for <embed>",
     "No table header reference",     "No table header reference",
     "No tag with id attribute",      "No tag with 'id' attribute ",
     "No td, th found inside tfoot",  "No <td>, <th> found inside <tfoot>",
     "Non-decorative image loaded via CSS with", "Non-decorative image loaded via CSS with",
     "Non null title text",           "Non null 'title' text ",
+    "Not all of visible text is included in accessible name", "Not all of visible text is included in accessible name",
     "not defined within table",      "not defined within <table>",
     "not marked up as a <label>",    "not marked up as a <label>",
     "Null alt on an image",          "Null alt on an image where the image is the only content in a link",
+    "ol, ul must contain only li, script or template tags", "<ol>, <ul> must contain only <li>, <script> or <template> tags",
     "onclick or onkeypress found in tag", "'onclick' or 'onkeypress' found in tag ",
+    "Only label for",                "Only label for",
     "or",                            " or ",
+    "Page contains more than 1 landmark with", "Page contains more than 1 'landmark' with",
     "Page redirect not allowed",     "Page redirect not allowed",
     "Page refresh not allowed",      "Page refresh not allowed",
     "Previous instance found at",    "Previous instance found at (line:column) ",
     "Previous label not explicitly associated to", "Previous label not explicitly associated to ",
-    "previously found",                 "previously found",
+    "previously found",              "previously found",
     "Required testcase not executed","Required testcase not executed",
-    "Self reference in headers",        "Self reference in 'headers'",
-    "Span language attribute",          "Span language attribute",
-    "started at line:column",           "started at (line:column) ",
-    "summary found in layout table",    "<summary> found in layout table",
+    "Self reference in headers",     "Self reference in 'headers'",
+    "Span language attribute",       "Span language attribute",
+    "started at line:column",        "started at (line:column) ",
+    "summary found in layout table", "<summary> found in layout table",
+    "Tabindex value greater than zero", "Tabindex value greater than zero",
     "Table header found in layout table", "Table header found in layout table",
-    "Table headers",                  "Table 'headers'",
-    "Tag not allowed here",             "Tag not allowed here ",
+    "Table headers",                 "Table 'headers'",
+    "Tag",                           "Tag",
+    "Tag not allowed here",          "Tag not allowed here ",
+    "Text alternative",              "Text alternative",
     "Text styled to appear like a heading", "Text styled to appear like a heading",
-    "Text",                             "Text",
-    "Title same as id for",               "'title' same as 'id' for ",
+    "Text",                          "Text",
+    "Title same as id for",          "'title' same as 'id' for ",
     "Title text greater than 500 characters",            "Title text greater than 500 characters",
-    "Title values do not match for",    "'title' values do not match for",
+    "Title values do not match for", "'title' values do not match for",
     "Unable to determine content language, possible languages are", "Unable to determine content language, possible languages are",
     "Unused label, for attribute",      "Unused <label>, 'for' attribute ",
     "used for decoration",              "used for decoration",
@@ -1092,14 +1764,20 @@ my %string_table_en = (
 # String table for error strings (French).
 #
 my %string_table_fr = (
+    "Accessible name does not begin with visible text", "Le nom accessible ne commence pas par du texte visible",
     "Alt attribute not allowed on this tag", "L'attribut 'alt' pas autorisés sur cette balise.",
     "Anchor and image alt text the same", "Textes de l'ancrage et de l'attribut 'alt' de l'image identiques",
+    "Anchor text is single character punctuation", "Texte d'ancrage est une ponctuation d'un seul caractère",
     "Anchor text is a URL",            "Texte d'ancrage est une URL",
     "Anchor text same as href",        "Texte d'ancrage identique à 'href'",
     "Anchor text same as title",       "Texte d'ancrage identique à 'title'",
     "Anchor title same as href",       "'title' d'ancrage identique à 'href'",
     "and",                             "et",
+    "aria-hidden must not be present on the document body", "aria-hidden=\"true\" ne doit pas être présent sur le document <body>",
+    "ARIA attribute not allowed",      "Attribut ARIA non autorisé",
+    "ARIA role not allowed on tag",    "Le rôle ARIA n'est pas autorisé sur cette balise",
     "at line:column",                  " à (la ligne:colonne) ",
+    "attribute",                       "attribut",
     "Blinking text in",                "Texte clignotant dans ",
     "Broken link in cite for",         "Lien brisé dans l'élément 'cite' pour ",
     "Broken link in longdesc for",     "Lien brisé dans l'élément 'longdesc' pour ",
@@ -1108,7 +1786,9 @@ my %string_table_fr = (
     "click here link found",           "Lien 'cliquez ici' retrouvé",
     "color is",                        " la couleur est ",
     "Combining adjacent image and text links for the same resource",   "Combiner en un même lien une image et un intitulé de lien pour la même ressource",
+    "Container landmark is",           "Landmark du conteneur est",
     "Content does not contain letters for", "Contenu ne contient pas des lettres pour ",
+    "Content hidden from assistive technology", "Contenu caché de la technologie d'assistance",
     "Content referenced by",           "Contenu référencé par",
     "Content same as title for",       "Contenu et 'title' identiques pour ",
     "Content type does not match",     "Content type does not match",
@@ -1116,26 +1796,37 @@ my %string_table_fr = (
     "defined at",                      "défini à (la ligne:colonne)",
     "Deprecated attribute found",      "Attribut dépréciée retrouvée ",
     "Deprecated tag found",            "Balise dépréciée retrouvée ",
+    "dl must contain only dt, dd, script or template tags", "<dl> ne doit contenir que des balises <dt>, <dd>, <script> ou <template>",
     "DOCTYPE missing",                 "DOCTYPE manquant",
     "does not match content language", "ne correspond pas à la langue de contenu",
     "does not match previous value",   "ne correspond pas à la valeur précédente",
     "Duplicate accesskey",             "Doublon 'accesskey' ",
     "Duplicate anchor name",           "Doublon du nom d'ancrage ",
     "Duplicate attribute",             "Doublon attribut ",
+    "Duplicate label for",             "Doublon <label> 'for' ",
+    "Duplicate frame title",           "Titre du <frame> en double",
     "Duplicate id in headers",         "Doublon 'id' dans 'headers'",
     "Duplicate id",                    "Doublon 'id' ",
     "Duplicate label id",              "Doublon <label> 'id' ",
     "Duplicate table summary and caption", "Éléments 'summary' et <caption> du tableau en double",
     "Duplicate",                       "Doublon",
     "E-mail domain",                   "Domaine du courriel ",
+    "Empty text alternative value",    "Valeur alternative du texte vide",
     "End tag",                         "Balise de fin",
-    "Expecting end tag",               "S'attendant balise de fin",
+    "expected",                        "attendu",
+    "expecting a non-blank text value", "attendant une valeur de texte non vide",
+    "Expecting end tag",               "Expecting end tag",
+    "expecting ID value",              "attente d'une valeur d'ID",
+    "expecting integer value",         "attendant une valeur entière",
+    "expecting numerical value",       "attente d'une valeur numérique",
     "expecting one of",                "expectant une de ",
     "Fails validation",                "Échoue la validation, voir les résultats de validation pour plus de détails.",
+    "Focusable content inside aria-hidden tag", "Contenu pouvant être mis au point dans une balise aria-hidden",
     "followed by",                     " suivie par ",
     "for tag",                         " pour balise ",
     "for",                             "pour ",
     "forbidden",                       "interdite",
+    "found at",                        "trouvée à (la ligne:colonne)",
     "found in header",                 "trouvé dans les en-têtes",
     "found inside of link",            "trouvé dans une lien",
     "Found label before input type",   "<label> trouvé devant le type <input> ",
@@ -1143,9 +1834,12 @@ my %string_table_fr = (
     "Found tag",                       "Balise trouvé ",
     "found",                           "trouvé",
     "Found",                           "Trouvé",
+    "Frame contains more than 1 landmark with", "Cette 'frame' contient plus d'un 'landmark' avec",
     "GIF animation exceeds 5 seconds", "Clignotement de l'image GIF supérieur à 5 secondes",
     "GIF flashes more than 3 times in 1 second", "Clignotement de l'image GIF supérieur à 3 par seconde",
     "Header defined at",               "En-tête défini à (la ligne:colonne)",
+    "Heading level, aria-level mismatch", "Niveau de titre, ne correspond pas 'aria-level'",
+    "Heading level increased by more than one, expected", "Niveau de cap augmenté de plus d'un, prévu",
     "Heading text greater than 500 characters",  "Texte du têtes supérieure 500 caractères",
     "HTML language attribute",         "L'attribut du langage HTML",
     "id defined at",                   "'id' défini à (la ligne:colonne)",
@@ -1154,18 +1848,28 @@ my %string_table_fr = (
     "in tag",                          " dans balise ",
     "in",                              " dans ",
     "in decorative image",             " dans l'image décoratives.",
+    "Interactive tag has an interactive parent tag", "La balise interactive a une balise parent interactive",
     "Insufficient color contrast for tag", "Contrast de couleurs insuffisant pour balise ",
     "Invalid alt text value",          "Valeur de texte 'alt' est invalide",
     "Invalid aria-label text value",   "Valeur de texte 'aria-label' est invalide",
+    "Invalid ARIA role value",         "Valeur de rôle ARIA non valide",
     "Invalid attribute combination found", "Combinaison d'attribut non valide trouvé",
     "Invalid content for",             "Contenu invalide pour ",
     "Invalid CSS file referenced",     "Fichier CSS non valide retrouvé",
+    "Invalid direction for left to right language", "Direction non valide pour la langue de gauche à droite",
+    "Invalid direction for right to left language", "Direction non valide pour la langue de droite à gauche",
+    "Invalid language attribute value", "Valeur d'attribut de langue invalide",
     "Invalid rel value",               "Valeur de texte 'rel' est invalide",
+    "Invalid text alternative value",  "Valeur alternative de texte non valide",
     "Invalid title text value",        "Valeur de texte 'title' est invalide",
     "Invalid title",                   "Titre invalide",
     "Invalid URL in longdesc for",     "URL non valide dans 'longdesc' pour ",
     "Invalid URL in src for",          "URL non valide dans 'src' pour ",
+    "Invalid value for WAI-ARIA attribute", "Valeur non valide pour l'attribut WAI-ARIA",
+    "Invalid WAI-ARIA attribute",      "Attribut WAI-ARIA invalide",
+    "is",                              "est",
     "is hidden",                       "est caché",
+    "is inside aria-hidden tag",       "est dans une balise aria-hidden",
     "is not equal to last level",      " n'est pas égal à au dernier niveau ",
     "is not visible",                  "est pas visible",
     "Label found for hidden input",    "<label> trouvé pour <input type=\"hidden\">",
@@ -1173,12 +1877,16 @@ my %string_table_fr = (
     "label not allowed for",           "<label> pas permis pour ",
     "Label not explicitly associated to", "Étiquette pas explicitement associée à la ",
     "Label referenced by",             "<label> référencé par",
-    "Link contains JavaScript",        "Lien contient du JavaScript",
+    "Landmark",                        "Landmark",
+    "Link contains onclick",           "Le lien contient onclick",
+    "Link href contains JavaScript",   "Le lien href contient du JavaScript",
+    "Link href ends with #",           "Le lien href se termine par #",
     "Link inside of label",            "lien dans une <label>",
     "link",                            "lien",
     "Main landmark must not be nested in", "Le point de repère 'main' ne doit pas être imbriqué",
+    "Main landmark nested in",         "Point de repère 'main' niché dans",
     "Meta refresh with timeout",       "Méta 'refresh' avec délai d'inactivité ",
-    "Meta viewport maximum-scale less than 5.0", "Meta viewport maximale échelle inférieure à 5,0",
+    "Meta viewport maximum-scale less than", "Meta viewport maximale échelle inférieure à",
     "Meta viewport with user-scalable disabled", "Meta viewport utilisateur évolutive désactivée",
     "Metadata missing",              "Métadonnées manquantes",
     "Mismatching lang and xml:lang attributes", "Erreur de correspondance des attributs 'lang' et 'xml:lang'",
@@ -1187,10 +1895,16 @@ my %string_table_fr = (
     "Missing alt content for",       "Le contenu de 'alt' est manquant pour ",
     "Missing alt or text alternative for", "Manquant 'alt' ou texte alternatif pour ",
     "Missing alt or title in",         "Attribut 'alt' ou 'title' manquant dans  ",
+    "Missing aria-label content for",  "Le contenu de 'aria-label' est manquant pour ",
+    "Missing aria-labelledby content for", "Le contenu de 'aria-labelledby' est manquant pour ",
     "Missing cite content for",        "Contenu de l'élément 'cite' manquant pour ",
     "Missing close tag for",           "Balise de fin manquantes pour",
     "Missing content before list",     "Contenu manquant avant la liste",
     "Missing content in",              "Contenu manquant dans ",
+    "Missing dd tag after last dt tag in definition list", "Balise <dd> manquante après la dernière balise dt dans la liste de définitions",
+    "Missing dd tag between previous dt tag and this dt tag", "Balise <dd> manquante entre la balise <dt> précédente et cette balise <dt>",
+    "Missing dir attribute for right to left language", "Attribut 'dir' manquant pour la langue de droite à gauche",
+    "Missing dt tag before dd tag",    "Balise <dt> manquante avant balise <dd>",
     "Missing event handler from pair", "Gestionnaire d'événements manquant dans la paire ",
     "Missing fieldset",                 "Élément <fieldset> manquant",
     "Missing href, id, name or xlink in <a>", "Attribut href, id, name ou xlink manquant dans <a>",
@@ -1202,31 +1916,38 @@ my %string_table_fr = (
     "Missing longdesc content for",  "Contenu de l'élément 'longdesc' manquant pour ",
     "Missing rel attribute in",      "Attribut 'rel' manquant dans ",
     "Missing rel value in",          "Valeur manquante dans 'rel' ",
-    "Missing required context role for", "Le rôle de contexte requis manquant pour",
+    "Missing required ARIA attribute", "Attribut ARIA requis manquant",
+    "Missing required children roles for parent role", "'role' d'enfants requis manquants pour le 'role' parent",
+    "Missing required context role for", "Le 'role' de contexte requis manquant pour",
     "Missing required context role for implicit role", "Le rôle de contexte requis manquant pour le rôle implicite",
     "Missing required context role for WAI-ARIA attribute", "Rôle de contexte requis manquant pour l'attribut WAI-ARIA",
     "Missing src attribute",         "Valeur manquante dans 'src' ",
     "Missing src value",             "Missing 'src' value ",
     "Missing table summary",         "Résumé de tableau manquant",
     "Missing template comment",      "Commentaire manquant dans le modèle",
-    "Missing text in table header",  "Texte manquant tête de tableau ",
+    "Missing text alternative for",  "Alternative textuelle manquante pour",
     "Missing text in",               "Texte manquant dans ",
+    "Missing text in table header",  "Texte manquant tête de tableau ",
     "Missing title attribute for",   "Attribut 'title' manquant pour ",
     "Missing title content for",     "Contenu de l'élément 'title' manquant pour ",
     "Missing value attribute in",    "Attribut 'value' manquant dans ",
     "Missing value in",              "Valeur manquante dans ",
     "Missing xml:lang attribute",    "Attribut 'xml:lang' manquant ",
     "Missing",                       "Manquantes",
+    "More than 1 landmark in frame", "Plus d'un 'landmark' dans le cadre",
     "Mouse only event handlers found", "Gestionnaires de la souris ne se trouve que l'événement",
     "Multiple instances of",         "Plusieurs instances de",
     "Multiple links with same anchor text",  "Liens multiples avec la même texte de lien ",
     "Multiple links with same title text",  "Liens multiples avec la même texte de 'title' ",
     "Multiple main content areas found, previous instance found", "Plusieurs domaines de contenu principal ont été trouvés, l'instance précédente a été trouvée",
+    "must be contained by",          "doit être contenu par",
+    "must not be contained in another landmark", "ne doit pas être contenu dans un autre landmark",
     "New heading level",             "Nouveau niveau d'en-tête ",
     "No button found in form",       "Aucun bouton trouvé dans le <form>",
     "No captions found for",         "Pas de sous-titres trouvés pour",
     "No closed caption content found", "Aucun de sous-titrage trouvé",
     "No content found in track",     "Contenu manquant dans <track>",
+    "No descriptions found for",     "Aucune description trouvée pour",
     "No dt found in list",           "Pas de <dt> trouvé dans la liste ",
     "No form found with",            "Pas de <form> trouvé avec",
     "No headers found inside thead", "Pas de têtes trouvées à l'intérieur de <thead>",
@@ -1234,6 +1955,7 @@ my %string_table_fr = (
     "No label for",                  "Aucun <label> pour ",
     "No label matching id attribute","Aucun <label> correspondant à l'attribut 'id' ",
     "No legend found in fieldset",   "Aucune <legend> retrouvé dans le <fieldset>",
+    "No level one heading found",    "Aucun titre de niveau un trouvé",
     "No li found in list",           "Pas de <li> trouvé dans la liste ",
     "No links found",                "Pas des liens qui se trouvent",
     "No matching noembed for embed", "Aucun <noembed> correspondant à <embed>",
@@ -1242,11 +1964,15 @@ my %string_table_fr = (
     "No td, th found inside tfoot",  "Pas de <td>, <th> trouve à l'intérieur de <tfoot>",
     "Non-decorative image loaded via CSS with", "Image non-décoratif chargé par CSS avec",
     "Non null title text",           "Non le texte 'title' nuls ",
+    "Not all of visible text is included in accessible name", "Tout le texte visible n'est pas inclus dans le nom accessible",
     "not defined within table",      "pas défini dans le <table>",
     "not marked up as a <label>",    "pas marqué comme un <label>",
     "Null alt on an image",          "Utiliser un attribut alt vide pour une image qui est le seul contenu d'un lien",
+    "ol, ul must contain only li, script or template tags", "<ol>, <ul> ne doit contenir que des balises <li>, <script> ou <template>",
     "onclick or onkeypress found in tag", "'onclick' ou 'onkeypress' trouvé dans la balise ",
+    "Only label for",                "Seule étiquette pour",
     "or",                            " ou ",
+    "Page contains more than 1 landmark with", "Cette page contient plus d'un 'landmark' avec",
     "Page redirect not allowed",     "Page rediriger pas autorisé",
     "Page refresh not allowed",      "Page raffraîchissement pas autorisé",
     "Previous instance found at",    "Instance précédente trouvée à (la ligne:colonne) ",
@@ -1257,9 +1983,12 @@ my %string_table_fr = (
     "Span language attribute",         "Attribut de langue 'span'",
     "started at line:column",          "a commencé à (la ligne:colonne) ",
     "summary found in layout table", "<summary> trouvé dans la table de mise en page",
+    "Tabindex value greater than zero", "Valeur Tabindex supérieure à zéro",
     "Table header found in layout table", "En-tête de table trouvée dans la table de mise en page",
     "Table headers",                   "'headers' de tableau",
+    "Tag",                             "Balise",
     "Tag not allowed here",            "Balise pas autorisé ici ",
+    "Text alternative",                "Alternative textuelle",
     "Text styled to appear like a heading", "Texte de style pour apparaître comme un titre",
     "Text",                            "Texte",
     "Title same as id for",               "'title' identique à 'id' pour ",
@@ -1299,6 +2028,7 @@ sub Set_HTML_Check_Debug {
     #
     # Set debug flag for supporting modules
     #
+    Pa11y_Check_Debug($debug);
     HTML_Landmark_Debug($debug);
     XML_TTML_Text_Debug($debug);
 }
@@ -1332,6 +2062,11 @@ sub Set_HTML_Check_Language {
         print "Set_HTML_Check_Language, language = English\n" if $debug;
         $string_table = \%string_table_en;
     }
+
+    #
+    # Set language for supporting modules
+    #
+    Set_Pa11y_Check_Language($language);
 }
 
 #**********************************************************************
@@ -1388,6 +2123,11 @@ sub Set_HTML_Check_Testcase_Data {
     # Copy the data into the table
     #
     $testcase_data{$testcase} = $data;
+
+    #
+    # Set testcase data for supporting modules
+    #
+    Set_Pa11y_Check_Testcase_Data($testcase, $data);
 }
 
 #***********************************************************************
@@ -1404,7 +2144,7 @@ sub Set_HTML_Check_Testcase_Data {
 #
 #***********************************************************************
 sub Set_HTML_Check_Test_Profile {
-    my ($profile, $tqa_checks ) = @_;
+    my ($profile, $tqa_checks) = @_;
 
     my (%local_tqa_checks);
     my ($key, $value);
@@ -1416,6 +2156,12 @@ sub Set_HTML_Check_Test_Profile {
     print "Set_HTML_Check_Test_Profile, profile = $profile\n" if $debug;
     %local_tqa_checks = %$tqa_checks;
     $tqa_check_profile_map{$profile} = \%local_tqa_checks;
+
+
+    #
+    # Set testcase data for supporting modules
+    #
+    Set_Pa11y_Check_Test_Profile($profile, $tqa_checks);
 }
 
 #***********************************************************************
@@ -1486,19 +2232,100 @@ sub Initialize_Test_Results {
     #
     # Initialize other global variables
     #
-    $current_a_href        = "";
-    $current_heading_level = 0;
-    $current_landmark      = "";
-    $landmark_marker       = "";
-    %label_for_location    = ();
+    %abbr_acronym_text_title_lang_location = ();
+    %abbr_acronym_text_title_lang_map = ();
+    %abbr_acronym_title_text_lang_location = ();
+    %abbr_acronym_title_text_lang_map = ();
     %accesskey_location    = ();
-    %input_id_location     = ();
+    %anchor_location       = ();
+    $anchor_inside_emphasis = 0;
+    %anchor_name           = ();
+    %anchor_text_href_map  = ();
     %aria_describedby_location = ();
     %aria_labelledby_location = ();
+    %audio_track_kind_map  = ();
+    %css_styles            = ();
+    $current_a_arialabel   = "";
+    $current_a_href        = "";
+    $current_a_title       = "";
+    $current_content_lang_code = "";
+    $content_heading_count = 0;
+    $current_heading_level = undef;
+    $current_landmark      = "";
+    $current_lang          = "eng";
+    $current_list_level    = -1;
+    $current_required_children_roles = undef;
+    $current_tag_object    = undef;
+    $current_tag_styles    = "";
+    $current_text_handler_tag = "";
+    $doctype_column        = -1;
+    $doctype_label         = "";
+    $doctype_line          = -1;
+    $embed_noembed_count   = 0;
+    $emphasis_count        = 0;
+    %f32_reported          = ();
+    %fieldset_input_count  = ();
+    $fieldset_tag_index    = 0;
+    undef($first_html_tag_lang);
+    $form_count            = 0;
+    %form_id_values        = ();
     %form_label_value      = ();
     %form_legend_value     = ();
     %form_title_value      = ();
+    $found_content_after_heading = 0;
+    $found_frame_tag       = 0;
+    $found_h1              = 0;
+    %found_legend_tag      = ();
+    $found_title_tag       = 0;
+    %frame_landmark_count  = ();
+    %frame_title_location  = ();
+    $have_metadata         = 0;
+    $have_text_handler     = 0;
+    @heading_level_stack   = ();
+    %html_tags_allowed_only_once_location = ();
     %id_attribute_values   = ();
+    $image_found_inside_anchor = 0;
+    $in_form_tag           = 0;
+    $in_head_tag           = 0;
+    $in_header_tag         = 0;
+    $inline_style_count    = 0;
+    %input_form_id         = ();
+    %input_id_location     = ();
+    %input_instance_not_allowed_label = ();
+    $inside_anchor         = 0;
+    $inside_audio          = 0;
+    $inside_frame          = 0;
+    $inside_h_tag_set      = 0;
+    $inside_label          = 0;
+    $inside_video          = 0;
+    %label_for_location    = ();
+    $landmark_marker       = "";
+    %landmark_count        = ();
+    @lang_stack            = ($current_lang);
+    $last_a_contains_image = 0;
+    $last_a_href           = "";
+    $last_close_tag        = "";
+    $last_heading_text     = "";
+    %last_label_attributes = ();
+    $last_label_text       = "";
+    $last_lang_tag         = "top";
+    $last_open_tag         = "";
+    %last_option_attributes = ();
+    $last_radio_checkbox_name = "";
+    $last_tag              = "";
+    %legend_text_value     = ();
+    @list_item_count       = ();
+    $main_content_start    = "";
+    @missing_table_headers = ();
+    $modified_content      = 0;
+    $number_of_writable_inputs = 0;
+    %object_has_label      = ();
+    $object_nest_level     = 0;
+    @param_lists           = ();
+    $parent_tag            = "";
+    $parent_tag_object     = "";
+    $pseudo_header         = "";
+    undef($summary_tag_content);
     $table_nesting_index   = -1;
     @table_start_line      = ();
     @table_start_column    = ();
@@ -1508,94 +2335,23 @@ sub Initialize_Test_Results {
     @table_is_layout       = ();
     @table_th_td_in_thead_count = ();
     @table_th_td_in_thead_count = ();
-    @missing_table_headers = ();
     @table_header_locations = ();
-    $inside_h_tag_set      = 0;
-    $inside_video          = 0;
-    $inside_audio          = 0;
-    %video_track_kind_map  = ();
-    %audio_track_kind_map  = ();
-    %anchor_text_href_map  = ();
-    %anchor_location       = ();
-    %anchor_name           = ();
-    %found_legend_tag      = ();
-    %fieldset_input_count  = ();
-    $fieldset_tag_index    = 0;
-    $have_text_handler     = 0;
-    $current_text_handler_tag = "";
+    $tag_is_aria_hidden    = 0;
+    $tag_is_hidden         = 0;
+    $tag_is_visible        = 1;
+    @tag_lang_stack        = ("top");
+    @tag_order_stack       = ();
+    @tag_roles_required_children_roles = ();
+    $text_between_tags     = "";
     @text_handler_tag_list = ();
     @text_handler_all_text_list = ();
     @text_handler_tag_text_list = ();
     @text_handler_all_text = ();
     @text_handler_tag_text = ();
-    $embed_noembed_count   = 0;
-    $object_nest_level     = 0;
-    %object_has_label      = ();
-    $found_title_tag       = 0;
-    $found_frame_tag       = 0;
-    $doctype_line          = -1;
-    $doctype_column        = -1;
-    $doctype_label         = "";
-    $have_metadata         = 0;
-    $content_heading_count = 0;
     $total_heading_count   = 0;
-    $last_radio_checkbox_name = "";
-    $current_a_title       = "";
-    $current_a_arialabel   = "";
-    $current_content_lang_code = "";
-    $inside_label          = 0;
-    $last_tag              = "";
-    $last_close_tag        = "";
-    $last_open_tag         = "";
-    %last_label_attributes = ();
-    $last_label_text       = "";
-    $text_between_tags     = "";
-    @tag_order_stack       = ();
-    $current_tag_object    = undef;
+    %video_track_kind_map  = ();
     $wcag_2_0_h74_reported = 0;
     $wcag_2_0_f70_reported = 0;
-    @param_lists           = ();
-    $image_found_inside_anchor = 0;
-    $inside_anchor         = 0;
-    $in_form_tag           = 0;
-    $form_count            = 0;
-    $number_of_writable_inputs = 0;
-    %html_tags_allowed_only_once_location = ();
-    $last_a_href           = "";
-    $last_a_contains_image = 0;
-    %abbr_acronym_text_title_lang_map = ();
-    %abbr_acronym_text_title_lang_location = ();
-    %abbr_acronym_title_text_lang_map = ();
-    %abbr_acronym_title_text_lang_location = ();
-    $current_lang          = "eng";
-    @lang_stack            = ($current_lang);
-    @tag_lang_stack        = ("top");
-    $last_lang_tag         = "top";
-    @list_item_count       = ();
-    $current_list_level    = -1;
-    $in_head_tag           = 0;
-    $in_header_tag         = 0;
-    %legend_text_value     = ();
-    $last_heading_text     = "";
-    $current_text_handler_tag = "";
-    $pseudo_header         = "";
-    $emphasis_count        = 0;
-    $anchor_inside_emphasis = 0;
-    $inline_style_count    = 0;
-    %css_styles            = ();
-    %input_instance_not_allowed_label = ();
-    %last_option_attributes = ();
-    $tag_is_visible         = 1;
-    $tag_is_hidden          = 0;
-    $current_tag_styles     = "";
-    $modified_content       = 0;
-    undef($first_html_tag_lang);
-    undef($summary_tag_content);
-    $found_content_after_heading = 0;
-    %form_id_values         = ();
-    %input_form_id          = ();
-    %f32_reported           = ();
-    $main_content_start     = "";
 
     #
     # Initialize content section found flags to false
@@ -1609,8 +2365,8 @@ sub Initialize_Test_Results {
     # be XHTML or HTML 5, we will catch that in the declaration line.
     # Set list of deprecated tags.
     #
-    $deprecated_tags = \%deprecated_html4_tags;
     $deprecated_attributes = \%deprecated_html4_attributes;
+    $deprecated_tags = \%deprecated_html4_tags;
     $implicit_end_tag_end_handler = \%implicit_html4_end_tag_end_handler;
     $implicit_end_tag_start_handler = \%implicit_html4_end_tag_start_handler;
     $valid_rel_values = \%valid_xhtml_rel_values;
@@ -1657,7 +2413,7 @@ sub Print_Error {
 #
 # Name: Record_Result
 #
-# Parameters: testcase - testcase identifier
+# Parameters: testcase - list of testcase identifiers
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -1669,9 +2425,21 @@ sub Print_Error {
 #
 #***********************************************************************
 sub Record_Result {
-    my ($testcase, $line, $column, $text, $error_string) = @_;
+    my ($testcase_list, $line, $column, $text, $error_string) = @_;
 
-    my ($result_object, $source_line, $new_column);
+    my ($result_object, $source_line, $new_column, $testcase, $id);
+
+    #
+    # Check for a possible list of testcase identifiers.  The first
+    # identifier that is part of the current profile is the one that
+    # the error will be reported against.
+    #
+    foreach $id (split(/,/, $testcase_list)) {
+        if ( defined($$current_tqa_check_profile{$id}) ) {
+            $testcase = $id;
+            last;
+        }
+    }
 
     #
     # Is this testcase included in the profile
@@ -2215,6 +2983,110 @@ sub Start_Text_Handler {
 
 #***********************************************************************
 #
+# Name: Is_Interactive_Tag
+#
+# Parameters: tag - name of HTML tag
+#             line - line number
+#             column - column number
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks to see if this tag is an interactive tag
+# that is intended for user interaction.
+#
+#***********************************************************************
+sub Is_Interactive_Tag {
+    my ($tag, $line, $column, %attr) = @_;
+
+    my ($is_interactive) = 0;
+
+    #
+    # Check for a tag that could be interactive
+    #
+    print "Is_Interactive_Tag tag = $tag\n" if $debug;
+    if ( defined($interactive_tag{$tag}) ) {
+        #
+        # Tag is an interactive tag
+        #
+        $is_interactive = 1;
+
+        #
+        # If this is an anchor tag, it must have an href attribute
+        #
+        if ( ($tag eq "a") && (! defined($attr{"href"})) ) {
+            $is_interactive = 0;
+        }
+        #
+        # If this is an audio tag, it must have a controls attribute
+        #
+        elsif ( ($tag eq "audio") && (! defined($attr{"controls"})) ) {
+            $is_interactive = 0;
+        }
+        #
+        # If this is an img tag, it must have a usemap attribute
+        #
+        elsif ( ($tag eq "img") && (! defined($attr{"usemap"})) ) {
+            $is_interactive = 0;
+        }
+        #
+        # If this is an input tag, it must not be of type hidden
+        #
+        elsif ( ($tag eq "input") &&
+                defined($attr{"type"}) && ($attr{"type"} eq "hidden") ) {
+            $is_interactive = 0;
+        }
+        #
+        # If this is a video tag, it must have a controls attribute
+        #
+        elsif ( ($tag eq "video") && (! defined($attr{"controls"})) ) {
+            $is_interactive = 0;
+        }
+    }
+    #
+    # Do we have a tabindex attribute which can make any tag focusable?
+    #
+    elsif ( defined($attr{"tabindex"}) && ($attr{"tabindex"} >= 0) ) {
+        $is_interactive = 1;
+    }
+    
+    #
+    # Check for attributes or conditions that can make an otherwise
+    # interactive tag, non-interactive.
+    #
+    # Check for disabled attribute
+    #
+    if ( defined($attr{"disabled"}) ) {
+        $is_interactive = 0;
+    }
+    #
+    # Check for display:none styling
+    #
+    elsif ( defined($attr{"style"}) && ($attr{"style"} =~ /display:none/) ) {
+        $is_interactive = 0;
+    }
+    #
+    # Check if tag or ancestor is hidden
+    #
+    elsif ( $tag_is_hidden ) {
+        $is_interactive = 0;
+    }
+    #
+    # Check if tag or ancestor has CSS for display:none
+    #
+    elsif ( ! $tag_is_visible ) {
+        $is_interactive = 0;
+    }
+
+    #
+    # Return interactive indicator
+    #
+    print "is_interactive = $is_interactive\n" if $debug;
+    return($is_interactive);
+}
+
+#***********************************************************************
+#
 # Name: Check_Character_Spacing
 #
 # Parameters: tag - name of HTML tag
@@ -2334,11 +3206,10 @@ sub Check_For_Alt_or_Text_Alternative {
 
 #***********************************************************************
 #
-# Name: Check_Alt_Content
+# Name: Check_For_Alt_or_Text_Alternative_Content
 #
 # Parameters: tcid - testcase id
 #             tag - name of HTML tag
-#             self - reference to object
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -2346,11 +3217,11 @@ sub Check_For_Alt_or_Text_Alternative {
 #
 # Description:
 #
-#   This function checks for alt text content.
+#   This function checks for text alternative content.
 #
 #***********************************************************************
-sub Check_Alt_Content {
-    my ( $tcid, $tag, $self, $line, $column, $text, %attr ) = @_;
+sub Check_For_Alt_or_Text_Alternative_Content {
+    my ( $tcid, $tag, $line, $column, $text, %attr ) = @_;
 
     my ($alt);
 
@@ -2371,6 +3242,22 @@ sub Check_Alt_Content {
         if ( $tag_is_visible && ($alt eq "") ) {
             Record_Result($tcid, $line, $column, $text,
                           String_Value("Missing alt content for") . "$tag");
+        }
+    }
+    #
+    # Do we have an aria-label attribute?
+    #
+    elsif ( defined($attr{"aria-label"}) ) {
+        $alt = $attr{"aria-label"};
+
+        #
+        # Remove whitespace and check to see if we have any text.
+        # Report error only if tag is visible.
+        #
+        $alt =~ s/\s*//g;
+        if ( $tag_is_visible && ($alt eq "") ) {
+            Record_Result($tcid, $line, $column, $text,
+                          String_Value("Missing aria-label content for") . "$tag");
         }
     }
 }
@@ -2420,13 +3307,15 @@ sub Tag_Not_Allowed_Here {
 sub Frame_Tag_Handler {
     my ( $tag, $line, $column, $text, %attr ) = @_;
 
-    my ($title);
+    my ($title, $frame_line, $frame_column);
 
     #
     # Found a Frame tag, set flag so we can verify that the doctype
     # class is frameset
     #
     $found_frame_tag = 1;
+    $inside_frame = 1;
+    %frame_landmark_count = ();
 
     #
     # Look for a title attribute.  Don't report any errors if 
@@ -2434,7 +3323,7 @@ sub Frame_Tag_Handler {
     #
     if ( $tag_is_visible ) {
         if ( !defined( $attr{"title"} ) ) {
-            Record_Result("WCAG_2.0-H64", $line, $column, $text,
+            Record_Result("WCAG_2.0-H64,AXE-Frame_title", $line, $column, $text,
                           String_Value("Missing title attribute for") .
                           "<$tag>");
         }
@@ -2445,9 +3334,27 @@ sub Frame_Tag_Handler {
             $title = $attr{"title"};
             $title =~ s/\s*//g;
             if ( $title eq "" ) {
-                Record_Result("WCAG_2.0-H64", $line, $column, $text,
+                Record_Result("WCAG_2.0-H64,AXE-Frame_title", $line, $column, $text,
                               String_Value("Missing title content for") .
                               "<$tag>");
+            }
+            #
+            # Have we seen this title before?
+            #
+            elsif ( defined($frame_title_location{"$title"}) ) {
+                ($frame_line, $frame_column) = split(/:/,
+                                     $frame_title_location{"$title"});
+                Record_Result("WCAG_2.0-H64,AXE-Frame_title_unique", $line, $column,
+                              $text, String_Value("Duplicate frame title") .
+                              " '$title'" .  " " .
+                              String_Value("Previous instance found at") .
+                              "$frame_line:$frame_column");
+            }
+            #
+            # Save frame location
+            #
+            else {
+                $frame_title_location{"$title"} = "$frame_line:$frame_column";
             }
         }
     }
@@ -2457,6 +3364,41 @@ sub Frame_Tag_Handler {
     #
     Check_Longdesc_Attribute("WCAG_2.0-H88", "<$tag>", $line, $column,
                              $text, %attr);
+}
+
+#***********************************************************************
+#
+# Name: End_Frame_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#              tag - tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function handles the frame or iframe close tag.
+#
+#***********************************************************************
+sub End_Frame_Tag_Handler {
+    my ($self, $tag, $line, $column, $text) = @_;
+
+    #
+    # No longer inside a frame.
+    #
+    print "End of $tag\n" if $debug;
+    $inside_frame = 0;
+    
+    #
+    # Check that there are no more than 1 main landmark in this frame
+    #
+    if ( defined($frame_landmark_count{"main"}) &&
+         ($frame_landmark_count{"main"} > 1) ) {
+        Record_Result("AXE-Landmark_one_main", $line, $column, $text,
+                      String_Value("Frame contains more than 1 landmark with") .
+                      " role=\"main\"");
+    }
 }
 
 #***********************************************************************
@@ -2533,7 +3475,7 @@ sub Table_Tag_Handler {
         # layout tables.
         #
         if ( $table_is_layout[$table_nesting_index] ) {
-            Record_Result("WCAG_2.0-F46", $line, $column, $text,
+            Record_Result("WCAG_2.0-F46,AXE-Layout_table", $line, $column, $text,
                           String_Value("summary found in layout table"));
         }
     }
@@ -2637,10 +3579,8 @@ sub End_Fieldset_Tag_Handler {
             #
             # Missing legend for fieldset
             #
-            foreach $tcid (@tcids) {
-                Record_Result($tcid, $line, $column, $text,
+            Record_Result(join(",", @tcids), $line, $column, $text,
                               String_Value("No legend found in fieldset"));
-            }
         }
 
         #
@@ -2700,7 +3640,7 @@ sub End_Table_Tag_Handler {
             foreach $h_ref (@$list_ref) {
                 ($h_line, $h_column, $h_headers, $h_text) = split(":", $h_ref, 4);
                 if ( ! defined($$header_values{$id}) ) {
-                    Record_Result("WCAG_2.0-H43", $h_line, $h_column, $h_text,
+                    Record_Result("WCAG_2.0-H43,AXE-Td_headers_attr", $h_line, $h_column, $h_text,
                                   String_Value("Table headers") .
                                   " \"$id\" " .
                                   String_Value("not defined within table"));
@@ -2811,8 +3751,35 @@ sub Blink_Tag_Handler {
     #
     # Have blinking that the user cannot control.
     #
-    Record_Result("WCAG_2.0-F47", $line, $column, $text,
+    Record_Result("WCAG_2.0-F47,AXE-Blink", $line, $column, $text,
                   String_Value("Blinking text in") . "<blink>");
+}
+
+#***********************************************************************
+#
+# Name: Body_Tag_Handler
+#
+# Parameters: self - reference to object
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the body tag.
+#
+#***********************************************************************
+sub Body_Tag_Handler {
+    my ( $self, $line, $column, $text, %attr ) = @_;
+
+    #
+    # Is there an aria-hidden attribute?
+    #
+    if ( defined($attr{"aria-hidden"}) && ($attr{"aria-hidden"} eq "true") ) {
+        Record_Result("WCAG_2.0-SC4.1.2,AXE-Aria_hidden_body", $line, $column, $text,
+                      String_Value("aria-hidden must not be present on the document body"));
+    }
 }
 
 #***********************************************************************
@@ -2841,30 +3808,21 @@ sub Check_Label_Aria_Id_or_Title {
     my ( $self, $tag, $label_required, $line, $column, $text, %attr ) = @_;
 
     my ($id, $title, $label, $last_seen_text, $complete_title);
-    my ($aria_describedby, $aria_labelledby, $aid, $clean_text);
+    my ($value, $clean_text, $label_is_aria_hidden);
     my ($label_line, $label_column, $label_is_visible, $label_is_hidden);
-    my ($aria_label);
+    my ($aria_describedby);
     my ($found_label) = 0;
     my ($found_fieldset) = 0;
 
     #
-    # Get possible title attribute
-    #
-    print "Check_Label_Aria_Id_or_Title for $tag, label_required = $label_required\n" if $debug;
-    if ( defined($attr{"title"}) ) {
-        $title = $attr{"title"};
-        $title =~ s/^\s*//g;
-        $title =~ s/\s*$//g;
-        print "Have title = \"$title\"\n" if $debug;
-    }
-
-    #
     # Get possible id attribute
     #
+    print "Check_Label_Aria_Id_or_Title for $tag, label_required = $label_required\n" if $debug;
     if ( defined($attr{"id"}) ) {
         $id = $attr{"id"};
         $id =~ s/^\s*//g;
         $id =~ s/\s*$//g;
+        print "Have id = \"$id\"\n" if $debug;
 
         #
         # Do we have content for the id attribute ?
@@ -2879,20 +3837,13 @@ sub Check_Label_Aria_Id_or_Title {
     }
 
     #
-    # If we are inside a fieldset, it (and it's legend) can
-    # act as a label (WCAG 2.0 H71).
+    # Get possible title attribute
     #
-    if ( $fieldset_tag_index > 0 ) {
-        #
-        # Inside a fieldset, the legend can act as a label.
-        #
-        print "Inside a fieldset, legend can be the label\n" if $debug;
-        $found_fieldset = 1;
-
-        #
-        # Increment count of inputs inside this fieldset
-        #
-        $fieldset_input_count{$fieldset_tag_index}++;
+    if ( defined($attr{"title"}) ) {
+        $title = $attr{"title"};
+        $title =~ s/^\s*//g;
+        $title =~ s/\s*$//g;
+        print "Have title = \"$title\"\n" if $debug;
     }
 
     #
@@ -2901,32 +3852,47 @@ sub Check_Label_Aria_Id_or_Title {
     if ( defined($attr{"aria-describedby"}) ) {
         $aria_describedby = $attr{"aria-describedby"};
         print "Have aria-describedby = \"$aria_describedby\"\n" if $debug;
-        $found_label = 1;
     }
 
+    #
+    # If we are inside a fieldset, it (and it's legend) can
+    # act as a partial label (WCAG 2.0 H71).  An explicit label is
+    # still required.
+    #
+    if ( $fieldset_tag_index > 0 ) {
+        #
+        # Inside a fieldset, the legend can act as a label.
+        #
+        print "Inside a fieldset, legend can be part of the label\n" if $debug;
+        $found_fieldset = 1;
+
+        #
+        # Increment count of inputs inside this fieldset
+        #
+        $fieldset_input_count{$fieldset_tag_index}++;
+    }
+    
     #
     # Get possible aria-label attribute
     #
     if ( defined($attr{"aria-label"}) ) {
-        $aria_label = $attr{"aria-label"};
-        print "Have aria-label = \"$aria_label\"\n" if $debug;
+        $value = $attr{"aria-label"};
+        print "Have aria-label = \"$value\"\n" if $debug;
         $found_label = 1;
     }
-
     #
     # Get possible aria-labelledby attribute
     #
-    if ( defined($attr{"aria-labelledby"}) ) {
-        $aria_labelledby = $attr{"aria-labelledby"};
-        print "Have aria-labelledby = \"$aria_labelledby\"\n" if $debug;
+    elsif ( defined($attr{"aria-labelledby"}) ) {
+        $value = $attr{"aria-labelledby"};
+        print "Have aria-labelledby = \"$value\"\n" if $debug;
         $found_label = 1;
     }
 
     #
     # Check id attribute and corresponding label
     #
-    if ( (! $found_label) && defined($id) ) {
-        print "Have id = \"$id\"\n" if $debug;
+    if ( (! $found_label) && defined($id) && ($id ne "") ) {
         $found_label = 1;
 
         #
@@ -2934,8 +3900,8 @@ sub Check_Label_Aria_Id_or_Title {
         # after this input).
         #
         if ( defined($label_for_location{$id}) ) {
-            ($label_line, $label_column, $label_is_visible, $label_is_hidden) = split(/:/,
-                 $label_for_location{$id});
+            ($label_line, $label_column, $label_is_visible,
+             $label_is_hidden, $label_is_aria_hidden) = split(/:/, $label_for_location{$id});
             print "Have label with id = $id at $label_line:$label_column\n" if $debug;
 
             #
@@ -2956,7 +3922,7 @@ sub Check_Label_Aria_Id_or_Title {
                     $clean_text = Clean_Text(Get_Text_Handler_Content($self, ""));
                     if ( $tag_is_visible && ($clean_text eq "") ) {
                         print "No label text before input\n" if $debug;
-                        Record_Result("WCAG_2.0-F68", $line, $column, $text,
+                        Record_Result("WCAG_2.0-F68,AXE-Label", $line, $column, $text,
                                       String_Value("Missing label before") .
                                       $tag);
                     }
@@ -2985,6 +3951,17 @@ sub Check_Label_Aria_Id_or_Title {
                               String_Value("started at line:column") .
                               " $label_line:$label_column");
             }
+            #
+            # Is the input visible and the label aria-hidden ?
+            #
+            elsif (  $tag_is_visible && $label_is_aria_hidden ) {
+                Record_Result("WCAG_2.0-H44", $line, $column, "",
+                              String_Value("Label referenced by") .
+                              " 'id=\"$id\"' " .
+                              String_Value("is inside aria-hidden tag") . ". <label> " .
+                              String_Value("started at line:column") .
+                              " $label_line:$label_column");
+            }
         }
         #
         # Must the label preceed the input ?
@@ -2993,21 +3970,16 @@ sub Check_Label_Aria_Id_or_Title {
             #
             # Missing label definition before input.
             # Don't report error if
-            #  a) we are inside a fieldset and there is more than 1 input
-            #  b) we have a title attribute and value
+            #  a) we have a title attribute and value
             #
-            if ( $found_fieldset && 
-                 ($fieldset_input_count{$fieldset_tag_index} == 1) ) {
-                print "Fieldset legend to act as label\n" if $debug;
-            }
-            elsif ( defined($title) && ($title ne "") ) {
+            if ( defined($title) && ($title ne "") ) {
                 print "Title attribute to act as label\n" if $debug;
             }
             #
             # Don't report error if <input> is not visible
             #
             elsif ( $tag_is_visible ) {
-                Record_Result("WCAG_2.0-F68", $line, $column, $text,
+                Record_Result("WCAG_2.0-F68,AXE-Label", $line, $column, $text,
                               String_Value("Missing label before") . $tag);
             }
         }
@@ -3018,16 +3990,11 @@ sub Check_Label_Aria_Id_or_Title {
             #
             # Label definition may be after input.
             # Don't record label reference if
-            #  a) we are inside a fieldset and there is more than 1 input
-            #  b) we have a title attribute and value
+            #  a) we have a title attribute and value
             # We record this id reference to make sure we find it
             # before the form ends.
             #
-            if ( $found_fieldset &&
-                 ($fieldset_input_count{$fieldset_tag_index} == 1) ) {
-                print "Fieldset legend to act as label\n" if $debug;
-            }
-            elsif ( defined($title) && ($title ne "") ) {
+            if ( defined($title) && ($title ne "") ) {
                 print "Title attribute to act as label\n" if $debug;
             }
             else {
@@ -3037,24 +4004,31 @@ sub Check_Label_Aria_Id_or_Title {
     }
 
     #
-    # Is this input inside a label ?
-    # If we haven't found a label yet then we don't have an id,
-    # aria-describedby, fieldset or any other label.  This must be an
-    # input simply nested inside a label and not explicitly associated
-    # with the input ?
+    # Is this input nested inside a label ?
     #
-    # Change to F68 technique description in 2015.  Nesting
-    # inputs in labels are valid.
+    if ( (! $found_label) && $inside_label ) {
+        print "Input inside of label\n" if $debug;
+        $found_label = 1;
+    }
+    
     #
-#    if ( (! $found_label) && $inside_label ) {
-#        print "Input inside of label\n" if $debug;
-#        $found_label = 1;
-#        if ( $tag_is_visible ) {
-#           Record_Result("WCAG_2.0-F68", $line, $column, $text,
-#                         String_Value("Found tag") . $tag .
-#                         String_Value("in") . "<label>");
-#        }
-#    }
+    # Do we have only a title as a possible label?
+    #
+    if ( ! $found_label ) {
+        if ( defined($title) && ($title ne "") ) {
+            Record_Result("AXE-Label_title_only", $line, $column, $text,
+                          String_Value("Only label for") . " $tag " .
+                          String_Value("is") . " title=\"$title\"");
+        }
+        #
+        # Do we have only an aria-describedby as a possible label?
+        #
+        elsif ( defined($aria_describedby) && ($aria_describedby ne "") ) {
+            Record_Result("AXE-Label_title_only", $line, $column, $text,
+                          String_Value("Only label for") . " $tag " .
+                          String_Value("is") . " aria-describedby=\"$aria_describedby\"");
+        }
+    }
 
     #
     # Get possible title attribute
@@ -3063,7 +4037,7 @@ sub Check_Label_Aria_Id_or_Title {
         print "Have title = \"$title\"\n" if $debug;
 
         #
-        # Did we have an id value ? and is it the same as the title ?
+        # Did we have an id value? and is it the same as the title?
         #
         if ( defined($id) && (lc($title) eq lc($id)) ) {
             Record_Result("WCAG_2.0-H65", $line, $column, $text,
@@ -3072,7 +4046,7 @@ sub Check_Label_Aria_Id_or_Title {
 
         #
         # If we don't have a label yet, do we have a title value
-        # to act as the title ?
+        # to act as the title?
         #
         if ( (! $found_label) && ($title eq "") ) {
             if ( $tag_is_visible ) {
@@ -3136,7 +4110,7 @@ sub Check_Label_Aria_Id_or_Title {
         if ( ! defined($last_label_attributes{"for"}) ) {
             $found_label = 1;
             if ( $tag_is_visible ) {
-                Record_Result("WCAG_2.0-F68", $line, $column, $text,
+                Record_Result("WCAG_2.0-F68,AXE-Label", $line, $column, $text,
                    String_Value("Previous label not explicitly associated to") .
                                     $tag);
             }
@@ -3159,7 +4133,7 @@ sub Check_Label_Aria_Id_or_Title {
         if ( defined($last_seen_text) && ($last_seen_text ne "") ) {
             $found_label = 1;
             if ( $tag_is_visible ) {
-                Record_Result("WCAG_2.0-F68", $line, $column, $text,
+                Record_Result("WCAG_2.0-F68,AXE-Label", $line, $column, $text,
                               String_Value("Text") . " \"$last_seen_text\" " .
                               String_Value("not marked up as a <label>"));
             }
@@ -3167,11 +4141,10 @@ sub Check_Label_Aria_Id_or_Title {
     }
 
     #
-    # Catch all case, no id, no aria attributes, no title, so we don't have an
-    # explicit label association.
+    # Catch all case, no id, no aria attributes, no title, so we don't have an explicit label association.
     #
     if ( (! $found_label) && ( $tag_is_visible) )  {
-        Record_Result("WCAG_2.0-F68", $line, $column, $text,
+        Record_Result("WCAG_2.0-F68,AXE-Label", $line, $column, $text,
                       String_Value("Label not explicitly associated to") .
                       $tag);
     }
@@ -3298,8 +4271,8 @@ sub Input_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
 
     my ($input_type, $id, $value, $input_tag_type, $label_location);
-    my ($label_error, $clean_text, $label_line, $label_column);
-    my ($label_is_visible, $label_is_hidden);
+    my ($label_error, $clean_text, $label_line, $label_column, $tcid);
+    my ($label_is_visible, $label_is_hidden, $label_is_aria_hidden);
     my ($found_label) = 0;
 
     #
@@ -3364,13 +4337,15 @@ sub Input_Tag_Handler {
         #
         # Check alt attributes ?
         #
-        Check_For_Alt_or_Text_Alternative("WCAG_2.0-F65", $input_tag_type,
-                                          $line, $column, $text, %attr);
+        Check_For_Alt_or_Text_Alternative("WCAG_2.0-F65,AXE-Input_image_alt",
+                                          $input_tag_type, $line, $column,
+                                          $text, %attr);
 
         #
         # Check for alt text content
         #
-        Check_Alt_Content("WCAG_2.0-H36", $input_tag_type, $self, $line,
+        Check_For_Alt_or_Text_Alternative_Content("WCAG_2.0-H36,AXE-Input_image_alt",
+                          $input_tag_type, $line,
                           $column, $text, %attr);
 
         #
@@ -3466,7 +4441,7 @@ sub Input_Tag_Handler {
         else {
             #
             # Label may appear after this input.  Label check will happen
-            # at the end of the document.
+            # at the end of the HTML page.
             #
             $found_label = Check_Label_Aria_Id_or_Title($self, $input_tag_type,
                                                         0, $line, $column,
@@ -3482,7 +4457,8 @@ sub Input_Tag_Handler {
                 #
                 $id = $attr{"id"};
                 if ( defined($label_for_location{$id}) ) {
-                    ($label_line, $label_column, $label_is_visible, $label_is_hidden) =
+                    ($label_line, $label_column, $label_is_visible,
+                     $label_is_hidden, $label_is_aria_hidden) =
                         split(/:/, $label_for_location{$id});
                     $label_location = "$label_line:$label_column";
                     $label_error = 0;
@@ -3547,19 +4523,9 @@ sub Input_Tag_Handler {
     #
     elsif ( index($input_types_requiring_value, " $input_type ") != -1 ) {
         #
-        # Do we have a value attribute ?
-        #
-        if ( defined($attr{"value"}) ) {
-            $value = $attr{"value"};
-            $value =~ s/\s//g;
-        }
-        else {
-            $value = "";
-        }
-
-        #
         # Did we find a <aria-label> attribute ?
         #
+        print "Button requiring a value or title attribute\n" if $debug;
         if ( (defined($attr{"aria-label"})) &&
                 ($attr{"aria-label"} ne "") ) {
             #
@@ -3590,6 +4556,8 @@ sub Input_Tag_Handler {
             #
             # Do we have an actual value ?
             #
+            $value = $attr{"value"};
+            $value =~ s/\s//g;
             if ( $value ne "" ) {
                 #
                 # Technique
@@ -3602,16 +4570,42 @@ sub Input_Tag_Handler {
             # is tag visible ?
             #
             elsif ( $tag_is_visible ) {
-                Record_Result("WCAG_2.0-H91", $line, $column, $text,
+                Record_Result("WCAG_2.0-H91,AXE-Input_button_name", $line, $column, $text,
                               String_Value("Missing value in") .
                               "$input_tag_type");
             }
         }
+        #
+        # Do we have a title attribute
+        #
+        elsif ( defined($attr{"title"}) ) {
+            #
+            # Do we have an actual value ?
+            #
+            $value = $attr{"title"};
+            $value =~ s/\s//g;
+            if ( $value eq "" ) {
+                Record_Result("AXE-Input_button_name", $line, $column, $text,
+                              String_Value("Missing title content for") .
+                              " $input_tag_type");
+            }
+        }
+        #
+        # If this is a submit or reset button, and ID attribute can be used
+        # to provide the text.
+        #
+        elsif ( (($input_type eq "reset") || ($input_type eq "submit")) &&
+                 (defined($attr{"id"}) && ($attr{"id"} ne "")) ) {
+            print "Have id on reset or submit button input\n" if $debug;
+        }
+        #
+        # If tag is visible, report error
+        #
         elsif ( $tag_is_visible ) {
             #
             # No value attribute
             #
-            Record_Result("WCAG_2.0-H91", $line, $column, $text,
+            Record_Result("WCAG_2.0-H91,AXE-Input_button_name", $line, $column, $text,
                           String_Value("Missing value attribute in") .
                           "$input_tag_type");
         }
@@ -3694,20 +4688,23 @@ sub Input_Tag_Handler {
             #
             elsif ( $attr{"name"} eq $last_radio_checkbox_name ) {
                 #
-                # Are we inside a fieldset and we don't have an
-                # explicit label ? 
+                # Are we inside a fieldset?
                 #
                 print "Next $input_type of a list, name = " . $attr{"name"} .
                       " last input name = $last_radio_checkbox_name\n" if $debug;
-                if ( $tag_is_visible && ($fieldset_tag_index == 0) &&
-                     (! $found_label) ) {
+                if ( $tag_is_visible && ($fieldset_tag_index == 0) ) {
                     #
                     # No fieldset for these inputs
                     #
-                    Record_Result("WCAG_2.0-H71", $line, $column, $text,
+                    $tcid = "WCAG_2.0-H71";
+                    if ( $input_type eq "checkbox" ) {
+                        $tcid .= ",AXE-Checkboxgroup";
+                    }
+                    elsif ( $input_type eq "radio" ) {
+                        $tcid .= ",AXE-Radiogroup";
+                    }
+                    Record_Result($tcid, $line, $column, $text,
                                   String_Value("Missing fieldset"));
-                    Record_Result("WCAG_2.0-F68", $line, $column, $text,
-                                  String_Value("No label for") . "<input>");
                 }
             }
         }
@@ -3891,7 +4888,8 @@ sub Select_Tag_Handler {
 #
 # Description:
 #
-#   This function checks for an accesskey attribute.
+#   This function checks for an accesskey attribute. Checks to see that
+# the value is unique and valid.
 #
 #***********************************************************************
 sub Check_Accesskey_Attribute {
@@ -3913,10 +4911,10 @@ sub Check_Accesskey_Attribute {
         #
         if ( length($accesskey) == 1 ) {
             #
-            # Have we seen this label id before ?
+            # Have we seen this accesskey value before ?
             #
             if ( defined($accesskey_location{"$accesskey"}) ) {
-                Record_Result("WCAG_2.0-F77", $line, $column,
+                Record_Result("WCAG_2.0-F77,AXE-Accesskeys", $line, $column,
                               $text, String_Value("Duplicate accesskey") .
                               "'$accesskey'" .  " " .
                               String_Value("Previous instance found at") .
@@ -3924,7 +4922,7 @@ sub Check_Accesskey_Attribute {
             }
 
             #
-            # Save label location
+            # Save accesskey location
             #
             $accesskey_location{"$accesskey"} = "$line:$column";
         }
@@ -3933,7 +4931,7 @@ sub Check_Accesskey_Attribute {
              # Invalid accesskey value.  The validator does not always
              # report this so we will.
              #
-             Record_Result("WCAG_2.0-F77", $line, $column,
+             Record_Result("WCAG_2.0-F77,AXE-Accesskeys", $line, $column,
                            $text, String_Value("Invalid content for") .
                            "'accesskey'");
         }
@@ -3961,6 +4959,7 @@ sub Label_Tag_Handler {
 
     my ($label_for, $input_tag_type, $input_line, $input_column);
     my ($label_line, $label_column, $label_is_visible, $label_is_hidden);
+    my ($label_is_aria_hidden);
 
     #
     # We are inside a label
@@ -3987,10 +4986,11 @@ sub Label_Tag_Handler {
             # Have we seen this label id before ?
             #
             if ( defined($label_for_location{"$label_for"}) ) {
-                ($label_line, $label_column, $label_is_visible, $label_is_hidden) = split(/:/,
+                ($label_line, $label_column, $label_is_visible,
+                 $label_is_hidden, $label_is_aria_hidden) = split(/:/,
                                      $label_for_location{"$label_for"});
-                Record_Result("WCAG_2.0-F77", $line, $column,
-                              $text, String_Value("Duplicate label id") .
+                Record_Result("WCAG_2.0-F77,AXE-Form_field_multiple_labels", $line, $column,
+                              $text, String_Value("Duplicate label for") .
                               "'$label_for'" .  " " .
                               String_Value("Previous instance found at") .
                               "$label_line:$label_column");
@@ -4014,7 +5014,7 @@ sub Label_Tag_Handler {
             # Save label location and visibility
             #
             print "Save label location $line:$column:$tag_is_visible:$tag_is_hidden\n" if $debug;
-            $label_for_location{"$label_for"} = "$line:$column:$tag_is_visible:$tag_is_hidden";
+            $label_for_location{"$label_for"} = "$line:$column:$tag_is_visible:$tag_is_hidden:$tag_is_aria_hidden";
         }
     }
 }
@@ -4151,9 +5151,7 @@ sub End_Label_Tag_Handler {
     #
     if ( $clean_text eq "" ) {
         if ( $tag_is_visible ) {
-            Record_Result("WCAG_2.0-H44", $line, $column,
-                          $text, String_Value("Missing text in") . "<label>");
-            Record_Result("WCAG_2.0-G131", $line, $column,
+            Record_Result("WCAG_2.0-H44,WCAG_2.0-G131", $line, $column,
                           $text, String_Value("Missing text in") . "<label>");
         }
     }
@@ -4256,7 +5254,7 @@ sub Marquee_Tag_Handler {
     # Found marquee tag which generates moving text.
     #
     if ( $tag_is_visible ) {
-        Record_Result("WCAG_2.0-F16", $line, $column,
+        Record_Result("WCAG_2.0-F16,AXE-Marquee", $line, $column,
                       $text, String_Value("Found tag") . "<marquee>");
     }
 }
@@ -4360,9 +5358,7 @@ sub End_Legend_Tag_Handler {
     #
     if ( $clean_text eq "" ) {
         if ( $tag_is_visible ) {
-            Record_Result("WCAG_2.0-H71", $line, $column,
-                          $text, String_Value("Missing text in") . "<legend>");
-            Record_Result("WCAG_2.0-G131", $line, $column,
+            Record_Result("WCAG_2.0-H71,WCAG_2.0-G131", $line, $column,
                           $text, String_Value("Missing text in") . "<legend>");
         }
     }
@@ -4535,7 +5531,20 @@ sub Possible_Pseudo_Heading {
 sub Check_Pseudo_Heading {
     my ( $tag, $content, $line, $column, $text ) = @_;
 
-    my ($has_emphasis, $found_heading, $style, $style_object);
+    my ($has_emphasis, $found_heading, $style, $style_object, $tcid);
+    
+    #
+    # Is the content from a <p> tag or some other tag (e.g. <div>)?
+    #
+    if ( $tag eq "p" ) {
+        #
+        # Add AXE testcase identifer to list
+        #
+        $tcid = "WCAG_2.0-F2,AXE-P_as_heading";
+    }
+    else {
+        $tcid = "WCAG_2.0-F2";
+    }
 
     #
     # Was there a pseudo-header ? Is it the entire contents of the 
@@ -4546,7 +5555,7 @@ sub Check_Pseudo_Heading {
         print "Possible pseudo-header paragraph \"$content\" at $line:$column\n" if $debug;
         if ( $found_content_after_heading ) {
             if ( $tag_is_visible ) {
-                Record_Result("WCAG_2.0-F2", $line, $column, $text,
+                Record_Result($tcid, $line, $column, $text,
                               String_Value("Text styled to appear like a heading") .
                               " \"$pseudo_header\"");
             }
@@ -4588,7 +5597,7 @@ sub Check_Pseudo_Heading {
                         print "Possible pseudo-header \"$content\" at $line:$column\n" if $debug;
                         if ( $found_content_after_heading ) {
                             if ( $tag_is_visible ) {
-                                Record_Result("WCAG_2.0-F2", $line, $column, $text,
+                                Record_Result($tcid, $line, $column, $text,
                                   String_Value("Text styled to appear like a heading") .
                                       " \"$content\"");
                             }
@@ -4753,7 +5762,7 @@ sub End_Div_Tag_Handler {
     Check_Pseudo_Heading("div", $clean_text, $line, $column, $text);
 
     #
-    # Was there any text in the paragraph ?
+    # Was there any text in the div ?
     #
     if ( $clean_text ne "" && (! $in_header_tag) ) {
         $found_content_after_heading = 1;
@@ -5158,7 +6167,7 @@ sub TH_Tag_Handler {
         # layout tables.
         #
         if ( $table_is_layout[$table_nesting_index] ) {
-            Record_Result("WCAG_2.0-F46", $line, $column, $text,
+            Record_Result("WCAG_2.0-F46,AXE-Layout_table", $line, $column, $text,
                           String_Value("Table header found in layout table"));
         }
         
@@ -5399,7 +6408,7 @@ sub TD_Tag_Handler {
         $td_attributes[$table_nesting_index] = \%local_attr;
 
         #
-        # Are we inside a <thead> ?
+        # Are we inside a <tfoot> ?
         #
         if ( $inside_tfoot[$table_nesting_index] ) {
             $table_th_td_in_tfoot_count[$table_nesting_index]++;
@@ -5751,9 +6760,9 @@ sub Track_Tag_Handler {
     my ($src, $kind, $tcid, $href, $resp_url, $resp);
 
     #
-    # Are we inside a video tag ?
+    # Are we inside a video or audio tag ?
     #
-    if ( $inside_video ) {
+    if ( $inside_video || $inside_audio ) {
         #
         # Do we have a kind attribute ?
         #
@@ -5763,7 +6772,16 @@ sub Track_Tag_Handler {
         else {
             $kind = "subtitles";
         }
-        $video_track_kind_map{$kind} = 1;
+        
+        #
+        # Save the kind of track
+        #
+        if ( $inside_video ) {
+            $video_track_kind_map{$kind} = 1;
+        }
+        else {
+            $audio_track_kind_map{$kind} = 1;
+        }
 
         #
         # Is this a caption or description track ?
@@ -5926,7 +6944,7 @@ sub End_Audio_Tag_Handler {
     #
     if (     (! defined($audio_track_kind_map{"captions"}))
           && (! defined($audio_track_kind_map{"descriptions"})) ) {
-        Record_Result("WCAG_2.0-G87", $line, $column, $text,
+        Record_Result("WCAG_2.0-G158,AXE-Audio_Caption", $line, $column, $text,
                       String_Value("No captions found for") . " <audio>");
     }
 
@@ -5980,17 +6998,38 @@ sub End_Video_Tag_Handler {
     #
     # No longer in a <video> .. </video> pair
     #
+    print "End video tag, check tracks\n" if $debug;
     $inside_video = 0;
     
     #
     # Did we find any closed captions or decsriptions tracks for
     # the video ?
     #
-    print "End video tag, check tracks\n" if $debug;
-    if (     (! defined($video_track_kind_map{"captions"}))
-          && (! defined($video_track_kind_map{"descriptions"})) ) {
-        Record_Result("WCAG_2.0-G87", $line, $column, $text,
+    if ( ! defined($video_track_kind_map{"captions"}) ) {
+        Record_Result("AXE-Video_Caption", $line, $column, $text,
                       String_Value("No captions found for") . " <video>");
+    }
+    if ( ! defined($video_track_kind_map{"descriptions"}) ) {
+        Record_Result("AXE-Video_Description", $line, $column, $text,
+                      String_Value("No descriptions found for") . " <video>");
+    }
+
+    #
+    # Are we inside a figure?
+    #
+    if ( ! $in_figure ) {
+        if ( (! defined($video_track_kind_map{"captions"})) &&
+             (! defined($video_track_kind_map{"descriptions"})) ) {
+            Record_Result("WCAG_2.0-G87", $line, $column, $text,
+                          String_Value("No captions found for") . " <video>");
+        }
+    }
+    #
+    # Inside a figure tag. Are we missing captions or description?
+    #
+    elsif ( (! defined($video_track_kind_map{"captions"})) &&
+            (! defined($video_track_kind_map{"descriptions"})) ) {
+        $video_in_figure_with_no_caption = 1;
     }
 
     #
@@ -6027,13 +7066,14 @@ sub Area_Tag_Handler {
     #
     # Check alt attribute
     #
-    Check_For_Alt_or_Text_Alternative("WCAG_2.0-F65", "<area>", $line,
+    Check_For_Alt_or_Text_Alternative("WCAG_2.0-F65,AXE-Area_alt", "<area>", $line,
                                       $column, $text, %attr);
 
     #
     # Check for alt text content
     #
-    Check_Alt_Content("WCAG_2.0-H24", "<area>", $self, $line, $column, $text, %attr);
+    Check_For_Alt_or_Text_Alternative_Content("WCAG_2.0-H24,AXE-Area_alt", "<area>",
+                                              $line, $column, $text, %attr);
 }
 
 #***********************************************************************
@@ -6211,6 +7251,7 @@ sub Image_Tag_Handler {
     my ($alt, $invalid_alt, $aria_label, $src, $src_url);
     my ($protocol, $domain, $query, $new_url, $file_name, $file_name_no_suffix);
     my ($f30_reported) = 0;
+    my ($text_alternative) = "";
 
     #
     # Are we inside an anchor tag ?
@@ -6236,7 +7277,7 @@ sub Image_Tag_Handler {
     #  reference http://www.w3.org/html/wg/drafts/html/master/embedded-content-0.html#guidance-for-conformance-checkers
     #
     if ( ! $in_figure ) {
-        Check_For_Alt_or_Text_Alternative("WCAG_2.0-F65", "<img>", $line,
+        Check_For_Alt_or_Text_Alternative("WCAG_2.0-F65,AXE-Image_alt", "<img>", $line,
                                           $column, $text, %attr);
     }
     #
@@ -6276,6 +7317,7 @@ sub Image_Tag_Handler {
         $last_image_alt_text = $attr{"alt"};
         $last_image_alt_text = Clean_Text($last_image_alt_text);
         $last_image_alt_text = lc($last_image_alt_text);
+        $text_alternative = $last_image_alt_text;
 
         #
         # If we have a text handler capturing text, add the alt text
@@ -6297,6 +7339,13 @@ sub Image_Tag_Handler {
             $fig_image_column = $column;
             $fig_image_text = $text;
         }
+    }
+    
+    #
+    # Check for aria-label text alternative
+    #
+    if ( defined($attr{"aria-label"}) ) {
+        $text_alternative .= $attr{"aria-label"};
     }
 
     #
@@ -6320,7 +7369,7 @@ sub Image_Tag_Handler {
                 # Do we have a match on the invalid alt text ?
                 #
                 if ( $alt =~ /^$invalid_alt$/i ) {
-                    Record_Result("WCAG_2.0-F30", $line, $column, $text,
+                    Record_Result("WCAG_2.0-F30,AXE-Image_alt", $line, $column, $text,
                                   String_Value("Invalid alt text value") .
                                   " '" . $attr{"alt"} . "'");
                     $f30_reported = 1;
@@ -6361,7 +7410,7 @@ sub Image_Tag_Handler {
               || ($attr{"alt"} eq $file_name)
               || ($attr{"alt"} eq $file_name_no_suffix) ) {
             print "src eq alt\n" if $debug;
-            Record_Result("WCAG_2.0-F30", $line, $column, $text,
+            Record_Result("WCAG_2.0-F30,AXE-Image_alt", $line, $column, $text,
                           String_Value("Image alt same as src"));
             $f30_reported = 1;
         }
@@ -6384,7 +7433,7 @@ sub Image_Tag_Handler {
                 # Do we have a match on the invalid alt text ?
                 #
                 if ( $aria_label =~ /^$invalid_alt$/i ) {
-                    Record_Result("WCAG_2.0-F30", $line, $column, $text,
+                    Record_Result("WCAG_2.0-F30,AXE-Image_alt", $line, $column, $text,
                                   String_Value("Invalid aria-label text value") .
                                   " '" . $attr{"aria-label"} . "'");
                     $f30_reported = 1;
@@ -6416,6 +7465,17 @@ sub Image_Tag_Handler {
                          String_Value("in decorative image"));
         }
     }
+    
+    #
+    # Check for role="presentation" and a text alternative
+    #
+    if ( defined($attr{"role"}) && ($attr{"role"} eq "presentation") &&
+         ($text_alternative ne "") ) {
+           Record_Result("WCAG_2.0-F39", $line, $column, $text,
+                         String_Value("Text alternative") .
+                         " \"$text_alternative\" " .
+                         String_Value("in decorative image"));
+    }
 }
 
 #***********************************************************************
@@ -6437,6 +7497,7 @@ sub HTML_Tag_Handler {
     my ( $line, $column, $text, %attr ) = @_;
 
     my ($lang) = "unknown";
+    my ($lang_attr_value);
 
     #
     # If this is not XHTML 2.0, we must have a 'lang' attribute
@@ -6450,7 +7511,7 @@ sub HTML_Tag_Handler {
             # Missing language attribute
             #
             if ( ! $modified_content ) {
-                Record_Result("WCAG_2.0-H57", $line, $column, $text,
+                Record_Result("WCAG_2.0-H57,AXE-Html_has_lang", $line, $column, $text,
                               String_Value("Missing html language attribute") .
                               " 'lang'");
             }
@@ -6460,7 +7521,18 @@ sub HTML_Tag_Handler {
             # Save language code, but strip off any dialect value
             #
             $lang = lc($attr{"lang"});
+            $lang_attr_value = $lang;
             $lang =~ s/-.*$//g;
+
+            #
+            # Is language valid ?
+            #
+            if ( ! Language_Valid($lang_attr_value) ) {
+                Record_Result("WCAG_2.0-H57,AXE-Html_lang_valid", $line, $column, $text,
+                              String_Value("Invalid language attribute value") .
+                              " lang=\"$lang_attr_value\"");
+
+            }
         }
     }
 
@@ -6476,7 +7548,7 @@ sub HTML_Tag_Handler {
             # Missing language attribute
             #
             if ( ! $modified_content ) {
-                Record_Result("WCAG_2.0-H57", $line, $column, $text,
+                Record_Result("WCAG_2.0-H57,AXE-Html_has_lang", $line, $column, $text,
                               String_Value("Missing html language attribute") .
                               " 'xml:lang'");
             }
@@ -6486,7 +7558,17 @@ sub HTML_Tag_Handler {
             # Save language code, but strip off any dialect value
             #
             $lang = lc($attr{"xml:lang"});
+            $lang_attr_value = $lang;
             $lang =~ s/-.*$//g;
+
+            #
+            # Is language valid ?
+            #
+            if ( ! Language_Valid($lang_attr_value) ) {
+                Record_Result("WCAG_2.0-H57,AXE-Html_lang_valid", $line, $column, $text,
+                              String_Value("Invalid language attribute value") .
+                              " xml:lang=\"$lang_attr_value\"");
+            }
         }
     }
 
@@ -6499,7 +7581,7 @@ sub HTML_Tag_Handler {
         #
         if ( lc($attr{"lang"}) ne lc($attr{"xml:lang"}) ) {
             if ( ! $modified_content ) {
-                Record_Result("WCAG_2.0-H57", $line, $column, $text,
+                Record_Result("WCAG_2.0-H57,AXE-Html_xml_lang_mismatch", $line, $column, $text,
                               String_Value("Mismatching lang and xml:lang attributes") .
                               String_Value("for tag") . "<html>");
             }
@@ -6519,12 +7601,43 @@ sub HTML_Tag_Handler {
         # Does the lang attribute match the content language ?
         #
         if ( $lang ne $current_content_lang_code ) {
-            Record_Result("WCAG_2.0-H57", $line, $column, $text,
+            Record_Result("WCAG_2.0-H57,AXE-Html_lang_valid", $line, $column, $text,
                           String_Value("HTML language attribute") .
                           " '$lang' " .
                           String_Value("does not match content language") .
                           " '$current_content_lang_code'");
         }
+    }
+    
+    #
+    # Is this a right to left language?
+    #
+    if ( defined($right_to_left_languages{$lang}) ) {
+        #
+        # Do we have a dir attribute to specify the direction of the
+        # language (right to left)?
+        #
+        if ( ! defined($attr{"dir"}) ) {
+            Record_Result("WCAG_2.0-H57", $line, $column, $text,
+                          String_Value("Missing dir attribute for right to left language") .
+                          " lang=\"$lang\"");
+        }
+        #
+        # Is the direction right to left?
+        #
+        elsif ( $attr{"dir"} ne "rtl" ) {
+            Record_Result("WCAG_2.0-H57", $line, $column, $text,
+                          String_Value("Invalid direction for right to left language") .
+                          " lang=\"$lang\" dir=\"" . $attr{"dir"} . "\"");
+        }
+    }
+    #
+    # Must be a left to right language, is the direction set correctly?
+    #
+    elsif ( defined($attr{"dir"}) && ($attr{"dir"} ne "ltr") ) {
+            Record_Result("WCAG_2.0-H57", $line, $column, $text,
+                          String_Value("Invalid direction for left to right language") .
+                          " lang=\"$lang\" dir=\"" . $attr{"dir"} . "\"");
     }
     
     #
@@ -6545,7 +7658,7 @@ sub HTML_Tag_Handler {
             # If the IE conditional content is enabled, the language
             # is different in some cases (which it should not be).
             #
-            Record_Result("WCAG_2.0-H57", $line, $column, $text,
+            Record_Result("WCAG_2.0-H57,AXE-Html_has_lang", $line, $column, $text,
                           String_Value("HTML language attribute") .
                           " '$lang' " .
                           String_Value("does not match previous value") .
@@ -6593,8 +7706,7 @@ sub Meta_Tag_Handler {
         # timeout value.  We don't check both F40 and F41 as the test
         # is the same and would result in 2 messages for the same issue.
         #
-        if ( defined($$current_tqa_check_profile{"WCAG_2.0-F40"}) &&
-             defined($attr{"content"}) ) {
+        if ( defined($attr{"content"}) ) {
             $content = $attr{"content"};
 
             #
@@ -6621,8 +7733,9 @@ sub Meta_Tag_Handler {
                                           "'$value'");
                         }
                         else {
-                            Record_Result("WCAG_2.0-F41", $line, $column, $text,
-                                  String_Value("Meta refresh with timeout") .
+                            Record_Result("WCAG_2.0-F41,AXE-Meta_refresh",
+                                          $line, $column, $text,
+                                    String_Value("Meta refresh with timeout") .
                                           "'$value'");
                         }
                     }
@@ -6669,7 +7782,8 @@ sub Meta_Tag_Handler {
                 # some moble devices (e.g. IOS).
                 #
                 if ( $value =~ /user-scalable=no/i ) {
-                    Record_Result("WCAG_2.0-SC1.4.4", $line, $column, $text,
+                    Record_Result("WCAG_2.0-SC1.4.4,AXE-Meta_viewport",
+                                   $line, $column, $text,
                                    String_Value("Meta viewport with user-scalable disabled"));
                 }
                 #
@@ -6677,13 +7791,24 @@ sub Meta_Tag_Handler {
                 #
                 elsif ( $value =~ /maximum-scale/ ) {
                     #
+                    # Is the maximum scaling less than 2 ?
+                    #
+                    $value =~ s/^\s*maximum-scale=//g;
+                    print "maximum-scale = $value\n" if $debug;
+                    if ( $value < 2.0 ) {
+                        Record_Result("WCAG_2.0-SC1.4.4,AXE-Meta_viewport",
+                                      $line, $column, $text,
+                                      String_Value("Meta viewport maximum-scale less than") .
+                                      " 2");
+                    }
+                    #
                     # Is the maximum scaling less than 5 ?
                     #
-                    $value =~ s/^maximum-scale=//g;
-                    print "maximum-scale = $value\n" if $debug;
-                    if ( $value < 5.0 ) {
-                        Record_Result("WCAG_2.0-SC1.4.4", $line, $column, $text,
-                                      String_Value("Meta viewport maximum-scale less than 5.0"));
+                    elsif ( $value < 5.0 ) {
+                        Record_Result("AXE-Meta_viewport_large",
+                                      $line, $column, $text,
+                                      String_Value("Meta viewport maximum-scale less than") .
+                                      " 5");
                     }
                 }
             }
@@ -7092,7 +8217,7 @@ sub Link_Tag_Handler {
     #
     # Check for rel attribute of the tag
     #
-    Check_Rel_Attribute("link", $line, $column, $text, 1, %attr);
+    Check_Rel_Attribute("link", $line, $column, $text, 0, %attr);
 }
 
 #***********************************************************************
@@ -7114,7 +8239,7 @@ sub Link_Tag_Handler {
 sub Main_Tag_Handler {
     my ($line, $column, $text, %attr) = @_;
     
-    my ($last_main, $last_line, $last_column, $tag, $first_tag);
+    my ($last_main, $last_line, $last_column, $tag, $first_tag, $n, $tag);
 
     #
     # Is there a hidden attribute on this tag? If so we don't consider
@@ -7124,6 +8249,31 @@ sub Main_Tag_Handler {
         print "Hidden <main>, don't check for duplicate main sections\n" if $debug;
     }
     else {
+        #
+        # Is this landmark a top level landmark (i.e. not contained within
+        # any other landmark)?  Check that the landmark of the parent
+        # tag is blank.
+        #
+        $n = @tag_order_stack;
+        if ( $n > 1 ) {
+           $tag = $tag_order_stack[$n - 2];
+        }
+        else {
+            undef($tag);
+        }
+        if ( defined($tag) &&
+            (($tag->landmark() ne "") && ($tag->landmark() ne "body")) ) {
+            #
+            # Main landmark contained within another landmark
+            #
+            print "Non blank landmark " . $tag->landmark() .
+                  " on parent tag " . $tag->tag() . "\n" if $debug;
+            Record_Result("WCAG_2.0-SC1.3.1,AXE-Landmark_main_is_top_level",
+                          $line, $column, $text,
+                          String_Value("Main landmark nested in") .
+                          " \"" . $tag->landmark() . "\"");
+        }
+
         #
         # Have we already seen a <main> or a <section> or <div> tag
         # with a role="main" attribute?
@@ -7291,6 +8441,22 @@ sub Anchor_Tag_Handler {
         $href =~ s/\s*$//g;
         $current_a_href = $href;
         print "Anchor_Tag_Handler, current_a_href = \"$current_a_href\"\n" if $debug;
+        
+        #
+        # Is the href a JavaScript function?
+        #
+        if ( $href =~ /^javascript:/i ) {
+            Record_Result("AXE-Href_no_hash", $line, $column,
+                          $text, String_Value("Link href contains JavaScript"));
+        }
+
+        #
+        # Does the href end in a # symbol (i.e. no anchor name provided)?
+        #
+        if ( $href =~ /#$/i ) {
+            Record_Result("AXE-Href_no_hash", $line, $column,
+                          $text, String_Value("Link href ends with #"));
+        }
 
         #
         # Do we have a aria-label attribute for this link ?
@@ -7374,6 +8540,15 @@ sub Anchor_Tag_Handler {
     elsif ( $tag_is_visible) {
         Record_Result("WCAG_2.0-G115", $line, $column, $text,
                       String_Value("Missing href, id, name or xlink in <a>"));
+    }
+    
+    #
+    # Do we have an onclick attribute that activates the line?
+    #
+    if ( defined($attr{"onclick"}) &&
+         ($attr{"onclick"} =~ /window\.location\.href/i) ) {
+        Record_Result("AXE-Href_no_hash", $line, $column,
+                      $text, String_Value("Link contains onclick"));
     }
 
     #
@@ -7494,7 +8669,7 @@ sub Declaration_Handler {
 sub Start_H_Tag_Handler {
     my ( $self, $tagname, $line, $column, $text, %attr ) = @_;
 
-    my ($level);
+    my ($level, $aria_level);
 
     #
     # Get heading level number from the tag
@@ -7503,6 +8678,43 @@ sub Start_H_Tag_Handler {
     $level =~ s/^h//g;
     print "Found heading $tagname\n" if $debug;
     $total_heading_count++;
+    
+    #
+    # Is this an h1?
+    #
+    if ( $level == 1 ) {
+        $found_h1 = 1;
+    }
+    
+    #
+    # Do we have an aria-level attribute?
+    #
+    if ( defined($attr{"aria-level"}) ) {
+        #
+        # Does the aria-level match the heading level?
+        #
+        $aria_level = $attr{"aria-level"};
+        if ( $aria_level != $level ) {
+            Record_Result("WCAG_2.0-SC4.1.2", $line, $column, $text,
+                          String_Value("Heading level, aria-level mismatch") .
+                          " <$tagname aria-level=\"$aria_level\">");
+        }
+
+        #
+        # Is this a level 1 heading?
+        #
+        if ( $aria_level == 1 ) {
+            $found_h1 = 1;
+        }
+    }
+    
+    #
+    # Is this a heading hidden from assistive technology?
+    #
+    if ( defined($attr{"aria-hidden"}) && ($attr{"aria-hidden"} eq "true") ) {
+        Record_Result("AXE-Empty_heading", $line, $column,
+                      $text, String_Value("Content hidden from assistive technology"));
+    }
 
     #
     # Are we inside the content area ?
@@ -7521,10 +8733,23 @@ sub Start_H_Tag_Handler {
     # set
     #
     $inside_h_tag_set = 1;
+    
+    #
+    # Check that the heading level only increments by 1
+    #
+    if ( defined($current_heading_level) && ($current_heading_level < $level) &&
+         ($level != ($current_heading_level + 1) ) ) {
+        Record_Result("AXE-Heading_order", $line, $column, $text,
+                      String_Value("Heading level increased by more than one, expected") .
+                      " <h" . ($current_heading_level + 1) . ">");
+    }
 
     #
     # Save new heading level
     #
+    if ( defined($current_heading_level) ) {
+        push(@heading_level_stack, $current_heading_level);
+    }
     $current_heading_level = $level;
     
     #
@@ -7535,7 +8760,6 @@ sub Start_H_Tag_Handler {
                       "<hr>" . String_Value("followed by") . "<$tagname> " .
                       String_Value("used for decoration"));
     }
-
 }
 
 #***********************************************************************
@@ -7557,6 +8781,7 @@ sub End_H_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
     my ($this_text, $last_line, $last_column, $clean_text);
+    my ($h_count, $last_h);
 
     #
     # Get all the text found within the h tag
@@ -7585,10 +8810,8 @@ sub End_H_Tag_Handler {
     #
     if ( $last_heading_text eq "" ) {
         if ( $tag_is_visible ) {
-            Record_Result("WCAG_2.0-F43", $line, $column,
-                          $text, String_Value("Missing text in") . "<h>");
-            Record_Result("WCAG_2.0-G130", $line, $column,
-                          $text, String_Value("Missing text in") . "<h>");
+            Record_Result("WCAG_2.0-F43,WCAG_2.0-G130,AXE-Empty_heading", $line, $column,
+                          $text, String_Value("Missing text in") . "<h$current_heading_level>");
         }
     }
     #
@@ -7610,7 +8833,21 @@ sub End_H_Tag_Handler {
     # <h> ... </h> tag set
     #
     $inside_h_tag_set = 0;
-    
+
+    #
+    # While this heading's level is lower than the previous
+    # heading, walk up the heading stack to get to the logical
+    # parent heading.
+    #
+    $h_count = scalar(@heading_level_stack);
+    while ( ($h_count > 0) &&
+            ($current_heading_level <= $heading_level_stack[($h_count - 1)]) ) {
+        print "Remove heading level " . $heading_level_stack[($h_count - 1)] .
+              " from heading stack\n" if $debug;
+        pop(@heading_level_stack);
+        $h_count = scalar(@heading_level_stack);
+    }
+
     #
     # Unset flag to indicate we found content after a heading.
     #
@@ -7698,7 +8935,7 @@ sub End_Object_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
     my ($this_text, $last_line, $last_column, $tcid);
-    my (@tcids, $clean_text);
+    my ($clean_text);
 
     #
     # Get all the text found within the object tag
@@ -7713,16 +8950,6 @@ sub End_Object_Tag_Handler {
     #
     $clean_text = Clean_Text(Get_Text_Handler_Content($self, " "));
     print "End_Object_Tag_Handler: text = \"$clean_text\"\n" if $debug;
-
-    #
-    # A lack of text in an object can fail multiple testcases
-    #
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H27"}) ) {
-        push(@tcids, "WCAG_2.0-H27");
-    }
-    if ( defined($$current_tqa_check_profile{"WCAG_2.0-H53"}) ) {
-        push(@tcids, "WCAG_2.0-H53");
-    }
 
     #
     # Do we have a label attribute (e.g. aria-label) ?
@@ -7740,12 +8967,8 @@ sub End_Object_Tag_Handler {
     # No text alternative for object tag.
     #
     elsif ( $tag_is_visible) {
-        if ( @tcids > 0 ) {
-            foreach $tcid (@tcids) {
-                Record_Result($tcid, $line, $column, $text,
-                              String_Value("Missing text in") . "<object>");
-            }
-        }
+        Record_Result("WCAG_2.0-H27,WCAG_2.0-H53,AXE-Object_alt", $line, $column, $text,
+                      String_Value("Missing text in") . "<object>");
     }
 
     #
@@ -7787,8 +9010,8 @@ sub Applet_Tag_Handler {
     #
     # Check alt text content ?
     #
-    Check_Alt_Content("WCAG_2.0-H35", "<applet>", $self, $line,
-                      $column, $text, %attr);
+    Check_For_Alt_or_Text_Alternative_Content("WCAG_2.0-H35", "<applet>", $line,
+                                              $column, $text, %attr);
 }
 
 #***********************************************************************
@@ -8184,7 +9407,7 @@ sub End_Button_Tag_Handler {
     # Is tag visible ?
     #
     elsif ( $tag_is_visible ) {
-        Record_Result("WCAG_2.0-H91", $line, $column,
+        Record_Result("WCAG_2.0-H91,AXE-Button_name", $line, $column,
                       $text, String_Value("Missing text in") . "<button>");
     }
 }
@@ -8212,7 +9435,7 @@ sub Caption_Tag_Handler {
     # layout tables.
     #
     if ( $table_is_layout[$table_nesting_index] ) {
-        Record_Result("WCAG_2.0-F46", $line, $column, $text,
+        Record_Result("WCAG_2.0-F46,AXE-Layout_table", $line, $column, $text,
                       String_Value("caption found in layout table"));
     }
 }
@@ -8281,9 +9504,8 @@ sub End_Caption_Tag_Handler {
             # Caption the same as table summary.
             #
             if ( $tag_is_visible ) {
-                Record_Result("WCAG_2.0-H39", $line, $column, $text,
-                              String_Value("Duplicate table summary and caption"));
-                Record_Result("WCAG_2.0-H73", $line, $column, $text,
+                Record_Result("WCAG_2.0-H39,WCAG_2.0-H73,AXE-Table_duplicate_name",
+                              $line, $column, $text,
                               String_Value("Duplicate table summary and caption"));
             }
         }
@@ -8475,6 +9697,7 @@ sub Figure_Tag_Handler {
     #
     $have_figcaption = 0;
     $image_in_figure_with_no_alt = 0;
+    $video_in_figure_with_no_caption = 0;
     $fig_image_line = 0;
     $fig_image_column = 0;
     $fig_image_text = "";
@@ -8515,7 +9738,14 @@ sub End_Figure_Tag_Handler {
         #
         # Was there a figcaption ? The figcaption can act as the alt
         # text for the image.
-        #  Reference: http://www.w3.org/html/wg/drafts/html/master/embedded-content-0.html#guidance-for-conformance-checkers
+        #  Reference: https://www.w3.org/TR/html5/semantics-embedded-content.html
+        #
+        # If the image is a descendant of a figure element that has a child
+        # figcaption element, and, ignoring the figcaption element and its
+        # descendants, the figure element has no Text node descendants other
+        # than inter-element white space, and no embedded content descendant
+        # other than the img element, then the contents of the first such
+        # figcaption element are the caption information.
         #
         if ( ($tag_is_visible ) && (! $have_figcaption) ) {
             #
@@ -8528,9 +9758,28 @@ sub End_Figure_Tag_Handler {
     }
 
     #
+    # Did we find video in this figure that did not have captions?
+    #
+    if ( $video_in_figure_with_no_caption ) {
+        #
+        # Was there a figcaption? The figcaption can act as the caption
+        # text for the video.
+        #
+        if ( ($tag_is_visible ) && (! $have_figcaption) ) {
+            #
+            # No figcaption and captions for video.
+            #
+            Record_Result("WCAG_2.0-G87", $line, $column, $text,
+                          String_Value("No captions found for") . " <video>");
+        }
+    }
+
+    #
     # End of figure tag
     #
     $in_figure = 0;
+    $video_in_figure_with_no_caption = 0;
+    $image_in_figure_with_no_alt = 0;
 }
 
 #***********************************************************************
@@ -8852,18 +10101,38 @@ sub Check_Event_Handlers {
 #***********************************************************************
 sub Start_Title_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
+    
+    my ($tag, $found_svg);
 
     #
-    # We found a title tag.
+    # Are we inside the <head> section?
     #
-    $found_title_tag = 1;
     print "Start_Title_Tag_Handler\n" if $debug;
-
-    #
-    # Are we outside of the <head> section of the document ?
-    #
-    if ( ! $in_head_tag ) {
-        Tag_Not_Allowed_Here("title", $line, $column, $text);
+    if ( $in_head_tag ) {
+        #
+        # We found the page title tag.
+        #
+        $found_title_tag = 1;
+    }
+    else {
+        #
+        # Are we inside an <svg> tag? It is allowed to have a <title> also
+        #
+        $found_svg = 0;
+        foreach $tag (reverse @tag_order_stack) {
+            if ( $tag->tag eq "svg" ) {
+                print "Found parent <svg> tag\n" if $debug;
+                $found_svg = 1;
+                last;
+            }
+        }
+        
+        #
+        # Did we find a valid parent tag?
+        #
+        if ( ! $found_svg ) {
+            Tag_Not_Allowed_Here("title", $line, $column, $text);
+        }
     }
 }
 
@@ -9734,6 +11003,59 @@ sub Check_Cite_Attribute {
 
 #***********************************************************************
 #
+# Name: Is_Presentation_Tag
+#
+# Parameters: None
+#
+# Description:
+#
+#   This function checks to see if the current tag is a presentation
+# tag. It checks for a role attribute with value presentation or
+# separator.
+#
+#***********************************************************************
+sub Is_Presentation_Tag {
+    my ($attr, $role);
+    my ($is_presentation) = 0;
+    
+    #
+    # Get the attributes from the current tag
+    #
+    if ( defined($current_tag_object) ) {
+        $attr = $current_tag_object->attr();
+        
+        #
+        # Do we have a role attribute?
+        #
+        if ( defined($$attr{"role"}) ) {
+            $role = $$attr{"role"};
+            print "Is_Presentation_Tag, role=$role\n" if $debug;
+            
+            #
+            # Does the role contain "presentation"?
+            #
+            if ( $role =~ /presentation/ ) {
+                $is_presentation = 1;
+                print "Tag contains role=presentation\n" if $debug;
+            }
+            #
+            # Does the role contain "separator"?
+            #
+            if ( $role =~ /separator/ ) {
+                $is_presentation = 1;
+                print "Tag contains role=separator\n" if $debug;
+            }
+        }
+    }
+    
+    #
+    # Return presentation indicator
+    #
+    return($is_presentation);
+}
+
+#***********************************************************************
+#
 # Name: Blockquote_Tag_Handler
 #
 # Parameters: self - reference to this parser
@@ -9804,7 +11126,8 @@ sub End_Blockquote_Tag_Handler {
     #
     # Check that we have some content.
     #
-    if ( $tag_is_visible && ($clean_text eq "") ) {
+    if ( $tag_is_visible && ($clean_text eq "") &&
+         ( ! Is_Presentation_Tag())) {
         #
         # Missing text for tag
         #
@@ -9844,6 +11167,16 @@ sub Li_Tag_Handler {
         # Not in a list
         #
         Tag_Not_Allowed_Here("li", $line, $column, $text);
+    }
+
+    #
+    # Is the parent tag for this an ol or ul tag?
+    #
+    if ( ($parent_tag ne "ol") && ($parent_tag ne "ul") ) {
+        Record_Result("WCAG_2.0-SC1.3.1,AXE-Listitem", $line, $column, $text,
+                      String_Value("Tag") . " <li> " .
+                      String_Value("must be contained by") . " <ol> " .
+                      String_Value("or") . " <ul>");
     }
 }
 
@@ -9896,7 +11229,8 @@ sub End_Li_Tag_Handler {
     #
     # Are we missing li content or text ?
     #
-    if ( $tag_is_visible && ($clean_text eq "") ) {
+    if ( $tag_is_visible && ($clean_text eq "") &&
+         ( ! Is_Presentation_Tag()) ) {
         Record_Result("WCAG_2.0-G115", $line, $column,
                       $text, String_Value("Missing content in") . "<li>");
     }
@@ -10097,6 +11431,39 @@ sub Dd_Tag_Handler {
     if ( $current_list_level > -1 ) {
         $inside_dd[$current_list_level] = 1;
         print "Start new dd, level $current_list_level\n" if $debug;
+        
+        #
+        # Do we have a <dt> tag that preceeds this <dd>?
+        #
+        if ( $dt_tag_found[$current_list_level] ) {
+            #
+            # Have a <dt>, resent found flag to false for
+            # next possible <dt>, <dd> pair.
+            #
+            $dt_tag_found[$current_list_level] = 0;
+        }
+        else {
+            #
+            # No <dt> tag before this <dd>
+            #
+            Record_Result("WCAG_2.0-SC1.3.1,AXE-Definition_List", $line, $column, $text,
+                          String_Value("Missing dt tag before dd tag"));
+        }
+    }
+    else {
+        #
+        # Not in a list
+        #
+        Tag_Not_Allowed_Here("dd", $line, $column, $text);
+    }
+
+    #
+    # Is the parent tag for this a dl tag?
+    #
+    if ( $parent_tag ne "dl" ) {
+        Record_Result("WCAG_2.0-SC1.3.1,AXE-Dlitem", $line, $column, $text,
+                      String_Value("Tag") . " <dd> " .
+                      String_Value("must be contained by") . " <dl>");
     }
 }
 
@@ -10149,12 +11516,38 @@ sub Dt_Tag_Handler {
     #
     if ( $current_list_level > -1 ) {
         $list_item_count[$current_list_level]++;
+        
+        #
+        # Do we have a <dt> tag that preceeds this <dt>
+        # (i.e. we are missing a <dd> tag)?
+        #
+        if ( $dt_tag_found[$current_list_level] ) {
+            #
+            # No <dd> tag between this <dt> and the previous <dt>
+            #
+            Record_Result("WCAG_2.0-SC1.3.1,AXE-Definition_List", $line, $column, $text,
+                          String_Value("Missing dd tag between previous dt tag and this dt tag"));
+        }
+        
+        #
+        # Set flag to indicate we have a <dt> tag
+        #
+        $dt_tag_found[$current_list_level] = 1;
     }
     else {
         #
         # Not in a list
         #
         Tag_Not_Allowed_Here("dt", $line, $column, $text);
+    }
+
+    #
+    # Is the parent tag for this a dl tag?
+    #
+    if ( $parent_tag ne "dl" ) {
+        Record_Result("WCAG_2.0-SC1.3.1,AXE-Dlitem", $line, $column, $text,
+                      String_Value("Tag") . " <dt> " .
+                      String_Value("must be contained by") . " <dl>");
     }
 }
 
@@ -10200,7 +11593,8 @@ sub End_Dt_Tag_Handler {
     #
     # Are we missing dt content or text ?
     #
-    if ( $tag_is_visible && ($clean_text eq "") ) {
+    if ( $tag_is_visible && ($clean_text eq "") &&
+         ( ! Is_Presentation_Tag()) ) {
         Record_Result("WCAG_2.0-G115", $line, $column,
                       $text, String_Value("Missing content in") . "<dt>");
     }
@@ -10235,6 +11629,7 @@ sub Dl_Tag_Handler {
     $current_list_level++;
     $list_item_count[$current_list_level] = 0;
     $inside_dd[$current_list_level] = 0;
+    $dt_tag_found[$current_list_level] = 0;
     print "Start new dl list, level $current_list_level\n" if $debug;
 }
 
@@ -10267,6 +11662,18 @@ sub End_Dl_Tag_Handler {
             #
             Record_Result("WCAG_2.0-H48", $line, $column, $text,
                           String_Value("No dt found in list") . "<dl>");
+        }
+
+        #
+        # Do we have a <dt> tag that preceeds this </dl>
+        # (i.e. we are missing a <dd> tag)?
+        #
+        if ( $dt_tag_found[$current_list_level] ) {
+            #
+            # No <dd> tag after last <dt> in the list.
+            #
+            Record_Result("WCAG_2.0-SC1.3.1,AXE-Definition_List", $line, $column, $text,
+                          String_Value("Missing dd tag after last dt tag in definition list"));
         }
 
         #
@@ -10319,7 +11726,7 @@ sub Check_ID_Attribute {
         #
         if ( defined($id_attribute_values{$id}) ) {
             ($id_line, $id_column, $id_is_visible, $id_is_hidden, $id_tag) = split(/:/, $id_attribute_values{$id});
-            Record_Result("WCAG_2.0-F77", $line, $column,
+            Record_Result("WCAG_2.0-F77,AXE-Duplicate_id", $line, $column,
                           $text, String_Value("Duplicate id") .
                           "'<$tagname id=\"$id\">' " .
                           String_Value("Previous instance found at") .
@@ -10432,8 +11839,18 @@ sub Check_Lang_Attribute {
     #
     # Do we have a lang attribute ?
     #
+    print "Check_Lang_Attribute\n" if $debug;
     if ( defined($attr{"lang"}) ) {
         $lang = lc($attr{"lang"});
+
+        #
+        # Is language valid ?
+        #
+        if ( ! Language_Valid($lang) ) {
+            Record_Result("WCAG_2.0-H58,AXE-Valid_lang", $line, $column, $text,
+                          String_Value("Invalid language attribute value") .
+                          " lang=\"$lang\"");
+        }
     }
 
     #
@@ -10441,6 +11858,15 @@ sub Check_Lang_Attribute {
     #
     if ( defined($attr{"xml:lang"}) ) {
         $xml_lang = lc($attr{"xml:lang"});
+
+        #
+        # Is language valid ?
+        #
+        if ( ! Language_Valid($xml_lang) ) {
+            Record_Result("WCAG_2.0-H58,AXE-Valid_lang", $line, $column, $text,
+                          String_Value("Invalid language attribute value") .
+                          " xml:lang=\"$xml_lang\"");
+        }
     }
 
     #
@@ -10448,14 +11874,12 @@ sub Check_Lang_Attribute {
     # attributes match.  Don't do this check for the <html> tag, that
     # has already been handled in the HTML_Tag function.
     #
-    print "Check_Lang_Attribute\n" if $debug;
-    if ( ($tagname ne "html") && ($doctype_label =~ /xhtml/i) && 
+    if ( ($tagname ne "html") && ($doctype_label =~ /xhtml/i) &&
          ($doctype_version == 1.0) ) {
         #
         # Do we have a lang attribute ?
         #
         if ( defined($lang) ) {
-
             #
             # Are we missing the xml:lang attribute ?
             #
@@ -10464,7 +11888,7 @@ sub Check_Lang_Attribute {
                 # Missing xml:lang attribute
                 #
                 print "Have lang but not xml:lang attribute\n" if $debug;
-                Record_Result("WCAG_2.0-H58", $line, $column, $text,
+                Record_Result("WCAG_2.0-H58,AXE-Valid_lang", $line, $column, $text,
                               String_Value("Missing xml:lang attribute") .
                               String_Value("for tag") . "<$tagname>");
 
@@ -10483,7 +11907,7 @@ sub Check_Lang_Attribute {
                 # Missing lang attribute
                 #
                 print "Have xml:lang but not lang attribute\n" if $debug;
-                Record_Result("WCAG_2.0-H58", $line, $column,
+                Record_Result("WCAG_2.0-H58,AXE-Valid_lang", $line, $column,
                               $text, String_Value("Missing lang attribute") .
                               String_Value("for tag") . "<$tagname>");
 
@@ -10498,10 +11922,58 @@ sub Check_Lang_Attribute {
             # Do the values match ?
             #
             if ( $lang ne $xml_lang ) {
-                Record_Result("WCAG_2.0-H58", $line, $column, $text,
+                Record_Result("WCAG_2.0-H58,AXE-Valid_lang", $line, $column, $text,
                               String_Value("Mismatching lang and xml:lang attributes") .
                               String_Value("for tag") . "<$tagname>");
             }
+        }
+    }
+    
+    #
+    # Get final language value
+    #
+    if ( defined($xml_lang) ) {
+        $lang = $xml_lang;
+    }
+    if ( defined($lang) ) {
+        $lang =~ s/\-.*//g;
+        $lang = lc($lang);
+        
+        #
+        # Convert language code into a 3 character code.
+        #
+        $lang = ISO_639_2_Language_Code($lang);
+        print "Found language $lang\n" if $debug;
+
+        #
+        # Is this a right to left language?
+        #
+        if ( defined($right_to_left_languages{$lang}) ) {
+            #
+            # Do we have a dir attribute to specify the direction of the
+            # language (right to left)?
+            #
+            if ( ! defined($attr{"dir"}) ) {
+                Record_Result("WCAG_2.0-H58,AXE-Valid_lang", $line, $column, $text,
+                              String_Value("Missing dir attribute for right to left language") .
+                              " lang=\"$lang\"");
+            }
+            #
+            # Is the direction right to left?
+            #
+            elsif ( $attr{"dir"} ne "rtl" ) {
+                Record_Result("WCAG_2.0-H58,AXE-Valid_lang", $line, $column, $text,
+                              String_Value("Invalid direction for right to left language") .
+                              " lang=\"$lang\" dir=\"" . $attr{"dir"} . "\"");
+            }
+        }
+        #
+        # Must be a left to right language, is the direction set correctly?
+        #
+        elsif ( defined($attr{"dir"}) && ($attr{"dir"} ne "ltr") ) {
+                Record_Result("WCAG_2.0-H58,AXE-Valid_lang", $line, $column, $text,
+                              String_Value("Invalid direction for left to right language") .
+                              " lang=\"$lang\" dir=\"" . $attr{"dir"} . "\"");
         }
     }
 }
@@ -10762,6 +12234,18 @@ sub Check_Presentation_Attributes {
     }
 
     #
+    # Check for an aria-expanded attribute
+    #
+    if ( defined($attr{"aria-expanded"}) && ($attr{"aria-expanded"} eq "false") ) {
+        #
+        # Set global tag hidden and tag visibility flag
+        #
+        print "Found attribute 'aria-expanded=\"false\"' on tag\n" if $debug;
+        $tag_is_hidden = 1;
+        $tag_is_visible = 0;
+    }
+
+    #
     # Check for a aria-hidden attribute
     #
     if ( defined($attr{"aria-hidden"}) && ($attr{"aria-hidden"} eq "true") ) {
@@ -10769,8 +12253,7 @@ sub Check_Presentation_Attributes {
         # Set global tag hidden and tag visibility flag
         #
         print "Found attribute 'aria-hidden' on tag\n" if $debug;
-        $tag_is_hidden = 1;
-        $tag_is_visible = 0;
+        $tag_is_aria_hidden = 1;
     }
 
     #
@@ -10785,12 +12268,13 @@ sub Check_Presentation_Attributes {
     #
     $current_tag_object->is_hidden($tag_is_hidden);
     $current_tag_object->is_visible($tag_is_visible);
+    $current_tag_object->is_aria_hidden($tag_is_aria_hidden);
 
     #
     # Set global variable for styles associated to the current tag.
     #
     $current_tag_styles = $style_names;
-    print "Current tag_is_visible = $tag_is_visible, tag_is_hidden = $tag_is_hidden for tag $tagname\n" if $debug;
+    print "Current tag_is_visible = $tag_is_visible, tag_is_hidden = $tag_is_hidden, tag_is_aria_hidden = $tag_is_aria_hidden for tag $tagname\n" if $debug;
 }
 
 #***********************************************************************
@@ -10934,6 +12418,310 @@ sub Check_Role_Attribute {
 
 #***********************************************************************
 #
+# Name: Check_Disallowed_Aria_Role_Value
+#
+# Parameters: tagname - tag name
+#             role - role value
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks for disallowed ARIA role values.  The
+# disallowed roles may be applicable only if other tag attributes
+# or values are present.  The reference for the disallowed
+# roles is
+#    https://www.w3.org/TR/html-aria/#docconformance
+#
+#***********************************************************************
+sub Check_Disallowed_Aria_Role_Value {
+    my ($tagname, $role, $line, $column, $text, %attr) = @_;
+
+    my ($context_role, $context_role_list, $value);
+    my ($this_role, $role_list, @disallowed_roles, $context_attr);
+    my ($check_role, @list_of_roles, $context_attr_value);
+
+    #
+    # Does this tag have disallowed roles?
+    #
+    print "Check_Disallowed_Aria_Role_Value for tag $tagname with role $role\n" if $debug;
+    if ( defined($disallowed_aria_roles{$tagname}) ) {
+        $role_list = $disallowed_aria_roles{$tagname};
+        $check_role = 0;
+        print "Have disallowed roles $role_list\n" if $debug;
+
+        #
+        # Get the string list in an array
+        #
+        @list_of_roles = split(/ /, $role_list);
+
+        #
+        # Check the first value in the array for a possible
+        # attribute condition (indicated by a colon in the string) on
+        # the disallowed role values.
+        #
+        $value = $list_of_roles[0];
+        if ( defined($value) && (index($value, ":") != -1) ) {
+            #
+            # Get the attribute name and possible value
+            #
+            ($context_attr, $context_attr_value) = split(/:/, $value);
+            print "Have context attribute \"$context_attr\"\n" if $debug;
+            shift(@list_of_roles);
+            if ( defined($attr{$context_attr}) ) {
+                #
+                # Have required condition attribute for disallowed
+                # role values.  Check for possible attribute value.
+                #
+                print "Found attribute\n" if $debug;
+                if ( defined($context_attr_value) && ($context_attr_value ne "") ) {
+                    #
+                    # Does the attribute's value match the one
+                    # from the disallowed role entry?
+                    #
+                    print "Check attribute value \"" . $attr{$context_attr} . "\" againsts context value \"$context_attr_value\"\n" if $debug;
+                    if ( $attr{$context_attr} eq $context_attr_value ) {
+                        $check_role = 1;
+                        print "Have role condition attribute and value match\n" if $debug;
+                    }
+                }
+                else {
+                    #
+                    # No specific value required for the context attribute.
+                    #
+                    $check_role = 1;
+                    print "Have role condition attribute\n" if $debug;
+                }
+            }
+            else {
+                print "Attribute not found\n" if $debug;
+            }
+        }
+        else {
+            #
+            # No conditions on role value check
+            #
+            $check_role = 1;
+        }
+
+        #
+        # Do we check the role value?
+        #
+        if ( $check_role ) {
+            print "Check disallowed roles $role_list\n" if $debug;
+            foreach $this_role (@list_of_roles) {
+                if ( $role eq $this_role ) {
+                    print "Found disallowed role $role for tag\n" if $debug;
+                    Record_Result("AXE-Aria_allowed_role", $line, $column, $text,
+                                  String_Value("ARIA role not allowed on tag") .
+                                  " <$tagname role=\"$this_role\">");
+                    last;
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Only_Allowed_Aria_Role_Value
+#
+# Parameters: tagname - tag name
+#             role - role value
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks if there is a limited set of allowed ARIA
+# role values.  The allowed roles may be applicable only if other
+# tag attributes or values are present.  The reference for the allowed
+# roles is
+#    https://www.w3.org/TR/html-aria/#docconformance
+#
+#***********************************************************************
+sub Check_Only_Allowed_Aria_Role_Value {
+    my ($tagname, $role, $line, $column, $text, %attr) = @_;
+
+    my ($context_role, $context_role_list, $value);
+    my ($this_role, $role_list, @disallowed_roles, $context_attr);
+    my ($check_role, @list_of_roles, $context_attr_value);
+    my ($found_role);
+
+    #
+    # Does this tag have a set of allowed roles?
+    #
+    print "Check_Only_Allowed_Aria_Role_Value for tag $tagname with role $role\n" if $debug;
+    if ( defined($allowed_aria_roles{$tagname}) ) {
+        $role_list = $allowed_aria_roles{$tagname};
+        $check_role = 0;
+        print "Have allowed roles $role_list\n" if $debug;
+
+        #
+        # Get the string list in an array
+        #
+        @list_of_roles = split(/ /, $role_list);
+
+        #
+        # Check the first value in the array for a possible
+        # attribute condition (indicated by a colon in the string) on
+        # the allowed role values.
+        #
+        $value = $list_of_roles[0];
+        if ( defined($value) && (index($value, ":") != -1) ) {
+            #
+            # Get the attribute name and possible value
+            #
+            ($context_attr, $context_attr_value) = split(/:/, $context_attr);
+            print "Have context attribute \"$context_attr\"\n" if $debug;
+            shift(@list_of_roles);
+            if ( defined($attr{$context_attr}) ) {
+                #
+                # Have required condition attribute for allowed
+                # role values.  Check for possible attribute value.
+                #
+                if ( defined($context_attr_value) && ($context_attr_value ne "") ) {
+                    #
+                    # Does the attribute's value match the one
+                    # from the allowed role entry?
+                    #
+                    if ( $attr{$context_attr} eq $context_attr_value ) {
+                        $check_role = 1;
+                        print "Have role condition attribute and value match\n" if $debug;
+                    }
+                }
+                else {
+                    #
+                    # No specific value required for the context attribute.
+                    #
+                    $check_role = 1;
+                    print "Have role condition attribute\n" if $debug;
+                }
+            }
+        }
+        else {
+            #
+            # No conditions on role value check
+            #
+            $check_role = 1;
+        }
+
+        #
+        # Do we check the role value?
+        #
+        if ( $check_role ) {
+            print "Check allowed roles $role_list\n" if $debug;
+
+            #
+            # Is the role list empty? That indicates that NO role is allowed
+            # on this tag.
+            #
+            if ( scalar(@list_of_roles) == 0 ) {
+                Record_Result("AXE-Aria_allowed_role", $line, $column, $text,
+                              String_Value("Invalid ARIA role value") .
+                              " \"$role\"");
+            }
+            else {
+                #
+                # Check that the role is in the allowed list.
+                #
+                $found_role = 0;
+                foreach $this_role (@list_of_roles) {
+                    if ( $role eq $this_role ) {
+                        #
+                        # Found a match for the role
+                        #
+                        $found_role = 1;
+                    }
+                }
+
+                #
+                # If we did not find a match for the role in the allowed list,
+                # then this role is invalid.
+                #
+                if ( ! $found_role ) {
+                    Record_Result("AXE-Aria_allowed_role", $line, $column, $text,
+                                  String_Value("Invalid ARIA role value") .
+                                  " \"$role\"");
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Support_of_Accessible_Name_from_Content
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function checks to see if the tag and/or it's role supports
+# accessible name from content functionality.  This function does not
+# check that the accessible name matches the content, just that the
+# tag supports the feature.  The actual content/name check happens
+# after the tag is closed and any referenced labels are found.
+#
+#***********************************************************************
+sub Check_Support_of_Accessible_Name_from_Content {
+    my ($tagname, $line, $column, $text) = @_;
+
+    my ($role, $role_item, $is_name_content_role);
+
+    #
+    # Does the start tag for this end tag contain a role?
+    #
+    print "Check_Support_of_Accessible_Name_from_Content $tagname\n" if $debug;
+    if ( defined($current_tag_object) ) {
+        #
+        # Check for explicit role attribute
+        #
+        $role = $current_tag_object->attr_value("role");
+
+        #
+        # If there is no explicit role, get the implicit role
+        #
+        if ( ! defined($role) ) {
+            $role = $current_tag_object->implicit_role();
+        }
+
+        #
+        # Did we get a role value?
+        #
+        if ( $role ne "" ) {
+            #
+            # Does this role support accessible name from content?
+            #
+            print "Tag has role(s) = $role\n" if $debug;
+            $is_name_content_role = 0;
+            foreach $role_item (split(/\s+/, $role)) {
+                if ( defined($aria_accessible_name_content_match{$role}) ) {
+                    print "Tag supports accessible name from content for role $role\n" if $debug;
+                    $is_name_content_role = 1;
+                    last;
+                }
+            }
+            
+            #
+            # Did we find a role that supports accessible name from content?
+            #
+            if ( $is_name_content_role ) {
+                $current_tag_object->accessible_name_content(1);
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Check_Aria_Role_Attribute
 #
 # Parameters: tagname - tag name
@@ -10945,7 +12733,10 @@ sub Check_Role_Attribute {
 # Description:
 #
 #   This function checks the ARIA role attribute.  It checks
-# for a 
+# for
+#   - allowed or disallowed roles
+#   - roles are not applied to inappropriate tags
+#   - roles that require additional attributes
 #
 #***********************************************************************
 sub Check_Aria_Role_Attribute {
@@ -10953,40 +12744,115 @@ sub Check_Aria_Role_Attribute {
 
     my ($role, $last_main, $last_line, $last_column);
     my ($context_role, $context_role_list, $tag, $first_tag);
+    my ($this_role, $n, $required_roles_parent, %roles_item);
+    my ($text_alternative, $text_alternative_id, $invalid_alt);
 
     #
     # Check for possible role attribute
     #
+    print "Check_Aria_Role_Attribute for tag $tagname\n" if $debug;
     if ( defined($attr{"role"}) ) {
         $role = $attr{"role"};
         $role =~ s/^\s*//g;
         $role =~ s/\s*//g;
+        
+        #
+        # Check for disallowed roles
+        #
+        Check_Disallowed_Aria_Role_Value($tagname, $role, $line,
+                                         $column, $text, %attr);
 
+        #
+        # Check for allowed roles only
+        #
+        Check_Only_Allowed_Aria_Role_Value($tagname, $role, $line,
+                                           $column, $text, %attr);
+
+        #
+        # Look for the first valid non-abstract role
+        #
+        foreach $this_role (split(/\s+/, $role)) {
+            #
+            # Is this an EPUB role ?
+            #
+            if ( $html_is_part_of_epub && defined($valid_aria_roles{$this_role}) ) {
+                #
+                # EPUB specific role.
+                #
+                print "EPUB specific role $this_role\n" if $debug;
+            }
+            #
+            # Is this a valid role?
+            #
+            elsif ( ! defined($valid_aria_roles{$this_role}) ) {
+                #
+                # Do not report error if HTML file is part of an
+                # EPUB document.  EPUB documents have additional
+                # role values that do not apply to web pages.
+                #
+                if ( ! $html_is_part_of_epub ) {
+                    Record_Result("AXE-Aria_roles", $line, $column, $text,
+                                  String_Value("Invalid ARIA role value") .
+                                  " \"$this_role\"" .
+                                  String_Value("in") . "role=\"$role\"");
+                }
+            }
+            #
+            # Is this not an abstract role?
+            #
+            elsif ( $valid_aria_roles{$this_role} ne "abstract" ) {
+                #
+                # Use this role as the role for the tag.
+                #
+                $role = $this_role;
+                print "First non-abstract role is $role\n" if $debug;
+                last;
+            }
+            else {
+                $role = $this_role;
+            }
+        }
+        
+        #
+        # Set the explicit role for this tag
+        #
+        $current_tag_object->explicit_role($role);
+        
         #
         # Check for role="heading" on a tag other than a h tag
         #
         print "Check for heading in role=\"$role\" attribute\n" if $debug;
-        if ( ($role eq "heading") && (! ($tagname =~ /^h[0-9]?$/)) ) {
+        if ( ($role eq "heading") && (! ($tagname =~ /^h[0-6]?$/)) ) {
 
             #
-            # Check for a possible aria-level attribute.  If
-            # we have one and it's value is greater than 6, we
-            # don't report an error as there is no <h7>, or higher, tag.
+            # Check for a aria-level attribute.
             #
-            if ( defined($attr{"aria-level"}) && ($attr{"aria-level"} > 6) ) {
-                #
-                # Found aria-level greater than 6, this heading role is
-                # acceptable
-                #
+            if ( ! defined($attr{"aria-level"}) ) {
+                Record_Result("WCAG_2.0-ARIA12", $line, $column, $text,
+                              String_Value("Missing") .
+                              " aria-level " . String_Value("attribute") .
+                              " " .
+                              String_Value("in tag") . "<$tagname role=\"heading\" >");
+
             }
-            else {
-                #
-                # Either no aria-level or the value is less than 7
-                #
+            #
+            # Is the aria-level less than or equal to 6, we should be
+            # using a <h> tag.
+            #
+            elsif ( $attr{"aria-level"} <= 6 ) {
                 Record_Result("WCAG_2.0-ARIA12", $line, $column, $text,
                               String_Value("Found") .
-                              " role=\"heading\" " . 
-                              String_Value("in tag") . "<$tagname>");
+                              " <$tagname role=\"heading\" aria-level=\"" .
+                              $attr{"aria-level"} .  "\" " .
+                              String_Value("expected") .
+                              " <h" . $attr{"aria-level"} . ">");
+            }
+            
+            #
+            # Check for level 1 heading
+            #
+            if ( defined($attr{"aria-level"}) && ($attr{"aria-level"} == 1) ) {
+                $found_h1 = 1;
             }
         }
 
@@ -11033,6 +12899,107 @@ sub Check_Aria_Role_Attribute {
                               "\"aria-labelledby\"");
             }
         }
+        
+        #
+        # Check for role="img", if we have one there must be a text
+        # alternative.
+        #
+        if ( $role eq "img" ) {
+            #
+            # Check for alt and make sure it is not blank
+            #
+            print "Found role=img, checking for text alternative\n" if $debug;
+            if ( defined($attr{"alt"}) && ($attr{"alt"} =~ /^\s*$/) ) {
+                print "Empty alt attribute\n" if $debug;
+            }
+            #
+            # Check for alt text for a later test for invalid values.
+            #
+            elsif ( defined($attr{"alt"}) ) {
+                $text_alternative = $attr{"alt"};
+            }
+            #
+            # Check for aria-label and make sure it is not blank
+            #
+            elsif ( defined($attr{"aria-label"}) && ($attr{"aria-label"} =~ /^\s*$/) ) {
+                print "Empty aria-label attribute\n" if $debug;
+            }
+            #
+            # Check for alt text for a later test for invalid values.
+            #
+            elsif ( defined($attr{"aria-label"}) ) {
+                $text_alternative = $attr{"aria-label"};
+            }
+            #
+            # Check for aria-labelledby and make sure it is not blank
+            #
+            elsif ( defined($attr{"aria-labelledby"}) && ($attr{"aria-labelledby"} =~ /^\s*$/) ) {
+                print "Empty aria-labelledby attribute\n" if $debug;
+            }
+            #
+            # Check for aria-labelledby text for a later test for a
+            # matching ID value.
+            #
+            elsif ( defined($attr{"aria-labelledby"}) ) {
+                $text_alternative_id = $attr{"aria-labelledby"};
+            }
+            #
+            # Check for title and make sure it is not blank
+            #
+            elsif ( defined($attr{"title"}) && ($attr{"title"} =~ /^\s*$/) ) {
+                print "Empty title attribute\n" if $debug;
+            }
+            #
+            # Check for title text for a later test for invalid values.
+            #
+            elsif ( defined($attr{"title"}) ) {
+                $text_alternative = $attr{"title"};
+            }
+
+            #
+            # Did we find a text alternative?
+            #
+            if ( defined($text_alternative) ) {
+                #
+                # Check for empty text alternative
+                #
+                $text_alternative =~ s/^\s+|\s+$//g;
+                if ( $text_alternative eq "" ) {
+                    Record_Result("AXE-Role_img_alt", $line, $column, $text,
+                                  String_Value("Empty text alternative value"));
+                }
+                #
+                # Check for invalid values (e.g. alt="image")
+                #
+                elsif ( defined($testcase_data{"WCAG_2.0-F30"}) ) {
+                    $text_alternative = lc($text_alternative);
+                    foreach $invalid_alt (split(/\n/, $testcase_data{"WCAG_2.0-F30"})) {
+                        #
+                        # Do we have a match on the invalid alt text ?
+                        #
+                        if ( $text_alternative =~ /^$invalid_alt$/i ) {
+                            Record_Result("AXE-Role_img_alt", $line, $column, $text,
+                                          String_Value("Invalid text alternative value") .
+                                          " '$text_alternative'");
+                            last;
+                        }
+                    }
+                }
+            }
+            #
+            # Did we find an id valie (i.e. aria-labelledby)
+            #
+            elsif ( defined($text_alternative_id) ) {
+            }
+            else {
+                #
+                # No text alternative found
+                #
+                Record_Result("AXE-Role_img_alt", $line, $column, $text,
+                              String_Value("Missing text alternative for") .
+                              " <$tagname role=\"$role\" >");
+            }
+        }
 
         #
         # Check role for main, it indicates the beginning of the main content
@@ -11047,6 +13014,31 @@ sub Check_Aria_Role_Attribute {
                 print "Hidden role=\"main\", don't check for duplicate main sections\n" if $debug;
             }
             else {
+                #
+                # Is this landmark a top level landmark (i.e. not contained within
+                # any other landmark)?  Check that the landmark of the parent
+                # tag is blank.
+                #
+                $n = @tag_order_stack;
+                if ( $n > 1 ) {
+                    $tag = $tag_order_stack[$n - 2];
+                }
+                else {
+                    undef($tag);
+                }
+                if ( defined($tag) &&
+                     (($tag->landmark() ne "") && ($tag->landmark() ne "body")) ) {
+                    #
+                    # Main landmark contained within another landmark
+                    #
+                    print "Non blank landmark " . $tag->landmark() .
+                          " on parent tag " . $tag->tag() . "\n" if $debug;
+                    Record_Result("WCAG_2.0-SC1.3.1,AXE-Landmark_main_is_top_level",
+                                  $line, $column, $text,
+                                  String_Value("Main landmark nested in") .
+                                  " \"" . $tag->landmark() . "\"");
+                }
+
                 #
                 # Have we already seen a <main> or a <section> or <div> tag
                 # with a role="main" attribute?
@@ -11116,7 +13108,7 @@ sub Check_Aria_Role_Attribute {
             # Did we find a required context role value?
             #
             if ( $context_role eq "" ) {
-                Record_Result("WCAG_2.0-H88", $line, $column, $text,
+                Record_Result("WCAG_2.0-SC1.3.1,AXE-Aria_required_parent", $line, $column, $text,
                               String_Value("Missing required context role for") .
                               " role=\"$role\" " .
                               String_Value("expecting one of") .
@@ -11164,11 +13156,220 @@ sub Check_Aria_Role_Attribute {
             # Did we find a required context role value?
             #
             if ( $context_role eq "" ) {
-                Record_Result("WCAG_2.0-H88", $line, $column, $text,
+                Record_Result("WCAG_2.0-SC1.3.1,AXE-Aria_required_parent", $line, $column, $text,
                               String_Value("Missing required context role for implicit role") .
                               " \"$role\" " .
                               String_Value("expecting one of") .
                               " \"$context_role_list\"");
+            }
+        }
+    }
+    
+    #
+    # Does this tag have an explicit role, if not set role to it's implicit
+    # role
+    #
+    if ( ! defined($role) ) {
+        $role = $current_tag_object->implicit_role();
+    }
+    
+    #
+    # Do we have a parent tag that required child roles?
+    #
+    if ( defined($current_required_children_roles) && ($role ne "") ) {
+        $this_role = $$current_required_children_roles{"children roles"};
+        $this_role .= " $role";
+        $$current_required_children_roles{"children roles"} = $this_role;
+        print "Add $role to children roles for tag " .
+              $$current_required_children_roles{"tag"} .
+              " that has role " .
+              $$current_required_children_roles{"role"} . "\n" if $debug;
+    }
+
+    #
+    # Do we have a role that has required children roles?
+    #
+    if ( ($role ne "") && defined($aria_required_children_roles{$role}) ) {
+        print "Role $role on tag $tagname has required children roles\n" if $debug;
+        
+        #
+        # Create a new entry in the tag_roles_required_children_roles stack
+        # to capture child roles.
+        #
+        %roles_item = (
+            "tag",            $tagname,
+            "role",           $role,
+            "children roles", "",
+        );
+        $current_required_children_roles = \%roles_item;
+        push(@tag_roles_required_children_roles, $current_required_children_roles);
+    }
+
+    #
+    # Check the roles of this tag to see if they support
+    # accessible name from content.
+    #
+    Check_Support_of_Accessible_Name_from_Content($tagname, $line, $column,
+                                                  $text);
+}
+
+#***********************************************************************
+#
+# Name: Check_Role_Allowed_Aria_Attributes
+#
+# Parameters: tagname - tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks the role of the tag and checks that only
+# allowed ARIA attributes are included in the tag.
+#
+#***********************************************************************
+sub Check_Role_Allowed_Aria_Attributes {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+    
+    my ($attribute, $role, $allowed_attributes);
+
+    #
+    # Get the role for this tag
+    #
+    print "Check_Role_Allowed_Aria_Attributes\n" if $debug;
+    $role = $current_tag_object->explicit_role();
+    if ( $role eq "" ) {
+        $role = $current_tag_object->implicit_role();
+    }
+
+    #
+    # Do we have role specific allowed aria attributes?
+    #
+    print "Check for allowed attributes for role = $role\n" if $debug;
+    if ( defined($role_specific_aria_properties{$role}) ) {
+        $allowed_attributes = $role_specific_aria_properties{$role};
+    }
+    else {
+        $allowed_attributes = "";
+    }
+
+    #
+    # Check for aria-* attributes
+    #
+    foreach $attribute (keys(%attr)) {
+        #
+        # Is this an aria- attribute
+        #
+        if ( $attribute =~ /^aria\-/ ) {
+            #
+            # Is this a global ARIA attribute? which is valid for any
+            # tag.
+            #
+            if ( defined($global_aria_properties{$attribute}) ) {
+                print "Global ARIA attribute $attribute\n" if $debug;
+            }
+            #
+            # Is the attribute in the list of allowed attributes for
+            # the tag's role?
+            #
+            elsif ( index($allowed_attributes, $attribute) != -1 ) {
+                print "Allowed ARIA attribute $attribute for role\n" if $debug;
+            }
+            #
+            # ARIA attribute is not allowed on this tag with this role
+            #
+            else {
+                Record_Result("AXE-Aria_allowed_attr", $line, $column, $text,
+                              String_Value("ARIA attribute not allowed") .
+                              " '$attribute='" .
+                              String_Value("for tag") . "<$tagname role=\"$role\">");
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Role_Required_Aria_Attributes
+#
+# Parameters: tagname - tag name
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks the role of the tag and checks that all
+# required ARIA attributes are included in the tag.
+#
+#***********************************************************************
+sub Check_Role_Required_Aria_Attributes {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+
+    my ($attribute, $role, $required_attributes, %found_attributes);
+
+    #
+    # Get the role for this tag
+    #
+    print "Check_Role_Required_Aria_Attributes\n" if $debug;
+    $role = $current_tag_object->explicit_role();
+    if ( $role eq "" ) {
+        $role = $current_tag_object->implicit_role();
+    }
+
+    #
+    # Do we have role specific required aria attributes?
+    #
+    print "Check for required attributes for role = $role\n" if $debug;
+    if ( defined($role_specific_required_aria_properties{$role}) ) {
+        $required_attributes = $role_specific_required_aria_properties{$role};
+        
+        #
+        # Create a hash table for the required attributes
+        #
+        foreach $attribute (split(/s+/, $required_attributes)) {
+            $found_attributes{$attribute} = 0;
+        }
+
+        #
+        # Check for aria-* attributes
+        #
+        foreach $attribute (keys(%attr)) {
+            #
+            # Is this an HTML attribute that is equivalent to an ARIA
+            # attribute?
+            #
+            if ( defined($html_aria_attribute_equivalence{$attribute}) ) {
+                print "Mapping HTML attribute $attribute to " .
+                      $html_aria_attribute_equivalence{$attribute} . "\n" if $debug;
+                $attribute = $html_aria_attribute_equivalence{$attribute};
+            }
+            
+            #
+            # Is this an aria- attribute
+            #
+            if ( $attribute =~ /^aria\-/ ) {
+                #
+                # Is this a required ARIA attribute?
+                #
+                if ( defined($found_attributes{$attribute}) ) {
+                    print "Required ARIA attribute $attribute\n" if $debug;
+                    $found_attributes{$attribute} = 1;
+                }
+            }
+        }
+        
+        #
+        # Did we find all the required attributes?
+        #
+        foreach $attribute (keys(%found_attributes)) {
+            if ( ! $found_attributes{$attribute} ) {
+                Record_Result("AXE-Aria_required_attr", $line, $column, $text,
+                                  String_Value("Missing required ARIA attribute") .
+                                  " '$attribute='" .
+                                  String_Value("for tag") . "<$tagname role=\"$role\">");
             }
         }
     }
@@ -11197,6 +13398,7 @@ sub Check_Aria_Attributes {
     my ($self, $tagname, $line, $column, $text, $attrseq, %attr) = @_;
 
     my ($value, $tcid, $attribute, $roles_list, $context_role);
+    my ($valid_value, $valid_value_set, $is_valid, $message);
 
     #
     # Check for aria-label attribute
@@ -11241,6 +13443,137 @@ sub Check_Aria_Attributes {
     }
     
     #
+    # Does the ARIA attribute have a valid value?
+    #
+    #  https://auto-wcag.github.io/auto-wcag/rules/SC4-1-2-aria-state-or-property-has-valid-value.html
+    #
+    foreach $attribute (keys(%attr)) {
+        #
+        # Is this a valid aria attribute?  If the attribute name starts
+        # with "aria-", it is expected to be an aria attribute.
+        #
+        if ( ($attribute =~ /^aria\-/) &&
+             (! defined($valid_aria_attribute_values{$attribute})) ) {
+            #
+            # Looks like an aria attribute, but not in the list of
+            # valid attribute names
+            #
+            Record_Result("AXE-Aria_valid_attr", $line, $column, $text,
+                          String_Value("Invalid WAI-ARIA attribute") .
+                          " \"$attribute\"");
+        }
+        #
+        # Do we have a value set for this attribute?
+        #
+        elsif ( defined($valid_aria_attribute_values{$attribute}) ) {
+            #
+            # Get the attribute value and the set of possible valid values
+            #
+            $valid_value_set = $valid_aria_attribute_values{$attribute};
+            $value = $attr{$attribute};
+            $value =~ s/^\s*//g;
+            $value =~ s/\s*$//g;
+            $value = lc($value);
+            
+            #
+            # Check for value classes (e.g. INTEGER) or fixed set
+            # of values.
+            #
+            $is_valid = 0;
+            if ( $valid_value_set eq "ID" ) {
+                #
+                # Check that there are no whitespace characters in the value
+                #
+                if ( ($value ne "") && (! ($value =~ /\s+/)) ) {
+                    print "Found ID class value\n" if $debug;
+                    $is_valid = 1;
+                }
+                $message = String_Value("expecting ID value");
+            }
+            elsif ( $valid_value_set eq "ID LIST" ) {
+                #
+                # Check that there are characters in the value
+                #
+                if ( $value ne "" ) {
+                    print "Found ID LIST class value\n" if $debug;
+                    $is_valid = 1;
+                }
+                $message = String_Value("expecting ID value");
+            }
+            elsif ( $valid_value_set eq "INTEGER" ) {
+                #
+                # Check for optional negative sign and digits only
+                #
+                if ( $value =~ /^\-?\d+$/ ) {
+                    $is_valid = 1;
+                    print "Found INTEGER class value\n" if $debug;
+                }
+                $message = String_Value("expecting integer value");
+            }
+            elsif ( $valid_value_set eq "NUMBER" ) {
+                #
+                # Check for optional negative sign, digits, optional
+                # decimal point and optional extra digits only
+                #
+                if ( $value =~ /^\-?\d+(\.\d+)?$/ ) {
+                    $is_valid = 1;
+                    print "Found NUMBER class float value\n" if $debug;
+                }
+                #
+                # Check for hexadecimal number
+                #
+                elsif ( $value =~ /^0x([0-9][a-f])+?$/i ) {
+                    $is_valid = 1;
+                    print "Found NUMBER class HEX value\n" if $debug;
+                }
+                $message = String_Value("expecting numerical value");
+            }
+            elsif ( $valid_value_set eq "STRING" ) {
+                #
+                # Check for 1 or more non-whitespace characters
+                #
+                if ( $value ne "" ) {
+                    $is_valid = 1;
+                    print "Found non whitespace characters in STRING class value\n" if $debug;
+                }
+                $message = String_Value("expecting a non-blank text value");
+            }
+            else {
+                #
+                # A fixed set of possible values
+                #
+                foreach $valid_value (split(/ /, $valid_value_set)) {
+                    #
+                    # Convert underscore to space
+                    #
+                    $valid_value =~ s/_/ /g;
+                    
+                    #
+                    # Does the value match the valid value?
+                    #
+                    if ( $value eq $valid_value ) {
+                        $is_valid = 1;
+                        print "Found matching value in value list\n" if $debug;
+                        last;
+                    }
+                }
+                $message = String_Value("expecting one of") .
+                           " \"$valid_value_set\"";
+            }
+
+            #
+            # Did we not find a valid value?
+            #
+            if ( ! $is_valid ) {
+                Record_Result("AXE-Aria_valid_attr_value", $line, $column, $text,
+                              String_Value("Invalid value for WAI-ARIA attribute") .
+                              " $attribute=\"" . $attr{$attribute} .
+                              "\" $message");
+            }
+        }
+    }
+    
+    #
     # Do we have an ARIA attribute that has some role attribute requirements
     #
     foreach $attribute (keys(%attr)) {
@@ -11252,7 +13585,7 @@ sub Check_Aria_Attributes {
             # Did we find a required context role value?
             #
             if ( $context_role eq "" ) {
-                Record_Result("WCAG_2.0-H88", $line, $column, $text,
+                Record_Result("WCAG_2.0-SC4.1.2", $line, $column, $text,
                               String_Value("Missing required context role for WAI-ARIA attribute") .
                               " \"$attribute\" " .
                               String_Value("expecting one of") .
@@ -11277,6 +13610,16 @@ sub Check_Aria_Attributes {
     #
     Check_Aria_Labelledby_Attribute($self, $tagname, $line, $column, $text,
                                     %attr);
+                                    
+    #
+    # Check role for allowed ARIA attributes
+    #
+    Check_Role_Allowed_Aria_Attributes($tagname, $line, $column, $text, %attr);
+
+    #
+    # Check role for required ARIA attributes
+    #
+    Check_Role_Required_Aria_Attributes($tagname, $line, $column, $text, %attr);
 }
 
 #***********************************************************************
@@ -11440,6 +13783,18 @@ sub Check_Attributes {
     # Look for deprecated tag attributes
     #
     Check_Deprecated_Attributes($tagname, $line, $column, $text, %attr);
+    
+    #
+    # Check for tabindex greater than 0.
+    # In most cases this will cause a problem with focus order,
+    # it wont match the visual presentation order.
+    #
+    if ( defined($attr{"tabindex"}) && ($attr{"tabindex"} > 0) ) {
+        print "Tag has tabindex greater than zero\n" if $debug;
+        Record_Result("WCAG_2.0-F44,AXE-Tabindex", $line, $column, $text,
+                      String_Value("Tabindex value greater than zero") .
+                      " tabindex=\"" . $attr{"tabindex"} . "\"");
+    }
 }
 
 #***********************************************************************
@@ -11538,7 +13893,7 @@ sub Check_Multiple_Instances_of_Tag {
             #
             # Report error
             #
-            print "Multiple instnaces of $tagname previously seen at $prev_location\n" if $debug;
+            print "Multiple instances of $tagname previously seen at $prev_location\n" if $debug;
             Record_Result("WCAG_2.0-H88", $line, $column, $text,
                           String_Value("Multiple instances of") .
                                        " <$tagname> " .
@@ -11729,6 +14084,330 @@ sub Check_For_Implicit_End_Tag_Before_Start_Tag {
 
 #***********************************************************************
 #
+# Name: Check_Parent_Child_Tag_Relationship
+#
+# Parameters: self - reference to this parser
+#             tag - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function check to see if there are restrictions on the
+# parent/child tag nesting relationship.  Is the child tag valid
+# for the parent tag.
+#
+#***********************************************************************
+sub Check_Parent_Child_Tag_Relationship {
+    my ( $self, $tag, $line, $column, $text, %attr ) = @_;
+
+    my ($child_list, $child_tag, $is_valid);
+
+    #
+    # Is the parent tag in the set of tags that have relationship rules.
+    #
+    if ( defined($parent_child_tags{$parent_tag}) ) {
+        #
+        # Is the current tag a valid child for this parent?
+        #
+        print "Check_Parent_Child_Tag_Relationship for $parent_tag/$tag\n" if $debug;
+        $is_valid = 0;
+        $child_list = $parent_child_tags{$parent_tag};
+        foreach $child_tag (split(/,/, $child_list)) {
+            if ( $tag eq $child_tag ) {
+                #
+                # We have a valid child.
+                #
+                $is_valid = 1;
+                last;
+            }
+        }
+
+        #
+        # Is the child invalid?
+        #
+        if ( ! $is_valid ) {
+            print "Invalid parent/child relationship\n" if $debug;
+
+            #
+            # Record error based on the parent tag value
+            #
+            if ( $parent_tag eq "dl" ) {
+                Record_Result("WCAG_2.0-SC1.3.1,AXE-Definition_List", $line, $column, $text,
+                              String_Value("dl must contain only dt, dd, script or template tags"));
+            }
+            elsif ( ($parent_tag eq "ol") || ($parent_tag eq "ul") ) {
+                Record_Result("WCAG_2.0-SC1.3.1,AXE-List", $line, $column, $text,
+                              String_Value("ol, ul must contain only li, script or template tags"));
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Landmark
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks landmarks for proper nesting.
+#
+#***********************************************************************
+sub Check_Landmark {
+    my ( $self, $tagname, $line, $column, $text, %attr ) = @_;
+
+    my ($last_item, $tag_item, $previous_landmark, $tcid);
+
+    #
+    # Get last start tag to get previous landmark value.
+    #
+    print "Check_Landmark $current_landmark for $tagname\n" if $debug;
+    $last_item = @tag_order_stack - 2;
+    if ( $last_item >= 0 ) {
+        $tag_item = $tag_order_stack[$last_item];
+
+        #
+        # Get the previous landmark value
+        #
+        $previous_landmark = $tag_item->landmark();
+        print "Previous landmark $previous_landmark for tag " . $tag_item->tag() . "\n" if $debug;
+    }
+    else {
+        print "Tag order stack is empty\n" if $debug;
+        $previous_landmark = "";
+    }
+
+    #
+    # Is this the landmark different from the parent (i.e. not inherited)?
+    #
+    if ( $current_landmark ne $previous_landmark ) {
+        #
+        # Is the current landmark a banner landmark?
+        #
+        if ( $current_landmark eq "banner" ) {
+            $tcid = "AXE-Landmark_banner_is_top_level";
+        }
+        #
+        # Is the current landmark a complementary landmark?
+        #
+        elsif ( $current_landmark eq "complementary" ) {
+            $tcid = "AXE-Landmark_complementary_is_top_level";
+        }
+        #
+        # Is the current landmark a contentinfo landmark?
+        #
+        elsif ( $current_landmark eq "contentinfo" ) {
+            $tcid = "AXE-Landmark_contentinfo_is_top_level";
+        }
+
+        #
+        # Must not be contained within any other landmark other than body.
+        #
+        if ( $previous_landmark ne "body" ) {
+            Record_Result($tcid, $line, $column, $text,
+                          String_Value("Landmark") . " $current_landmark " .
+                          String_Value("must not be contained in another landmark") .
+                          ". " . String_Value("Container landmark is") .
+                          " $previous_landmark");
+        }
+    }
+    else {
+        #
+        # Current and previous landmarks are the same, must be
+        # an inherited landmark.
+        #
+        print "Inherited landmark\n" if $debug;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_Interactive_Parent
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function checks to see if this tag has an interactive tag as
+# a parent tag.  Interactive tags cannot be nested.
+#
+#***********************************************************************
+sub Check_Interactive_Parent {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+    
+    my ($interactive_tag, $tag_item, $last_item, $parent_tag);
+
+    #
+    # Start at parent tag (2nd last tag item)
+    #
+    print "Check_Interactive_Parent for tag $tagname\n" if $debug;
+    $last_item = @tag_order_stack - 2;
+    if ( $last_item >= 0 ) {
+        #
+        # Walk up the tag stack to find an interactive parent
+        #
+        print "Check tag stack\n" if $debug;
+        while ( (! defined($interactive_tag)) && ($last_item >= 0) ) {
+            $tag_item = $tag_order_stack[$last_item];
+            if ( $tag_item->interactive() ) {
+                $interactive_tag = $tag_item;
+                last;
+            }
+            $last_item = $last_item - 1;
+        }
+    }
+    
+    #
+    # Do we have an interactive parent tag?
+    #
+    if ( defined($interactive_tag) ) {
+        #
+        # The parent tag may mask this tag, we won't be able to
+        # activate this tag.
+        #
+        $parent_tag = $interactive_tag->tag();
+        print "Found interactive parent tag $parent_tag\n" if $debug;
+        if ( ! defined($acceptable_parent_interactive_tag{$parent_tag}) ) {
+            Record_Result("WCAG_2.0-SC2.4.3", $line, $column, $text,
+                          String_Value("Interactive tag has an interactive parent tag") .
+                          " <$parent_tag> " .
+                          String_Value("found at") . $interactive_tag->line_no() .
+                          ":" . $interactive_tag->column_no());
+        }
+    }
+    else {
+        print "No interactive parent tag fount\n" if $debug;
+    }
+}
+
+#***********************************************************************
+#
+# Name: Compute_Implicit_Role
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             length - position in the content stream
+#             text - text from tag
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function computes the implicit role for the tag.  Some tags
+# have implicit roles based on the tag name.  Some roles depend
+# on the tag name and the presence of other attributes on the tag.
+#
+#***********************************************************************
+sub Compute_Implicit_Role {
+    my ($tagname, $line, $column, $text, %attr) = @_;
+
+    my ($implicit_role) = "";
+    my ($conditions, @condition_list, $condition, $type, $name, $value, $role);
+
+    #
+    # Does this tag have an implicit role value?
+    #
+    print "Compute_Implicit_Role\n" if $debug;
+    if ( defined($implicit_aria_roles{$tagname}) ) {
+        $implicit_role = $implicit_aria_roles{$tagname};
+        print "Initial implicit role is $implicit_role\n" if $debug;
+    }
+
+    #
+    # Are there any conditions for the implicit role for this
+    # tag?
+    #
+    if ( defined($implicit_aria_role_conditions{$tagname}) ) {
+        $conditions = $implicit_aria_role_conditions{$tagname};
+        print "Conditions found for implicit role\n" if $debug;
+
+        #
+        # Split the conditions on white space to get the list of
+        # individual conditions.  Conditions may be for the presence
+        # of other attributes on the tag, or for values of
+        # other attributes.
+        #
+        #    attr:<name>:<role> - attribute required on tag
+        #      <name> - name of attribute
+        #      <role> - implicit WAI-ARIA role
+        #
+        #    attrvalue:<name>:<value>:<role> - attribute with specific value required
+        #      <name> - name of attribute
+        #      <value> - specific value
+        #      <role> - implicit WAI-ARIA role
+        #
+        @condition_list = split(/\s+/, $conditions);
+
+        #
+        # Check each condition until we get a match
+        #
+        foreach $condition (@condition_list) {
+            #
+            # Is this condition based on the presence of an attribute?
+            #
+            if ( $condition =~ /^attr:/ ) {
+                #
+                # Get the attribute name and role
+                #
+                ($type, $name, $role) = split(/:/, $condition);
+
+                #
+                # Do we have the other attribute?
+                #
+                if ( defined($attr{$name}) ) {
+                    #
+                    # Have other attribute, set implicit role
+                    #
+                    $implicit_role = $role;
+                    print "Found conditional attribute $name, implicit role is $role\n" if $debug;
+                    last;
+                }
+            }
+            #
+            # Is this condition based on the value of an attribute?
+            #
+            elsif ( $condition =~ /^attrvalue:/ ) {
+                #
+                # Get the attribute name, value and role
+                #
+                ($type, $name, $value, $role) = split(/:/, $condition);
+
+                #
+                # Do we have the other attribute and does it have
+                # the required value?
+                #
+                if ( defined($attr{$name}) && ($attr{$name} eq $value) ) {
+                    #
+                    # Have other attribute and value, set implicit role
+                    #
+                    $implicit_role = $role;
+                    print "Found conditional attribute $name with value $value, implicit role is $role\n" if $debug;
+                    last;
+                }
+            }
+        }
+    }
+
+    #
+    # Set the computed implicit role for the tag.
+    #
+    $current_tag_object->implicit_role($implicit_role);
+}
+
+#***********************************************************************
+#
 # Name: Start_Handler
 #
 # Parameters: self - reference to this parser
@@ -11752,7 +14431,8 @@ sub Start_Handler {
         $skipped_text, $attrseq, @attr ) = @_;
 
     my (%attr_hash) = @attr;
-    my ($tag_item, $tag, $location);
+    my ($tag_item, $tag, $location, $last_item, $tag_object, $n);
+    my ($new_landmark, $new_landmark_marker);
 
     #
     # Check to see if this start tag implicitly closes any
@@ -11805,24 +14485,90 @@ sub Start_Handler {
     Check_Multiple_Instances_of_Tag($tagname, $line, $column, $text);
 
     #
+    # Save current tag as the parent tag
+    #
+    if ( defined($current_tag_object) ) {
+        $parent_tag = $current_tag_object->tag();
+    }
+    else {
+        $parent_tag = "";
+    }
+    
+    #
     # Create a new tag object
     #
+    $parent_tag_object = $current_tag_object;
     $current_tag_object = tqa_tag_object->new($tagname, $line, $column,
                                               \%attr_hash);
     push(@tag_order_stack, $current_tag_object);
 
     #
-    # Compute the current landmark and implicit roled and add
-    # them to the tag object.
+    # Compute the current landmark value.  If the new value
+    # differs from the previous value, increment count for the new landmark
+    # type.
     #
-    ($current_landmark, $landmark_marker) = HTML_Landmark($tagname, $line,
-                       $column, $current_landmark, $landmark_marker,
-                       \@tag_order_stack, %attr_hash);
+    ($new_landmark, $new_landmark_marker) = HTML_Landmark($tagname, $line,
+                                                          $column, $current_landmark,
+                                                          $landmark_marker,
+                                                          \@tag_order_stack,
+                                                          %attr_hash);
+    if ( $new_landmark ne $current_landmark ) {
+        #
+        # Are we inside a frame?
+        #
+        if ( $inside_frame ) {
+            #
+            # Increment landmark type counter.
+            #
+            if ( ! defined($frame_landmark_count{$new_landmark}) ) {
+                $frame_landmark_count{$new_landmark} = 1;
+                print "Landmark $new_landmark inside of a frame\n"if $debug;
+            }
+            else {
+                $frame_landmark_count{$new_landmark}++;
+                print "Frame landmark count for $new_landmark is " .
+                      $frame_landmark_count{$new_landmark} . "\n" if $debug;
+            }
+        }
+        #
+        # Not in a frame.
+        #
+        else {
+            #
+            # Increment landmark type counter.
+            #
+            if ( ! defined($landmark_count{$new_landmark}) ) {
+                $landmark_count{$new_landmark} = 1;
+            }
+            else {
+                $landmark_count{$new_landmark}++;
+                print "Landmark count for $new_landmark is " .
+                      $landmark_count{$new_landmark} . "\n" if $debug;
+            }
+        }
+        
+        #
+        # Save new landmark values
+        #
+        $current_landmark = $new_landmark;
+        $landmark_marker = $new_landmark_marker;
+    }
+    
+    #
+    # Compute the implicit role for this tag
+    #
+    Compute_Implicit_Role($tagname, $line, $column, $text, %attr_hash);
+    
+    #
+    # Set the current landmark and marker for the tag.
+    #
     $current_tag_object->landmark($current_landmark);
     $current_tag_object->landmark_marker($landmark_marker);
-    if ( defined($implicit_aria_roles{$tagname}) ) {
-        $current_tag_object->implicit_role($implicit_aria_roles{$tagname});
-    }
+
+    #
+    # Is this tag interactive?
+    #
+    $current_tag_object->interactive(Is_Interactive_Tag("$tagname", $line, $column, %attr_hash));
 
     #
     # Check attributes
@@ -11835,7 +14581,18 @@ sub Start_Handler {
     #
     $content_section_handler->check_start_tag($tagname, $line, $column,
                                               %attr_hash);
-                                                    
+
+    #
+    # Check for parent/child tag relationship
+    #
+    Check_Parent_Child_Tag_Relationship($self, $tagname, $line, $column,
+                                        $text, %attr_hash);
+                                        
+    #
+    # Check landmark nesting
+    #
+    Check_Landmark($self, $tagname, $line, $column, $text, %attr_hash);
+                                        
     #
     # See which content section we are in
     #
@@ -11910,11 +14667,19 @@ sub Start_Handler {
     }
 
     #
+    # Check body tag
+    #
+    elsif ( $tagname eq "body" ) {
+        Body_Tag_Handler($self, $line, $column, $text, %attr_hash);
+    }
+
+    #
     # Check br tag
     #
     elsif ( $tagname eq "br" ) {
         #Br_Tag_Handler( $self, $line, $column, $text, %attr_hash );
     }
+    
     #
     # Check button tag
     #
@@ -12293,6 +15058,21 @@ sub Start_Handler {
     }
 
     #
+    # Is this tag interactive, visible and inside an aria-hidden tag?
+    #
+    if ( $current_tag_object->interactive() && ($tag_is_visible) &&
+         $tag_is_aria_hidden ) {
+        Record_Result("WCAG_2.0-SC4.1.2,AXE-Aria_hidden_focus", $line, $column, $text,
+                      String_Value("Focusable content inside aria-hidden tag"));
+    }
+
+    #
+    # Is this tag interactive? Check for an interactive parent?
+    #
+    if ( $current_tag_object->interactive() ) {
+        Check_Interactive_Parent($tagname, $line, $column, $text, %attr_hash);
+    }
+    #
     # Check event handlers
     #
     Check_Event_Handlers( $tagname, $line, $column, $text, %attr_hash );
@@ -12306,6 +15086,17 @@ sub Start_Handler {
         $current_tag_object = pop(@tag_order_stack);
         $current_landmark = $current_tag_object->landmark();
         $landmark_marker = $current_tag_object->landmark_marker();
+        
+        #
+        # Set parent tag object
+        #
+        $n = @tag_order_stack;
+        if ( $n > 0 ) {
+            $parent_tag_object = $tag_order_stack[$n - 1];
+        }
+        else {
+            undef($parent_tag_object);
+        }
     }
 
     #
@@ -12332,19 +15123,36 @@ sub Start_Handler {
 #***********************************************************************
 sub Check_Click_Here_Link {
     my ( $line, $column, $text, $link_text ) = @_;
+    
+    my ($invalid_text);
 
     #
     # Is the value of the link text 'here' or 'click here' ?
     #
     print "Check_Click_Here_Link, text = \"$link_text\"\n" if $debug;
-    $link_text = lc($link_text);
-    $link_text =~ s/^\s*//g;
-    $link_text =~ s/\s*$//g;
-    $link_text =~ s/\.*$//g;
-    if ( $tag_is_visible &&
-         (index($click_here_patterns, " $link_text ") != -1) ) {
-        Record_Result("WCAG_2.0-H30", $line, $column, $text,
-                      String_Value("click here link found"));
+    if ( $tag_is_visible ) {
+        #
+        # Remove leading or trailing whitespace and convert to lower case
+        #
+        $link_text = lc($link_text);
+        $link_text =~ s/^\s*//g;
+        $link_text =~ s/\s*$//g;
+        $link_text =~ s/\.*$//g;
+
+        #
+        # Check the value to see if it is invalid link text.
+        #
+        if ( defined($testcase_data{"WCAG_2.0-H30"}) ) {
+            foreach $invalid_text (split(/\n/, $testcase_data{"WCAG_2.0-H30"})) {
+                #
+                # Do we have a match on the invalid link text ?
+                #
+                if ( $link_text =~ /^$invalid_text$/i ) {
+                    Record_Result("WCAG_2.0-H30", $line, $column, $text,
+                                  String_Value("click here link found"));
+                }
+            }
+        }
     }
 }
 
@@ -12480,7 +15288,7 @@ sub End_Anchor_Tag_Handler {
                 #
                 if ( $tag_is_visible && ($this_text eq $last_image_alt_text) ) {
                     print "Anchor and image alt text the same \"$last_image_alt_text\"\n" if $debug;
-                    Record_Result("WCAG_2.0-H2", $line, $column, $text,
+                    Record_Result("WCAG_2.0-H2,AXE-Image_redundant_alt", $line, $column, $text,
                            String_Value("Anchor and image alt text the same"));
                 }
             }
@@ -12604,11 +15412,9 @@ sub End_Anchor_Tag_Handler {
                 push(@tc_list, "WCAG_2.0-H91");
             }
 
-            foreach $tcid (@tc_list) {
-                Record_Result($tcid, $line, $column,
-                              $text, String_Value("Missing text in") .
-                              String_Value("link"));
-            }
+            Record_Result(join(",", @tc_list), $line, $column,
+                          $text, String_Value("Missing text in") .
+                          String_Value("link"));
         }
     }
 
@@ -12651,6 +15457,18 @@ sub End_Anchor_Tag_Handler {
             if ( $tag_is_visible ) {
                 Record_Result("WCAG_2.0-H30", $line, $column, $text,
                               String_Value("Anchor text same as href"));
+            }
+        }
+        #
+        # Check if anchor value is just punctuation
+        # Reference:
+        #  https://alphagov.github.io/accessibility-tool-audit/tests/links-link-contains-only-a-full-stop.html
+        #
+        elsif ( ($current_a_href ne "") &&
+             ($all_anchor_text =~ /^[\!\@\#\$\%\^\&\*\(\)\-\.]$/ ) ) {
+            if ( $tag_is_visible ) {
+                Record_Result("WCAG_2.0-H30", $line, $column, $text,
+                              String_Value("Anchor text is single character punctuation"));
             }
         }
     }
@@ -12850,7 +15668,7 @@ sub End_Title_Tag_Handler {
         # Is the title an empty string ?
         #
         if ( $clean_text eq "" ) {
-            Record_Result("WCAG_2.0-F25", $line, $column, $text,
+            Record_Result("WCAG_2.0-F25,AXE-Document_title", $line, $column, $text,
                           String_Value("Missing text in") . "<title>");
         }
         #
@@ -12861,7 +15679,7 @@ sub End_Title_Tag_Handler {
         #
         elsif ( length($clean_text) > $max_heading_title_length ) {
             
-            Record_Result("WCAG_2.0-H25", $line, $column,
+            Record_Result("WCAG_2.0-H25,AXE-Document_title", $line, $column,
                           $text, String_Value("Title text greater than 500 characters") . " \"$clean_text\"");
         }
         else {
@@ -12871,7 +15689,7 @@ sub End_Title_Tag_Handler {
             ($protocol, $domain, $file_path, $query, $url) = URL_Check_Parse_URL($current_url);
             $file_path =~ s/^.*\///g;
             if ( lc($clean_text) eq lc($file_path) ) {
-                Record_Result("WCAG_2.0-F25", $line, $column, $text,
+                Record_Result("WCAG_2.0-F25,AXE-Document_title", $line, $column, $text,
                               String_Value("Invalid title") . " '$clean_text'");
             }
 
@@ -12881,13 +15699,14 @@ sub End_Title_Tag_Handler {
             # by a number of authoring tools.  Invalid titles may include
             # "untitled", "new document", ...
             #
-            if ( defined($testcase_data{"WCAG_2.0-F25"}) ) {
+            if ( defined($testcase_data{"WCAG_2.0-F25"}) ||
+                 defined($testcase_data{"AXE-Document_title"})) {
                 foreach $invalid_title (split(/\n/, $testcase_data{"WCAG_2.0-F25"})) {
                     #
                     # Do we have a match on the invalid title text ?
                     #
                     if ( $clean_text =~ /^$invalid_title$/i ) {
-                        Record_Result("WCAG_2.0-F25", $line, $column, $text,
+                        Record_Result("WCAG_2.0-F25,AXE-Document_title", $line, $column, $text,
                                       String_Value("Invalid title text value") .
                                       " '$clean_text'");
                     }
@@ -12919,7 +15738,7 @@ sub End_Title_Tag_Handler {
 sub Check_End_Tag_Order {
     my ( $self, $tagname, $line, $column, $text, @attr ) = @_;
 
-    my ($last_start_tag, $location, $tag_list);
+    my ($last_start_tag, $location, $tag_list, $n);
     my ($tag_error) = 0;
     my (%attr_hash) = @attr;
 
@@ -12943,6 +15762,17 @@ sub Check_End_Tag_Order {
         $current_tag_object = pop(@tag_order_stack);
 
         #
+        # Set parent tag object
+        #
+        $n = @tag_order_stack;
+        if ( $n > 0 ) {
+            $parent_tag_object = $tag_order_stack[$n - 1];
+        }
+        else {
+            undef($parent_tag_object);
+        }
+
+        #
         # Get tag and location
         #
         if ( defined($current_tag_object) ) {
@@ -12958,6 +15788,7 @@ sub Check_End_Tag_Order {
             $current_tag_styles = "";
             $tag_is_visible = 1;
             $tag_is_hidden = 0;
+            $tag_is_aria_hidden = 0;
             $current_landmark = "";
             $landmark_marker = "";
         }
@@ -13155,6 +15986,300 @@ sub Check_End_Role_Main {
 
 #***********************************************************************
 #
+# Name: Check_Required_Children_Roles
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function checks to see if the open tag that matches this close
+# tag contained any role value that requires specific children roles.
+# Any role child values for this tag are propagated to any parent tag's
+# child role list.
+#
+#***********************************************************************
+sub Check_Required_Children_Roles {
+    my ($self, $tagname, $line, $column, $text) = @_;
+
+    my (%required_roles, $role, $children_roles, $this_role, $expected_roles);
+    my ($required_role, $child_role, $found_role);
+    my ($role_list);
+
+    #
+    # Did the open tag have a role that requires specific child roles?
+    #
+    print "Check_Required_Children_Roles for $tagname\n" if $debug;
+    if ( defined($current_required_children_roles) ) {
+        %required_roles = %$current_required_children_roles;
+        print "Current tag that requires children roles is " .
+              $required_roles{"tag"} . " with role " .
+              $required_roles{"role"} . "\n" if $debug;
+
+        #
+        # Get possible role from the open tag object
+        #
+        if ( defined($current_tag_object) ) {
+            #
+            # Use explicit role, if there is one, otherwise use the implicit
+            # role.
+            #
+            $role = $current_tag_object->explicit_role();
+            if ( $role eq "" ) {
+                $role = $current_tag_object->implicit_role();
+            }
+            print "Open tag role = $role\n" if $debug;
+
+            #
+            # Does this role match the role of the current tag that requires
+            # children roles?
+            #
+            if ( $role eq $required_roles{"role"} )  {
+                #
+                # Do the tag names match?
+                #
+                if ( $tagname eq $required_roles{"tag"} ) {
+                    #
+                    # Did we find a required child role value?
+                    #
+                    print "Found tag that matches current tag that requires children roles\n" if $debug;
+                    
+                    #
+                    # Get the list of children roles
+                    #
+                    $children_roles = $required_roles{"children roles"};
+                    
+                    #
+                    # Does one of the child roles match one of the required roles?
+                    #
+                    $found_role = 0;
+                    $role_list = $aria_required_children_roles{$role};
+                    print "Required children roles list \"$role_list\"\n" if $debug;
+                    print "Children roles list \"$children_roles\"\n" if $debug;
+                    foreach $role (split(/\s+/, $role_list)) {
+                        #
+                        # Check for matching child role
+                        #
+                        foreach $child_role (split(/\s+/, $children_roles)) {
+                            if ( $child_role eq $role ) {
+                                print "Found required child role $role\n" if $debug;
+                                $found_role = 1;
+                                last;
+                            }
+                        }
+                        
+                        #
+                        # Did we find a match for this role?
+                        #
+                        if ( $found_role ) {
+                            last;
+                        }
+                    }
+                    
+                    #
+                    # Did we find at least 1 required child role?
+                    #
+                    if ( ! $found_role ) {
+                        print "Did not find any required child role\n" if $debug;
+                        Record_Result("WCAG_2.0-SC1.3.1,AXE-Aria_required_children", $line, $column, $text,
+                              String_Value("Missing required children roles for parent role") .
+                              " \"$role\" " .
+                              String_Value("expecting one of") .
+                              " \"$role_list\"");
+                    }
+                    
+                    #
+                    # Pop this tag/role from the list of tags that
+                    # requires children roles.
+                    #
+                    $current_required_children_roles = pop(@tag_roles_required_children_roles);
+
+                    #
+                    # Add the children roles to this current
+                    #
+                    if ( defined($current_required_children_roles) ) {
+                        print "Add current tag roles and children roles to the new tag that requires children roles\n" if $debug;
+                        %required_roles = %$current_required_children_roles;
+                        $this_role = $required_roles{"children roles"};
+                        $$current_required_children_roles{"children roles"} = $this_role;
+                    }
+                }
+                else {
+                    #
+                    # Current tag is not the expected tag, could be incorrect nesting
+                    # of tags.
+                    #
+                    print "Mismatch in tag name for current tag that requires children roles\n" if $debug;
+                    print "Current tag = $tagname, role = $role, expected tag name " . $required_roles{"tag"} . "\n" if $debug;
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Get_Accessible_Name
+#
+# Parameters: tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function gets the accessible name for the current tag.
+#  The accessible name computation algorthim is defined in
+#    https://www.w3.org/TR/accname-1.1/
+#
+#***********************************************************************
+sub Get_Accessible_Name {
+    my ($tagname, $line, $column, $text) = @_;
+    
+    my ($aria_label, $aria_labelledby, $accessible_name);
+
+    #
+    # Get any aria-label and aria-labelledby attributes
+    #
+    print "Get_Accessible_Name $tagname\n" if $debug;
+    $aria_label = $current_tag_object->attr_value("aria-label");
+    $aria_labelledby = $current_tag_object->attr_value("aria-labelledby");
+
+    #
+    # Is the tag hidden?
+    #
+    if ( $current_tag_object->is_hidden() ) {
+        print "Hidden tag\n" if $debug;
+    }
+    #
+    # Do we have a non empty aria-labelledby attribute?
+    #
+    elsif ( defined($aria_labelledby) && ! ($aria_labelledby =~ /^\s*$/) ) {
+        print "Have aria-labelledby \"$aria_labelledby\" on tag\n" if $debug;
+
+        #
+        # TODO: Get content from tag with corresponding ID values
+        #
+    }
+    #
+    # Do we have a non empty aria-label attribute?
+    #
+    elsif ( defined($aria_label) && ! ($aria_label =~ /^\s*$/) ) {
+        #
+        # Remove leading or trailing whitespace
+        #
+        print "Have aria-label \"$aria_label\" on tag\n" if $debug;
+        $accessible_name = $aria_label;
+        $accessible_name =~ s/^\s*//;
+        $accessible_name =~ s/\s*$//;
+    }
+    
+    #
+    # Return the accessible name
+    #
+    return($accessible_name);
+}
+
+#***********************************************************************
+#
+# Name: Check_Accessible_Name_from_Content
+#
+# Parameters: self - reference to this parser
+#             tagname - name of tag
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function checks to see if the tag and/or it's role supports
+# accessible name from content functionality.  If it does, then the content
+# of the tag is checked against the accessible name to ensure the content
+# appears in the accessible name.  The accessible name computation is
+# defined in https://www.w3.org/TR/accname-1.1/
+#
+#***********************************************************************
+sub Check_Accessible_Name_from_Content {
+    my ($self, $tagname, $line, $column, $text) = @_;
+
+    my ($accessible_name, $content, $pos);
+
+    #
+    # Does the tag contain a role that supports accessible name from content?
+    #
+    print "Check_Accessible_Name_from_Content $tagname\n" if $debug;
+    if ( defined($current_tag_object) &&
+         $current_tag_object->accessible_name_content() ) {
+        #
+        # Get tag content
+        #
+        $content = Clean_Text(Get_Text_Handler_Content($self, " "));
+        
+        #
+        # Get the accessible name for this tag
+        #
+        $accessible_name = Get_Accessible_Name($tagname, $line, $column, $text);
+
+        #
+        # Do we have an accessible name?
+        #
+        if ( defined($accessible_name) ) {
+            #
+            # Is there content for the tag?
+            #
+            print "Have accessible name \"$accessible_name\" for tag\n" if $debug;
+            if ( $content ne "" ) {
+                #
+                # Convert strings to lower case for comparisons as
+                # the match is not case sensitive.
+                #
+                print "Tag content is \"$content\"\n" if $debug;
+                $content = lc($content);
+                $accessible_name = lc($accessible_name);
+
+                #
+                # Is the tag content at the beginning of the accessible name?
+                #
+                $pos = index($accessible_name, $content);
+                if ( $pos == 0 ) {
+                    #
+                    # Content found in accessible name at the beginning
+                    #
+                    print "Tag content is at the beginning of the accessible name\n" if $debug;
+                }
+                #
+                # Is the content in the accessible name, but not at the beginning
+                #
+                elsif ( $pos > 0 ) {
+                    print "Tag content is not at the beginning of the accessible name\n" if $debug;
+                    Record_Result("AXE-Label_content_name_mismatch",
+                                  $line, $column, $text,
+                                  String_Value("Accessible name does not begin with visible text"));
+                }
+                else {
+                    #
+                    # Tag content is not in the accessible name, check to see if
+                    # the accessible name is in the text (i.e. the accessible
+                    # name is a substring of the visable text).
+                    #
+                    print "Tag content is not in the aria-label\n" if $debug;
+                    $pos = index($content, $accessible_name);
+                    if ( $pos != -1 ) {
+                        Record_Result("AXE-Label_content_name_mismatch",
+                                      $line, $column, $text,
+                                      String_Value("Not all of visible text is included in accessible name"));
+                    }
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: End_Handler
 #
 # Parameters: self - reference to this parser
@@ -13182,6 +16307,12 @@ sub End_Handler {
     # tag ?
     #
     Check_End_Tag_Order($self, $tagname, $line, $column, $text, @attr);
+    
+    #
+    # Check to see if this tag supports accessible name from content for
+    # speech input users.
+    #
+    Check_Accessible_Name_from_Content($self, $tagname, $line, $column, $text);
 
     #
     # Check anchor tag
@@ -13318,6 +16449,13 @@ sub End_Handler {
     }
 
     #
+    # Check frame tag
+    #
+    elsif ( $tagname eq "frame" ) {
+        End_Frame_Tag_Handler($self, $tagname, $line, $column, $text);
+    }
+    
+    #
     # Check heading tag
     #
     elsif ( $tagname =~ /^h[0-9]?$/ ) {
@@ -13346,6 +16484,13 @@ sub End_Handler {
     }
 
     #
+    # Check iframe tag
+    #
+    elsif ( $tagname eq "iframe" ) {
+        End_Frame_Tag_Handler($self, $tagname, $line, $column, $text);
+    }
+
+    #
     # Check label tag
     #
     elsif ( $tagname eq "label" ) {
@@ -13353,7 +16498,7 @@ sub End_Handler {
     }
 
     #
-    # Check frame legend
+    # Check legend tag
     #
     elsif ( $tagname eq "legend" ) {
         End_Legend_Tag_Handler( $self, $line, $column, $text);
@@ -13562,6 +16707,11 @@ sub End_Handler {
     # Check for end of main content area
     #
     Check_End_Role_Main($self, $tagname, $line, $column, $text);
+    
+    #
+    # Check for required children roles for this tag
+    #
+    Check_Required_Children_Roles($self, $tagname, $line, $column, $text);
 
     #
     # Restore global tag visibility and hidden status values.
@@ -13572,20 +16722,42 @@ sub End_Handler {
         $current_tag_styles = $tag_item->styles;
         $tag_is_visible = $tag_item->is_visible;
         $tag_is_hidden = $tag_item->is_hidden;
+        $tag_is_aria_hidden = $tag_item->is_aria_hidden;
         $last_start_tag = $tag_item->tag;
         $current_landmark = $tag_item->landmark();
         $landmark_marker = $tag_item->landmark_marker();
+
+        #
+        # Reset current tag object to be the parent tag
+        #
+        $current_tag_object = $tag_order_stack[$last_item];
+        
+        #
+        # Set parent tag object
+        #
+        $last_item = @tag_order_stack;
+        if ( $last_item > 0 ) {
+            $parent_tag_object = $tag_order_stack[$last_item - 1];
+        }
+        else {
+            undef($parent_tag_object);
+        }
+
     }
     else {
         $current_tag_styles = "";
         $tag_is_visible = 1;
         $tag_is_hidden = 0;
+        $tag_is_aria_hidden = 0;
         $last_start_tag = "";
         $current_landmark = "";
         $landmark_marker = "";
+        undef($current_tag_object);
+        undef($parent_tag_object);
     }
     print "Restore tag_is_visible = $tag_is_visible for last start tag $last_start_tag\n" if $debug;
     print "Restore tag_is_hidden = $tag_is_hidden for last start tag $last_start_tag\n" if $debug;
+    print "Restore tag_is_aria_hidden = $tag_is_aria_hidden for last start tag $last_start_tag\n" if $debug;
 
     #
     # Destroy the text handler that was used to save the text
@@ -13635,7 +16807,8 @@ sub Check_Baseline_Technologies {
 sub Check_Missing_And_Extra_Labels_In_Form {
 
     my ($label_id, $line, $column, $comment, $found, $label_for);
-    my ($label_is_visible, $label_is_hidden, $input_is_visible, $input_is_hidden);
+    my ($label_is_visible, $label_is_hidden, $input_is_visible);
+    my ($input_is_hidden, $label_is_aria_hidden);
 
     #
     # Check that a label is defined for each one referenced
@@ -13645,9 +16818,10 @@ sub Check_Missing_And_Extra_Labels_In_Form {
         #
         # Did we find a <label> tag with a matching for= value ?
         #
-        ($line, $column, $input_is_visible, $input_is_hidden) = split(/:/, $input_id_location{"$label_id"});
+        ($line, $column, $input_is_visible, $input_is_hidden) =
+            split(/:/, $input_id_location{"$label_id"});
         if ( ! defined($label_for_location{"$label_id"}) ) {
-            Record_Result("WCAG_2.0-F68", $line, $column, "",
+            Record_Result("WCAG_2.0-F68,AXE-Label", $line, $column, "",
                           String_Value("No label matching id attribute") .
                           "'$label_id'" . String_Value("for tag") .
                           " <input>");
@@ -13656,7 +16830,9 @@ sub Check_Missing_And_Extra_Labels_In_Form {
         # Have a label
         #
         else {
-            ($line, $column, $label_is_visible, $label_is_hidden) = split(/:/, $label_for_location{"$label_id"});
+            ($line, $column, $label_is_visible,
+             $label_is_hidden, $label_is_aria_hidden) =
+                split(/:/, $label_for_location{"$label_id"});
             print "Check label id = $label_id, $line:$column:$label_is_visible:$label_is_hidden\n" if $debug;
             #
             # Is input visible and the label hidden ?
@@ -13677,6 +16853,17 @@ sub Check_Missing_And_Extra_Labels_In_Form {
                               String_Value("Label referenced by") .
                               " 'id=\"$label_id\"' " .
                               String_Value("is not visible") . ". <label> " .
+                              String_Value("started at line:column") .
+                              " $line:$column");
+            }
+            #
+            # Is the input visible and the label aria-hidden ?
+            #
+            elsif (  $tag_is_visible && $label_is_aria_hidden ) {
+                Record_Result("WCAG_2.0-H44", $line, $column, "",
+                              String_Value("Label referenced by") .
+                              " 'id=\"$label_id\"' " .
+                              String_Value("is inside aria-hidden tag") . ". <label> " .
                               String_Value("started at line:column") .
                               " $line:$column");
             }
@@ -13769,7 +16956,7 @@ sub Check_Language_Spans {
             if ( ($status == 0 ) && ($content_lang ne "" ) &&
                  ($span_lang ne $content_lang) ) {
                 print "Span language error\n" if $debug;
-                Record_Result("WCAG_2.0-H58", -1, -1, "",
+                Record_Result("WCAG_2.0-H58,AXE-Valid_lang", -1, -1, "",
                               String_Value("Span language attribute") .
                               " '$span_lang' " .
                               String_Value("does not match content language") .
@@ -13814,6 +17001,9 @@ sub Check_Missing_Aria_Id {
             #
             ($line, $column, $tag, $tcid) = split(/:/, $aria_describedby_location{"$aria_id"});
             if ( ! defined($id_attribute_values{"$aria_id"}) ) {
+                #
+                # Record error
+                #
                 Record_Result($tcid, $line, $column, "",
                               String_Value("No tag with id attribute") .
                               " '$aria_id' ");
@@ -13842,7 +17032,7 @@ sub Check_Missing_Aria_Id {
     #
     # Check that a id is defined for each one referenced
     #
-    print "Check aria_describedby_location\n" if $debug;
+    print "Check aria_labelledby_location\n" if $debug;
     foreach $aria_id (keys %aria_labelledby_location) {
         #
         # Did we find a tag with a matching id= value ?
@@ -13850,6 +17040,19 @@ sub Check_Missing_Aria_Id {
         ($line, $column, $tag, $tcid) = split(/:/, $aria_labelledby_location{"$aria_id"});
         print "Check aria_labelledby_location $aria_id:$line:$column:$tag:$tcid\n" if $debug;
         if ( ! defined($id_attribute_values{"$aria_id"}) ) {
+            #
+            # Handle special cases for specific tags
+            #
+            if ( $tag eq "button" ) {
+                $tcid .= ",AXE-Button_name";
+            }
+            elsif ( $tag eq "input" ) {
+                $tcid .= ",AXE-Input_button_name";
+            }
+
+            #
+            # Record error
+            #
             Record_Result($tcid, $line, $column, "",
                           String_Value("No tag with id attribute") .
                           "'$aria_id'");
@@ -13905,8 +17108,43 @@ sub Check_Document_Errors {
     # Did we find a <title> tag in the document ?
     #
     if ( ! $found_title_tag ) {
-        Record_Result("WCAG_2.0-H25", -1,  0, "",
+        Record_Result("WCAG_2.0-H25,AXE-Document_title", -1,  0, "",
                       String_Value("Missing <title> tag"));
+    }
+    
+    #
+    # Did we find an h1 tag in the document?
+    #
+    if ( ! $found_h1 ) {
+        Record_Result("AXE-Page_has_heading_one", -1,  0, "",
+                      String_Value("No level one heading found"));
+    }
+    
+    #
+    # Do we have more than 1 main landmark?
+    #
+    if ( defined($landmark_count{"main"}) && ($landmark_count{"main"} > 1) ) {
+        Record_Result("AXE-Landmark_one_main", -1,  0, "",
+                      String_Value("Page contains more than 1 landmark with") .
+                      " role=\"main\"");
+    }
+
+    #
+    # Do we have more than 1 banner landmark?
+    #
+    if ( defined($landmark_count{"banner"}) && ($landmark_count{"banner"} > 1) ) {
+        Record_Result("AXE-Landmark_no_duplicate_banner", -1,  0, "",
+                      String_Value("Page contains more than 1 landmark with") .
+                      " role=\"banner\"");
+    }
+
+    #
+    # Do we have more than 1 contentinfo landmark?
+    #
+    if ( defined($landmark_count{"contentinfo"}) && ($landmark_count{"contentinfo"} > 1) ) {
+        Record_Result("AXE-Landmark_no_duplicate_contentinfo", -1,  0, "",
+                      String_Value("Page contains more than 1 landmark with") .
+                      " role=\"contentinfo\"");
     }
 
     #
@@ -14077,6 +17315,8 @@ sub Modified_Content_HTML_Check {
 #             resp - HTTP::Response object
 #             content - HTML content pointer
 #             links - address of a list of link objects
+#             logged_in - flag to indicate if we are logged into an
+#               application
 #
 # Description:
 #
@@ -14084,11 +17324,12 @@ sub Modified_Content_HTML_Check {
 #
 #***********************************************************************
 sub HTML_Check {
-    my ($this_url, $language, $profile, $resp, $content, $links) = @_;
+    my ($this_url, $language, $profile, $resp, $content, $links,
+        $logged_in) = @_;
 
     my ($parser, @tqa_results_list, $result_object, $testcase);
     my ($lang_code, $lang, $status, $css_content, %on_page_styles);
-    my ($selector, $style);
+    my ($selector, $style, @other_results);
 
     #
     # Do we have a valid profile ?
@@ -14122,6 +17363,20 @@ sub HTML_Check {
     # Did we get any content ?
     #
     if ( length($$content) > 0 ) {
+    
+        #
+        # Are we doing Pa11y checks (https://github.com/pa11y/pa11y) ?
+        # Can only be done if we are not logged into an application
+        #
+        if ( (! $logged_in) && defined($$current_tqa_check_profile{"Pa11y"}) ) {
+            print "Run Pa11y checks\n" if $debug;
+            @other_results = Pa11y_Check($this_url, $language, $profile, $resp, $content);
+            
+            foreach $result_object (@other_results) {
+                push(@tqa_results_list, $result_object);
+            }
+        }
+        
         #
         # Get content language
         #
@@ -14145,13 +17400,11 @@ sub HTML_Check {
         elsif ( $status == $LANGUAGES_TOO_CLOSE ) {
             #
             # Could not determine the language of the content, the 
-            # top language choices were too close.  Report an error
-            # as it might be that the content contains several languages
-            # that are not properly spanned.
+            # top language choices were too close.  Don't report an error.
             #
-            Record_Result("WCAG_2.0-H57", -1, -1, "",
-                          String_Value("Unable to determine content language, possible languages are") .
-                          " " . join(", ", TextCat_Too_Close_Languages()));
+            #Record_Result("WCAG_2.0-H57", -1, -1, "",
+            #              String_Value("Unable to determine content language, possible languages are") .
+            #              " " . join(", ", TextCat_Too_Close_Languages()));
             $current_content_lang_code = "";
         }
         else {
@@ -14293,7 +17546,7 @@ sub HTML_Check_EPUB_File {
                                    $resp, $content, \@links);
     
     #
-    # Clean the global flag indicating that HTML content is from an EPUB
+    # Clear the global flag indicating that HTML content is from an EPUB
     # document.
     #
     $html_is_part_of_epub = 0;
