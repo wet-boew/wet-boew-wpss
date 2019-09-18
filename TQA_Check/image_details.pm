@@ -359,12 +359,28 @@ sub Get_Image_Details {
     #
     if ( defined($info_item->{width}) ) {
         $width = $info_item->{width};
+        
+        #
+        # Check for percentage
+        #
+        if ( $width =~ /\%$/ ) {
+            $width =~ s/\%//g;
+            $width = $width * 0.01;
+        }
     }
     else {
         $width = 0;
     }
     if ( defined($info_item->{height}) ) {
         $height = $info_item->{height};
+
+        #
+        # Check for percentage
+        #
+        if ( $height =~ /\%$/ ) {
+            $height =~ s/\%//g;
+            $height = $height * 0.01;
+        }
     }
     else {
         $height = 0;
