@@ -2,9 +2,9 @@
 #
 # Name:   url_check.pm
 #
-# $Revision: 6589 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/url_check.pm $
-# $Date: 2014-03-12 15:34:39 -0400 (Wed, 12 Mar 2014) $
+# $Revision: 1394 $
+# $URL: svn://10.36.148.185/TQA_Check/Tools/url_check.pm $
+# $Date: 2019-07-04 13:46:43 -0400 (Thu, 04 Jul 2019) $
 #
 # Description:
 #
@@ -13,6 +13,7 @@
 # Public functions:
 #     URL_Check
 #     URL_Check_Debug
+#     URL_Check_GET_Filename_Query_Language
 #     URL_Check_GET_URL_Language
 #     URL_Check_Get_English_URL
 #     URL_Check_Is_URL
@@ -77,6 +78,7 @@ BEGIN {
     @ISA     = qw(Exporter);
     @EXPORT  = qw(URL_Check
                   URL_Check_Debug
+                  URL_Check_GET_Filename_Query_Language
                   URL_Check_GET_URL_Language
                   URL_Check_Get_English_URL
                   URL_Check_Is_URL
@@ -386,6 +388,130 @@ sub URL_Check_Is_URL {
 
 #***********************************************************************
 #
+# Name: URL_Check_GET_Filename_Query_Language
+#
+# Parameters: filename_query - the filename and query portion of a URL
+#
+# Description:
+#
+#   This function tries to determine the language of the filename and
+# query portion of a URL.  It looks for a language suffix (e.g. -eng, -fra)
+# or a lang/language URL variable (e.g. lang=eng).  The 3 character language
+# code is returned.
+#
+#***********************************************************************
+sub URL_Check_GET_Filename_Query_Language {
+    my ($filename_query) = @_;
+
+    my ($arg, $language, $file_suffix, $file_path, $query);
+
+    #
+    # Check for possible language suffixn
+    #
+    print "URL_Check_GET_Filename_Query_Language Get language of $filename_query\n" if $debug;
+    ($file_path, $query) =
+          $filename_query =~ /^([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+    print "File path = $file_path, query = $query\n" if $debug;
+
+    #
+    # Check for a 1..3 letter language suffix in the file name
+    # (before the file type).
+    #
+    ($file_suffix) = $file_path =~ /^[\w\/\-_\.]*[\-_]([a-zA-Z]{1,3})\..*/;
+    $file_suffix = lc($file_suffix);
+
+    #
+    # Check for a 3 character language
+    #
+    if ( defined($language_map::iso_639_2T_languages{$file_suffix}) ) {
+        $language = $file_suffix;
+        print "3 character language suffix $file_suffix\n" if $debug;
+    }
+    #
+    # Check for 2 character language
+    #
+    elsif ( defined($language_map::iso_639_1_iso_639_2T_map{$file_suffix}) ) {
+        $language = $language_map::iso_639_1_iso_639_2T_map{$file_suffix};
+        print "2 character language suffix $file_suffix -> $language\n" if $debug;
+    }
+    #
+    # Check for 1 character language
+    #
+    elsif ( defined($language_map::one_char_iso_639_2T_map{$file_suffix}) ) {
+        $language = $language_map::one_char_iso_639_2T_map{$file_suffix};
+        print "1 character language suffix $file_suffix -> $language\n" if $debug;
+    }
+
+    #
+    # If we still don't have a language, look for a lang/language URL argument
+    #
+    if ( ! defined($language) ) {
+        #
+        # Could not determine language from URL, check for a lang
+        # or language argument.
+        #
+        $query =~ s/^\?//g;
+        foreach $arg (split(/[&;]/, $query) ) {
+            if ( ($arg =~ /^lang=/i) || ($arg =~ /^language=/i) ) {
+                #
+                # Got language argument, get it's value
+                #
+                $arg =~ s/^lang=//i;
+                $arg =~ s/^language=//i;
+                $arg =~ s/"//g;
+                $arg =~ s/'//g;
+                print "Check language $arg\n" if $debug;
+
+                #
+                # Check for a 3 character language
+                #
+                if ( defined($language_map::iso_639_2T_languages{$arg}) ) {
+                    $language = $arg;
+                    print "3 character lang value $arg\n" if $debug;
+                }
+                #
+                # Check for 2 character language
+                #
+                elsif ( defined($language_map::iso_639_1_iso_639_2T_map{$arg}) ) {
+                    $language = $language_map::iso_639_1_iso_639_2T_map{$arg};
+                    print "2 character lang value $arg -> $language\n" if $debug;
+                }
+                #
+                # Check for 1 character language
+                #
+                elsif ( defined($language_map::one_char_iso_639_2T_map{$arg}) ) {
+                    $language = $language_map::one_char_iso_639_2T_map{$arg};
+                    print "1 character lang value $arg -> $language\n" if $debug;
+                }
+
+                #
+                # We found lang= or language=, stop looking at arguments.
+                #
+                last;
+            }
+        }
+    }
+
+    #
+    # If we still dont't have a language, set it to the unknown language
+    #
+    if ( ! defined($language) ) {
+        $language = "";
+        print "Unable to determine URL language\n" if $debug;
+    }
+    else {
+        print "lang = $language, language = " .
+              $language_map::iso_639_2T_languages{$language} . "\n" if $debug;
+    }
+
+    #
+    # Return language
+    #
+    return($language);
+}
+
+#***********************************************************************
+#
 # Name: URL_Check_GET_URL_Language
 #
 # Parameters: url
@@ -573,14 +699,14 @@ sub Get_English_Path {
     #
     # Check for 2 character language
     #
-    elsif ( defined($language_map::iso_639_1_iso_639_2T_map{$file_suffix}) ) {
+    elsif ( defined($language_map::iso_639_1_iso_639_2T_map{$language_suffix}) ) {
         $english_file_path = $file_name . "en" . ".$file_suffix";
         print "2 character language suffix $language_suffix\n" if $debug;
     }
     #
     # Check for 1 character language
     #
-    elsif ( defined($language_map::one_char_iso_639_2T_map{$file_suffix}) ) {
+    elsif ( defined($language_map::one_char_iso_639_2T_map{$language_suffix}) ) {
         $english_file_path = $file_name . "e" . ".$file_suffix";
         print "1 character language suffix $language_suffix\n" if $debug;
     }
@@ -797,7 +923,7 @@ sub URL_Check_Get_English_URL {
     }
 
     #
-    # If we still dont't have a URL, return empty string
+    # If we still don't have a URL, return empty string
     #
     if ( ! defined($english_url) ) {
         $english_url = "";
