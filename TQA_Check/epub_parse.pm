@@ -2,9 +2,9 @@
 #
 # Name:   epub_parse.pm
 #
-# $Revision: 697 $
+# $Revision: 1471 $
 # $URL: svn://10.36.148.185/TQA_Check/Tools/epub_parse.pm $
-# $Date: 2018-01-30 12:46:46 -0500 (Tue, 30 Jan 2018) $
+# $Date: 2019-09-09 15:14:01 -0400 (Mon, 09 Sep 2019) $
 #
 # Description:
 #
@@ -1011,12 +1011,12 @@ sub EPUB_Parse_Get_OPF_File {
     $current_dir = getcwd;
     chdir($epub_uncompressed_dir);
     print "Uncompress EPUB file into directory $epub_uncompressed_dir\n" if $debug;
-    $zip_file = Archive::Zip->new($epub_filename);
+    $zip_file = Archive::Zip->new();
+    
+    #
+    # Read the ZIP file
+    #
     $zip_status = $zip_file->read($epub_filename);
-
-    #
-    # Did we read the ZIP successfully ?
-    #
     if ( $zip_status != AZ_OK ) {
         print "Error reading archive, status = $zip_status\n" if $debug;
         undef($zip_file);
