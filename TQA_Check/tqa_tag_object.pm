@@ -2,9 +2,9 @@
 #
 # Name: tqa_tag_object.pm
 #
-# $Revision: 6813 $
-# $URL: svn://10.36.20.226/trunk/Web_Checks/TQA_Check/Tools/tqa_tag_object.pm $
-# $Date: 2014-10-28 15:19:55 -0400 (Tue, 28 Oct 2014) $
+# $Revision: 1461 $
+# $URL: svn://10.36.148.185/TQA_Check/Tools/tqa_tag_object.pm $
+# $Date: 2019-08-30 14:14:51 -0400 (Fri, 30 Aug 2019) $
 #
 # Description:
 #
@@ -17,9 +17,15 @@
 #
 # Class Methods
 #    new - create new object instance
+#    accessible_name_content - get/set attribute value
 #    attr - get/set hash table of attributes
+#    attr_value - get attribute value
 #    column_no - get/set source column number
+#    content - get/set current tag content
+#    explicit_role - get/set the explicit role value
 #    implicit_role - get/set the implicit role value
+#    interactive - get/set flag if tag is interactive
+#    is_aria_hidden - get/set tag is aria-hidden flag
 #    is_hidden - get/set tag is hidden flag
 #    is_visible - get/set tag is visible flag
 #    landmark - get/set landmark
@@ -133,9 +139,14 @@ sub new {
     #
     # Save arguments as object data items
     #
+    $self->{"accessible_name_content"} = 0;
     $self->{"attr"} = $attr;
     $self->{"column_no"} = $column_no;
+    $self->{"content"} = "";
+    $self->{"explicit_role"} = "";
     $self->{"implicit_role"} = "";
+    $self->{"interactive"} = 0;
+    $self->{"is_aria_hidden"} = 0;
     $self->{"is_hidden"} = 0;
     $self->{"is_visible"} = 1;
     $self->{"landmark"} = "";
@@ -156,6 +167,35 @@ sub new {
     # Return reference to object.
     #
     return($self);
+}
+
+#********************************************************
+#
+# Name: accessible_name_content
+#
+# Parameters: self - class reference
+#             value - content (optional)
+#
+# Description:
+#
+#   This function either sets or returns the accessible_name_content
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub accessible_name_content {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"accessible_name_content"} = $value;
+    }
+    else {
+        return($self->{"accessible_name_content"});
+    }
 }
 
 #********************************************************
@@ -189,6 +229,38 @@ sub attr {
 
 #********************************************************
 #
+# Name: attr_value
+#
+# Parameters: self - class reference
+#             attr_name - attribute name
+#
+# Description:
+#
+#   This function returns the value of the named attribute.
+# If the attribute does not exist, null is returned.
+#
+#********************************************************
+sub attr_value {
+    my ($self, $attr_name) = @_;
+    
+    my ($attr, $value);
+
+    #
+    # Do we have table of attribute name/values?
+    #
+    $attr = $self->{"attr"};
+    if ( defined($attr) && defined($$attr{$attr_name}) ) {
+        $value = $$attr{$attr_name};
+    }
+    
+    #
+    # Return the attribute value (if there is one)
+    #
+    return($value);
+}
+
+#********************************************************
+#
 # Name: column_no
 #
 # Parameters: self - class reference
@@ -218,6 +290,64 @@ sub column_no {
 
 #********************************************************
 #
+# Name: content
+#
+# Parameters: self - class reference
+#             value - content (optional)
+#
+# Description:
+#
+#   This function either sets or returns the content
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub content {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"content"} = $value;
+    }
+    else {
+        return($self->{"content"});
+    }
+}
+
+#********************************************************
+#
+# Name: explicit_role
+#
+# Parameters: self - class reference
+#             role - role value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the explicit_role
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub explicit_role {
+    my ($self, $role) = @_;
+
+    #
+    # Was a role value supplied ?
+    #
+    if ( defined($role) ) {
+        $self->{"explicit_role"} = $role;
+    }
+    else {
+        return($self->{"explicit_role"});
+    }
+}
+
+#********************************************************
+#
 # Name: implicit_role
 #
 # Parameters: self - class reference
@@ -242,6 +372,64 @@ sub implicit_role {
     }
     else {
         return($self->{"implicit_role"});
+    }
+}
+
+#********************************************************
+#
+# Name: interactive
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the interactive
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub interactive {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"interactive"} = $value;
+    }
+    else {
+        return($self->{"interactive"});
+    }
+}
+
+#********************************************************
+#
+# Name: is_aria_hidden
+#
+# Parameters: self - class reference
+#             is_hidden - aria-hidden status (optional)
+#
+# Description:
+#
+#   This function either sets or returns the is_aria_hidden
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub is_aria_hidden {
+    my ($self, $is_hidden) = @_;
+
+    #
+    # Was a is_hidden value supplied ?
+    #
+    if ( defined($is_hidden) ) {
+        $self->{"is_aria_hidden"} = $is_hidden;
+    }
+    else {
+        return($self->{"is_aria_hidden"});
     }
 }
 
