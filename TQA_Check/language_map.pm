@@ -13,6 +13,16 @@
 # amount of code.  No subroutines are defined here, just variable
 # declarations.
 #
+# Public functions:
+#     ISO_639_2_Language_Code
+#     Language_Valid
+#
+# Public variables:
+#     %iso_639_2T_languages
+#     %iso_639_1_iso_639_2T_map
+#     %one_char_iso_639_2T_map
+#     %language_iso_639_2T_map
+#
 # Terms and Conditions of Use
 # 
 # Unless otherwise noted, this computer program source code
@@ -66,6 +76,7 @@ BEGIN {
                   %one_char_iso_639_2T_map
                   %language_iso_639_2T_map
                   ISO_639_2_Language_Code
+                  Language_Valid
                   );
     $VERSION = "1.0";
 }
@@ -92,8 +103,8 @@ BEGIN {
 #    "amh", "Amharic",
 #    "ang", "English, Old",
 #    "apa", "Apache languages",
-#    "ara", "Arabic",
-#    "arc", "Aramaic",
+    "ara", "Arabic",
+    "arc", "Aramaic",
 #    "arm", "Armenian",
 #    "arn", "Araucanian",
 #    "arp", "Arapaho",
@@ -106,7 +117,7 @@ BEGIN {
 #    "ave", "Avestan",
 #    "awa", "Awadhi",
 #    "aym", "Aymara",
-#    "aze", "Azerbaijani",
+    "aze", "Azerbaijani",
 #    "bad", "Banda",
 #    "bai", "Bamileke languages",
 #    "bak", "Bashkir",
@@ -178,7 +189,7 @@ BEGIN {
 #    "deu", "German",
 #    "dgr", "Dogrib",
 #    "din", "Dinka",
-#    "div", "Divehi",
+    "div", "Divehi",
 #    "doi", "Dogri",
 #    "dra", "Dravidian",
 #    "dua", "Duala",
@@ -201,7 +212,7 @@ BEGIN {
 #    "ewo", "Ewondo",
 #    "fan", "Fang",
 #    "fao", "Faroese",
-#    "fas", "Persian",
+    "fas", "Persian",
 #    "fat", "Fanti",
 #    "fij", "Fijian",
 #    "fin", "Finnish",
@@ -240,7 +251,7 @@ BEGIN {
 #    "hai", "Haida",
 #    "hau", "Hausa",
 #    "haw", "Hawaiian",
-#    "heb", "Hebrew",
+    "heb", "Hebrew",
 #    "her", "Herero",
 #    "hil", "Hiligaynon",
 #    "him", "Himachali",
@@ -304,7 +315,7 @@ BEGIN {
 #    "kru", "Kurukh",
 #    "kua", "Kuanyama",
 #    "kum", "Kumyk",
-#    "kur", "Kurdish",
+    "kur", "Kurdish",
 #    "kut", "Kutenai",
 #    "lad", "Ladino",
 #    "lah", "Lahnda",
@@ -401,7 +412,7 @@ BEGIN {
 #    "pap", "Papiamento",
 #    "pau", "Palauan",
 #    "peo", "Persian, Old",
-#    "per", "Persian",
+    "per", "Persian",
 #    "phi", "Philippine",
 #    "phn", "Phoenician",
 #    "pli", "Pali",
@@ -505,7 +516,7 @@ BEGIN {
 #    "ukr", "Ukrainian",
 #    "umb", "Umbundu",
 #    "und", "Undetermined",
-#    "urd", "Urdu",
+    "urd", "Urdu",
 #    "uzb", "Uzbek",
 #    "vai", "Vai",
 #    "ven", "Venda",
@@ -546,11 +557,11 @@ BEGIN {
 #    "ak", "aka",
 #    "am", "amh",
 #    "an", "arg",
-#    "ar", "ara",
+    "ar", "ara",
 #    "as", "asm",
 #    "av", "ava",
 #    "ay", "aym",
-#    "az", "aze",
+    "az", "aze",
 #    "ba", "bak",
 #    "be", "bel",
 #    "bg", "bul",
@@ -572,7 +583,7 @@ BEGIN {
 #    "cy", "wel",
 #    "da", "dan",
     "de", "ger",
-#    "dv", "div",
+    "dv", "div",
 #    "dz", "dzo",
 #    "ee", "ewe",
 #    "el", "gre",
@@ -582,7 +593,7 @@ BEGIN {
 #    "et", "est",
 #    "eu", "baq",
 #    "eu", "eus",
-#    "fa", "per",
+    "fa", "per",
 #    "ff", "ful",
 #    "fi", "fin",
 #    "fj", "fij",
@@ -596,7 +607,7 @@ BEGIN {
 #    "gu", "guj",
 #    "gv", "glv",
 #    "ha", "hau",
-#    "he", "heb",
+    "he", "heb",
 #    "hi", "hin",
 #    "ho", "hmo",
 #    "hr", "hrv",
@@ -627,7 +638,7 @@ BEGIN {
 #    "ko", "kor",
 #    "kr", "kau",
 #    "ks", "kas",
-#    "ku", "kur",
+    "ku", "kur",
 #    "kv", "kom",
 #    "kw", "cor",
 #    "ky", "kir",
@@ -711,7 +722,7 @@ BEGIN {
 #    "ty", "tah",
 #    "ug", "uig",
 #    "uk", "ukr",
-#    "ur", "urd",
+    "ur", "urd",
 #    "uz", "uzb",
 #    "ve", "ven",
 #    "vi", "vie",
@@ -818,6 +829,77 @@ sub ISO_639_2_Language_Code {
     # Return language code
     #
     return($lang);
+}
+
+#***********************************************************************
+#
+# Name: Language_Valid
+#
+# Parameters: lang - language string
+#
+# Description:
+#
+#   This function checks to see if the language string follows the
+# syntax of BCP 47 (https://tools.ietf.org/html/bcp47).  It does not
+# verify the actual language code values.
+#
+#***********************************************************************
+sub Language_Valid {
+    my ($lang) = @_;
+    
+    my ($valid) = 0;
+
+    #
+    # Check for grandfathered irregular language codes
+    #   "en-GB-oed"
+    #   "i-<3 to 8 characters>
+    #   "sgn-<2 characters>-<2 characters>
+    #
+    if ( $lang =~ /^(en\-GB\-oed)|(i\-[a-z]{3,8})|(sgn\-[A-Z]{2}\-[A-Z]{2})$/ ) {
+        $valid = 1;
+    }
+    #
+    # Check for grandfathered regular language codes
+    #   <2 or 3 characters>-<3 or more characters>
+    #   <2 characters>-<3 characters>-<3 characters>
+    #
+    elsif ( $lang =~ /^([a-z]{2,3}\-[a-z]{3,})|([a-z]{2}\-[a-z]{3}\-[a-z]{3})$/ ) {
+        $valid = 1;
+    }
+    #
+    # Check for private use language
+    #    leading x-
+    #
+    elsif ( $lang =~ /^x\-[a-z0-9]+$/i ) {
+        $valid = 1;
+    }
+    #
+    # Regular language
+    #   <2 or 3 characters>
+    #
+    elsif ( $lang =~ /^([a-z]{2,3})$/ ) {
+        $valid = 1;
+    }
+    #
+    # Regular language
+    #   <2 or 3 characters>-<2 or 3 characters>
+    #
+    elsif ( $lang =~ /^([a-z]{2,3}\-[a-z]{2,3})$/ ) {
+        $valid = 1;
+    }
+    #
+    # Regular language
+    #   <2 or 3 characters>-<3 or more characters>
+    #
+    elsif ( $lang =~ /^([a-z]{2,3}\-[a-z]{3,}(\-[a-z]+)*)$/ ) {
+        $valid = 1;
+    }
+
+    #
+    # Return validity
+    #
+    #print "Language_Valid lang = \"$lang\", valid = $valid\n";
+    return($valid);
 }
 
 #***********************************************************************
