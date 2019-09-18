@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 7601 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2016-06-20 06:05:56 -0400 (Mon, 20 Jun 2016) $
+# $Revision: 1502 $
+# $URL: svn://10.36.148.185/TQA_Check/Tools/tqa_testcases.pm $
+# $Date: 2019-09-17 12:39:29 -0400 (Tue, 17 Sep 2019) $
 #
 # Description:
 #
@@ -127,6 +127,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-F41", "2.2.1 F41: Failure of Success Criterion 2.2.1, 2.2.4 and 3.2.5 due to using meta refresh with a time limit",
 "WCAG_2.0-F42", "1.3.1, 2.1.1 F42: Failure of Success Criterion 1.3.1 and 2.1.1 due to using scripting events to emulate links in a way that is not programmatically determinable",
 "WCAG_2.0-F43", "1.3.1 F43: Failure of Success Criterion 1.3.1 due to using structural markup in a way that does not represent relationships in the content",
+"WCAG_2.0-F44", "2.4.3 F44: Failure of Success Criterion 2.4.3 due to using tabindex to create a tab order that does not preserve meaning and operability",
 "WCAG_2.0-F46", "1.3.1 F46: Failure of Success Criterion 1.3.1 due to using th elements, caption elements, or non-empty summary attributes in layout tables",
 "WCAG_2.0-F47", "2.2.2 F47: Failure of Success Criterion 2.2.2 due to using the blink element",
 "WCAG_2.0-F54", "2.1.1 F54: Failure of Success Criterion 2.1.1 due to using only pointing-device-specific event handlers (including gesture) for a function",
@@ -186,6 +187,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-G142", "1.4.4 G142: Using a technology that has commonly-available user agents that support zoom",
 "WCAG_2.0-G145", "1.4.3 G145: Ensuring that a contrast ratio of at least 3:1 exists between text (and images of text) and background behind the text",
 "WCAG_2.0-G152", "2.2.2 G152: Setting animated gif images to stop blinking after n cycles (within 5 seconds)",
+"WCAG_2.0-G158", "1.2.1 G158: Providing an alternative for time-based media for audio-only content",
 #
 # G162: Positioning labels to maximize predictability of relationships
 #       Failures of this technique are reported under technique H44
@@ -240,7 +242,9 @@ my (%testcase_description_en) = (
 "WCAG_2.0-PDF18", "2.4.2 PDF18: Specifying the document title using the Title entry in the document information dictionary of a PDF document",
 "WCAG_2.0-SC1.3.1", "1.3.1 SC1.3.1: Info and Relationships",
 "WCAG_2.0-SC1.4.4", "1.4.4 SC1.4.4: Resize text",
+"WCAG_2.0-SC2.4.3", "2.4.3 SC2.4.3: Focus Order",
 "WCAG_2.0-SC3.1.1", "3.1.1 SC3.1.1: Language of Page",
+"WCAG_2.0-SC4.1.2", "4.1.2 SC4.1.2: Name, Role, Value",
 #
 # SCR2: Using redundant keyboard and mouse event handlers
 #       Failures of this technique are reported under technique SCR20
@@ -267,12 +271,103 @@ my (%testcase_description_en) = (
 "EPUB-SEM-001",  "1.3.1 SEM-001: Include ARIA and EPUB semantics",
 "EPUB-SEM-003",  "2.4.5 SEM-003: Include EPUB landmarks",
 "EPUB-TITLES-002", "1.3.1 TITLES-002: Ensure numbered headings reflect publication hierarchy",
+
+#
+# AXE Deque University testcases
+#  https://dequeuniversity.com/rules/axe/3.3
+#
+"AXE-Audio_Caption", "1.2.1 AXE-Audio_Caption: <audio> elements must have a captions <track>",
+"AXE-Blink", "2.2.2 AXE-Blink: <blink> elements are deprecated and must not be used",
+"AXE-Definition_List", "1.3.1 <dl> elements must only directly contain properly-ordered <dt> and <dd> groups, <script>, or <template> elements",
+"AXE-Dlitem", "1.3.1 AXE-Dlitem: <dt> and <dd> elements must be contained by a <dl>",
+"AXE-Html_has_lang", "3.1.1 AXE-Html_has_lang: <html> element must have a lang attribute",
+"AXE-Html_lang_valid", "3.1.1 AXE-Html_lang_valid: <html> element must have a valid value for the lang attribute",
+"AXE-Html_xml_lang_mismatch", "3.1.1 AXE-Html_xml_lang_mismatch: <html> elements with lang and xml:lang must have the same base language",
+"AXE-Listitem", "1.3.1 AXE-Listitem:<li> elements must be contained in a <ul> or <ol>",
+"AXE-Marquee", "2.2.2 AXE-Marquee: <marquee> elements are deprecated and must not be used",
+"AXE-Object_alt", "1.1.1 AXE-Object_alt: <object> elements must have alternate text",
+"AXE-List", "1.3.1 AXE-List: <ul> and <ol> must only directly contain <li>, <script> or <template> elements",
+"AXE-Video_Caption", "1.2.2, 1.2.3 AXE-Video_caption: <video> elements must have a <track> for captions",
+"AXE-Video_Description", "1.2.5 AXE-Video_description: <video> elements must have an audio description <track>",
+"AXE-Accesskeys", "4.1.1 AXE-Accesskeys: accesskey attribute value must be unique",
+"AXE-Area_alt", "1.1.1 AXE-Area_alt: Active <area> elements must have alternate text",
+
+"AXE-Td_headers_attr", "1.3.1 AXE-Td_headers_attr: All cells in a <table> element that use the headers attribute must only refer to other cells of that same <table>",
+
+"AXE-Href_no_hash", "1.1.1, 2.4.4 AXE-Href_no_hash: Anchors must only be used as links with valid URLs or URL fragments",
+
+"AXE-Aria_valid_attr", "4.1.2 AXE-Aria_valid_attr: ARIA attributes must conform to valid names",
+"AXE-Aria_valid_attr_value", "4.1.2 AXE-Aria_valid_attr_value: ARIA attributes must conform to valid values",
+"AXE-Aria_allowed_role", "4.1.2 AXE-Aria_allowed_role: ARIA role must be appropriate for the element",
+"AXE-Aria_roles", "4.1.2 AXE-Aria_roles: ARIA roles used must conform to valid values",
+"AXE-Aria_hidden_focus", "4.1.2 AXE-Aria_hidden_focus: aria-hidden elements do not contain focusable elements",
+"AXE-Aria_hidden_body", "4.1.2 AXE-Aria_hidden_body: aria-hidden=\"true\" must not be present on the document <body>",
+
+"AXE-Landmark_banner_is_top_level", "4.1.2 AXE-Landmark_banner_is_top_level: Banner landmark must not be contained in another landmark",
+"AXE-P_as_heading", "1.3.1 AXE-P_as_heading: Bold, italic text and font-size are not used to style <p> elements as a heading",
+"AXE-Button_name", "4.1.2 AXE-Button_name: Buttons must have discernible text",
+
+"AXE-Aria_required_parent", "1.3.1 AXE-Aria_required_parent: Certain ARIA roles must be contained by particular parent elements",
+"AXE-Aria_required_children", "1.3.1 AXE-Aria_required_children: Certain ARIA roles must contain particular children",
+"AXE-Checkboxgroup", "1.3.1, 3.3.2 AXE-Checkboxgroup: Checkbox inputs with the same name attribute value must be part of a group",
+"AXE-Landmark_complementary_is_top_level", "AXE-Landmark_complementary_is_top_level: Complementary landmarks and/or asides are top level",
+"AXE-Landmark_contentinfo_is_top_level", "4.1.2 AXE-Landmark_contentinfo_is_top_level: Contentinfo landmark must not be contained in another landmark",
+
+"AXE-Document_title", "2.4.2 AXE-Document_title: Documents must contain a title element to aid in navigation",
+"AXE-Role_img_alt", "1.1.1 AXE-Role_img_alt: Elements containing role=\"img\" have an alternative text",
+
+"AXE-Aria_allowed_attr", "4.1.2 AXE-Aria_allowed_attr: Elements must only use allowed ARIA attributes",
+"AXE-Tabindex", "2.4.3 AXE-Tabindex: Elements should not have tabindex greater than zero",
+"AXE-Label", "1.3.1 AXE-Label: Form <input> elements must have labels",
+"AXE-Label_title_only", "3.3.2 AXE-Label_title_only: Form <input> elements should have a visible label",
+
+"AXE-Form_field_multiple_labels", "1.3.1, 3.3.2 AXE-Form_field_multiple_labels: Form fields do not have duplicate labels",
+
+"AXE-Frame_title_unique", "2.4.1, 4.1.2 AXE-Frame_title_unique: Frames must have a unique title attribute",
+"AXE-Frame_title", "2.4.1, 4.1.2 AXE-Frame_title: Frames must have title attribute",
+"AXE-Heading_order", "1.3.1 AXE-Heading_order: Heading levels should only increase by one",
+"AXE-Empty_heading", "2.4.6 AXE-Empty_heading: Headings must not be empty",
+
+"AXE-Duplicate_id", "4.1.1 AXE-Duplicate_id: ID attribute values must be unique",
+"AXE-Input_image_alt", "1.1.1 AXE-Input_image_alt: Image buttons must have alternate text",
+"AXE-Image_alt", "1.1.1 AXE-Image_alt: Images must have alternate text",
+
+"AXE-Input_button_name", "4.1.2 AXE-Input_button_name: Input buttons must have discernible text",
+"AXE-Label_content_name_mismatch", "2.5.3 AXE-Label_content_name_mismatch: Label and name from content mismatch",
+
+"AXE-Valid_lang", "3.1.2 AXE-Valid_lang: lang attribute must have a valid value",
+"AXE-Layout_table", "1.3.1 AXE-Layout_table: Layout tables must not use data table elements",
+
+"AXE-Landmark_main_is_top_level", "1.3.1 AXE-Landmark_main_is_top_level: Main landmark must not be contained in another landmark",
+"AXE-Page_has_heading_one", "1.3.1 AXE-Page_has_heading_one: Page must contain a level-one heading",
+
+"AXE-Landmark_one_main", "1.3.1 AXE-Landmark_one_main: Page must have one main landmark",
+"AXE-Landmark_no_duplicate_banner", "1.3.1 AXE-Landmark_no_duplicate_banner Page must not have more than one banner landmark",
+"AXE-Landmark_no_duplicate_contentinfo", "1.3.1 AXE-Landmark_no_duplicate_contentinfo: Page must not have more than one contentinfo landmark",
+"AXE-Radiogroup", "1.3.1, 3.3.2 AXE-Radiogroup: Radio inputs with the same name attribute value must be part of a group",
+"AXE-Aria_required_attr", "4.1.2 AXE-Aria_required_attr: Required ARIA attributes must be provided",
+
+"AXE-Table_duplicate_name", "1.3.1 AXE-Table_duplicate_name: The <caption> element should not contain the same text as the summary attribute",
+"AXE-Meta_refresh", "2.2.1, 2.2.4, 3.2.5 AXE-Meta_refresh: Timed refresh must not exist",
+
+"AXE-Image_redundant_alt", "1.1.1 AXE-Image_redundant_alt: Text of buttons and links should not be repeated in the image alternative",
+
+"AXE-Meta_viewport_large", "1.4.4 AXE-Meta_viewport_large: Users should be able to zoom and scale the text up to 500%",
+"AXE-Meta_viewport", "1.4.4 AXE-Meta_viewport: Zooming and scaling must not be disabled",
+
+#
+# Pa11y testcases
+#  https://github.com/pa11y/pa11y
+#
+"Pa11y", "Pa11y: Automated accessibility testing pal",
 );
 
 my (%testcase_description_fr) = (
 #
 # WCAG 2.0
 #  Text taken from http://www.braillenet.org/accessibilite/comprendre-wcag20/CAT20110222/Overview.html
+#   https://www.w3.org/Translations/WCAG20-fr/
+#   https://www.w3.org/Translations/NOTE-UNDERSTANDING-WCAG20-fr/media-equiv-av-only-alt.html
 #
 "WCAG_2.0-ARIA1", "2.4.2, 2.4.4, 3.3.2 ARIA1: Utilisation de la propriété aria-describedby pour nommer les contrôles de l'interface utilisateur au moyen d'une étiquette descriptive",
 "WCAG_2.0-ARIA2", "3.3.2, 3.3.3 ARIA2: Identifie un champ obligatoire avec la propriété aria-required",
@@ -310,6 +405,7 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-F41", "2.2.1 F41: Échec du critère de succès 2.2.1, 2.2.4 et 3.2.5 consistant à utiliser meta refresh avec un délai",
 "WCAG_2.0-F42", "1.3.1, 2.1.1 F42: Échec du critère de succès 1.3.1 et 2.1.1 consistant à utiliser des événements de scripts pour émuler des liens d'une manière qui n'est pas déterminable par un programme informatique",
 "WCAG_2.0-F43", "1.3.1 F43: Échec du critère de succès 1.3.1 consistant à utiliser un balisage structurel d'une façon qui ne représente pas les relations à l'intérieur du contenu",
+"WCAG_2.0-F44", "2.4.3 F44: Échec du critère de succès 2.4.3 consistant à utiliser l'attribut tabindex pour créer un ordre de tabulation qui ne préserve pas la signification et l'opérabilité",
 "WCAG_2.0-F46", "1.3.1 F46: F46 : Échec du critère de succès 1.3.1 consistant à utiliser les éléments th ou caption ou des attributs summary non vides dans des tableaux de présentation",
 "WCAG_2.0-F47", "2.2.2 F47: Échec du critère de succès 2.2.2 consistant à utiliser l'élément 'blink'",
 "WCAG_2.0-F54", "2.1.1 F54: Échec du critère de succès 2.1.1 consistant à utiliser seulement des événements au pointeur (y compris par geste) pour une fonction",
@@ -369,6 +465,7 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-G142", "1.4.4 G142: Grâce à une technologie qui a des agents utilisateurs couramment disponibles à l'appui de zoom",
 "WCAG_2.0-G145", "1.4.3 G145: S'assurer qu'un rapport de contraste d'au moins 3 pour 1 existe entre le texte (et le texte sous forme d'image) et l'arrière-plan du texte",
 "WCAG_2.0-G152", "2.2.2 G152: Configurer les gifs animés pour qu'ils s'arrêtent de clignoter après n cycles (pendant 5 secondes)",
+"WCAG_2.0-G158", "1.2.1 G158: Fournir une version de remplacement pour un média temporel seulement audio",
 #
 # G162: Positioning labels to maximize predictability of relationships
 #       Failures of this technique are reported under technique H44
@@ -423,7 +520,9 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-PDF18", "2.4.2 PDF18 : Précise le titre du document au moyen de l’entrée du dictionnaire d’informations du document d’un document PDF",
 "WCAG_2.0-SC1.3.1", "1.3.1 SC1.3.1: Information et relations",
 "WCAG_2.0-SC1.4.4", "1.4.4 SC1.4.4: Redimensionnement du texte",
+"WCAG_2.0-SC2.4.3", "2.4.3 SC2.4.3: Parcours du focusr",
 "WCAG_2.0-SC3.1.1", "3.1.1 SC3.1.1: Langue de la page",
+"WCAG_2.0-SC4.1.2", "4.1.2 SC4.1.2: Nom, rôle et valeur",
 #
 # SCR2: Using redundant keyboard and mouse event handlers
 #       Failures of this technique are reported under technique SCR20
@@ -450,6 +549,96 @@ my (%testcase_description_fr) = (
 "EPUB-SEM-001",  "1.3.1 SEM-001: Include ARIA and EPUB semantics",
 "EPUB-SEM-003",  "2.4.5 SEM-003: Include EPUB landmarks",
 "EPUB-TITLES-002", "1.3.1 TITLES-002: Ensure numbered headings reflect publication hierarchy",
+
+#
+# AXE Deque University testcases
+#  https://dequeuniversity.com/rules/axe/3.3
+#
+"AXE-Audio_Caption", "1.2.1 AXE-Audio_Caption: <audio> elements must have a captions <track>",
+"AXE-Blink", "2.2.2 AXE-Blink: <blink> elements are deprecated and must not be used",
+"AXE-Definition_List", "1.3.1 <dl> elements must only directly contain properly-ordered <dt> and <dd> groups, <script>, or <template> elements",
+"AXE-Dlitem", "1.3.1 AXE-Dlitem: <dt> and <dd> elements must be contained by a <dl>",
+"AXE-Html_has_lang", "3.1.1 AXE-Html_has_lang: <html> element must have a lang attribute",
+"AXE-Html_lang_valid", "3.1.1 AXE-Html_lang_valid: <html> element must have a valid value for the lang attribute",
+"AXE-Html_xml_lang_mismatch", "3.1.1 AXE-Html_xml_lang_mismatch: <html> elements with lang and xml:lang must have the same base language",
+"AXE-Listitem", "1.3.1 AXE-Listitem:<li> elements must be contained in a <ul> or <ol>",
+"AXE-Marquee", "2.2.2 AXE-Marquee: <marquee> elements are deprecated and must not be used",
+"AXE-Object_alt", "1.1.1 AXE-Object_alt: <object> elements must have alternate text",
+"AXE-List", "1.3.1 AXE-List: <ul> and <ol> must only directly contain <li>, <script> or <template> elements",
+"AXE-Video_Caption", "1.2.2, 1.2.3 AXE-Video_caption: <video> elements must have a <track> for captions",
+"AXE-Video_Description", "1.2.5 AXE-Video_description: <video> elements must have an audio description <track>",
+"AXE-Accesskeys", "4.1.1 AXE-Accesskeys: accesskey attribute value must be unique",
+"AXE-Area_alt", "1.1.1 AXE-Area_alt: Active <area> elements must have alternate text",
+
+"AXE-Td_headers_attr", "1.3.1 AXE-Td_headers_attr: All cells in a <table> element that use the headers attribute must only refer to other cells of that same <table>",
+
+"AXE-Href_no_hash", "1.1.1, 2.4.4 AXE-Href_no_hash: Anchors must only be used as links with valid URLs or URL fragments",
+
+"AXE-Aria_valid_attr", "4.1.2 AXE-Aria_valid_attr: ARIA attributes must conform to valid names",
+"AXE-Aria_valid_attr_value", "4.1.2 AXE-Aria_valid_attr_value: ARIA attributes must conform to valid values",
+"AXE-Aria_allowed_role", "4.1.2 AXE-Aria_allowed_role: ARIA role must be appropriate for the element",
+"AXE-Aria_roles", "4.1.2 AXE-Aria_roles: ARIA roles used must conform to valid values",
+"AXE-Aria_hidden_focus", "4.1.2 AXE-Aria_hidden_focus: aria-hidden elements do not contain focusable elements",
+"AXE-Aria_hidden_body", "4.1.2 AXE-Aria_hidden_body: aria-hidden=\"true\" must not be present on the document <body>",
+
+"AXE-Landmark_banner_is_top_level", "4.1.2 AXE-Landmark_banner_is_top_level: Banner landmark must not be contained in another landmark",
+"AXE-P_as_heading", "1.3.1 AXE-P_as_heading: Bold, italic text and font-size are not used to style <p> elements as a heading",
+"AXE-Button_name", "4.1.2 AXE-Button_name: Buttons must have discernible text",
+
+"AXE-Aria_required_parent", "1.3.1 AXE-Aria_required_parent: Certain ARIA roles must be contained by particular parent elements",
+"AXE-Aria_required_children", "1.3.1 AXE-Aria_required_children: Certain ARIA roles must contain particular children",
+"AXE-Checkboxgroup", "1.3.1, 3.3.2 AXE-Checkboxgroup: Checkbox inputs with the same name attribute value must be part of a group",
+"AXE-Landmark_complementary_is_top_level", "AXE-Landmark_complementary_is_top_level: Complementary landmarks and/or asides are top level",
+"AXE-Landmark_contentinfo_is_top_level", "4.1.2 AXE-Landmark_contentinfo_is_top_level: Contentinfo landmark must not be contained in another landmark",
+
+"AXE-Document_title", "2.4.2 AXE-Document_title: Documents must contain a title element to aid in navigation",
+"AXE-Role_img_alt", "1.1.1 AXE-Role_img_alt: Elements containing role=\"img\" have an alternative text",
+
+"AXE-Aria_allowed_attr", "4.1.2 AXE-Aria_allowed_attr: Elements must only use allowed ARIA attributes",
+"AXE-Tabindex", "2.4.3 AXE-Tabindex: Elements should not have tabindex greater than zero",
+"AXE-Label", "1.3.1 AXE-Label: Form <input> elements must have labels",
+"AXE-Label_title_only", "3.3.2 AXE-Label_title_only: Form <input> elements should have a visible label",
+
+"AXE-Form_field_multiple_labels", "1.3.1, 3.3.2 AXE-Form_field_multiple_labels: Form fields do not have duplicate labels",
+
+"AXE-Frame_title_unique", "2.4.1, 4.1.2 AXE-Frame_title_unique: Frames must have a unique title attribute",
+"AXE-Frame_title", "2.4.1, 4.1.2 AXE-Frame_title: Frames must have title attribute",
+"AXE-Heading_order", "1.3.1 AXE-Heading_order: Heading levels should only increase by one",
+"AXE-Empty_heading", "2.4.6 AXE-Empty_heading: Headings must not be empty",
+
+"AXE-Duplicate_id", "4.1.1 AXE-Duplicate_id: ID attribute values must be unique",
+"AXE-Input_image_alt", "1.1.1 AXE-Input_image_alt: Image buttons must have alternate text",
+"AXE-Image_alt", "1.1.1 AXE-Image_alt: Images must have alternate text",
+
+"AXE-Input_button_name", "4.1.2 AXE-Input_button_name: Input buttons must have discernible text",
+"AXE-Label_content_name_mismatch", "2.5.3 AXE-Label_content_name_mismatch: Label and name from content mismatch",
+
+"AXE-Valid_lang", "3.1.2 AXE-Valid_lang: lang attribute must have a valid value",
+"AXE-Layout_table", "1.3.1 AXE-Layout_table: Layout tables must not use data table elements",
+
+"AXE-Landmark_main_is_top_level", "1.3.1 AXE-Landmark_main_is_top_level: Main landmark must not be contained in another landmark",
+"AXE-Page_has_heading_one", "1.3.1 AXE-Page_has_heading_one: Page must contain a level-one heading",
+
+"AXE-Landmark_one_main", "1.3.1 AXE-Landmark_one_main: Page must have one main landmark",
+"AXE-Landmark_no_duplicate_banner", "1.3.1 AXE-Landmark_no_duplicate_banner Page must not have more than one banner landmark",
+"AXE-Landmark_no_duplicate_contentinfo", "1.3.1 AXE-Landmark_no_duplicate_contentinfo: Page must not have more than one contentinfo landmark",
+"AXE-Radiogroup", "1.3.1, 3.3.2 AXE-Radiogroup: Radio inputs with the same name attribute value must be part of a group",
+"AXE-Aria_required_attr", "4.1.2 AXE-Aria_required_attr: Required ARIA attributes must be provided",
+
+"AXE-Table_duplicate_name", "1.3.1 AXE-Table_duplicate_name: The <caption> element should not contain the same text as the summary attribute",
+
+"AXE-Meta_refresh", "2.2.1, 2.2.4, 3.2.5 AXE-Meta_refresh: Timed refresh must not exist",
+
+"AXE-Image_redundant_alt", "1.1.1 AXE-Image_redundant_alt: Text of buttons and links should not be repeated in the image alternative",
+
+"AXE-Meta_viewport_large", "1.4.4 AXE-Meta_viewport_large: Users should be able to zoom and scale the text up to 500%",
+"AXE-Meta_viewport", "1.4.4 AXE-Meta_viewport: Zooming and scaling must not be disabled",
+
+#
+# Pa11y testcases
+#  https://github.com/pa11y/pa11y
+#
+"Pa11y", "Pa11y: Automated accessibility testing pal",
 );
 
 #
@@ -491,6 +680,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-F41", "2.2.1",
 "WCAG_2.0-F42", "1.3.1, 2.1.1",
 "WCAG_2.0-F43", "1.3.1",
+"WCAG_2.0-F44", "2.4.3",
 "WCAG_2.0-F46", "1.3.1",
 "WCAG_2.0-F47", "2.2.2",
 "WCAG_2.0-F54", "2.1.1",
@@ -517,6 +707,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-G142", "1.4.4",
 "WCAG_2.0-G145", "1.4.3",
 "WCAG_2.0-G152", "2.2.2",
+"WCAG_2.0-G158", "1.2.1",
 "WCAG_2.0-G197", "3.2.4",
 "WCAG_2.0-H2", "1.1.1",
 "WCAG_2.0-H24", "1.1.1, 2.4.4",
@@ -554,7 +745,9 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-PDF18", "2.4.2",
 "WCAG_2.0-SC1.3.1", "1.3.1",
 "WCAG_2.0-SC1.4.4", "1.4.4",
+"WCAG_2.0-SC2.4.3", "2.4.3",
 "WCAG_2.0-SC3.1.1", "3.1.1",
+"WCAG_2.0-SC4.1.2", "4.1.2",
 "WCAG_2.0-SCR20", "2.1.1",
 "WCAG_2.0-SCR21", "1.3.1",
 "WCAG_2.0-Guideline41", "4.1",
@@ -573,9 +766,93 @@ my (%testcase_groups_table) = (
 "EPUB-META-007", "4.1.1",
 "EPUB-PAGE-001", "4.1.1",
 "EPUB-PAGE-003", "2.4.5",
-"EPUB-SEM-001", "1.3.1",
-"EPUB-SEM-003", "2.4.5",
+"EPUB-SEM-001",  "1.3.1",
+"EPUB-SEM-003",  "2.4.5",
 "EPUB-TITLES-002", "1.3.1",
+
+#
+# AXE 3.2 Deque University testcases
+#  https://dequeuniversity.com/rules/axe/3.2
+#
+"AXE-Audio_Caption", "1.2.1",
+"AXE-Blink", "2.2.2",
+"AXE-Definition_List", "1.3.1",
+"AXE-Dlitem", "1.3.1",
+"AXE-Html_has_lang", "3.1.1",
+"AXE-Html_lang_valid", "3.1.1",
+"AXE-Html_xml_lang_mismatch", "3.1.1",
+"AXE-Listitem", "1.3.1",
+"AXE-Marquee", "2.2.2",
+"AXE-Object_alt", "1.1.1",
+"AXE-List", "1.3.1",
+"AXE-Video_Caption", "1.2.2, 1.2.3",
+"AXE-Video_Description", "1.2.5",
+"AXE-Accesskeys", "4.1.1",
+"AXE-Area_alt", "1.1.1",
+
+"AXE-Td_headers_attr", "1.3.1",
+
+"AXE-Href_no_hash", "1.1.1, 2.4.4",
+
+"AXE-Aria_valid_attr", "4.1.2",
+"AXE-Aria_valid_attr_value", "4.1.2",
+"AXE-Aria_allowed_role", "4.1.2",
+"AXE-Aria_roles", "4.1.2",
+"AXE-Aria_hidden_focus", "4.1.2",
+"AXE-Aria_hidden_body", "4.1.2",
+
+"AXE-Landmark_banner_is_top_level", "4.1.2",
+"AXE-P_as_heading", "1.3.1",
+"AXE-Button_name", "4.1.2",
+
+"AXE-Aria_required_parent", "1.3.1",
+"AXE-Aria_required_children", "1.3.1",
+"AXE-Checkboxgroup", "1.3.1, 3.3.2",
+"AXE-Landmark_complementary_is_top_level", "4.1.2",
+"AXE-Landmark_contentinfo_is_top_level", "4.1.2",
+
+"AXE-Document_title", "2.4.2",
+"AXE-Role_img_alt", "1.1.1",
+
+"AXE-Aria_allowed_attr", "4.1.2",
+"AXE-Tabindex", "2.4.3",
+"AXE-Label", "1.3.1, 3.3.2",
+"AXE-Label_title_only", "3.3.2",
+
+"AXE-Form_field_multiple_labels", "3.3.2",
+
+"AXE-Frame_title_unique", "2.4.1, 4.1.2",
+"AXE-Frame_title", "2.4.1, 4.1.2",
+"AXE-Heading_order", "1.3.1",
+"AXE-Empty_heading", "2.4.6",
+
+"AXE-Duplicate_id", "4.1.1",
+"AXE-Input_image_alt", "1.1.1",
+"AXE-Image_alt", "1.1.1",
+
+"AXE-Input_button_name", "4.1.2",
+"AXE-Label_content_name_mismatch", "2.5.3",
+
+"AXE-Valid_lang", "3.1.2",
+"AXE-Layout_table", "1.3.1",
+
+"AXE-Landmark_main_is_top_level", "1.3.1",
+"AXE-Page_has_heading_one", "1.3.1",
+
+"AXE-Landmark_one_main", "1.3.1",
+"AXE-Landmark_no_duplicate_banner", "1.3.1",
+"AXE-Landmark_no_duplicate_contentinfo", "1.3.1",
+"AXE-Radiogroup", "1.3.1, 3.3.2",
+"AXE-Aria_required_attr", "4.1.2",
+
+"AXE-Table_duplicate_name", "1.3.1",
+
+"AXE-Meta_refresh", "2.2.1, 2.2.4, 3.2.5",
+
+"AXE-Image_redundant_alt", "1.1.1",
+
+"AXE-Meta_viewport_large", "1.4.4",
+"AXE-Meta_viewport", "1.4.4",
 );
 
 #
