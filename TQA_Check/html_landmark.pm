@@ -2,9 +2,9 @@
 #
 # Name: html_landmark.pm
 #
-# $Revision: 764 $
+# $Revision: 1352 $
 # $URL: svn://10.36.148.185/TQA_Check/Tools/html_landmark.pm $
-# $Date: 2018-03-12 11:21:28 -0400 (Mon, 12 Mar 2018) $
+# $Date: 2019-06-12 12:55:10 -0400 (Wed, 12 Jun 2019) $
 #
 # Description:
 #
@@ -103,6 +103,7 @@ my (%html_tag_aria_landmark) = (
 # colons.
 #
 my (%html_tag_aria_landmark_context) = (
+    "banner",     "article:aside:main:nav:section",
     "header",     "article:aside:main:nav:section",
     "footer",     "article:aside:main:nav:section",
     "navigation", "footer:header",
@@ -224,6 +225,7 @@ sub HTML_Landmark {
             #
             $tag_context = $html_tag_aria_landmark_context{$possible_landmark};
             @context_list = split(/:/, $tag_context);
+            print "Check context tags \"$tag_context\" for possible change in landmark role\n" if $debug;
 
             #
             # Are any of the conditions tags in the context for this tag?
