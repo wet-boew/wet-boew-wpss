@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 1487 $
-# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_json.pm $
-# $Date: 2019-09-13 13:00:17 -0400 (Fri, 13 Sep 2019) $
+# $Revision: 1682 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_json.pm $
+# $Date: 2020-01-14 11:04:37 -0500 (Tue, 14 Jan 2020) $
 #
 # Description:
 #
@@ -54,6 +54,14 @@
 #***********************************************************************
 
 package open_data_json;
+
+#
+# Check for module to share data structures between threads
+#
+my $have_threads = eval 'use threads; 1';
+if ( $have_threads ) {
+    $have_threads = eval 'use threads::shared; 1';
+}
 
 use strict;
 use URI::URL;
@@ -105,9 +113,19 @@ my ($debug) = 0;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%testcase_data, $results_list_addr, $dictionary_ptr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
-my ($tag_count, $python_path, $json_schema_validator);
-my ($filename, $python_file, $python_output, $separator);
+my ($filename, $python_file, $python_output, $tag_count);
 my (@content_results_list, $last_json_headings_list);
+my ($pythonpath_set) = 0;
+
+#
+# Variables shared between threads
+#
+my ($json_schema_validator, $python_path, $separator);
+if ( $have_threads ) {
+    share(\$json_schema_validator);
+    share(\$python_path);
+    share(\$separator);
+}
 
 #
 # Data file object attribute names (use the same names as used for
@@ -120,6 +138,11 @@ my ($column_list_attribute) = "Column List";
 
 my ($max_error_message_string)= 2048;
 my ($runtime_error_reported) = 0;
+
+#
+# Maximum number of JSON validation errors to report
+#
+my ($MAX_JSON_SCHEMA_ERRORS) = 25;
 
 #
 # Status values
@@ -323,6 +346,83 @@ sub Set_Open_Data_JSON_Test_Profile {
 
 #***********************************************************************
 #
+# Name: Get_JSON_Schema_Command_Line
+#
+# Parameters: None
+#
+# Description:
+#
+#   This function gets the command line for the JSON schema validator.
+#
+#***********************************************************************
+sub Get_JSON_Schema_Command_Line {
+
+    my ($python_file, $filename, $python_output);
+
+    #
+    # Have we already determined the Python installation path and the JSON
+    # schema validator command line?
+    #
+    if ( ! defined($json_schema_validator) ) {
+        #
+        # Write temporary program to get the directory
+        # path that python is installed in.
+        #
+        print "Get_JSON_Schema_Command_Line\n" if $debug;
+        ($python_file, $filename) = tempfile("WPSS_TOOL_OD_JSON_XXXXXXXXXX",
+                                             SUFFIX => '.py',
+                                             TMPDIR => 1);
+        print $python_file "import os\n";
+        print $python_file "import sys\n";
+        print $python_file "print os.path.dirname(sys.executable)\n";
+        close($python_file);
+
+        #
+        # Generate JSON schema validator command line
+        #
+        if ( $^O =~ /MSWin32/ ) {
+            #
+            # Windows.
+            #
+            $separator = ";";
+            $python_output = `$filename 2>\&1`;
+            $python_output =~ s/^[A-Z]://ig;
+            chop($python_output);
+            $python_path = "$program_dir\\python" . "$python_output\\Lib\\site-packages";
+            $json_schema_validator = ".\\bin\\json_schema_validator.py";
+        } else {
+            #
+            # Not Windows.
+            #
+            $separator = ":";
+            $python_output = `python $filename 2>\&1`;
+            chop($python_output);
+            $python_path = "$program_dir/python/usr/local/lib/python2.7/site-packages";
+            $json_schema_validator = "python bin/json_schema_validator.py";
+        }
+
+        #
+        # Remove temporary python program
+        #
+        unlink($filename);
+    }
+
+    #
+    # Set PYTHONPATH environment variable
+    #
+    if ( ! $pythonpath_set ) {
+        if ( defined($ENV{"PYTHONPATH"}) ) {
+            $ENV{"PYTHONPATH"} .= "$separator$python_path";
+        }
+        else {
+            $ENV{"PYTHONPATH"} = "$python_path";
+        }
+        $pythonpath_set = 1;
+    }
+}
+
+#***********************************************************************
+#
 # Name: Initialize_Test_Results
 #
 # Parameters: profile - open data check test profile
@@ -347,6 +447,11 @@ sub Initialize_Test_Results {
     #
     @content_results_list = ();
     $last_json_headings_list = "";
+    
+    #
+    # Get command line for JSON schema validator
+    #
+    Get_JSON_Schema_Command_Line();
 }
 
 #***********************************************************************
@@ -778,8 +883,8 @@ sub Validate_JSON_Against_Schema {
         #
         # Run the schema validator
         #
-        print "$json_schema_validator \"$schema_filename\" \"$json_filename\"\n" if $debug;
-        $output = `$json_schema_validator \"$schema_filename\" \"$json_filename\" 2>\&1`;
+        print "$json_schema_validator \"$schema_filename\" \"$json_filename\" \"$MAX_JSON_SCHEMA_ERRORS\"\n" if $debug;
+        $output = `$json_schema_validator \"$schema_filename\" \"$json_filename\" \"$MAX_JSON_SCHEMA_ERRORS\" 2>\&1`;
         
         #
         # Did the validator pass ?
@@ -823,7 +928,7 @@ sub Validate_JSON_Against_Schema {
             #
             print "Runtime error, output = \"$output\"\n" if $debug;
             print STDERR "json_schema_validator command failed\n";
-            print STDERR "  $json_schema_validator $schema_filename $json_filename\n";
+            print STDERR "  $json_schema_validator $schema_filename $json_filename $MAX_JSON_SCHEMA_ERRORS\n";
             print STDERR "$output\n";
 
             #
@@ -833,7 +938,7 @@ sub Validate_JSON_Against_Schema {
                 Record_Result("OD_VAL", -1, -1, "",
                               String_Value("Runtime Error") .
                               " Schema: $schema_url\n" .
-                              " \"$json_schema_validator $schema_filename $json_filename\"\n" .
+                              " \"$json_schema_validator $schema_filename $json_filename $MAX_JSON_SCHEMA_ERRORS\"\n" .
                               " \"$output\"");
                 $runtime_error_reported = 1;
             }
@@ -966,6 +1071,7 @@ sub Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes {
     my ($hash_ref, $parent, $row_number, $record_errors) = @_;
     
     my ($key, $value, $ref_type, %leaf_nodes, %sub_leaf_nodes, $node);
+    my ($first_value);
     
     #
     # Check all key/value pars of the supplied hash table reference
@@ -1003,10 +1109,60 @@ sub Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes {
                 }
                 else {
                     #
-                    # Add filed name and value to the hash table
+                    # Add field name and value to the hash table
                     #
                     $leaf_nodes{"$node"} = $sub_leaf_nodes{"$node"};
                 }
+            }
+        }
+        #
+        # Is this an array, the array elements might also be objects
+        #
+        elsif ( $ref_type eq "ARRAY" ) {
+            #
+            # Get first array value
+            #
+            $first_value = $$value[0];
+            $ref_type = ref $first_value;
+            print "First element of array, ref type = $ref_type\n" if $debug;
+
+            #
+            # If the first value is a hash table, have to get the the leaf
+            # nodes from this sub hash table also.
+            #
+            if ( $ref_type eq "HASH" ) {
+                %sub_leaf_nodes = Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes($first_value,
+                                                          "$parent.$key",
+                                                          $row_number, $record_errors);
+
+                #
+                # Add sub leaf nodes to the leaf node list
+                #
+                foreach $node (keys(%sub_leaf_nodes)) {
+                    #
+                    # Do we already have this leaf node ?
+                    #
+                    if ( defined($leaf_nodes{"$node"}) ) {
+                        if ( $record_errors ) {
+                            Record_Content_Result("TP_PW_OD_CONT", $row_number, 0, "",
+                                                  String_Value("Duplicate JSON-CSV data item field name") .
+                                                  " \"$node\"");
+                        }
+                    }
+                    else {
+                        #
+                        # Add field name and value to the hash table
+                        #
+                        $leaf_nodes{"$node"} = $sub_leaf_nodes{"$node"};
+                    }
+                }
+            }
+            else {
+                #
+                # Not a sub hash table, must be a leaf node.
+                #
+                print "Have leaf node $key at $parent.$key, value = $value\n" if $debug;
+                $leaf_nodes{"$key"} = $value;
             }
         }
         else {
@@ -1324,7 +1480,7 @@ sub Check_JSON_CSV_Data {
             #
             print "Check for duplicate row, checksum = $checksum\n" if $debug;
             if ( defined($data_checksum{$checksum}) ) {
-                Record_Content_Result("TP_PW_OD_CONT_DUP", ($i + 1), 0, encode_utf8(to_json($item)),
+                Record_Content_Result("TP_PW_OD_CONT_DUP", ($i + 1), 0, encode_utf8(encode_json($item)),
                               String_Value("Duplicate data array content, first instance at") .
                               " " . $data_checksum{$checksum});
             }
@@ -1758,52 +1914,6 @@ if ( $program_dir eq "." ) {
             last;
         }
     }
-}
-
-#
-# Get the directory path that python is installed in
-#
-($python_file, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
-                              SUFFIX => '.py',
-                              TMPDIR => 1);
-print $python_file "import os\n";
-print $python_file "import sys\n";
-print $python_file "print os.path.dirname(sys.executable)\n";
-close($python_file);
-
-#
-# Generate path the the JSON schema validator
-#
-if ( $^O =~ /MSWin32/ ) {
-    #
-    # Windows.
-    #
-    $separator = ";";
-    $python_output = `$filename 2>\&1`;
-    $python_output =~ s/^[A-Z]://ig;
-    chop($python_output);
-    $python_path = "$program_dir\\python" . "$python_output\\Lib\\site-packages";
-    $json_schema_validator = ".\\bin\\json_schema_validator.py";
-} else {
-    #
-    # Not Windows.
-    #
-    $separator = ":";
-    $python_output = `python $filename 2>\&1`;
-    chop($python_output);
-    $python_path = "$program_dir/python/usr/local/lib/python2.7/site-packages";
-    $json_schema_validator = "python bin/json_schema_validator.py";
-}
-unlink($filename);
-
-#
-# Set PYTHONPATH environment variable
-#
-if ( defined($ENV{"PYTHONPATH"}) ) {
-    $ENV{"PYTHONPATH"} .= "$separator$python_path";
-}
-else {
-    $ENV{"PYTHONPATH"} = "$python_path";
 }
 
 #
