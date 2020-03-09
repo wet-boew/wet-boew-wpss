@@ -2,9 +2,9 @@
 //
 // Name: puppeteer_markup_server.js
 //
-// $Revision: 1348 $
-// $URL: svn://10.36.148.185/Crawler/Tools/puppeteer_markup_server.js $
-// $Date: 2019-06-12 12:49:26 -0400 (Wed, 12 Jun 2019) $
+// $Revision: 1710 $
+// $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/puppeteer_markup_server.js $
+// $Date: 2020-02-10 09:26:00 -0500 (Mon, 10 Feb 2020) $
 //
 // Synopsis: node puppeteer_markup_server.js <port> <chrome_path>
 //                                           <user_data_directory> -debug
@@ -205,11 +205,16 @@ server = http.createServer(function(req, res) {
         // Do we have a URL query parameter?  This is the URL
         // we want to get.
         //
-        if (!qdata.url) {
-            console.log('Missing URL in request');
-            return;
+        if ( pathname === '/EXIT' ) {
+            get_url = "";
         }
-        get_url = qdata.url;
+        else {
+            if (!qdata.url) {
+                console.log('Missing URL in GET request ' + q);
+                return;
+            }
+            get_url = qdata.url;
+        }
 
         //
         // Check for image file types
@@ -259,6 +264,7 @@ server = http.createServer(function(req, res) {
         // Reconnect to the browser
         //
         (async () => {
+            try {
             //
             // Do we already have a chrome instance?
             //
@@ -464,6 +470,16 @@ server = http.createServer(function(req, res) {
             if (debug === 1) {
                 t = new Date();
                 console.log('After sending response ' + get_url + ' at ' + t.toLocaleTimeString());
+            }
+            } catch(err) {
+                // Error trying to get page from browser.
+                // Return Success but with no markup
+                console.log('Error trying to get ' + get_url);
+                console.log(err.message);
+                res.writeHead(200, {
+                    'Content-Type': 'text/plain; charset=UTF-8'
+                });
+                res.end(); //end the response
             }
         })();
     } else {
