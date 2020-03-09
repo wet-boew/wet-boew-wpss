@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 1413 $
-# $URL: svn://10.36.148.185/Crawler/Tools/crawler.pm $
-# $Date: 2019-07-30 11:57:58 -0400 (Tue, 30 Jul 2019) $
+# $Revision: 1690 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler.pm $
+# $Date: 2020-01-22 13:53:51 -0500 (Wed, 22 Jan 2020) $
 #
 # Description:
 #
@@ -928,7 +928,7 @@ sub Crawler_Uncompress_Content_File {
         #
         # Get a new temporary file
         #
-        (undef, $new_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", OPEN => 0,
+        (undef, $new_filename) = tempfile("WPSS_TOOL_CR_XXXXXXXXXX", OPEN => 0,
                                           TMPDIR => 1);
         print "Temporary file for uncompressed content $new_filename\n" if $debug;
         
@@ -1645,7 +1645,7 @@ sub Crawler_Get_HTTP_Response {
     # LWP::UserAgent object, not a LWP::RobotUA::Cached object.
     #
     if ( $user_agent_content_file ) {
-        (undef, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", OPEN => 0,
+        (undef, $filename) = tempfile("WPSS_TOOL_CR_XXXXXXXXXX", OPEN => 0,
                                       TMPDIR => 1);
         print "Set temporary content file name $filename\n" if $debug;
         $content_length = 0;
@@ -1892,13 +1892,13 @@ sub Crawler_Get_HTTP_Response {
                         $used_401_credentials = 1;
                     }
                     else {
-                            #
-                            # No user, set response code to 404 to avoid
-                            # retrying the GET.
-                            #
-                            print "Skip retry of GET, no user supplied for 401 error\n" if $debug;
-                            $http_error_code = 404;
-                            $http_401_credentials{$path} = 0;
+                        #
+                        # No user, set response code to 404 to avoid
+                        # retrying the GET.
+                        #
+                        print "Skip retry of GET, no user supplied for 401 error\n" if $debug;
+                        $http_error_code = 404;
+                        $http_401_credentials{$path} = 0;
                     }
                 }
             }
@@ -1920,6 +1920,9 @@ sub Crawler_Get_HTTP_Response {
                 else {
                     print "Forbidden by robots.txt twice\n" if $debug;
                     $done = 1;
+                    if ( defined($filename) ) {
+                        unlink($filename);
+                    }
                 }
             }
 
@@ -2062,7 +2065,7 @@ sub Crawler_Get_HTTP_Response {
             }
             else {
                 #
-                # Nor a 401 (Not Authorized) and not a redirect.
+                # Not a 401 (Not Authorized) and not a redirect.
                 #
                 $done = 1;
                 if ( $debug ) {
@@ -2070,13 +2073,13 @@ sub Crawler_Get_HTTP_Response {
                     $http_error = $resp->status_line;
                     print "Error accessing URL, code is $http_error_code\n";
                     print "                     Error is $http_error\n";
-                    
-                    #
-                    # Do we have a temporary content file ?
-                    #
-                    if ( defined($filename) ) {
-                        unlink($filename);
-                    }
+                }
+                
+                #
+                # Do we have a temporary content file ?
+                #
+                if ( defined($filename) ) {
+                    unlink($filename);
                 }
             }
         }
@@ -3984,13 +3987,13 @@ sub Crawler_Remove_Temporary_Files {
         # Stop any Puppeteer server that may be running
         #
         Crawler_Puppeteer_Stop_Markup_Server();
-
-        #
-        # Clear and remove any cache content for Puppeteer
-        #
-        Crawler_Puppeteer_Clear_Cache();
     }
-    
+
+    #
+    # Clear and remove any cache content for Puppeteer
+    #
+    Crawler_Puppeteer_Clear_Cache();
+
     #
     # Stop PhantomJS headless user agent and clear cache
     #
@@ -3999,12 +4002,12 @@ sub Crawler_Remove_Temporary_Files {
         # Stop any PhantomJS server that may be running
         #
         Crawler_Phantomjs_Stop_Markup_Server();
-
-        #
-        # Clear and remove any cache content for PhantomJS
-        #
-        Crawler_Phantomjs_Clear_Cache();
     }
+
+    #
+    # Clear and remove any cache content for PhantomJS
+    #
+    Crawler_Phantomjs_Clear_Cache();
 
     #
     # Remove any RobotsUA cache
