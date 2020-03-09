@@ -2,9 +2,9 @@
 #
 # Name:   crawler_puppeteer.pm
 #
-# $Revision: 1472 $
-# $URL: svn://10.36.148.185/Crawler/Tools/crawler_puppeteer.pm $
-# $Date: 2019-09-09 15:15:29 -0400 (Mon, 09 Sep 2019) $
+# $Revision: 1711 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler_puppeteer.pm $
+# $Date: 2020-02-10 09:37:42 -0500 (Mon, 10 Feb 2020) $
 #
 # Description:
 #
@@ -93,7 +93,6 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($puppeteer_user_dir, $puppeteer_server_last_arg);
 my ($puppeteer_server_cmnd, $puppeteer_chrome_min_version);
 my ($debug) = 0;
-my ($markup_server_running) = 0;
 my ($markup_server_port) = "8000";
 my ($retry_page) = 0;
 my ($default_windows_chrome_path);
@@ -103,6 +102,8 @@ if ( $have_threads ) {
     share(\$headless_chrome_installed);
     share(\$chrome_path);
 }
+
+my ($markup_server_running) = 0;
 
 #********************************************************
 #
@@ -240,6 +241,7 @@ sub Crawler_Puppeteer_Stop_Markup_Server {
     $resp = $user_agent->request($req);
     sleep(1);
     print "Exit response = " . $resp->as_string . "\n" if $debug;
+    $markup_server_running = 0;
 }
 
 #***********************************************************************
@@ -389,7 +391,7 @@ sub Check_Puppeteer_Requirements {
         # Write temporary program to test puppeteer
         #
         ($js_fh, $js_filename) =
-           tempfile("WPSS_TOOL_XXXXXXXXXX",
+           tempfile("WPSS_TOOL_CP_XXXXXXXXXX",
                     SUFFIX => '.js',
                     DIR => '.');
         if ( ! defined($js_fh) ) {
@@ -407,7 +409,7 @@ console.log('Puppeteer installed');
         # Write temporary batch script to test puppeteer
         #
         ($bat_fh, $bat_filename) =
-           tempfile("WPSS_TOOL_XXXXXXXXXX",
+           tempfile("WPSS_TOOL_CP_XXXXXXXXXX",
                     SUFFIX => '.bat',
                     DIR => '.');
         if ( ! defined($bat_fh) ) {
@@ -675,7 +677,7 @@ sub Server_Page_Markup {
         $generated_markup{"generated_content"} = "";
 
         #
-        # Restart the markup server
+        # Restart the markup server (it may have exited after an idle timeout)
         #
         Crawler_Puppeteer_Start_Markup_Server();
 
@@ -737,9 +739,7 @@ sub Crawler_Puppeteer_Page_Markup {
     my ($markup);
     
     #
-    # Are we running in single page mode (start PhantonJS for each
-    # page) or using a markup server (a background process that gets
-    # pages).
+    # Get page markup.
     #
     print "Crawler_Puppeteer_Page_Markup\n" if $debug;
     $markup = Server_Page_Markup($this_url, $image_file,
@@ -803,11 +803,6 @@ if ( $^O =~ /MSWin32/ ) {
     $puppeteer_server_cmnd = "node ./lib/puppeteer_markup_server.js";
     $puppeteer_server_last_arg = "\&";
 }
-
-#
-# Remove any existing cache
-#
-Crawler_Puppeteer_Clear_Cache("");
 
 #
 # Remove any stdout or stderr files
