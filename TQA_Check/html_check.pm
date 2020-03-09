@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 1504 $
-# $URL: svn://10.36.148.185/TQA_Check/Tools/html_check.pm $
-# $Date: 2019-09-17 12:43:39 -0400 (Tue, 17 Sep 2019) $
+# $Revision: 1722 $
+# $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/html_check.pm $
+# $Date: 2020-02-17 15:37:42 -0500 (Mon, 17 Feb 2020) $
 #
 # Description:
 #
@@ -666,7 +666,7 @@ my (%html_tags_allowed_only_once) = (
 # tags. The list must not contain spaces.
 #
 my (%parent_child_tags) = (
-    "dl", "dd,dt,script,template",
+    "dl", "dd,div,dt,script,template",
     "ol", "li,script,template",
     "ul", "li,script,template",
 );
@@ -1554,7 +1554,7 @@ my %string_table_en = (
     "defined at",                    "defined at (line:column)",
     "Deprecated attribute found",    "Deprecated attribute found ",
     "Deprecated tag found",          "Deprecated tag found ",
-    "dl must contain only dt, dd, script or template tags", "<dl> must contain only <dt>, <dd>, <script> or <template> tags",
+    "dl must contain only dt, dd, div, script or template tags", "<dl> must contain only <dt>, <dd>, <div>, <script> or <template> tags",
     "DOCTYPE missing",               "DOCTYPE missing",
     "does not match content language",  "does not match content language",
     "does not match previous value", "does not match previous value",
@@ -1630,6 +1630,7 @@ my %string_table_en = (
     "is not equal to last level",    " is not equal to last level ",
     "is not visible",                "is not visible",
     "is inside aria-hidden tag",     "is inside aria-hidden tag",
+    "is only allowed on tags with a role", "is only allowed on tags with a role",
     "Label found for hidden input",  "<label> found for <input type=\"hidden\">",
     "label not allowed before",      "<label> not allowed before ",
     "label not allowed for",         "<label> not allowed for ",
@@ -1757,6 +1758,7 @@ my %string_table_en = (
     "used for decoration",              "used for decoration",
     "Using script to remove focus when focus is received", "Using script to remove focus when focus is received",
     "Using white space characters to control spacing within a word in tag", "Using white space characters to control spacing within a word in tag",
+    "WAI-ARIA attribute",            "WAI-ARIA attribute",
 );
 
 
@@ -1796,7 +1798,7 @@ my %string_table_fr = (
     "defined at",                      "défini à (la ligne:colonne)",
     "Deprecated attribute found",      "Attribut dépréciée retrouvée ",
     "Deprecated tag found",            "Balise dépréciée retrouvée ",
-    "dl must contain only dt, dd, script or template tags", "<dl> ne doit contenir que des balises <dt>, <dd>, <script> ou <template>",
+    "dl must contain only dt, dd, div, script or template tags", "<dl> ne doit contenir que des balises <dt>, <dd>, <div>, <script> ou <template>",
     "DOCTYPE missing",                 "DOCTYPE manquant",
     "does not match content language", "ne correspond pas à la langue de contenu",
     "does not match previous value",   "ne correspond pas à la valeur précédente",
@@ -1872,6 +1874,7 @@ my %string_table_fr = (
     "is inside aria-hidden tag",       "est dans une balise aria-hidden",
     "is not equal to last level",      " n'est pas égal à au dernier niveau ",
     "is not visible",                  "est pas visible",
+    "is only allowed on tags with a role",  "n'est autorisé que sur les balises avec un role" ,
     "Label found for hidden input",    "<label> trouvé pour <input type=\"hidden\">",
     "label not allowed before",        "<label> pas permis avant ",
     "label not allowed for",           "<label> pas permis pour ",
@@ -1999,6 +2002,7 @@ my %string_table_fr = (
     "used for decoration",             "utilisé pour la dcoration",
     "Using script to remove focus when focus is received", "Utiliser un script pour enlever le focus lorsque le focus est reçu",
     "Using white space characters to control spacing within a word in tag", "Utiliser des caractères blancs pour contrôler l'espacement à l'intérieur d'un mot dans balise",
+    "WAI-ARIA attribute",              "Attribut WAI-ARIA",
 );
 
 #
@@ -5927,6 +5931,7 @@ sub Check_Headers_Attribute {
         $headers = $attr{"headers"};
         $headers =~ s/^\s*//g;
         $headers =~ s/\s*$//g;
+        print "Check_Headers_Attribute \"$headers\"\n" if $debug;
 
         #
         # Do a first pass through the list of headers to check
@@ -5981,6 +5986,7 @@ sub Check_Headers_Attribute {
                     # be explicit and not transitive).
                     #
                     $p_headers = $$header_values{$id};
+                    print "Parent headers list \"$p_headers\"\n" if $debug;
 
                     #
                     # Check that each id in the parent header list is in
@@ -6069,8 +6075,8 @@ sub Check_Headers_Attribute {
 # headers that are defined after they are used.  It checks to see if all
 # the references to this header include references to this header's
 # headers  (e.g. is this tag references header id=h1, this tag should also
-#
 # reference all headers of the tag that defines id=h1).
+#
 # From: http://www.w3.org/TR/html5/tabular-data.html#attr-tdth-headers
 # A th element with ID id is said to be directly targeted by all td 
 # and th elements in the same table that have headers attributes whose 
@@ -6090,6 +6096,7 @@ sub Delayed_Headers_Attribute_Check {
     #
     # Get list of references to this header
     #
+    print "Delayed_Headers_Attribute_Check for id $id\n" if $debug;
     $location_ref = $table_header_locations[$table_nesting_index];
     $header_values = $table_header_values[$table_nesting_index];
     $table_ref = $missing_table_headers[$table_nesting_index];
@@ -6110,12 +6117,14 @@ sub Delayed_Headers_Attribute_Check {
             # Get the details of the header reference
             #
             ($r_line, $r_column, $r_headers, $r_text) = split(/:/, $r_ref, 4);
+            print "Referenced headers list \"$r_headers\"\n" if $debug;
 
             #
             # Check that each id in this headers list is in
             # this referenced tag's header list.
             #
             foreach $p_id (split(/\s+/, $headers)) {
+                print "Check for header \"$p_id\" in referenced headers\n" if $debug;
                 if ( index(" $r_headers ", " $p_id ") == -1 ) {
                     #
                     # Report error only report once per possible parent id.
@@ -11424,6 +11433,8 @@ sub End_Ol_Ul_Tag_Handler {
 #***********************************************************************
 sub Dd_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
+    
+    my ($last_item, $tag_item, $found_dl);
 
     #
     # Set flag to indicate we are inside a dd tag
@@ -11458,12 +11469,54 @@ sub Dd_Tag_Handler {
     }
 
     #
-    # Is the parent tag for this a dl tag?
+    # Is there an ancestor dl tag for this tag? This tag must be
+    # contained within a dl or a div, which is contained in a dl.
+    # Start at parent tag (2nd last tag item)
     #
-    if ( $parent_tag ne "dl" ) {
+    print "Dt_Tag_Handler check for parent div or dl tag\n" if $debug;
+    $last_item = @tag_order_stack - 2;
+    $found_dl = 0;
+    if ( $last_item >= 0 ) {
+        #
+        # Walk up the tag stack to find a dl tag parent
+        #
+        while ( (! $found_dl) && ($last_item >= 0) ) {
+            #
+            # Did we find a dl tag? If so, stop looking
+            #
+            $tag_item = $tag_order_stack[$last_item];
+            if ( $tag_item->tag() eq "dl" ) {
+                $found_dl = 1;
+                last;
+            }
+            #
+            # Did we find a div? A div may be used to wrap the dd or the
+            # dt, dd pair.
+            #
+            elsif ( $tag_item->tag() eq "div" ) {
+                print "Found div as parent of this tag\n" if $debug;
+            }
+            #
+            # Unexpected parent tag. Stop search
+            #
+            else {
+                print "Unexpected tag " . $tag_item->tag() . " as ancestor to <dd>\n" if $debug;
+                last;
+            }
+
+            $last_item = $last_item - 1;
+        }
+    }
+
+    #
+    # Is there an ancestor dl tag for this tag? This tag must be
+    # contained within a dl or a div, which is contained in a dl.
+    #
+    if ( ! $found_dl ) {
         Record_Result("WCAG_2.0-SC1.3.1,AXE-Dlitem", $line, $column, $text,
                       String_Value("Tag") . " <dd> " .
-                      String_Value("must be contained by") . " <dl>");
+                      String_Value("must be contained by") . " <dl> " .
+                      String_Value("or") . " <dl> <div>");
     }
 }
 
@@ -11510,6 +11563,8 @@ sub End_Dd_Tag_Handler {
 #***********************************************************************
 sub Dt_Tag_Handler {
     my ( $self, $line, $column, $text, %attr ) = @_;
+    
+    my ($last_item, $tag_item, $found_dl);
 
     #
     # Increment count of <dt> tags in this list
@@ -11542,12 +11597,54 @@ sub Dt_Tag_Handler {
     }
 
     #
-    # Is the parent tag for this a dl tag?
+    # Is there an ancestor dl tag for this tag? This tag must be
+    # contained within a dl or a div, which is contained in a dl.
+    # Start at parent tag (2nd last tag item)
     #
-    if ( $parent_tag ne "dl" ) {
+    print "Dt_Tag_Handler check for parent div or dl tag\n" if $debug;
+    $last_item = @tag_order_stack - 2;
+    $found_dl = 0;
+    if ( $last_item >= 0 ) {
+        #
+        # Walk up the tag stack to find a dl tag parent
+        #
+        while ( (! $found_dl) && ($last_item >= 0) ) {
+            #
+            # Did we find a dl tag? If so, stop looking
+            #
+            $tag_item = $tag_order_stack[$last_item];
+            if ( $tag_item->tag() eq "dl" ) {
+                $found_dl = 1;
+                last;
+            }
+            #
+            # Did we find a div? A div may be used to wrap the dt or the
+            # dt, dd pair.
+            #
+            elsif ( $tag_item->tag() eq "div" ) {
+                print "Found div as parent of this tag\n" if $debug;
+            }
+            #
+            # Unexpected parent tag. Stop search
+            #
+            else {
+                print "Unexpected tag " . $tag_item->tag() . " as ancestor to <dt>\n" if $debug;
+                last;
+            }
+
+            $last_item = $last_item - 1;
+        }
+    }
+
+    #
+    # Is there an ancestor dl tag for this tag? This tag must be
+    # contained within a dl or a div, which is contained in a dl.
+    #
+    if ( ! $found_dl ) {
         Record_Result("WCAG_2.0-SC1.3.1,AXE-Dlitem", $line, $column, $text,
                       String_Value("Tag") . " <dt> " .
-                      String_Value("must be contained by") . " <dl>");
+                      String_Value("must be contained by") . " <dl> " .
+                      String_Value("or") . " <dl> <div>");
     }
 }
 
@@ -13398,7 +13495,7 @@ sub Check_Aria_Attributes {
     my ($self, $tagname, $line, $column, $text, $attrseq, %attr) = @_;
 
     my ($value, $tcid, $attribute, $roles_list, $context_role);
-    my ($valid_value, $valid_value_set, $is_valid, $message);
+    my ($valid_value, $valid_value_set, $is_valid, $message, $role);
 
     #
     # Check for aria-label attribute
@@ -13620,6 +13717,38 @@ sub Check_Aria_Attributes {
     # Check role for required ARIA attributes
     #
     Check_Role_Required_Aria_Attributes($tagname, $line, $column, $text, %attr);
+    
+    #
+    # Do we have an aria-roledescription attribute without either an
+    # explicit or implicit role?
+    #
+    if ( defined($attr{"aria-roledescription"}) ) {
+        $value = $attr{"aria-roledescription"};
+        $value =~ s/^\s*//g;
+        $value =~ s/\s*$//g;
+        
+        #
+        # If we have a value, check for implicit or explicit role value
+        #
+        if ( $value ne "" ) {
+            print "Have aria-roledescription = $value\n" if $debug;
+            $role = $current_tag_object->explicit_role();
+            if ( $role eq "" ) {
+                $role = $current_tag_object->implicit_role();
+            }
+
+            #
+            # Do we have a role?
+            #
+            if ( $role  eq "" ) {
+                Record_Result("WCAG_2.0-SC4.1.2,AXE-Aria_roledescription", $line,
+                              $column, $text,
+                              String_Value("WAI-ARIA attribute") .
+                              " \"aria-roledescription\" " .
+                              String_Value("is only allowed on tags with a role"));
+            }
+        }
+    }
 }
 
 #***********************************************************************
@@ -14136,11 +14265,13 @@ sub Check_Parent_Child_Tag_Relationship {
             #
             if ( $parent_tag eq "dl" ) {
                 Record_Result("WCAG_2.0-SC1.3.1,AXE-Definition_List", $line, $column, $text,
-                              String_Value("dl must contain only dt, dd, script or template tags"));
+                              String_Value("dl must contain only dt, dd, div, script or template tags") .
+                              ". " . String_Value("Found tag") . " <$tag>");
             }
             elsif ( ($parent_tag eq "ol") || ($parent_tag eq "ul") ) {
                 Record_Result("WCAG_2.0-SC1.3.1,AXE-List", $line, $column, $text,
-                              String_Value("ol, ul must contain only li, script or template tags"));
+                              String_Value("ol, ul must contain only li, script or template tags") .
+                              ". " . String_Value("Found tag") . " <$tag>");
             }
         }
     }
