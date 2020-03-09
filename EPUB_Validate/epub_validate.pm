@@ -221,7 +221,7 @@ sub EPUB_Validate_Content {
         # Create a temporary file for the EPUB content
         #
         print "EPUB_Validate_Content create temporary EPUB file\n" if $debug;
-        ($fh, $epub_file) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.epub',
+        ($fh, $epub_file) = tempfile("WPSS_TOOL_EPUBV_XXXXXXXXXX", SUFFIX => '.epub',
                                      TMPDIR => 1);
         if ( ! defined($fh) ) {
             print STDERR "Error: Failed to create temporary file in EPUB_Validate_Content\n";

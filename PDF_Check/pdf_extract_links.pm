@@ -133,7 +133,7 @@ sub PDF_Extract_Links {
         #
         # Create temporary file for PDF content.
         #
-        ($fh, $pdf_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.pdf',
+        ($fh, $pdf_file_name) = tempfile("WPSS_TOOL_PDFL_XXXXXXXXXX", SUFFIX => '.pdf',
                                          TMPDIR => 1);
         if ( ! defined($fh) ) {
             print "Error: Failed to create temporary file in PDF_Extract_Links\n";

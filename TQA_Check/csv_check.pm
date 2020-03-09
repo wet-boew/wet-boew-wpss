@@ -434,7 +434,7 @@ sub CSV_Check {
         # Create a temporary file for the CSV content.
         #
         print "Create temporary CSV file\n" if $debug;
-        ($csv_file, $csv_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+        ($csv_file, $csv_file_name) = tempfile("WPSS_TOOL_TCSV_XXXXXXXXXX",
                                                SUFFIX => '.csv',
                                                TMPDIR => 1);
         if ( ! defined($csv_file) ) {

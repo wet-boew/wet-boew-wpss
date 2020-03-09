@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check_image.pm
 #
-# $Revision: 167 $
-# $URL: svn://10.36.20.203/Mobile_Check/Tools/mobile_check_image.pm $
-# $Date: 2016-12-21 08:15:44 -0500 (Wed, 21 Dec 2016) $
+# $Revision: 1668 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Mobile_Check/Tools/mobile_check_image.pm $
+# $Date: 2020-01-08 10:10:08 -0500 (Wed, 08 Jan 2020) $
 #
 # Description:
 #
@@ -394,7 +394,7 @@ sub JPEG_Image_Details {
     # Write content to a file for analysis
     #
     print "JPEG_Image_Details\n" if $debug;
-    ($fh, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.jpg',
+    ($fh, $filename) = tempfile("WPSS_TOOL_MOB_IMG_XXXXXXXXXX", SUFFIX => '.jpg',
                                 TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in JPEG_Image_Details\n";
@@ -505,7 +505,7 @@ sub PNG_Image_Details {
     # Write content to a file for analysis
     #
     print "PNG_Image_Details\n" if $debug;
-    ($fh, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.png',
+    ($fh, $filename) = tempfile("WPSS_TOOL_MOB_IMG_XXXXXXXXXX", SUFFIX => '.png',
                                 TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in PNG_Image_Details\n";
@@ -636,7 +636,7 @@ sub GIF_Image_Details {
     # Write content to a file for analysis
     #
     print "GIF_Image_Details\n" if $debug;
-    ($fh, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.gif',
+    ($fh, $filename) = tempfile("WPSS_TOOL_MOB_IMG_XXXXXXXXXX", SUFFIX => '.gif',
                                 TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in GIF_Image_Details\n";

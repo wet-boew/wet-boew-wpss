@@ -568,7 +568,7 @@ sub Run_pdfchecker {
     # Create a temporary file for the PDF content.
     #
     print "Run_pdfchecker $this_url\n" if $debug;
-    ($fh, $pdf_file) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.pdf', TMPDIR => 1);
+    ($fh, $pdf_file) = tempfile("WPSS_TOOL_TPDF_XXXXXXXXXX", SUFFIX => '.pdf', TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in Run_pdfchecker\n";
         return;

@@ -2,9 +2,9 @@
 #
 # Name:   epub_parse.pm
 #
-# $Revision: 1471 $
-# $URL: svn://10.36.148.185/TQA_Check/Tools/epub_parse.pm $
-# $Date: 2019-09-09 15:14:01 -0400 (Mon, 09 Sep 2019) $
+# $Revision: 1672 $
+# $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/epub_parse.pm $
+# $Date: 2020-01-08 10:11:49 -0500 (Wed, 08 Jan 2020) $
 #
 # Description:
 #
@@ -984,7 +984,7 @@ sub EPUB_Parse_Get_OPF_File {
         #
         # Save EPUB content in a temporary file
         #
-        ($temp_epub_fh, $epub_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+        ($temp_epub_fh, $epub_filename) = tempfile("WPSS_TOOL_TEPUB_XXXXXXXXXX",
                                                    SUFFIX => '.epub',
                                                    TMPDIR => 1);
 

@@ -326,7 +326,7 @@ sub XML_Validate_Xerces {
         #
         # Create a local file for the XML content
         #
-        ($xml_fh, $xml_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+        ($xml_fh, $xml_filename) = tempfile("WPSS_TOOL_XML_XXXXXXXXXX",
                                             SUFFIX => '.xml',
                                             TMPDIR => 1);
         if ( ! defined($xml_fh) ) {

@@ -92,7 +92,7 @@ sub Perform_EPUB_Check {
                 # Get contents for this member in a file
                 #
                 print "Process zip member $member_name\n" if $debug;
-                (undef, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", OPEN => 0);
+                (undef, $filename) = tempfile("WPSS_TOOL_EP_XXXXXXXXXX", OPEN => 0);
                 print "Extract member to $filename\n" if $debug;
                 $member->extractToFileNamed($filename);
 

@@ -2,9 +2,9 @@
 #
 # Name:   marc_validate.pm
 #
-# $Revision: 913 $
-# $URL: svn://10.36.148.185/MARC_Validate/Tools/marc_validate.pm $
-# $Date: 2018-07-19 13:51:56 -0400 (Thu, 19 Jul 2018) $
+# $Revision: 1667 $
+# $URL: svn://10.36.148.185/WPSS_Tool/MARC_Validate/Tools/marc_validate.pm $
+# $Date: 2020-01-08 10:09:51 -0500 (Wed, 08 Jan 2020) $
 #
 # Description:
 #
@@ -223,7 +223,7 @@ sub MARC_Validate_Content {
         # Create temporary file for MARC content.
         #
         print "Create temporary MARC file\n" if $debug;
-        ($fh, $temp_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.mrc',
+        ($fh, $temp_file_name) = tempfile("WPSS_TOOL_MARC_XXXXXXXXXX", SUFFIX => '.mrc',
                                           TMPDIR => 1);
         if ( ! defined($fh) ) {
             print "Error: Failed to create temporary file in MARC_Validate_Content\n";

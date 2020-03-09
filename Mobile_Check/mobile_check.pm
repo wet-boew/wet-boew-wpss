@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 776 $
-# $URL: svn://10.36.148.185/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2018-03-15 13:50:46 -0400 (Thu, 15 Mar 2018) $
+# $Revision: 1668 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Mobile_Check/Tools/mobile_check.pm $
+# $Date: 2020-01-08 10:10:08 -0500 (Wed, 08 Jan 2020) $
 #
 # Description:
 #
@@ -1898,7 +1898,7 @@ sub Mobile_Check_Save_Web_Page_Size {
     print "Mobile_Check_Save_Web_Page_Size_Details\n" if $debug;
     if ( ! defined($file_handle) ) {
         print "Create temporary CSV file\n" if $debug;
-        ($file_handle, $file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+        ($file_handle, $file_name) = tempfile("WPSS_TOOL_MOB_XXXXXXXXXX",
                                               SUFFIX => '.csv',
                                               TMPDIR => 1);
         if ( ! defined($file_handle) ) {
