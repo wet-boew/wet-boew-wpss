@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 771 $
-# $URL: svn://10.36.148.185/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2018-03-15 13:49:24 -0400 (Thu, 15 Mar 2018) $
+# $Revision: 1660 $
+# $URL: svn://10.36.148.185/WPSS_Tool/CLF_Check/Tools/tp_pw_check.pm $
+# $Date: 2020-01-08 10:08:09 -0500 (Wed, 08 Jan 2020) $
 #
 # Description:
 #
@@ -2161,7 +2161,7 @@ sub Checksum {
     #
     # Write the content to a file
     #
-    ($fh, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX", TMPDIR => 1);
+    ($fh, $filename) = tempfile("WPSS_TOOL_TP_PW_XXXXXXXXXX", TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in Checksum\n";
         return($checksum);
