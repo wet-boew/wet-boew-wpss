@@ -3,14 +3,16 @@
 #
 # Name:   json_schema_validator.py
 #
-# $Revision: 173 $
-# $URL: svn://10.36.20.203/Open_Data/Tools/json_schema_validator.py $
-# $Date: 2016-12-21 08:46:07 -0500 (Wed, 21 Dec 2016) $
+# $Revision: 1600 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/json_schema_validator.py $
+# $Date: 2019-11-25 13:45:44 -0500 (Mon, 25 Nov 2019) $
 #
-# Synopsis: json_schema_validator.py <schema> <data>
+# Synopsis: json_schema_validator.py <schema> <data> [ <max errors> ]
 #
 # Where: <schema> is the path to the JSON schema file
 #        <data> is the path to the JSON data file
+#        <max errors> an optional parameter to indicate the maximum number
+#          of errors to report. The default is to report all errors.
 #
 # Description:
 #
@@ -62,10 +64,12 @@ if len(sys.argv) < 3:
     # Missing command line arguments
     #
     print 'Error, missing command line arguments'
-    print 'Usage: json_schema_validator.py <schema> <data>'
+    print 'Usage: json_schema_validator.py <schema> <data> [ <max errors> ]'
     print ''
     print ' Where: <schema> is the path to the JSON schema file'
     print '        <data> is the path to the JSON data file'
+    print '        <max errors> an optional parameter to indicate the maximum number'
+    print '        of errors to report. The default is to report all errors.'
     quit()
     
 #
@@ -73,6 +77,13 @@ if len(sys.argv) < 3:
 #
 schema_file = sys.argv[1]
 data_file = sys.argv[2]
+
+#
+# Do we have a maximum number or errors argument?
+#
+max_errors = 0
+if len(sys.argv) > 3:
+    max_errors = int(sys.argv[3])
 
 #
 # Read the schema file
@@ -100,6 +111,13 @@ for e in v.iter_errors(json_data):
     # path in the schema, the schema details for the
     # node that failed and the path in the data file.
     #
+    
+    #
+    # Do we have a maximum number of errors we want to report?
+    #
+    if max_errors > 0 and error_no == max_errors:
+        print 'Too many errors detected, aborting validator'
+        sys.exit(1)
     
     #
     # Error message
