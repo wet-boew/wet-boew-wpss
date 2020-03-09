@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 1487 $
-# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_check.pm $
-# $Date: 2019-09-13 13:00:17 -0400 (Fri, 13 Sep 2019) $
+# $Revision: 1742 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_check.pm $
+# $Date: 2020-03-09 12:32:43 -0400 (Mon, 09 Mar 2020) $
 #
 # Description:
 #
@@ -64,6 +64,7 @@ use Encode;
 use Archive::Zip qw(:ERROR_CODES);
 use JSON::PP;
 use File::Basename;
+use DateTime;
 
 #
 # Use WPSS_Tool program modules
@@ -119,7 +120,7 @@ my (%testcase_data, %open_data_profile_map);
 my ($current_open_data_profile, $current_url, $results_list_addr);
 my ($current_open_data_profile_name);
 my (@supporting_doc_url, %expected_row_count, %first_url_count);
-my (@content_results_list);
+my (@content_results_list, $today_date_object);
 my (@data_dictionary_file_name, @alternate_data_file_name);
 my (@data_file_required_lang, %data_file_objects);
 
@@ -136,9 +137,64 @@ my ($row_count_attribute) = "Row Count";
 my ($column_list_attribute) = "Column List";
 
 #
+# Required JSON description metadata fields that are optional when
+# entered on the registry.gc.ca.
+#
+my (@required_json_description_metadata) = (
+    "result:portal_release_date",
+    "resources:date_published",
+);
+
+#
 # Status values
 #
 my ($check_fail)       = 1;
+
+#
+# Mapping of frequency codes to values
+#
+my (%frequency_label) = (
+    "as_needed", "as needed",
+    "irregular", "irregular",
+    "not_planned", "not planned",
+    "P1D", "daily",
+    "P0.33W", "two time a week",
+    "P0.5W", "three times a week",
+    "P1W", "weekly",
+    "P2W", "every two weeks",
+    "P1M", "monthly",
+    "P2M", "every two months",
+    "P3M", "quarterly",
+    "P4M", "every four months",
+    "P6M", "biannually",
+    "P1Y", "annually",
+    "P2Y", "every two years",
+);
+
+#
+# Maximum number of days between update for frequency.
+# Note: number is padded to allow for approximately 1.5
+# intervals between updates.
+# Numbers match those in the  TBS open data quality checks
+# tool https://github.com/open-data/data
+#
+my (%frequency_inteval_days) = (
+    "P1D",      2,
+    "P0.33W",   9,
+    "P0.5W",    9,
+    "P1W",      9,
+    "P2W",     18,
+    "P0.5M",   45,
+    "P1M",     45,
+    "P2M",     75,
+    "P3M",    113,
+    "P4M",    150,
+    "P6M",    225,
+    "P1Y",    456,
+    "P2Y",    913,
+    "P3Y",   1369,
+    "P4Y",   2281,
+);
 
 #
 # String table for error strings.
@@ -158,7 +214,9 @@ my %string_table_en = (
     "Data array item count mismatch, found", "Data array item count mismatch, found",
     "Data array item field count",     "Data array item field count",
     "Data array item field count mismatch, found", "Data array item field count mismatch, found",
+    "Dataset not updated within expected number of days for frequency", "Dataset not updated within expected number of days for frequency",
     "Dataset URL unavailable",         "Dataset URL unavailable",
+    "days since last update",          "days since last update",
     "Duplicate content checksum",      "Duplicate content checksum",
     "Duplicate resource URL",          "Duplicate resource URL",
     "en",                              "English",
@@ -167,6 +225,7 @@ my %string_table_en = (
     "Fails validation",                "Fails validation",
     "for",                             "for",
     "for files",                       "for files",
+    "for resource",                    "for resource",
     "found",                           "found",
     "fr",                              "French",
     "have",                            "have",
@@ -182,6 +241,8 @@ my %string_table_en = (
     "Missing data array item fields",    "Missing data array item fields",
     "Missing dataset description field", "Missing dataset description field",
     "Missing dataset description file types", "Missing dataset description file types",
+    "Missing or null dataset metadata field", "Missing or null dataset metadata field",
+    "Missing or null dataset resource metadata field", "Missing or null dataset resource metadata field",
     "Missing required language data file", "Missing required language data file",
     "Multiple file types in ZIP",      "Multiple file types in ZIP",
     "Non blank cell count mismatch for column", "Non blank cell count mismatch for column",
@@ -212,7 +273,9 @@ my %string_table_fr = (
     "Data array item count mismatch, found", "L'incompatibilité du nombre d'éléments de tableau de données, trouvé",
     "Data array item field count",     "Nombre de champs de l'élément de données",
     "Data array item field count mismatch, found", "Le décalage du nombre de champs de l'élément de tableau de données n'a pas été trouvé",
-    "Dataset URL unavailable",         "URL du jeu de données disponible",
+    "Dataset not updated within expected number of days for frequency", "L'ensemble de données n'a pas été mis à jour dans le nombre de jours prévu pour la fréquence",
+    "Dataset URL unavailable",         "URL du jeu de données non disponible",
+    "days since last update",          "jours depuis la dernière mise à jour",
     "Duplicate content checksum",      "Somme de contrôle en double",
     "Duplicate resource URL",          "URL de ressources en double",
     "en",                              "anglais",
@@ -221,6 +284,7 @@ my %string_table_fr = (
     "Fails validation",                "Échoue la validation",
     "for",                             "pour",
     "for files",                       "pour les fichiers",
+    "for resource",                    "pour ressource",
     "found",                           "trouver",
     "fr",                              "français",
     "have",                            "avoir",
@@ -236,6 +300,8 @@ my %string_table_fr = (
     "Missing data array item fields",    "Champs d'élément du tableau de données manquant",
     "Missing dataset description field", "Champ de description de dataset manquant",
     "Missing dataset description file types", "Types de fichiers de description de jeu de données manquants",
+    "Missing or null dataset metadata field", "Champ de métadonnées de jeu de données manquant ou nul",
+    "Missing or null dataset resource metadata field", "Champ de métadonnées de ressource de jeu de données manquant ou nul",
     "Missing required language data file", "Fichier de données de langue requise manquant",
     "Multiple file types in ZIP",      "Plusieurs types de fichiers dans un fichier ZIP",
     "Non blank cell count mismatch for column", "Incompatibilité du nombre de cellules non vierges pour la colonne",
@@ -553,6 +619,8 @@ sub Set_Open_Data_Check_Test_Profile {
 sub Initialize_Test_Results {
     my ($profile, $local_results_list_addr) = @_;
 
+    my ($mday, $mon, $year);
+    
     #
     # Set current hash tables
     #
@@ -564,6 +632,29 @@ sub Initialize_Test_Results {
     # Initialize flags and counters
     #
     @content_results_list = ();
+    
+    #
+    # Get current time
+    #
+    ( $mday, $mon, $year ) =
+      ( localtime(time) )[ 3, 4, 5 ];
+
+    #
+    # Get full year number (not just offset from 1900).
+    #
+    $year = 1900 + $year;
+
+    #
+    # Adjust the month from 0 based (ie. Jan = 0) to 1 based (ie. Jan = 1).
+    #
+    $mon++;
+
+    #
+    # Create a date object for today's date. We use it for date
+    # difference computing.
+    #
+    $today_date_object = DateTime->new(year => $year, month => $mon, day => $mday);
+
 }
 
 #***********************************************************************
@@ -1968,6 +2059,119 @@ sub Check_Open_Data_Description_URL {
 
 #***********************************************************************
 #
+# Name: Check_Days_Since_Update
+#
+# Parameters: frequency - the dataset update frequency
+#             date_published - the date the dataset was published
+#             date_modified - the date the dataset was modified
+#               i.e. updated.
+#
+# Description:
+#
+#   This function checks the latest date for the dataset, either the
+# date modified, if it has been updated, or date published.  The date
+# is checked against the expected maximum number of days between
+# updates for the update frequency.
+#
+#***********************************************************************
+sub Check_Days_Since_Update {
+    my ($frequency, $date_published, $date_modified) = @_;
+
+    my ($date_value, $freq_label, $date_object, $year, $mon, $day);
+    my ($delta_days);
+
+    #
+    # Do we have an update frequency?
+    #
+    print "Check_Days_Since_Update for frequency = $frequency, date published = $date_published, date modified = $date_modified\n" if $debug;
+    if ( defined($frequency) ) {
+        #
+        # Convery the frequency code to a more readable string
+        #
+        if ( defined($frequency_label{$frequency}) ) {
+            $freq_label = $frequency_label{$frequency};
+        }
+        else {
+            print "Error: Unknown frequency value \"$frequency\"\n";
+            $freq_label = "unknown";
+        }
+
+        #
+        # Do we have a maximum number of days between
+        # updates for the frequency? Not all frequencies have an interval
+        # value (e.g. irregular, not planned, ...)
+        #
+        if ( defined($frequency_inteval_days{$frequency}) ) {
+            #
+            # Do we have a date modified? If so use it to see
+            # if the update is in line with the frequency value.
+            #
+            if ( defined($date_modified) && ($date_modified ne "") ) {
+                $date_value = $date_modified;
+                print "Use date modified value $date_value\n" if $debug;
+            }
+            #
+            # No date modified, use the date published (there
+            # may not have been any updates yet).
+            #
+            elsif ( defined($date_published) && ($date_published ne "") ) {
+                $date_value = $date_published;
+                print "Use date published value $date_value\n" if $debug;
+            }
+
+            #
+            # Check to see if we have a date modified and see if
+            # it is in line with the update frequency (i.e. an
+            # annual frequency should have a date modified less
+            # than 1 year ago).
+            #
+            if ( defined($date_value) ) {
+                #
+                # Get the year, month and date from the date modified
+                #
+                ($year, $mon, $day) = $date_value =~ /^(\d+)\-(\d+)\-(\d+)\s+.*$/io;
+                $date_object = DateTime->new(year => $year, month => $mon, day => $day);
+
+                #
+                # Get the number of days since the update
+                #
+                $delta_days = $today_date_object->delta_days($date_object)->delta_days;
+                print "Days since last modified = $delta_days\n" if $debug;
+
+                #
+                # Does the number of days make sense for the frequency?
+                #
+                if ( $delta_days > $frequency_inteval_days{$frequency} ) {
+                    #
+                    # Too long between updates.
+                    #
+                    Record_Result("OD_REG", -1, -1, "",
+                                  String_Value("Dataset not updated within expected number of days for frequency") .
+                                  " " . $frequency_label{$frequency} .
+                                  String_Value("expecting") .
+                                  $frequency_inteval_days{$frequency} . " " .
+                                  String_Value("days since last update") .
+                                  " $delta_days");
+                }
+                else {
+                    print "Dataset updated within update frequency interval\n" if $debug;
+                }
+            }
+            else {
+                print "No published or updated date\n" if $debug;
+            }
+        }
+        else {
+            print "No defined number of day between updates for frequency\n" if $debug;
+        }
+    }
+    else {
+        print "No defined update frequency\n" if $debug;
+    }
+}
+
+#***********************************************************************
+#
 # Name: Read_JSON_Open_Data_Description
 #
 # Parameters: resp - HTTP::Response object
@@ -1987,7 +2191,7 @@ sub Read_JSON_Open_Data_Description {
     my (%dataset_urls) = ();
     my ($ref, $result, $resources, $value, $url, $type, $name);
     my ($eval_output, $i, $ref_type, $format, $content, $line);
-    my ($pattern, $alternate, %urls, $url_added);
+    my ($pattern, $alternate, %urls, $url_added, $required, $class, $key);
     my ($have_error) = 0;
 
     #
@@ -2022,7 +2226,7 @@ sub Read_JSON_Open_Data_Description {
                       String_Value("Fails validation"));
         $have_error = 1;
     }
-
+    
     #
     # Get the "result" field of the JSON object
     #
@@ -2049,6 +2253,47 @@ sub Read_JSON_Open_Data_Description {
                           " \"$ref_type\" " . String_Value("for") .
                           " \"result\"");
             $have_error = 1;
+        }
+
+        #
+        # Check dataset metadata fields.
+        #
+        if ( ! $have_error ) {
+            #
+            # Check for required metadata items in the "result" object
+            #
+            print "Check for required metadata items in the result object\n" if $debug;
+            foreach $required (@required_json_description_metadata) {
+                ($class, $key) = split(/:/, $required);
+                
+                #
+                # Is this a "result" class of metadata item?
+                #
+                print "Check class $class name $name\n" if $debug;
+                if ( $class eq "result" ) {
+                    #
+                    # Check for a value for the named item
+                    #
+                    print "Check for metadata field $key in results object\n" if $debug;
+                    if ( (! defined($$result{$key})) ||
+                         ($$result{$key} eq "") ) {
+                        Record_Result("OD_REG", -1, -1, "",
+                                      String_Value("Missing or null dataset metadata field") .
+                                      " \"$key\"");
+                    }
+                    else {
+                        print "Found $key = " . $$result{$key} . "\n" if $debug;
+                    }
+                }
+            }
+            
+            #
+            # Check that the date released or modified is within the
+            # number of days between updates for the update frequency
+            #
+            Check_Days_Since_Update($$result{"frequency"},
+                                    $$result{"date_published"},
+                                    $$result{"date_modified"});
         }
     }
 
@@ -2091,112 +2336,141 @@ sub Read_JSON_Open_Data_Description {
         $i = 1;
         print "Get dataset URLs\n" if $debug;
         foreach $value (@$resources) {
-           $url_added = 0;
-           if ( ref $value eq "HASH" ) {
-               $type = $$value{"resource_type"};
-               $format = $$value{"format"};
-               $name = $$value{"name"};
-               $url = $$value{"url"};
-               print "Dataset URL # $i, type = $type, format = $format, url = $url\n" if $debug;
-               $i++;
+            $url_added = 0;
+            if ( ref $value eq "HASH" ) {
+                $type = $$value{"resource_type"};
+                $format = $$value{"format"};
+                $name = $$value{"name"};
+                $url = $$value{"url"};
+                print "Dataset URL # $i, type = $type, format = $format, url = $url\n" if $debug;
+                $i++;
                
-               #
-               # Do we have a type, format and URL ?
-               #
-               if ( (! defined($type)) || ($type eq "") ) {
-                    Record_Result("OD_VAL", -1, -1, "",
-                                  String_Value("Missing dataset description field") .
-                                  " \"type\"");
-               }
-               if ( (! defined($format)) || ($format eq "") ) {
-                    Record_Result("OD_VAL", -1, -1, "",
-                                  String_Value("Missing dataset description field") .
-                                  " \"format\"");
-               }
-               if ( (! defined($url)) || ($url eq "") ) {
-                    Record_Result("OD_VAL", -1, -1, "",
-                                  String_Value("Missing dataset description field") .
-                                  " \"url\"");
-               }
+                #
+                # Do we have a type, format and URL ?
+                #
+                if ( (! defined($type)) || ($type eq "") ) {
+                     Record_Result("OD_REG", -1, -1, "",
+                                   String_Value("Missing dataset description field") .
+                                   " \"type\"");
+                }
+                if ( (! defined($format)) || ($format eq "") ) {
+                     Record_Result("OD_REG", -1, -1, "",
+                                   String_Value("Missing dataset description field") .
+                                   " \"format\"");
+                }
+                if ( (! defined($url)) || ($url eq "") ) {
+                     Record_Result("OD_REG", -1, -1, "",
+                                   String_Value("Missing dataset description field") .
+                                   " \"url\"");
+                }
 
-               #
-               # Save dataset URL based on type.
-               #
-               if ( $type eq "api" ) {
-                   $dataset_urls{"API"} .= "$format\t$url\n";
-                   $url_added = 1;
-               }
-               elsif ( ($type eq "doc") || ($type eq "guide") ) {
-                   #
-                   # Accept TXT and XML formatted documents. Other formats are
-                   # likely to be supporting documents, not data dictionaries.
-                   #
-                   if ( ($format eq "TXT") || ($format eq "XML") ) {
-                       $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
-                       $url_added = 1;
-                   }
-                   #
-                   # Is the format HTML, then assume it is a supporting document
-                   #
-                   elsif ( $format eq "HTML" ) {
-                       $dataset_urls{"RESOURCE"} .= "$format\t$url\n";
-                       $url_added = 1;
-                   }
-                   #
-                   # Check for name Data Dictionary or Dictionnaire de données
-                   #
-                   else {
-                       foreach $pattern (@data_dictionary_file_name) {
-                           if ( $name eq $pattern ) {
-                               $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
-                               $url_added = 1;
-                           }
-                       }
-                   }
-               }
-               elsif ( ($type eq "file") || ($type eq "dataset") ) {
-                   #
-                   # Check for possible alternate format data file
-                   #
-                   $alternate = 0;
-                   foreach $pattern (@alternate_data_file_name) {
-                       if ( $name =~ /$pattern/ ) {
-                           $dataset_urls{"ALTERNATE_DATA"} .= "$format\t$url\n";
-                           $alternate = 1;
-                           $url_added = 1;
-                       }
-                   }
+                #
+                # Save dataset URL based on type.
+                #
+                if ( $type eq "api" ) {
+                    $dataset_urls{"API"} .= "$format\t$url\n";
+                    $url_added = 1;
+                }
+                elsif ( ($type eq "doc") || ($type eq "guide") ) {
+                    #
+                    # Accept TXT and XML formatted documents. Other formats are
+                    # likely to be supporting documents, not data dictionaries.
+                    #
+                    if ( ($format eq "TXT") || ($format eq "XML") ) {
+                        $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
+                        $url_added = 1;
+                    }
+                    #
+                    # Is the format HTML, then assume it is a supporting document
+                    #
+                    elsif ( $format eq "HTML" ) {
+                        $dataset_urls{"RESOURCE"} .= "$format\t$url\n";
+                        $url_added = 1;
+                    }
+                    #
+                    # Check for name Data Dictionary or Dictionnaire de données
+                    #
+                    else {
+                        foreach $pattern (@data_dictionary_file_name) {
+                            if ( $name eq $pattern ) {
+                                $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
+                                $url_added = 1;
+                            }
+                        }
+                    }
+                }
+                elsif ( ($type eq "file") || ($type eq "dataset") ) {
+                    #
+                    # Check for possible alternate format data file
+                    #
+                    $alternate = 0;
+                    foreach $pattern (@alternate_data_file_name) {
+                        if ( $name =~ /$pattern/ ) {
+                            $dataset_urls{"ALTERNATE_DATA"} .= "$format\t$url\n";
+                            $alternate = 1;
+                            $url_added = 1;
+                        }
+                    }
 
-                   #
-                   # If the file is not an alternate format, it is a primary
-                   # formate data file
-                   #
-                   if ( ! $alternate ) {
-                      $dataset_urls{"DATA"} .= "$format\t$url\n";
-                      $url_added = 1;
-                   }
-               }
+                    #
+                    # If the file is not an alternate format, it is a primary
+                    # formate data file
+                    #
+                    if ( ! $alternate ) {
+                       $dataset_urls{"DATA"} .= "$format\t$url\n";
+                       $url_added = 1;
+                    }
+                }
                
-               #
-               # Check for duplicate URL values
-               #
-               if ( $url_added ) {
-                   if ( defined($urls{$url}) ) {
-                       #
-                       # URL is a duplicate of a previous URL
-                       #
-                       Record_Result("TP_PW_OD_DATA", -1, -1, "",
-                                     String_Value("Duplicate resource URL") .
-                                     " \"$url\"");
-                   }
-                   else {
-                       #
-                       # Record URL
-                       #
-                       $urls{$url} = 1;
-                   }
-               }
-           }
+                #
+                # Check for duplicate URL values
+                #
+                if ( $url_added ) {
+                    if ( defined($urls{$url}) ) {
+                        #
+                        # URL is a duplicate of a previous URL
+                        #
+                        Record_Result("TP_PW_OD_DATA", -1, -1, "",
+                                      String_Value("Duplicate resource URL") .
+                                      " \"$url\"");
+                    }
+                    else {
+                        #
+                        # Record URL
+                        #
+                        $urls{$url} = 1;
+                    }
+                }
+
+                #
+                # Check for required metadata items in the "resources" object
+                #
+                print "Check for required metadata items in the resources object\n" if $debug;
+                foreach $required (@required_json_description_metadata) {
+                    ($class, $key) = split(/:/, $required);
+
+                    #
+                    # Is this a "resources" class of metadata item?
+                    #
+                    print "Check class $class name $key\n" if $debug;
+                    if ( $class eq "resources" ) {
+                        #
+                        # Check for a value for the named item
+                        #
+                        print "Check for metadata field $key in resources object\n" if $debug;
+                        if ( (! defined($$value{$key})) ||
+                             ($$value{$key} eq "") ) {
+                            Record_Result("OD_REG", -1, -1, "",
+                                          String_Value("Missing or null dataset resource metadata field") .
+                                          " \"$key\" " . String_Value("for resource") .
+                                          " \"$name\", $url");
+                        }
+                        else {
+                            print "Found $key = " . $$value{$key} . "\n" if $debug;
+                        }
+                    }
+                }
+            }
         }
         
         #
@@ -2350,6 +2624,7 @@ sub Check_Data_File_Languages {
     my (@url_list, $list_item, $url, $eng_url);
     my ($expected_lang_count, $lang_count, $lang_item_addr);
     my (%url_file_langs, $url_lang, $url_lang3, $lang_string);
+    my (%found_langs);
 
     #
     # Check each entry in the URL language map
@@ -2403,7 +2678,7 @@ sub Check_Data_File_Languages {
                 print "Check required URL languages\n" if $debug;
                 print "Have " . scalar(@$lang_item_addr) . " language variants\n" if $debug;
                 %url_file_langs = ();
-                $url_file_langs{$url_lang} = $eng_url;
+                #$url_file_langs{$url_lang} = $eng_url;
                 foreach $url (@$lang_item_addr) {
                     $url_lang = URL_Check_GET_URL_Language($url);
                     print "Got URL language $url_lang for $url\n" if $debug;
@@ -2419,21 +2694,43 @@ sub Check_Data_File_Languages {
                     # code or 3 character code.
                     #
                     $url_lang3 = ISO_639_2_Language_Code($url_lang);
-                    if ( (! defined($url_file_langs{$url_lang})) &&
-                         (! defined($url_file_langs{$url_lang3}))  ) {
+                    if ( defined($url_file_langs{$url_lang}) ||
+                         defined($url_file_langs{$url_lang3}) ) {
                         #
-                        # Convert language code into a string
+                        # Found a required language
                         #
-                        if ( defined($$string_table{$url_lang}) ) {
-                            $lang_string = $$string_table{$url_lang};
+                        $found_langs{$url_lang} = 1;
+                        print "Found required language $url_lang\n" if $debug;
+                    }
+                }
+                
+                #
+                # Check to see if we found at least 1 required language.
+                # If none are found, skip check for required languages.
+                # It may be possible that the URLs contain what appears
+                # to be a language suffix, but it isn't really
+                # a language suffix.
+                #
+                if ( keys(%found_langs) > 0 ) {
+                    foreach $url_lang (@data_file_required_lang) {
+                        #
+                        # If we don't have this language variant, report it.
+                        #
+                        print "Check for found language $url_lang\n" if $debug;
+                        if ( ! defined(%found_langs{$url_lang}) ) {
+                            #
+                            # Convert language code into a string
+                            #
+                            if ( defined($$string_table{$url_lang}) ) {
+                                $lang_string = $$string_table{$url_lang};
+                            }
+                            else {
+                                $lang_string = $url_lang;
+                            }
+                            Record_Result("TP_PW_OD_DATA", -1, -1, "",
+                                  String_Value("Missing required language data file") .
+                                  " \"$lang_string\"");
                         }
-                        else {
-                            $lang_string = $url_lang;
-                        }
-                        Record_Result("TP_PW_OD_DATA", -1, -1, "",
-                              String_Value("Missing required language data file") .
-                              " \"$lang_string\" " . String_Value("have") .
-                              " $eng_url");
                     }
                 }
             }
@@ -2561,7 +2858,7 @@ sub Check_CSV_Data_File_Rows_Columns {
                 if ( $first_cols != $expected_cols ) {
                     Record_Content_Result("TP_PW_OD_CONT", -1, -1, "",
                                           String_Value("Column count mismatch, found") .
-                                          " first_cols " . String_Value("in") . " $url\n" .
+                                          " $first_cols " . String_Value("in") . " $url\n" .
                                           String_Value("expecting") .
                                           $expected_cols . String_Value("as found in") .
                                           $expected_columns_url);
@@ -2954,14 +3251,22 @@ sub Compare_CSV_JSON_CSV_Data_File_Content {
         print "Compare JSON-CSV field type " . $json_field->type() .
               " to CSV column type " . $csv_heading->type() . "\n" if $debug;
         if ( $json_field->type() ne $csv_heading->type() ) {
-            Record_Result("OD_DATA", -1, -1, "",
-                          String_Value("Type mismatch for JSON-CSV field/CSV column") .
-                          " " . $json_field->heading() . "\n" .
-                          String_Value("found") . " " . $json_field->type() .
-                          " " . String_Value("in") . " $json_url\n" .
-                          String_Value("expecting") .
-                          $csv_heading->type() .
-                          String_Value("as found in") . $csv_url);
+            #
+            # Check CSV column data type for blank.  The type may be
+            # blank if other conditions (e.g. blank cell percentage) cause
+            # the type to be undetermined.  The same check is not performed
+            # on the JSON file type.
+            #
+            if ( $csv_heading->type() ne "" ) {
+                Record_Result("OD_DATA", -1, -1, "",
+                              String_Value("Type mismatch for JSON-CSV field/CSV column") .
+                              " " . $json_field->heading() . "\n" .
+                              String_Value("found") . " " . $json_field->type() .
+                              " " . String_Value("in") . " $json_url\n" .
+                              String_Value("expecting") .
+                              $csv_heading->type() .
+                              String_Value("as found in") . $csv_url);
+            }
         }
         else {
             #
