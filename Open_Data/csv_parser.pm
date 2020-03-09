@@ -2,9 +2,9 @@
 #
 # Name: csv_parser.pm
 #
-# $Revision: 1061 $
-# $URL: svn://10.36.148.185/Open_Data/Tools/csv_parser.pm $
-# $Date: 2018-11-07 08:33:25 -0500 (Wed, 07 Nov 2018) $
+# $Revision: 1738 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/csv_parser.pm $
+# $Date: 2020-03-06 13:32:52 -0500 (Fri, 06 Mar 2020) $
 #
 # Description:
 #
@@ -206,26 +206,26 @@ sub String_Value {
 #
 # Name: _is_valid_utf8
 #
-# Parameters: line - string of text
+# Parameters: byte_string - string of bytes
 #
 # Description:
 #
 #   This function checks to see if there are any UTF-8 characters in
-# the text string.  Code taken from Text::CSV_PP.pm
+# the text string.
 #
 #**********************************************************************
 sub _is_valid_utf8 {
-    return ( $_[0] =~ /^(?:
-         [\x00-\x7F]
-        |[\xC2-\xDF][\x80-\xBF]
-        |[\xE0][\xA0-\xBF][\x80-\xBF]
-        |[\xE1-\xEC][\x80-\xBF][\x80-\xBF]
-        |[\xED][\x80-\x9F][\x80-\xBF]
-        |[\xEE-\xEF][\x80-\xBF][\x80-\xBF]
-        |[\xF0][\x90-\xBF][\x80-\xBF][\x80-\xBF]
-        |[\xF1-\xF3][\x80-\xBF][\x80-\xBF][\x80-\xBF]
-        |[\xF4][\x80-\x8F][\x80-\xBF][\x80-\xBF]
-    )+$/x )  ? 1 : 0;
+    my ($byte_string) = @_;
+
+    #
+    # Attempt to decode the byte string as UTF-8
+    #
+    if ( eval { decode( 'UTF-8', $byte_string, Encode::FB_CROAK ) } ) {
+        return(1);
+    }
+    else {
+        return(0);
+    }
 }
 
 #********************************************************
