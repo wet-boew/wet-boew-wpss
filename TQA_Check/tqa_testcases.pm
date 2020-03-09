@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 1502 $
-# $URL: svn://10.36.148.185/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2019-09-17 12:39:29 -0400 (Tue, 17 Sep 2019) $
+# $Revision: 1612 $
+# $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_testcases.pm $
+# $Date: 2019-12-02 15:14:34 -0500 (Mon, 02 Dec 2019) $
 #
 # Description:
 #
@@ -352,11 +352,13 @@ my (%testcase_description_en) = (
 
 "AXE-Image_redundant_alt", "1.1.1 AXE-Image_redundant_alt: Text of buttons and links should not be repeated in the image alternative",
 
+"AXE-Aria_roledescription", "4.1.2 AXE-Aria_roledescription: Use aria-roledescription on elements with a semantic role",
 "AXE-Meta_viewport_large", "1.4.4 AXE-Meta_viewport_large: Users should be able to zoom and scale the text up to 500%",
 "AXE-Meta_viewport", "1.4.4 AXE-Meta_viewport: Zooming and scaling must not be disabled",
 
 #
 # Pa11y testcases
+#  Pa11y is your automated accessibility testing pal
 #  https://github.com/pa11y/pa11y
 #
 "Pa11y", "Pa11y: Automated accessibility testing pal",
@@ -631,11 +633,13 @@ my (%testcase_description_fr) = (
 
 "AXE-Image_redundant_alt", "1.1.1 AXE-Image_redundant_alt: Text of buttons and links should not be repeated in the image alternative",
 
+"AXE-Aria_roledescription", "4.1.2 AXE-Aria_roledescription: Use aria-roledescription on elements with a semantic role",
 "AXE-Meta_viewport_large", "1.4.4 AXE-Meta_viewport_large: Users should be able to zoom and scale the text up to 500%",
 "AXE-Meta_viewport", "1.4.4 AXE-Meta_viewport: Zooming and scaling must not be disabled",
 
 #
 # Pa11y testcases
+#  Pa11y is your automated accessibility testing pal
 #  https://github.com/pa11y/pa11y
 #
 "Pa11y", "Pa11y: Automated accessibility testing pal",
@@ -851,6 +855,7 @@ my (%testcase_groups_table) = (
 
 "AXE-Image_redundant_alt", "1.1.1",
 
+"AXE-Aria_roledescription", "4.1.2",
 "AXE-Meta_viewport_large", "1.4.4",
 "AXE-Meta_viewport", "1.4.4",
 );
