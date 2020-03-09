@@ -20,8 +20,7 @@
 #     Set_Metadata_Debug
 #     Set_Metadata_Scheme_Value
 #     Metadata_Check_Language
-#     Read_Metadata_Thesaurus_File
-#     Read_Compressed_Metadata_Thesaurus_File
+#     Set_Metadata_Thesaurus_File
 #     Validate_Metadata
 #     Extract_Metadata
 #  
@@ -57,6 +56,13 @@
 
 package metadata;
 
+#
+# Check for module to share data structures between threads
+#
+my $have_threads = eval 'use threads; 1';
+if ( $have_threads ) {
+    $have_threads = eval 'use threads::shared; 1';
+}
 use strict;
 use HTML::Parser;
 use File::Basename;
@@ -80,8 +86,7 @@ BEGIN {
     use vars qw($VERSION @ISA @EXPORT);
 
     @ISA     = qw(Exporter);
-    @EXPORT  = qw(Read_Compressed_Metadata_Thesaurus_File
-                  Read_Metadata_Thesaurus_File
+    @EXPORT  = qw(Set_Metadata_Thesaurus_File
                   Set_Required_Metadata_Tags
                   Set_Required_Metadata_Content 
                   Set_Invalid_Metadata_Content
@@ -137,7 +142,17 @@ my ($VALID_ROBOTS_CONTENT) = " all index noindex follow nofollow " .
         "nippet osnippet odp noodp archive noarchive imageindex noimageindex " .
         "ydir noydir ";
 
-my (%thesaurus_profile_map_en, %thesaurus_profile_map_fr);
+#
+# Variables shared between threads
+#
+my (%thesaurus_profile_map_en, %thesaurus_profile_map_fr,
+    %thesaurus_profile_filename, %thesaurus_files);
+if ( $have_threads ) {
+    share(\%thesaurus_profile_map_en);
+    share(\%thesaurus_profile_map_fr);
+    share(\%thesaurus_profile_filename);
+    share(\%thesaurus_files);
+}
 
 #
 # Status values
@@ -264,6 +279,30 @@ sub Set_Metadata_Debug {
 
 #***********************************************************************
 #
+# Name: Set_Metadata_Thesaurus_File
+#
+# Parameters: profile - thesaurus profile
+#             filename - name of thesaurus file
+#             language - the language of the thesaurus terms
+#
+# Description:
+#
+#   This function sets the filename for the thesaurus filename for
+# the specified scheme and language.
+#
+#***********************************************************************
+sub Set_Metadata_Thesaurus_File {
+    my ($profile, $filename, $language) = @_;
+
+    #
+    # Save filename for scheme and language.
+    #
+    print "Set_Compressed_Metadata_Thesaurus_File profile = $profile, filename = $filename, language = $language\n" if $debug;
+    $thesaurus_profile_filename{"$language:$profile"} = $filename;
+}
+
+#***********************************************************************
+#
 # Name: Read_Compressed_Metadata_Thesaurus_File
 #
 # Parameters: profile - thesaurus profile
@@ -281,150 +320,75 @@ sub Read_Compressed_Metadata_Thesaurus_File {
     my ($profile, $filename, $language) = @_;
 
     my (%terms, $term, $i, @fields);
-
+    
+    if ( $have_threads ) {
+        share(\%terms);
+    }
+    
     #
-    # Open the compressed thesaurus file.
+    # Have we seen this thesaurus file before.
     #
     print "Read_Compressed_Metadata_Thesaurus_File profile = $profile, filename = $filename, language = $language\n" if $debug;
-    if ( ! -f "$filename" ) {
-        print "Error: Thesaurus file $filename does not exist\n";
-        return;
-    }
-    open(THESAURUS, $filename) || die "Error: Failed to open thesaurus file $filename\n";
-    binmode THESAURUS;
-
-    #
-    # Read the file, ignore blank lines and comment lines.
-    #
-    while ( $term = <THESAURUS> ) {
+    if ( ! defined($thesaurus_files{$filename}) ) {
         #
-        # Skip comment lines and blank lines
+        # Open the compressed thesaurus file.
         #
-        if ( ($term =~ /^#/) || ($term =~ /^$/) ) {
-            next;
+        if ( ! -f "$filename" ) {
+            print "Error: Thesaurus file $filename does not exist\n";
+            return;
         }
+        open(THESAURUS, $filename) || die "Error: Failed to open thesaurus file $filename\n";
+        binmode THESAURUS;
 
         #
-        # Strip off any Windows end-of-line markers
+        # Read the file, ignore blank lines and comment lines.
         #
-        chomp($term);
-        $term =~ s/\r//g;
-        $term = encode_entities($term);
+        while ( $term = <THESAURUS> ) {
+            #
+            # Skip comment lines and blank lines
+            #
+            if ( ($term =~ /^#/) || ($term =~ /^$/) ) {
+                next;
+            }
 
-        #
-        # Save the thersaurus term
-        #
-        if ( $term ne "" ) {
-            $terms{lc($term)} = lc($term);
-            #print "Save DC_Subject term \"$term\" as \"" . lc($term) . "\"\n" if $debug;
+            #
+            # Strip off any Windows end-of-line markers
+            #
+            chomp($term);
+            $term =~ s/\r//g;
+            $term = encode_entities($term);
+
+            #
+            # Save the thersaurus term
+            #
+            if ( $term ne "" ) {
+                $terms{lc($term)} = lc($term);
+                #print "Save DC_Subject term \"$term\" as \"" . lc($term) . "\"\n" if $debug;
+            }
         }
+        close(THESAURUS);
+        $i = keys(%terms);
+        print "Read $i terms from thesaurus\n" if $debug;
+
+        #
+        # Save the terms list in case it is used in multiple profiles
+        #
+        $thesaurus_files{$filename} = \%terms;
     }
-    close(THESAURUS);
+    else {
+        print "Reuse terms list\n" if $debug;
+    }
 
     #
-    # Make a local copy of the hash table address in the global thesaurus
+    # Make a local of the hash table address in the global thesaurus
     # profile map.
     #
     if ( $language =~ /eng/i ) {
-        $thesaurus_profile_map_en{$profile} = \%terms;
+        $thesaurus_profile_map_en{$profile} = $thesaurus_files{$filename};
     }
     elsif ( $language =~ /fra/i ) {
-        $thesaurus_profile_map_fr{$profile} = \%terms;
+        $thesaurus_profile_map_fr{$profile} = $thesaurus_files{$filename};
     }
-    $i = keys(%terms);
-    print "Read $i terms from thesaurus\n" if $debug;
-}
-
-#***********************************************************************
-#
-# Name: Read_Metadata_Thesaurus_File
-#
-# Parameters: profile - thesaurus profile
-#             filename - name of thesaurus file
-#             language - the language of the thesaurus terms
-#
-# Description:
-#
-#   This function reads the specified thesaurus file into a hash table.
-# It stores the address of the hash table in the global thesaurus profile
-# map table.
-#
-#***********************************************************************
-sub Read_Metadata_Thesaurus_File {
-    my ($profile, $filename, $language) = @_;
-
-    my (%terms, $term, $i, @fields);
-
-    #
-    # Open the thesaurus file.
-    #
-    print "Read_Metadata_Thesaurus_File profile = $profile, filename = $filename, language = $language\n" if $debug;
-    if ( ! -f "$filename" ) {
-        print "Error: Thesaurus file $filename does not exist\n";
-        return;
-    }
-    open(THESAURUS, $filename) || die "Error: Failed to open thesaurus file $filename\n";
-    binmode THESAURUS;
-
-    #
-    # Read the file, ignore blank lines and comment lines.
-    #
-    while ( <THESAURUS> ) {
-        #
-        # Strip off any Windows end-of-line markers
-        chomp;
-        s/\r//g;
-
-        #
-        # Skip comment lines and blank lines
-        #
-        if ( (/^#/) || (/^$/) ) {
-            next;
-        }
-
-        #
-        # Split content into 3 fields, if we don't get 3, ignore the line
-        #
-        @fields = split(/,/, $_, 3);
-        if ( @fields != 3 ) {
-            next;
-        }
-
-        #
-        # Remove quotes or trailing semicolon from the thesaurus term
-        # Convert to lowercase
-        #
-        $term = $fields[0];
-        $term =~ s/"//g;
-        $term =~ s/;*$//g;
-        $term = encode_entities($term);
-        $term = lc($term);
-
-        #
-        # If the 2nd field is a language specifier, we have a thesaurus term.
-        # The language specifier may be FRE or ANG (old format)
-        # or French or Anglais (new format).
-        #
-        if ( ($fields[1] =~ /"FRE"/i) || ($fields[1] =~ /"ANG"/i) ||
-             ($fields[1] =~ /"French"/i) || ($fields[1] =~ /"Anglais"/i) ) {
-            $terms{$term} = $term;
-            #print "Thesaurus term = \"$term\"\n" if $debug;
-        }
-    }
-    close(THESAURUS);
-
-    #
-    # Make a local copy of the hash table address in the global thesaurus
-    # profile map.
-    #
-    if ( $language =~ /eng/i ) {
-        $thesaurus_profile_map_en{$profile} = \%terms;
-    }
-    elsif ( $language =~ /fra/i ) {
-        $thesaurus_profile_map_fr{$profile} = \%terms;
-    }
-    $i = keys(%terms);
-    print "Read $i terms from thesaurus\n" if $debug;
 }
 
 #***********************************************************************
@@ -988,17 +952,49 @@ sub DC_Subject_Content_Check {
     my ($language, $scheme, $content) = @_;
 
     my ($term, $alt_term, $thesaurus, @terms, $orig_term, $invalid_term_list);
+    my ($filename);
     my ($status) = $metadata_success;
     my ($message) = "";
 
     #
     # Do we have a scheme attribute for the dc.subject metadata tag ?
     #
+    print "DC_Subject_Content_Check language = $language, scheme = $scheme\n" if $debug;
     if ( ! defined($scheme) ) {
         print "No schema for $scheme\n" if $debug;
         return($status, $message);
     }
 
+    #
+    # Do we have to read the thesaurus file?
+    #
+    if ( defined($thesaurus_profile_filename{"$language:$scheme"}) ) {
+        $filename = $thesaurus_profile_filename{"$language:$scheme"};
+        print "Have file for thesaurus = $filename\n" if $debug;
+        
+        #
+        # Do we have the English thesaurus?
+        #
+        if ( ($language eq "eng") &&
+             (! defined($thesaurus_profile_map_en{$scheme})) ) {
+                #
+                # Have to read the thesaurus file.
+                #
+                Read_Compressed_Metadata_Thesaurus_File($scheme,
+                     $thesaurus_profile_filename{"$language:$scheme"},
+                     $language);
+         }
+         elsif ( ($language eq "fra") &&
+                  (! defined($thesaurus_profile_map_fr{$scheme})) ) {
+                #
+                # Have to read the thesaurus file.
+                #
+                Read_Compressed_Metadata_Thesaurus_File($scheme,
+                     $thesaurus_profile_filename{"$language:$scheme"},
+                     $language);
+        }
+    }
+    
     #
     # Do we have a thesaurus for this scheme ?
     #

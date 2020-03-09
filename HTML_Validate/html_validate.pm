@@ -47,6 +47,14 @@
 
 package html_validate;
 
+#
+# Check for module to share data structures between threads
+#
+my $have_threads = eval 'use threads; 1';
+if ( $have_threads ) {
+    $have_threads = eval 'use threads::shared; 1';
+}
+
 use strict;
 use File::Basename;
 use HTML::Parser;
@@ -82,10 +90,19 @@ BEGIN {
 #
 #***********************************************************************
 
-my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
-my ($doctype_label, $doctype_version, $doctype_class, $html5_validate_jar);
-my ($java_options, $version, $perl_path);
+my (@paths, $this_path, $program_dir, $program_name, $paths );
+my ($doctype_label, $doctype_version, $doctype_class);
 my ($runtime_error_reported) = 0;
+
+#
+# Variables shared between threads
+#
+my ($validate_cmnd, $html5_validate_jar, $java_options);
+if ( $have_threads ) {
+    share(\$validate_cmnd);
+    share(\$html5_validate_jar);
+    share(\$java_options);
+}
 
 my ($debug) = 0;
 my ($VALID_HTML) = 1;
@@ -202,6 +219,79 @@ sub String_Value {
 
 #***********************************************************************
 #
+# Name: Get_HTML_Validate_Command_Line
+#
+# Parameters: None
+#
+# Description:
+#
+#   This function gets the command line for the HTML validator.
+#
+#***********************************************************************
+sub Get_HTML_Validate_Command_Line {
+
+    my ($perl_path, $version);
+
+    #
+    # Have we already determined the HTML validator command line?
+    #
+    if ( ! defined($validate_cmnd) ) {
+        #
+        # Generate path the to the validate command and
+        # set VALIDATE_HOME environment variable
+        #
+        print "Get_HTML_Validate_Command_Line\n" if $debug;
+        if ( $^O =~ /MSWin32/ ) {
+            #
+            # Windows. Get path to Perl executable
+            #
+            $perl_path = `where perl`;
+            chomp($perl_path);
+
+            #
+            # Is Perl not in the PATH (i.e. use file type to associate
+            # perl script to perl program)?
+            #
+            if ( $perl_path eq "" ) {
+                $validate_cmnd = ".\\bin\\win_validate.pl";
+            }
+            else {
+                #
+                # This is a work around for PSPC Windows 10 PCs which do not
+                # always pass on command line arguments to Perl programs.
+                #
+                $validate_cmnd = "perl .\\bin\\win_validate.pl";;
+            }
+
+            #
+            # HTML 5 validator JAR path
+            #
+            $html5_validate_jar = ".\\lib\\vnu.jar";
+
+            #
+            # Is this 64 bit? if so we need a larger stack
+            #
+            $version = `java -version 2>\&1`;
+            if ( $version =~ /64-bit/im ) {
+                $java_options = "-Xss1024k";
+            }
+            else {
+                $java_options = "-Xss512k";
+            }
+        } else {
+            #
+            # Not Windows.
+            #
+            $validate_cmnd = "$program_dir/bin/validate";
+            $html5_validate_jar = "$program_dir/lib/vnu.jar";
+            $java_options = "-Xss1024k";
+        }
+    }
+
+}
+
+#***********************************************************************
+#
 # Name: Validate_XHTML_Content
 #
 # Parameters: this_url - a URL
@@ -220,12 +310,17 @@ sub Validate_XHTML_Content {
     my ($status) = $VALID_HTML;
     my ($validator_output, $line, $html_file_name, @results_list);
     my ($result_object, $fh, $char);
+    
+    #
+    # Get the HTML validator command line
+    #
+    Get_HTML_Validate_Command_Line();
 
     #
     # Write the content to a temporary file
     #
     print "Validate_XHTML_Content create temporary HTML file\n" if $debug;
-    ($fh, $html_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.htm',
+    ($fh, $html_file_name) = tempfile("WPSS_TOOL_HTML_XXXXXXXXXX", SUFFIX => '.htm',
                                       TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in Validate_XHTML_Content\n";
@@ -336,10 +431,15 @@ sub Validate_HTML5_Content {
     my ($command_failed) = 0;
 
     #
+    # Get the HTML validator command line
+    #
+    Get_HTML_Validate_Command_Line();
+
+    #
     # Write the content to a temporary file
     #
     print "Validate_HTML5_Content create temporary HTML file\n" if $debug;
-    ($fh, $html_file_name) = tempfile("WPSS_TOOL_XXXXXXXXXX", SUFFIX => '.html',
+    ($fh, $html_file_name) = tempfile("WPSS_TOOL_HTML_XXXXXXXXXX", SUFFIX => '.html',
                                       TMPDIR => 1);
     if ( ! defined($fh) ) {
         print "Error: Failed to create temporary file in Validate_HTML5_Content\n";
@@ -753,65 +853,9 @@ if ( $program_dir eq "." ) {
 }
 
 #
-# Generate path the validate command and set VALIDATE_HOME environment
-# variable
+# Set the VALIDATE_HOME environment variable
 #
-if ( $^O =~ /MSWin32/ ) {
-    #
-    # Windows. Get path to Perl executable
-    #
-    $perl_path = `where perl`;
-    chomp($perl_path);
-
-    #
-    # Is Perl not in the PATH (i.e. use file type to associate
-    # perl script to perl program)?
-    #
-    if ( $perl_path eq "" ) {
-        $validate_cmnd = ".\\bin\\win_validate.pl";
-    }
-    else {
-        #
-        # This is a work around for PSPC Windows 10 PCs which do not
-        # always pass on command line arguments to Perl programs.
-        #
-        $validate_cmnd = "perl .\\bin\\win_validate.pl";;
-    }
-
-    #
-    # HTML 5 validator JAR path
-    #
-    $html5_validate_jar = ".\\lib\\vnu.jar";
-    
-    #
-    # Is this 64 bit? if so we need a larger stack
-    #
-    $version = `java -version 2>\&1`;
-    if ( $version =~ /64-bit/im ) {
-        $java_options = "-Xss1024k";
-    }
-    else {
-        $java_options = "-Xss512k";
-    }
-} else {
-    #
-    # Not Windows.
-    #
-    $validate_cmnd = "$program_dir/bin/validate";
-    $html5_validate_jar = "$program_dir/lib/vnu.jar";
-    $java_options = "-Xss1024k";
-}
 $ENV{VALIDATE_HOME} = "$program_dir/bin";
-
-#
-# Add to path for shared libraries (Solaris only)
-#
-if ( defined $ENV{LD_LIBRARY_PATH} ) {
-    $ENV{LD_LIBRARY_PATH} .= ":/usr/local/lib:/opt/sfw/lib";
-}
-else {
-    $ENV{LD_LIBRARY_PATH} = "/usr/local/lib:/opt/sfw/lib";
-}
 
 #
 # Return true to indicate we loaded successfully

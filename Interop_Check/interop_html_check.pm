@@ -2,9 +2,9 @@
 #
 # Name:   interop_html_check.pm
 #
-# $Revision: 7169 $
-# $URL: svn://10.36.21.45/trunk/Web_Checks/Interop_Check/Tools/interop_html_check.pm $
-# $Date: 2015-06-03 10:03:37 -0400 (Wed, 03 Jun 2015) $
+# $Revision: 1726 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Interop_Check/Tools/interop_html_check.pm $
+# $Date: 2020-03-03 14:48:15 -0500 (Tue, 03 Mar 2020) $
 #
 # Description:
 #
@@ -53,6 +53,14 @@
 #***********************************************************************
 
 package interop_html_check;
+
+#
+# Check for module to share data structures between threads
+#
+my $have_threads = eval 'use threads; 1';
+if ( $have_threads ) {
+    $have_threads = eval 'use threads::shared; 1';
+}
 
 use strict;
 use HTML::Entities;
@@ -117,12 +125,21 @@ my ($microdata_attr, $microdata_attr_count, $rdfa_found, $rdfa_attr_count);
 my ($missing_rdfa_vocab_reported, $missing_rdfa_typeof_reported);
 my (@other_rdfa_lite_attributes) = ("prefix", "resource");
 my (@vocab_tag_stack, @typeof_tag_stack, $inside_vocab, $inside_typeof);
-my (%schema_details, $current_schema_types, $current_schema_properties);
+my ($current_schema_types, $current_schema_properties);
 my ($current_schema_details, $current_schema_vocab, @typeof_stack);
-my ($current_typeof_value, @tag_order_stack);
+my ($current_typeof_value, @tag_order_stack );
 my ($current_tag_object, $current_landmark, $landmark_marker);
 
 my ($max_error_message_string) = 2048;
+
+#
+# Variables shared between threads
+#
+my (%schema_details, %schema_details_filename);
+if ( $have_threads ) {
+    share(\%schema_details);
+    share(\%schema_details_filename);
+}
 
 #
 # Valid values for the rel attribute of tags
@@ -339,7 +356,14 @@ sub String_Value {
 sub Read_Schema_Details {
     my ($schema, $filename) = @_;
     
-    my ($line, $content, $ref, $eval_output);
+    my ($line, $content, $ref, $shared_ref, $eval_output);
+    
+    #
+    # Shave the reference so it can be used in other threads.
+    #
+    if ( $have_threads ) {
+        share(\$shared_ref);
+    }
     
     #
     # Open the schema details file
@@ -373,16 +397,24 @@ sub Read_Schema_Details {
         if ( ! $eval_output ) {
             $eval_output =~ s/ at \S* line \d*$//g;
             print "Error: Failed to parse schema details file $eval_output\n" if $debug;
+            print STDERR "Error: Failed to parse schema details file $program_dir/$filename, error = $eval_output\n";
+        }
+        else {
+            #
+            # Create a shared clone of the reference
+            #
+            $shared_ref = shared_clone($ref);
         }
     }
     else {
         print "Error: Failed to open schema details file $program_dir/$filename\n" if $debug;
+        print STDERR "Error: Failed to open schema details file $program_dir/$filename\n";
     }
     
     #
-    # Return the reference to the JSON object
+    # Return the reference to the JSON object (shared instance)
     #
-    return($ref);
+    return($shared_ref);
 }
 
 #***********************************************************************
@@ -401,7 +433,7 @@ sub Read_Schema_Details {
 sub Set_Interop_HTML_Check_Testcase_Data {
     my ($testcase, $data) = @_;
 
-    my ($type, $value, $schema, $filename, $ref);
+    my ($type, $value, $schema, $filename);
 
     #
     # Check the testcase id
@@ -435,19 +467,12 @@ sub Set_Interop_HTML_Check_Testcase_Data {
             ($schema, $filename) = split(/\s+/, $value, 2);
             
             #
-            # If we have a filemame, read the types & properties from
-            # the file.
+            # If we have a filename, record it against the schema.
+            # We don't read the types & properties from the file until
+            # it is needed.
             #
             if ( defined($filename) ) {
-                $ref = Read_Schema_Details($schema, $filename);
-                
-                #
-                # If we have a ref value, save it in the schema details table.
-                #
-                if ( defined($ref) ) {
-                    print "Got schema details for $schema from $filename\n" if $debug;
-                    $schema_details{$schema} = $ref;
-                }
+                $schema_details_filename{$schema} = $filename;
             }
         }
     }
@@ -806,7 +831,7 @@ sub Check_Microdata_Data_Attributes {
 sub Check_Vocab_Attribute {
     my ($tagname, $line, $column, $text, %attr) = @_;
 
-    my ($vocab, $values);
+    my ($vocab, $values, $ref, $filename);
 
     #
     # Check for RDFa Lite attribute vocab
@@ -843,9 +868,30 @@ sub Check_Vocab_Attribute {
         }
 
         #
-        # Do we have schema details for this vocabulary
+        # Do we have schema details file for this vocabulary
         #
-        if ( defined($schema_details{$vocab}) ) {
+        if ( defined($schema_details_filename{$vocab}) ) {
+            #
+            # Do we need to read in the schema details?
+            #
+            if ( ! defined($schema_details{$vocab}) ) {
+                $filename = $schema_details_filename{$vocab};
+                print "Read schema defails for $vocab from $filename\n" if $debug;
+        
+                $ref = Read_Schema_Details($vocab, $filename);
+
+                #
+                # If we have a ref value, save it in the schema details table.
+                #
+                if ( defined($ref) ) {
+                    print "Got schema details for $vocab from $filename\n" if $debug;
+                    $schema_details{$vocab} = $ref;
+                }
+            }
+
+            #
+            # Save the current vocabulary details
+            #
             $current_schema_details = $schema_details{$vocab};
             $current_schema_types = $$current_schema_details{"types"};
             $current_schema_properties = $$current_schema_details{"properties"};
@@ -1016,7 +1062,7 @@ sub Check_Property_Attribute {
             # checking the primary vocabulary.
             #
             $content = $attr{"property"};
-            print "Check typeof = $content in schema\n" if $debug;
+            print "Check property = $content in typeof = $current_typeof_value\n" if $debug;
             if ( ! ($content =~ /:/) ) {
                 #
                 # Get properties for the current typeof value

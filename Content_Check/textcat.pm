@@ -33,6 +33,14 @@
 
 package textcat;
 
+#
+# Check for module to share data structures between threads
+#
+my $have_threads = eval 'use threads; 1';
+if ( $have_threads ) {
+    $have_threads = eval 'use threads::shared; 1';
+}
+
 use strict;
 use warnings;
 use File::Basename;
@@ -74,8 +82,7 @@ BEGIN {
 #***********************************************************************
 
 my (@paths, $this_path, $program_dir, $program_name, $paths);
-my (@languages, %language_model, %language_code_map, $save_text);
-my ($table_depth, %supported_languages, @last_too_close_languages);
+my ($save_text, $table_depth, @last_too_close_languages);
 
 my $non_word_characters = '0-9\s';
 my $directory           = 'LM';     #default directory to .lm files
@@ -104,6 +111,19 @@ my $opt_u               = 1.05;
 
 my ($debug) = 0;
 my ($verbose) = 0;
+
+#
+# Variables shared between threads
+#
+my (@languages, %language_model, %language_code_map, %supported_languages);
+my ($languages_loaded) = 0;
+if ( $have_threads ) {
+    share(\@languages);
+    share(\%language_model);
+    share(\%language_code_map);
+    share(\%supported_languages);
+    share(\$languages_loaded);
+}
 
 #
 # Minimum and maximum number of characters to analyse
@@ -653,6 +673,13 @@ sub TextCat_Text_Language {
     #      "\n$input\n" if $debug;
 
     #
+    # Have we loaded the language details?
+    #
+    if ( ! $languages_loaded ) {
+        Load_Language_Models();
+    }
+
+    #
     # create ngrams for input.
     #
     @unknown = Create_LM(\$input);
@@ -777,6 +804,13 @@ sub TextCat_Supported_Language {
     my ($lang) = @_;
 
     #
+    # Have we loaded the language details?
+    #
+    if ( ! $languages_loaded ) {
+        Load_Language_Models();
+    }
+
+    #
     # Is the language specified supported ?
     #
     if ( defined($supported_languages{$lang}) ) {
@@ -871,8 +905,11 @@ sub Create_LM {
 sub Load_Language_Model_File {
     my ($language, $filename) = @_;
 
+    my ($rang) = 1;
     my (%ngram);
-    my ($rang)  = 1;
+    if ( $have_threads ) {
+        share(\%ngram);
+    }
 
     #
     # Open the language file
@@ -922,6 +959,7 @@ sub Load_Language_Models {
     #
     # Look for language mapping file.
     #
+    print "Load_Language_Models\n" if $debug;
     if ( ! -f "$program_dir/$directory/language_map.txt" ) {
         print "Error: Missing language mapping file\n";
         print " --> $program_dir/$directory/language_map.txt\n";
@@ -1011,6 +1049,11 @@ sub Load_Language_Models {
     # for an unknown language.  The language code is an empty string.
     #
     $language_code_map{"unknown"} = "";
+    
+    #
+    # Set flag to indicate languages are loaded.
+    #
+    $languages_loaded = 1;
 }
 
 #***********************************************************************
@@ -1059,11 +1102,6 @@ if ( $program_dir eq "." ) {
         }
     }
 }
-
-#
-# Load language models
-#
-Load_Language_Models();
 
 #
 # Return true to indicate we loaded successfully
