@@ -367,10 +367,21 @@ sub Get_Image_Details {
             $width =~ s/\%//g;
             $width = $width * 0.01;
         }
+        
+        #
+        # Check for pixels
+        #
+        if ( $width =~ /px$/ ) {
+            $width =~ s/px$//g;
+        }
     }
     else {
         $width = 0;
     }
+    
+    #
+    # Check for height property.
+    #
     if ( defined($info_item->{height}) ) {
         $height = $info_item->{height};
 
@@ -380,6 +391,13 @@ sub Get_Image_Details {
         if ( $height =~ /\%$/ ) {
             $height =~ s/\%//g;
             $height = $height * 0.01;
+        }
+
+        #
+        # Check for pixels
+        #
+        if ( $height =~ /px$/ ) {
+            $height =~ s/px$//g;
         }
     }
     else {
@@ -514,7 +532,7 @@ sub Get_Image_Details {
 sub Image_Details {
     my ($url) = @_;
 
-    my ($resp, $mime_type, $header);
+    my ($resp, $mime_type, $header, $image_content, $filename);
     my (%image_details) = ();
     my ($details) = \%image_details;
 
@@ -555,6 +573,26 @@ sub Image_Details {
         #
         if ( $resp->is_success ) {
             #
+            # Did we get the image content in a file?
+            #
+            if ( defined($resp->header("WPSS-Content-File")) ) {
+                #
+                # Extract the content file name from HTTP::Response object
+                #
+                $filename = $resp->header("WPSS-Content-File");
+                print "Read image content from $filename\n" if $debug;
+                local($/) = undef;
+                if ( open(IMG, "$filename") ) {
+                    $image_content = <IMG>;
+                    close(IMG);
+                }
+            }
+            else {
+                $image_content = $resp->content;
+            }
+
+
+            #
             # Does this look like an image ?
             #
             $header = $resp->headers;
@@ -564,7 +602,7 @@ sub Image_Details {
                 #
                 # Get image details
                 #
-                %image_details = Get_Image_Details($url, $resp->content);
+                %image_details = Get_Image_Details($url, $image_content);
 
                 #
                 # Save image details in a cache in case we need them again
@@ -591,6 +629,14 @@ sub Image_Details {
             #
             print "Failed to retrieve URL $url\n" if $debug;
         }
+    }
+
+    #
+    # Remove URL content file
+    #
+    if ( defined($filename) && ($filename ne "") ) {
+        print "Remove content file $filename\n" if $debug;
+        unlink($filename);
     }
 
     #
