@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml_dictionary.pm
 #
-# $Revision: 1487 $
-# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_xml_dictionary.pm $
-# $Date: 2019-09-13 13:00:17 -0400 (Fri, 13 Sep 2019) $
+# $Revision: 1718 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_xml_dictionary.pm $
+# $Date: 2020-02-12 14:20:21 -0500 (Wed, 12 Feb 2020) $
 #
 # Description:
 #
@@ -147,6 +147,7 @@ my %string_table_en = (
     "Missing description for expected language", "Missing <description> for expected language",
     "Missing description for required language", "Missing <description> for required language",
     "Missing end of string character", "Missing end of string character '\$'",
+    "Missing label for required language", "Missing <label> for required language",
     "Missing text in",             "Missing text in",
     "Missing xml:lang in",         "Missing xml:lang in",
     "Missing",                     "Missing",
@@ -202,6 +203,7 @@ my %string_table_fr = (
     "Missing description for expected language", "<description> manquante pour la langue attendue",
     "Missing description for required language", "<description> manquante pour la langue requise",
     "Missing end of string character", "Caractère de fin de chaîne manquante '\$'",
+    "Missing label for required language", "<label> manquante pour la langue requise",
     "Missing text in",             "Manquant texte dans",
     "Missing xml:lang in",         "Manquant xml:lang dans",
     "Missing",                     "Manquant",
@@ -247,6 +249,11 @@ sub Set_Open_Data_XML_Dictionary_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+    
+    #
+    # Set flag in supporting modules
+    #
+    Open_Data_Dictionary_Object_Debug($debug);
 }
 
 #**********************************************************************
@@ -717,6 +724,77 @@ sub Check_URL {
     # Return HTTP::Response object
     #
     return($url_status{$url});
+}
+
+#***********************************************************************
+#
+# Name: Start_Consistent_Data_Heading_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             attr - hash table of attributes
+#
+# Description:
+#
+#   This function handles the start consistent_data_heading tag.
+#
+#***********************************************************************
+sub Start_Consistent_Data_Heading_Tag_Handler {
+    my ($self, %attr) = @_;
+
+    #
+    # Start a text handler to get the consistent dataheading
+    #
+    Start_Text_Handler();
+}
+
+#***********************************************************************
+#
+# Name: End_Consistent_Data_Heading_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#
+# Description:
+#
+#   This function handles the end consistent_data_heading tag.
+#
+#***********************************************************************
+sub End_Consistent_Data_Heading_Tag_Handler {
+    my ($self) = @_;
+
+    #
+    # Do we have a text handler ?
+    #
+    if ( $save_text_between_tags ) {
+        #
+        # Remove newlines and leading whitespace
+        #
+        $saved_text =~ s/\r\n|\r|\n/ /g;
+        $saved_text =~ s/^\s*//g;
+        $saved_text =~ s/\s*$//g;
+
+        #
+        # Do we have a value ?
+        #
+        if ( $saved_text eq "" ) {
+            Record_Result("TP_PW_OD_DD", $self->current_line,
+                          $self->current_column, $self->original_string,
+                          String_Value("Missing text in") . " <consistent_data_heading>");
+        }
+        else {
+            #
+            # Save the consistent data headings list in the current dictionary object
+            #
+            if ( defined($dictionary_object) ) {
+                print "Save consistent data headings \"$saved_text\" in dictionary object\n" if $debug;
+                $dictionary_object->set_consistent_data_heading($saved_text);
+            }
+        }
+    }
+
+    #
+    # End any text handler
+    #
+    $save_text_between_tags = 0;
 }
 
 #***********************************************************************
@@ -1310,7 +1388,8 @@ sub End_Heading_Tag_Handler {
     my ($self) = @_;
     
     my ($new_dictionary_object, $lang, $label, $dup_lang);
-    my (%dup_check_descriptions);
+    my (%dup_check_descriptions, $consistent_heading, @consistent_headings);
+    my ($found_language_specific);
     
     #
     # Did we find a description in the heading?
@@ -1384,6 +1463,40 @@ sub End_Heading_Tag_Handler {
     #
     if ( scalar(keys(%found_label_languages)) > 0 ) {
         #
+        # Did we find a language specific label (i.e. not unknown)?
+        #
+        print "Have " . scalar(keys(%found_label_languages)) . " languages for label\n" if $debug;
+        $found_language_specific = 0;
+        foreach $lang (keys(%found_label_languages)) {
+            print "Label language $lang\n" if $debug;
+            if ( $lang ne "unknown" ) {
+                $found_language_specific = 1;
+                print "Found language specific label $lang\n" if $debug;
+                last;
+            }
+        }
+
+        #
+        # Did we find all of the required label languages?
+        #
+        if ( $found_language_specific ) {
+            print "Check for all language specific labels\n" if $debug;
+            foreach $lang (@required_description_languages) {
+                #
+                # Are we missing the label for this language?
+                #
+                print "Check for required language $lang\n" if $debug;
+                if ( ! defined($found_label_languages{$lang}) ) {
+                    Record_Result("TP_PW_OD_DD", $self->current_line,
+                                  $self->current_column, $self->original_string,
+                                  String_Value("Missing label for required language") .
+                                  " xml:lang=\"$lang\" " . String_Value("in") .
+                                  " <heading id=\"$heading_id\">");
+                }
+            }
+        }
+        
+        #
         # Make a copy of the current dictionary object under all
         # labels that apply to this heading.
         #
@@ -1395,6 +1508,10 @@ sub End_Heading_Tag_Handler {
             $new_dictionary_object->id($dictionary_object->id());
             $new_dictionary_object->regex($dictionary_object->regex());
             $new_dictionary_object->condition($dictionary_object->condition());
+            @consistent_headings = $dictionary_object->get_consistent_data_headings();
+            foreach $consistent_heading (@consistent_headings) {
+                $new_dictionary_object->set_consistent_data_heading($consistent_heading);
+            }
             $$current_dictionary{$label} = $new_dictionary_object;
         }
     }
@@ -1733,9 +1850,15 @@ sub Dictionary_Start_Handler {
     $tag_count++;
 
     #
+    # Check for consistent_data_heading tag.
+    #
+    if ( $tagname eq "consistent_data_heading" ) {
+        Start_Consistent_Data_Heading_Tag_Handler($self, %attr);
+    }
+    #
     # Check for data_condition tag.
     #
-    if ( $tagname eq "data_condition" ) {
+    elsif ( $tagname eq "data_condition" ) {
         Start_Data_Condition_Tag_Handler($self, %attr);
     }
     #
@@ -1810,9 +1933,15 @@ sub Dictionary_End_Handler {
     print "Dictionary_End_Handler tag $tagname\n" if $debug;
 
     #
+    # Check for consistent_data_heading tag.
+    #
+    if ( $tagname eq "consistent_data_heading" ) {
+        End_Consistent_Data_Heading_Tag_Handler($self);
+    }
+    #
     # Check for data_condition tag.
     #
-    if ( $tagname eq "data_condition" ) {
+    elsif ( $tagname eq "data_condition" ) {
         End_Data_Condition_Tag_Handler($self);
     }
     #
