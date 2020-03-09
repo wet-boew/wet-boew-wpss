@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 1487 $
-# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2019-09-13 13:00:17 -0400 (Fri, 13 Sep 2019) $
+# $Revision: 1550 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_xml.pm $
+# $Date: 2019-10-04 15:23:14 -0400 (Fri, 04 Oct 2019) $
 #
 # Description:
 #
@@ -145,7 +145,7 @@ my %string_table_en = (
     "No content in API",           "No content in API",
     "No content in file",          "No content in file",
     "No DOCTYPE or Schema found in XML file", "No DOCTYPE or Schema found in XML file",
-    "No terms in found data dictionary", "No terms found in data dictionary",
+    "No terms found in data dictionary", "No terms found in data dictionary",
     "No",                          "No",
     "Previous instance found at",  "Previous instance found at line ",
     "tags found in",               "tags found in",
