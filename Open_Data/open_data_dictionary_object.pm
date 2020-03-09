@@ -2,9 +2,9 @@
 #
 # Name: open_data_dictionary_object.pm
 #
-# $Revision: 234 $
-# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_dictionary_object.pm $
-# $Date: 2017-01-12 13:43:35 -0500 (Thu, 12 Jan 2017) $
+# $Revision: 1572 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_dictionary_object.pm $
+# $Date: 2019-10-29 09:43:43 -0400 (Tue, 29 Oct 2019) $
 #
 # Description:
 #
@@ -18,10 +18,14 @@
 # Class Methods
 #    new - create new object instance
 #    condition - get/set data condition value
+#    get_consistent_data_headings - returns list of consistent
+#      data value headings.
 #    id - get/set the id value
 #    in_dictionary - get/set the in dictionary value
 #    regex - get/set data regex value
 #    related_resource - get/set related resource value
+#    set_consistent_data_heading - set headings that require consistent
+#      data value pairs with this heading.
 #    type - get/set the type value
 #    term - get/set term value
 #
@@ -125,6 +129,7 @@ sub new {
     my ($class) = @_;
     
     my ($self) = {};
+    my (%consistent_data_headings);
 
     #
     # Bless the reference as a open_data_dictionary_object class item
@@ -135,6 +140,7 @@ sub new {
     # Initialize object fields
     #
     $self->{"condition"} = "";
+    $self->{"consistent_data_heading"} = \%consistent_data_headings;
     $self->{"id"} = "";
     $self->{"in_dictionary"} = 1;
     $self->{"regex"} = "";
@@ -175,6 +181,31 @@ sub condition {
     else {
         return($self->{"condition"});
     }
+}
+
+#********************************************************
+#
+# Name: get_consistent_data_headings
+#
+# Parameters: self - class reference
+#
+# Description:
+#
+#   This function returns the list of headings must have
+# consistent data values with this heading.
+#
+#********************************************************
+sub get_consistent_data_headings {
+    my ($self) = @_;
+
+    my (@headings_list, $table_addr);
+
+    #
+    # Return the list of headings
+    #
+    $table_addr = $self->{"consistent_data_heading"};
+    @headings_list = keys(%$table_addr);
+    return(@headings_list);
 }
 
 #********************************************************
@@ -290,6 +321,34 @@ sub related_resource {
     }
     else {
         return($self->{"related_resource"});
+    }
+}
+
+#********************************************************
+#
+# Name: set_consistent_data_heading
+#
+# Parameters: self - class reference
+#             value - list of headings
+#
+# Description:
+#
+#   This function sets a list of headings that this
+# heading must have consistent data values with.
+#
+#********************************************************
+sub set_consistent_data_heading {
+    my ($self, $value) = @_;
+
+    my ($table_addr, @headings_list);
+
+    #
+    # Was a heading list supplied ?
+    #
+    if ( defined($value) && ($value ne "") ) {
+        $table_addr = $self->{"consistent_data_heading"};
+        $$table_addr{$value} = 1;
+        @headings_list = keys(%$table_addr);
     }
 }
 
