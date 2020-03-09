@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 1500 $
-# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2019-09-17 12:00:00 -0400 (Tue, 17 Sep 2019) $
+# $Revision: 1712 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_csv.pm $
+# $Date: 2020-02-10 09:43:51 -0500 (Mon, 10 Feb 2020) $
 #
 # Description:
 #
@@ -73,6 +73,7 @@ use csv_parser;
 use open_data_testcases;
 use open_data_json;
 use tqa_result_object;
+use url_check;
 
 #***********************************************************************
 #
@@ -166,6 +167,7 @@ my %string_table_en = (
     "and",                           "and",
     "at line number",                "at line number",
     "Blank column header",           "Blank column header",
+    "Cannot access URL",             "Cannot access URL",
     "Column",                        "Column",
     "CSV and JSON-CSV values do not match for column", "CSV and JSON-CSV values do not match for column",
     "csv-validator failed",          "csv-validator failed",
@@ -196,6 +198,7 @@ my %string_table_en = (
     "instances of currency values",  "instances of currency values",
     "instances of leading or trailing whitespace characters in field values", "instances of leading or trailing whitespace characters in field values",
     "instances of thousands separator values", "instances of thousands separator values",
+    "Invalid URL found",             "Invalid URL found",
     "Leading or trailing whitespace characters in field value", "Leading or trailing whitespace characters in field value",
     "Leading or trailing whitespace characters in heading", "Leading or trailing whitespace characters in heading",
     "List item prefix character found for list of 1 item", "List item prefix character found for list of 1 item",
@@ -207,6 +210,7 @@ my %string_table_en = (
     "Missing list item prefix character", "Missing list item prefix character",
     "Missing UTF-8 BOM",             "Missing UTF-8 BOM",
     "More than 1 blank line between list items", "More than 1 blank line between list items",
+    "Newline, return, formfeed or tab characters in heading", "Newline, return, formfeed or tab characters in heading",
     "No blank line between list items", "No blank line between list items",
     "No content in file",            "No content in file",
     "No content in row",             "No content in row",
@@ -214,8 +218,10 @@ my %string_table_en = (
     "Possible Excel formula as field value", "Possible Excel formula as field value",
     "row",                           "row",
     "Runtime Error",                 "Runtime Error",
+    "Scientific notation value found", "Scientific notation value found",
     "Thousands separator value found", "Thousands separator value found",
     "Total of",                      "Total of",
+    "value",                         "value",
     "values of type",                "values of type",
     );
 
@@ -224,6 +230,7 @@ my %string_table_fr = (
     "and",                           "et",
     "at line number",                "au numéro de ligne",
     "Blank column header",           "En-tête de colonne vide",
+    "Cannot access URL",             "Impossible d'accéder à l'URL",
     "Column",                        "Colonne",
     "CSV and JSON-CSV values do not match for column", "Les valeurs CSV et JSON-CSV ne correspondent pas à la colonne",
     "csv-validator failed",          "csv-validator a échoué",
@@ -254,6 +261,7 @@ my %string_table_fr = (
     "instances of currency values",  "instances de valeurs monétaires",
     "instances of leading or trailing whitespace characters in field values", "occurrences de caractères espaces avant ou arrière dans les valeurs de champ",
     "instances of thousands separator values", "instances de milliers séparateurs",
+    "Invalid URL found",             "URL invalide trouvée",
     "Leading or trailing whitespace characters in field value", "Caractères d'espacement avant ou arrière dans la valeur du champ",
     "Leading or trailing whitespace characters in heading", "Caractères blancs avancés ou arrivant dans le titre",
     "List item value",               "Valeur de l'élément de liste",
@@ -265,6 +273,7 @@ my %string_table_fr = (
     "Missing list item prefix character", "Caractère de préfixe d'élément de liste manquant",
     "Missing UTF-8 BOM",             "Manquant UTF-8 BOM",
     "More than 1 blank line between list items", "Plus d'une ligne vide entre les éléments de la liste",
+    "Newline, return, formfeed or tab characters in heading", "Caractères de nouvelle ligne, de retour, de saut de page ou de tabulation dans l'en-tête",
     "No blank line between list items", "Pas de ligne vide entre les éléments de la liste",
     "No content in file",            "Aucun contenu dans fichier",
     "No content in row",             "Aucun contenu dans ligne",
@@ -272,8 +281,10 @@ my %string_table_fr = (
     "Possible Excel formula as field value", "Formule Excel possible en tant que valeur de champ",
     "row",                           "ligne",
     "Runtime Error",                 "Erreur D'Exécution",
+    "Scientific notation value found", "Valeur de notation scientifique trouvée",
     "Thousands separator value found", "Valeur de séparateur en milliers trouvée",
     "Total of",                      "Total de",
+    "value",                         "valeur",
     "values of type",                "valeurs de type",
     );
 
@@ -614,15 +625,14 @@ sub Check_First_Data_Row {
     my ($dictionary, $report_errors, @fields) = @_;
 
     my ($count, $field, @unmatched_fields, %headers, $field_num);
-    my ($non_dict_term);
+    my ($non_dict_term, $dictionary_object);
     my (@headings) = ();
     
     #
     # Do we have any dictionary terms ?
     #
     if ( keys(%$dictionary) == 0 ) {
-        print "No terms to check for first row of CSV file\n" if $debug;
-        return(@headings);
+        print "No dictionary terms to check for first row of CSV file\n" if $debug;
     }
     
     #
@@ -651,12 +661,14 @@ sub Check_First_Data_Row {
             # Do we have a duplicate header ?
             #
             if ( defined($headers{$field}) ) {
-                Record_Result("OD_DATA", 1, $field_num, "",
-                              String_Value("Duplicate column header") .
-                              " \"$field\". " .
-                              String_Value("Found at") . " # " .
-                              $headers{$field} . " " .
-                              String_Value("and") . " # $field_num");
+                if ( $report_errors ) {
+                    Record_Result("OD_DATA", 1, $field_num, "",
+                                  String_Value("Duplicate column header") .
+                                  " \"$field\". " .
+                                  String_Value("Found at") . " # " .
+                                  $headers{$field} . " " .
+                                  String_Value("and") . " # $field_num");
+                }
             }
             else {
                 #
@@ -669,8 +681,10 @@ sub Check_First_Data_Row {
         # Is the heading blank?
         #
         elsif ( $field =~ /^\s*$/ ) {
-            Record_Result("TP_PW_OD_DATA", 1, $field_num, "",
-                          String_Value("Blank column header"));
+            if ( $report_errors ) {
+                Record_Result("TP_PW_OD_DATA", 1, $field_num, "",
+                              String_Value("Blank column header"));
+            }
         }
         else {
             #
@@ -693,18 +707,28 @@ sub Check_First_Data_Row {
     #
     elsif ( $count >= (@fields / 4) ) {
         print "Found atleast 25% match on fields and terms\n" if $debug;
-        Record_Result("TP_PW_OD_DATA", 1, 0, "",
-                      String_Value("Missing header row terms") .
-                      " \"" . join(", ", @unmatched_fields) . "\"");
+        if ( $report_errors ) {
+            Record_Result("TP_PW_OD_DATA", 1, 0, "",
+                          String_Value("Missing header row terms") .
+                          " \"" . join(", ", @unmatched_fields) . "\"");
+        }
     }
     else {
         #
-        # Missing header row, found a match on fewer than 25% of fields
+        # Missing header row or no data dictionary terms defined
         #
         print "Found a match on fewer than 25% fields\n" if $debug;
-        Record_Result("TP_PW_OD_DATA", 1, 0, "",
-                      String_Value("Missing header row or terms") .
-                      " \"" . join(", ", @unmatched_fields) . "\"");
+        if ( $report_errors ) {
+            #
+            # Report error if we have a data dictionary but no terms matched
+            # the field values.
+            #
+            if ( keys(%$dictionary) != 0 ) {
+                Record_Result("TP_PW_OD_DATA", 1, 0, "",
+                              String_Value("Missing header row or terms") .
+                              " \"" . join(", ", @unmatched_fields) . "\"");
+            }
+        }
     }
 
     #
@@ -714,7 +738,10 @@ sub Check_First_Data_Row {
     #
     foreach $field (@fields) {
         if ( defined($$dictionary{$field}) ) {
-            push(@headings, $$dictionary{$field});
+            $dictionary_object = $$dictionary{$field};
+            push(@headings, $dictionary_object);
+            print "Add dictionary object to headings list for $field\n" if $debug;
+            $dictionary_object->get_consistent_data_headings();
         }
         else {
             #
@@ -725,20 +752,36 @@ sub Check_First_Data_Row {
             $non_dict_term->term($field);
             $non_dict_term->in_dictionary(0);
             push(@headings, $non_dict_term);
+            print "Create temporary dictionary object for heading $field\n" if $debug;
         }
     }
 
     #
-    # Check for leading or trailing whitespace in header row values
+    # Check for leading or trailing whitespace in header row values.
+    # Check for newline, return, formfeed or tab in heading values.
     #
     $count = 0;
-    foreach $field (@fields) {
-        $count++;
-        if ( ($field =~ /^\s+/) || ($field =~ /\s+$/) ) {
-            Record_Result("TP_PW_OD_DATA", 1, $count, "",
-                          String_Value("Leading or trailing whitespace characters in heading") .
-                          " #$count \"$field\"");
+    if ( $report_errors ) {
+        foreach $field (@fields) {
+            $count++;
 
+            #
+            # Check for newline, return, formfeed or tab
+            #
+            if ( ($field =~ /[\f\n\r\t]/) ) {
+                $field =~ s/[\f\n\r\t]/*/g;
+                Record_Result("TP_PW_OD_DATA", 1, $count, "",
+                              String_Value("Newline, return, formfeed or tab characters in heading") .
+                              " #$count \"$field\"");
+            }
+            #
+            # Check for leading or trailing whitespace
+            #
+            elsif ( ($field =~ /^\s+/) || ($field =~ /\s+$/) ) {
+                Record_Result("TP_PW_OD_DATA", 1, $count, "",
+                              String_Value("Leading or trailing whitespace characters in heading") .
+                              " #$count \"$field\"");
+            }
         }
     }
 
@@ -861,7 +904,7 @@ sub Run_CSV_Validator {
         # Construct a csv-validator schema file with the
         # column conditions.
         #
-        ($csvs_fh, $csvs_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+        ($csvs_fh, $csvs_filename) = tempfile("WPSS_TOOL_OD_CSV_XXXXXXXXXX",
                                               SUFFIX => '.csvs',
                                               TMPDIR => 1);
         if ( ! defined($csvs_fh) ) {
@@ -935,7 +978,7 @@ sub Run_CSV_Validator {
                 # reports problems with the header line.
                 #
                 print "Have BOM, create temporary CSV file before running csv-validator\n" if $debug;
-                ($temp_csv_fh, $csv_filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                ($temp_csv_fh, $csv_filename) = tempfile("WPSS_TOOL_OD_CSV_XXXXXXXXXX",
                                                          SUFFIX => '.csv',
                                                          TMPDIR => 1);
                 if ( ! defined($temp_csv_fh) ) {
@@ -1518,68 +1561,6 @@ sub Check_Multi_Line_Field {
 
 #***********************************************************************
 #
-# Name: Cleanse_Value
-#
-# Parameters: data - a string
-#
-# Description:
-#
-#   This function cleanses a string by
-#    - removing punctuation
-#    - converting the string to lower case
-#    - remove pluralization (i.e. trailing s in words)
-#    - removing white space
-#  Cleansed strings are used to detect inconsistent presentations of
-# otherwise identical values.  If a cleansed string has fewer than 10
-# or greater than 100 characters, an empty string is returned.  Strings
-# that are shorter or longer than these limits are not likely to be
-# proper names or values from a controlled vocabulary.  By returning
-# an empty string, further checking of these strings can be avoided
-# (to avoid storage and performance problems).
-#
-#***********************************************************************
-sub Cleanse_Value {
-    my ($data) =@_;
-    
-    #
-    # Remove punctuation characters that
-    #  - follows a letter or whitespace
-    #  - preceeds a letter or whitespace
-    #
-    $data =~ s/([a-z\s])[[:punct:]]/$1/gi;
-    $data =~ s/[[:punct:]]([a-z\s])/$1/gi;
-
-    #
-    # Convert to lower case
-    #
-    $data = lc($data);
-    
-    #
-    # Remove trailing 's' characters (pluralisation)
-    #
-    $data .= " ";
-    $data =~ s/s\s/ /g;
-    
-    #
-    # Remove all whitespace characters
-    #
-    $data =~ s/\s+//g;
-    
-    #
-    # Is the cleansed string too short or too long?
-    #
-    if ( (length($data) < 10) || (length($data) > 100) ) {
-        $data = "";
-    }
-    
-    #
-    # Return the cleansed string
-    #
-    return($data);
-}
-
-#***********************************************************************
-#
 # Name: Convert_Nonprintable_to_Hex
 #
 # Parameters: data - a string
@@ -1640,7 +1621,7 @@ sub Open_Data_CSV_Check_Data {
     my ($this_url, $data_file_object, $profile, $filename, $dictionary) = @_;
 
     my ($parser, $url, @tqa_results_list, $result_object, $testcase);
-    my ($line, @fields, $line_no, $status, $field_count);
+    my ($line, @fields, $line_no, $status, $field_count, $match);
     my ($csv_file, $csv_file_name, $rows, $message, $content, $data1, $data2);
     my ($row_content, $eval_output, @headings, $i, $regex, $heading, $data);
     my ($have_bom, %row_checksum, $checksum, $headings_count);
@@ -1648,11 +1629,13 @@ sub Open_Data_CSV_Check_Data {
     my ($duplicate_columns_ptr, $duplicate_column_list, $other_heading);
     my (%blank_zero_column_flag, $parse_error_reported, @lines);
     my (@csv_columns, $column_object, @previous_row, @identical_cell_content);
-    my (@column_value_types, $value_type_ptr, $value_type, $type_count);
-    my ($computed_value_type, $non_blank_line_count, $cleansed_value);
+    my ($value_type_ptr, $value_type, $type_count, $this_type_count);
+    my ($computed_value_type, $non_blank_line_count, $url_filename);
     my ($table_addr, $other_line_no, $type_line, $value_type_row_ptr);
-    my (@column_value_types_row, @column_value_types_value, $type_value);
-    my ($valid_heading, $lc_value);
+    my ($type_value, $data_type, $value, $line, $column_label);
+    my ($valid_heading, $lc_value, %headings_to_columns);
+    my (@consistent_data_headings, $other_heading, $other_column, $other_data);
+    my ($first_data, $first_other_data, $first_line, $resp_url, $resp);
 
     #
     # Do we have a valid profile ?
@@ -1815,6 +1798,11 @@ sub Open_Data_CSV_Check_Data {
                 $column_object->valid_heading($valid_heading);
                 
                 #
+                # Create mapping of headings to column numbers
+                #
+                $headings_to_columns{$heading} = $i;
+
+                #
                 # If this is not a valid data dictionary heading,
                 # record the value for the first data cell.  We
                 # may not have a data dictionary to check headings
@@ -1825,17 +1813,6 @@ sub Open_Data_CSV_Check_Data {
                     $column_object->first_data($fields[$i]);
                 }
                 push(@csv_columns, $column_object);
-                
-                #
-                # Create a table of value types and first row for this column
-                #
-                if ( ! defined($column_value_types[$i]) ) {
-                    my (%value_type_count, %value_type_first_row);
-                    my (%value_type_first_value);
-                    $column_value_types[$i] = \%value_type_count;
-                    $column_value_types_row[$i] = \%value_type_first_row;
-                    $column_value_types_value[$i] = \%value_type_first_value;
-                }
             }
             
             #
@@ -1906,11 +1883,13 @@ sub Open_Data_CSV_Check_Data {
                 if ( defined($headings[$i]) ) {
                     $heading = $headings[$i];
                     $regex = $heading->regex();
-                    $message = $heading->term();
+                    $column_label = $heading->term();
+                    print "Have data dictionary heading \"$column_label\"\n" if $debug;
                 }
                 else {
+                    undef($heading);
                     $regex = "";
-                    $message = $column_object->first_data();
+                    $column_label = $column_object->first_data();
                 }
 
                 #
@@ -1936,9 +1915,11 @@ sub Open_Data_CSV_Check_Data {
                 }
 
                 #
-                # Does this appear to be numeric data (integer)?
+                # Does this appear to be numeric data (integer or float)?
                 #
-                if ( $data =~ /^\s*\-?\d+\s*$/ ) {
+                if ( ($data =~ /^\s*\-?\d+\s*$/) ||
+                     ($data =~ /^\s*\-?\d*\.\d+\s*$/) ) {
+                    $value_type = "numeric";
                     if ( $column_object->type() eq "" ) {
                         $column_object->type("numeric");
                     }
@@ -1980,85 +1961,16 @@ sub Open_Data_CSV_Check_Data {
                     }
 
                     #
-                    # Increment the count of numeric values
+                    # Increment the count of values
                     #
-                    $value_type = "numeric";
-                    $value_type_ptr = $column_value_types[$i];
-                    if ( ! defined($$value_type_ptr{$value_type}) ) {
-                        $$value_type_ptr{$value_type} = 1;
-                        $value_type_ptr = $column_value_types_row[$i];
-                        $$value_type_ptr{$value_type} = $line_no;
-                        $value_type_ptr = $column_value_types_value[$i];
-                        $$value_type_ptr{$value_type} = $data;
-                    }
-                    else {
-                        $$value_type_ptr{$value_type} = $$value_type_ptr{$value_type} + 1;
-                    }
-                }
-                #
-                # Does this appear to be numeric data (float)?
-                #
-                elsif ( $data =~ /^\s*\-?\d*\.\d+\s*$/ ) {
-                    if ( $column_object->type() eq "" ) {
-                        $column_object->type("numeric");
-                    }
-
-                    #
-                    # Update sum, max and min values for column
-                    #
-                    if ( $column_object->type() eq "numeric" ) {
-                        #
-                        # Add the current value to the column sum.
-                        #
-                        $column_object->sum($data);
-                        
-                        #
-                        # Do we have a max value?
-                        #
-                        if ( ! defined($column_object->max()) ) {
-                            $column_object->max($data);
-                        }
-                        #
-                        # Is this value larger than the current maximum?
-                        #
-                        elsif ( $data > $column_object->max() ) {
-                            $column_object->max($data);
-                        }
-
-                        #
-                        # Do we have a min value?
-                        #
-                        if ( ! defined($column_object->min()) ) {
-                            $column_object->min($data);
-                        }
-                        #
-                        # Is this value smaller than the current minimum?
-                        #
-                        elsif ( $data < $column_object->min() ) {
-                            $column_object->min($data);
-                        }
-                    }
-
-                    #
-                    # Increment the count of numeric values
-                    #
-                    $value_type = "numeric";
-                    $value_type_ptr = $column_value_types[$i];
-                    if ( ! defined($$value_type_ptr{$value_type}) ) {
-                        $$value_type_ptr{$value_type} = 1;
-                        $value_type_ptr = $column_value_types_row[$i];
-                        $$value_type_ptr{$value_type} = $line_no;
-                        $value_type_ptr = $column_value_types_value[$i];
-                        $$value_type_ptr{$value_type} = $data;
-                    }
-                    else {
-                        $$value_type_ptr{$value_type} = $$value_type_ptr{$value_type} + 1;
-                    }
+                    $column_object->increment_data_type_count($value_type, $data,
+                                                              $line_no);
                 }
                 #
                 # Does this appear to be date (YYYY-MM-DD)?
                 #
                 elsif ( $data =~ /^\s*\d\d\d\d\-\d\d\-\d\d\s*$/ ) {
+                    $value_type = "date";
                     if ( $column_object->type() eq "" ) {
                         $column_object->type("date");
                     }
@@ -2112,20 +2024,72 @@ sub Open_Data_CSV_Check_Data {
                     }
 
                     #
-                    # Increment the count of date values
+                    # Increment the count of values
                     #
-                    $value_type = "date";
-                    $value_type_ptr = $column_value_types[$i];
-                    if ( ! defined($$value_type_ptr{$value_type}) ) {
-                        $$value_type_ptr{$value_type} = 1;
-                        $value_type_ptr = $column_value_types_row[$i];
-                        $$value_type_ptr{$value_type} = $line_no;
-                        $value_type_ptr = $column_value_types_value[$i];
-                        $$value_type_ptr{$value_type} = $data;
+                    $column_object->increment_data_type_count($value_type, $data,
+                                                              $line_no);
+                }
+                #
+                # Does this appear to be a URL value (http or https)?
+                #
+                elsif ( URL_Check_Is_URL($data) ) {
+                    $value_type = "url";
+                    if ( $column_object->type() eq "" ) {
+                        $column_object->type("url");
                     }
-                    else {
-                        $$value_type_ptr{$value_type} = $$value_type_ptr{$value_type} + 1;
+                    
+                    #
+                    # Are we checking content errors?
+                    # If not, skip trying to get the URL.
+                    #
+                    # Skip URL checking since it can be time consuming
+                    # for data files with a large number of URLs (e.g. contract
+                    # history).
+                    #
+#                    if ( defined($$current_open_data_profile{"TP_PW_OD_CONT"}) ) {
+                    if ( 0 ) {
+                        #
+                        # Check that the URL can be reached
+                        #
+                        print "Check URL $data\n" if $debug;
+                        ($resp_url, $resp) = Crawler_Get_HTTP_Response($data, "");
+
+                        #
+                        # Was the URL valid?
+                        #
+                        if ( ! defined($resp) ) {
+                            Record_Content_Result("TP_PW_OD_CONT", $line_no,
+                                              ($i + 1), "$line",
+                                              String_Value("Invalid URL found") .
+                                              " \"$data\"");
+                        }
+                        #
+                        # Did we fail to get the URL?
+                        #
+                        elsif ( ! $resp->is_success ) {
+                            print "Error trying to get URL, error  = " .
+                                  $resp->status_line . "\n" if $debug;
+                             Record_Content_Result("TP_PW_OD_CONT", $line_no,
+                                                  ($i + 1), "$line",
+                                                  String_Value("Cannot access URL") .
+                                                  " \"$data\"\n" . $resp->status_line);
+                        }
+                        #
+                        # Got URL, clean up content file
+                        #
+                        else {
+                            $url_filename = $resp->header("WPSS-Content-File");
+                            if ( defined($url_filename) && ($url_filename ne "") ) {
+                                unlink($url_filename);
+                            }
+                        }
                     }
+
+                    #
+                    # Increment the count of values
+                    #
+                    $column_object->increment_data_type_count($value_type, $data,
+                                                              $line_no);
                 }
                 #
                 # Blank field, skip it.
@@ -2137,24 +2101,15 @@ sub Open_Data_CSV_Check_Data {
                 # No recognized format, assume this is a text field
                 #
                 else {
+                    $value_type = "text";
                     $column_object->type("text");
 
                     #
-                    # Increment the count of text values
+                    # Increment the count of values
                     #
-                    $value_type = "text";
-                    $value_type_ptr = $column_value_types[$i];
-                    if ( ! defined($$value_type_ptr{$value_type}) ) {
-                        $$value_type_ptr{$value_type} = 1;
-                        $value_type_ptr = $column_value_types_row[$i];
-                        $$value_type_ptr{$value_type} = $line_no;
-                        $value_type_ptr = $column_value_types_value[$i];
-                        $$value_type_ptr{$value_type} = $data;
-                    }
-                    else {
-                        $$value_type_ptr{$value_type} = $$value_type_ptr{$value_type} + 1;
-                    }
-                    
+                    $column_object->increment_data_type_count($value_type, $data,
+                                                              $line_no);
+
                     #
                     # Check for possible currency value with leading or
                     # trailing dollar symbol.
@@ -2167,15 +2122,14 @@ sub Open_Data_CSV_Check_Data {
                         # large number of errors.
                         #
                         print "Found currency value\n" if $debug;
-                        $dollar_symbol_count++;
-                        if ( ! $dollar_symbol_found ) {
-                            $dollar_symbol_found = 1;
+                        if ( $dollar_symbol_found == 0 ) {
                             Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
                                                   String_Value("Currency value found") .
                                                   " \"$data\" " .
                                                   String_Value("Column") .
-                                                  " \"$message\" (#" . ($i + 1) . ")");
-                         }
+                                                  " \"$column_label\" (#" . ($i + 1) . ")");
+                        }
+                        $dollar_symbol_count++;
                     }
 
                     #
@@ -2191,18 +2145,29 @@ sub Open_Data_CSV_Check_Data {
                         # large number of errors.
                         #
                         print "Found thousands separator value\n" if $debug;
-                        $thousands_separator_count++;
-                        if ( ! $thousands_separator_found ) {
-                            $thousands_separator_found = 1;
+                        if ( $thousands_separator_found == 0) {
                             Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
                                                   String_Value("Thousands separator value found") .
                                                   " \"$data\" " .
                                                   String_Value("Column") .
-                                                  " \"$message\" (#" . ($i + 1) . ")");
-                         }
+                                                  " \"$column_label\" (#" . ($i + 1) . ")");
+                        }
+                        $thousands_separator_count++;
+                    }
+                    
+                    #
+                    # Check for possible scientific notation value
+                    # (e.g. 1.3e-005).
+                    #
+                    if ( $data =~ /^\d(\.\d+)?e(\-)?\d+$/ ) {
+                        Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                                              String_Value("Scientific notation value found") .
+                                              " \"$data\" " .
+                                              String_Value("Column") .
+                                              " \"$column_label\" (#" . ($i + 1) . ")");
                     }
                 }
-                print "Column data = \"$data\", type = $value_type\n" if $debug;
+                print "Column data = \"$data\", type = " . $column_object->type() . "\n" if $debug;
                 
                 #
                 # If the cell is not blank, increment the non-blank count
@@ -2227,7 +2192,7 @@ sub Open_Data_CSV_Check_Data {
                                       String_Value("failed for value") .
                                       " \"$data\" " .
                                       String_Value("Column") .
-                                      " \"$message\" (#" . ($i + 1) . ")");
+                                      " \"$column_label\" (#" . ($i + 1) . ")");
                     }
                 }
                 
@@ -2241,7 +2206,7 @@ sub Open_Data_CSV_Check_Data {
                                           String_Value("Long numeric value may be truncated") .
                                           " \"$data\" " .
                                           String_Value("Column") .
-                                          " \"$message\" (#" . ($i + 1) . ")");
+                                          " \"$column_label\" (#" . ($i + 1) . ")");
                 }
                 #
                 # Check for leading - (minus sign) or + (plus sign) followed
@@ -2260,7 +2225,7 @@ sub Open_Data_CSV_Check_Data {
                                           String_Value("Possible Excel formula as field value") .
                                           " \"$data\" " .
                                           String_Value("Column") .
-                                          " \"$message\" (#" . ($i + 1) . ")");
+                                          " \"$column_label\" (#" . ($i + 1) . ")");
                 }
                 #
                 # Check for leading space followed by =, - or + character
@@ -2288,7 +2253,7 @@ sub Open_Data_CSV_Check_Data {
                                               String_Value("Leading or trailing whitespace characters in field value") .
                                               " \"$data\" " .
                                               String_Value("Column") .
-                                              " \"$message\" (#" . ($i + 1) . ")");
+                                              " \"$column_label\" (#" . ($i + 1) . ")");
                     }
                     $leading_trailing_whitespace_count++;
                 }
@@ -2309,9 +2274,9 @@ sub Open_Data_CSV_Check_Data {
                                               " " . String_Value("Field length") .
                                               " " . length($data) . " " .
                                               String_Value("Column") .
-                                              " \"$message\" (#" . ($i + 1) . ")");
+                                              " \"$column_label\" (#" . ($i + 1) . ")");
                     }
-                    
+
                     #
                     # Remove leading/trailing whitespace as those are
                     # already reported and we want to avoid multiple
@@ -2319,97 +2284,86 @@ sub Open_Data_CSV_Check_Data {
                     #
                     $data =~ s/^\s+//;
                     $data =~ s/\s+$//;
-                    $cleansed_value = Cleanse_Value($data);
-                    
+
                     #
-                    # Did we get a cleansed value? We won't get one if the data
-                    # is either too long or too short.
+                    # Check consistency of this data in the column.
                     #
-                    if ( $cleansed_value ne "" ) {
-                        print "Cleansed value is \"$cleansed_value\"\n" if $debug;
-                        
+                    print "Check for inconsistent field values\n" if $debug;
+                    ($match, $data1, $other_line_no) =
+                           $column_object->check_consistent_value($data, $line_no);
+
+                    #
+                    # Did the values not match?
+                    #
+                    if ( ! $match ) {
+                        Record_Content_Result("TP_PW_OD_CONT_CONSISTENCY", $line_no, ($i + 1), "$line",
+                                              String_Value("Inconsistent field values for column") .
+                                              " \"$column_label\" (#" . ($i + 1) . ")\n " .
+                                              String_Value("found") . " \"" .
+                                              Convert_Nonprintable_to_Hex($data) . "\"\n " .
+                                              String_Value("expecting") . " \"" .
+                                              Convert_Nonprintable_to_Hex($data1) . "\"\n " .
+                                              String_Value("Found at row") . " $other_line_no");
+                    }
+                }
+                
+                #
+                # Does this column have consistency requirements with other
+                # columns (specified by consistent_data_heading tags in the
+                # data dictionary).
+                #
+                if ( defined($heading) ) {
+                    #
+                    # Do we have headings that require consistent data values
+                    # across rows?
+                    #
+                    @consistent_data_headings = $heading->get_consistent_data_headings();
+                    if ( @consistent_data_headings > 0 ) {
+                        print "Rows must have consistent data for headings \"" .
+                              join(", ", @consistent_data_headings) . "\"\n" if $debug;
+
                         #
-                        # Get the consistent value table for this column
+                        # Check to see if we have any of the consistent data
+                        # headings.
                         #
-                        $table_addr = $column_object->consistent_value_table();
-                        
-                        #
-                        # Does this cleansed value appear in the table?
-                        #
-                        if ( defined($$table_addr{$cleansed_value}) ) {
-                            #
-                            # Get the uncleansed values and line number
-                            #
-                            ($other_line_no, $data1) = split(/:/, $$table_addr{$cleansed_value}, 2);
-                            
-                            #
-                            # Do the uncleansed values match?
-                            #
-                            if ( $data ne $data1 ) {
-                                Record_Content_Result("TP_PW_OD_CONT_CONSISTENCY", $line_no, ($i + 1), "$line",
-                                                      String_Value("Inconsistent field values for column") .
-                                                      " \"$message\" (#" . ($i + 1) . ")\n " .
-                                                      String_Value("found") . " \"" .
-                                                      Convert_Nonprintable_to_Hex($data) . "\"\n " .
-                                                      String_Value("expecting") . " \"" .
-                                                      Convert_Nonprintable_to_Hex($data1) . "\"\n " .
-                                                      String_Value("Found at row") . " $other_line_no");
+                        foreach $other_heading (@consistent_data_headings) {
+                            if ( defined($headings_to_columns{$other_heading}) ) {
+                                $other_column = $headings_to_columns{$other_heading};
+                                print "Have heading \"$other_heading\" in column $other_column\n" if $debug;
+                                $other_data = $fields[$other_column];
+                                
+                                #
+                                # Check consistency of this data and the other
+                                # column's data.
+                                #
+                                print "Check for inconsistent multi-column field values\n" if $debug;
+                                ($match, $first_data, $first_other_data, $first_line) =
+                                     $column_object->check_consistent_multi_cell_value($data, $line_no, $other_heading, $other_data);
+
+                                #
+                                # Did the values not match?
+                                #
+                                if ( ! $match ) {
+                                    Record_Content_Result("TP_PW_OD_CONT_CONSISTENCY", $line_no, ($i + 1), "$line",
+                                              String_Value("Inconsistent field values for column") .
+                                              " \"$column_label\" (#" . ($i + 1) . ") " .
+                                              String_Value("and") .
+                                              " \"$other_heading\" (#" . ($other_column + 1) . ")\n " .
+                                              String_Value("found") . " \"" .
+                                              Convert_Nonprintable_to_Hex($data) . "\" " .
+                                              String_Value("and") . " \"" .
+                                              Convert_Nonprintable_to_Hex($other_data) . "\"\n " .
+                                              String_Value("expecting") . " \"" .
+                                              Convert_Nonprintable_to_Hex($first_data) . "\" " .
+                                              String_Value("and") . " \"" .
+                                              Convert_Nonprintable_to_Hex($first_other_data) . "\"\n " .
+                                              String_Value("Found at row") . " $other_line_no");
+                                }
                             }
-                        }
-                        else {
-                            #
-                            # Save this cleansed value in the table.
-                            # Include the row number in the value.
-                            #
-                            print "New value for consistent value table\n" if $debug;
-                            $$table_addr{$cleansed_value} = "$line_no:$data";
                         }
                     }
-                    #
-                    # Is the value short (i.e. fewer than 10 characters)?
-                    #
-                    elsif ( length($data) < 10 ) {
-                        #
-                        # Get the consistent value table for this column
-                        #
-                        $table_addr = $column_object->consistent_value_table();
-                        
-                        #
-                        # Get lowercase value for data
-                        #
-                        $lc_value = lc($data);
-                        print "Lower case value is \"$lc_value\"\n" if $debug;
-
-                        #
-                        # Does this lowercase value appear in the table?
-                        #
-                        if ( defined($$table_addr{$lc_value}) ) {
-                            #
-                            # Get the mixed case values and line number
-                            #
-                            ($other_line_no, $data1) = split(/:/, $$table_addr{$lc_value}, 2);
-
-                            #
-                            # Do the mixed case values match?
-                            #
-                            if ( $data ne $data1 ) {
-                                Record_Content_Result("TP_PW_OD_CONT_CONSISTENCY", $line_no, ($i + 1), "$line",
-                                                      String_Value("Inconsistent field values for column") .
-                                                      " \"$message\" (#" . ($i + 1) . ")\n " .
-                                                      String_Value("found") . " \"" .
-                                                      Convert_Nonprintable_to_Hex($data) . "\"\n " .
-                                                      String_Value("expecting") . " \"" .
-                                                      Convert_Nonprintable_to_Hex($data1) . "\"\n " .
-                                                      String_Value("Found at row") . " $other_line_no");
-                            }
-                        }
-                        else {
-                            #
-                            # Save this lowercase value in the table.
-                            # Include the row number in the value.
-                            #
-                            $$table_addr{$lc_value} = "$line_no:$data";
-                        }
+                    else {
+                        print "No consistent data headings defined\n" if $debug;
                     }
                 }
             }
@@ -2638,9 +2592,8 @@ sub Open_Data_CSV_Check_Data {
             print "Check for content consistency in columns\n" if $debug;
             for ($i = 0; $i < $field_count; $i++) {
                 #
-                # Get address of table of value counts by data type
+                # Do we have a column object?
                 #
-                $value_type_ptr = $column_value_types[$i];
                 $column_object = $csv_columns[$i];
                 if ( ! defined($column_object) ) {
                     next;
@@ -2690,11 +2643,12 @@ sub Open_Data_CSV_Check_Data {
                 # type of the first row.
                 #
                 $computed_value_type = $column_object->type();
-                $type_count = $$value_type_ptr{$computed_value_type};
-                foreach $value_type (keys(%$value_type_ptr)) {
-                    if ( $$value_type_ptr{$value_type} > $type_count ) {
+                ($type_count, $value, $line) = $column_object->get_data_type_details($computed_value_type);
+                foreach $value_type ($column_object->get_data_types_list()) {
+                    ($this_type_count, $value, $line) = $column_object->get_data_type_details($value_type);
+                    if ( $this_type_count > $type_count ) {
                         $computed_value_type = $value_type;
-                        $type_count = $$value_type_ptr{$value_type};
+                        $type_count = $this_type_count;
                     }
                 }
 
@@ -2703,21 +2657,13 @@ sub Open_Data_CSV_Check_Data {
                 # inconsistencies. Report a problem if a data type is less
                 # than minimum percentage of all values.
                 #
-                foreach $value_type (keys(%$value_type_ptr)) {
+                foreach $value_type ($column_object->get_data_types_list()) {
                     #
                     # Is this value type less than 1% of all values?
                     #
-                    $type_count = $$value_type_ptr{$value_type};
+                    ($type_count, $value, $line) = $column_object->get_data_type_details($value_type);
                     print "Value count for column $i type $value_type is $type_count\n" if $debug;
                     if ( ($type_count * 100.0 / $non_blank_line_count) < $min_consistent_type_percent ) {
-                        #
-                        # Get the first row with this type
-                        #
-                        $value_type_row_ptr = $column_value_types_row[$i];
-                        $type_line = $$value_type_row_ptr{$value_type};
-                        $value_type_row_ptr = $column_value_types_value[$i];
-                        $type_value = $$value_type_row_ptr{$value_type};
-
                         #
                         # Record error
                         #
@@ -2730,9 +2676,9 @@ sub Open_Data_CSV_Check_Data {
                                               String_Value("expecting values to be of type") .
                                               " $computed_value_type. " .
                                               String_Value("First instance at") .
-                                              " $type_line, " .
+                                              " $line, " .
                                               String_Value("field value") .
-                                              " \"$type_value\"");
+                                              " \"$value\"");
                     }
                 }
             }
