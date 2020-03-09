@@ -2,9 +2,9 @@
 #
 # Name:   url_check.pm
 #
-# $Revision: 1394 $
-# $URL: svn://10.36.148.185/TQA_Check/Tools/url_check.pm $
-# $Date: 2019-07-04 13:46:43 -0400 (Thu, 04 Jul 2019) $
+# $Revision: 1720 $
+# $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/url_check.pm $
+# $Date: 2020-02-13 12:29:05 -0500 (Thu, 13 Feb 2020) $
 #
 # Description:
 #
@@ -228,15 +228,24 @@ sub URL_Check_Parse_URL {
     print "URL_Check_Parse_URL: $url\n" if $debug;
     if ( $url =~ /^http[s]?:\// ) {
         #
-        # Get components of the URL, we expect 1 of the following
-        #   http://domain/path?query
-        #   http://domain/path#anchor
-        #   https://domain/path?query
-        #   https://domain/path#anchor
+        # Do we have any whitespace, newline or carriage return characters?
         #
-        ($protocol, $domain, $file_path, $query) =
-          $url =~ /^(http[s]?:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
-        $extra_slash = "";
+        if ( ($url =~ /^http[s]?:\//) && ($url =~ /[\s\n\r]/) ) {
+            print "Whitespace, newline or carriage return characters found in URL\n" if $debug;
+            $domain = "";
+        }
+        else {
+            #
+            # Get components of the URL, we expect 1 of the following
+            #   http://domain/path?query
+            #   http://domain/path#anchor
+            #   https://domain/path?query
+            #   https://domain/path#anchor
+            #
+            ($protocol, $domain, $file_path, $query) =
+              $url =~ /^(http[s]?:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*[^#\?]*)(.*)?$/io;
+            $extra_slash = "";
+        }
     }
     elsif ( $url =~ /^file:\// ) {
         #
@@ -248,7 +257,7 @@ sub URL_Check_Parse_URL {
         ($protocol, $domain, $file_path) =
           $url =~ /^(file:)\/\/*(\w)+:\/([\/\w\-\.\%]*)$/io;
         ($protocol, $domain, $file_path, $query) = $url =~
-                /^(file:)\/\/*(\w*):\/([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+                /^(file:)\/\/*(\w*):\/([\/\w\-\.\%]*[^#\?]*)(.*)?$/io;
         $extra_slash = "/";
 
         #
@@ -262,13 +271,22 @@ sub URL_Check_Parse_URL {
     }
     elsif ( $url =~ /^ftp:\// ) {
         #
-        # Get components of the URL, we expect 1 of the following
-        #   ftp://domain/path
+        # Do we have any whitespace, newline or carriage return characters?
         #
-        ($protocol, $domain, $file_path) =
-          $url =~ /^(ftp:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*)$/io;
-        $query = "";
-        $extra_slash = "";
+        if ( ($url =~ /^http[s]?:\//) && ($url =~ /[\s\n\r]/) ) {
+            print "Whitespace, newline or carriage return characters found in URL\n" if $debug;
+            $domain = "";
+        }
+        else {
+            #
+            # Get components of the URL, we expect 1 of the following
+            #   ftp://domain/path
+            #
+            ($protocol, $domain, $file_path) =
+              $url =~ /^(ftp:)\/\/?([^\/\s]+)\/([\/\w\-\.\%]*)$/io;
+            $query = "";
+            $extra_slash = "";
+        }
     }
     
     #
@@ -280,7 +298,7 @@ sub URL_Check_Parse_URL {
         #  http://domain?query
         #
         ($protocol, $domain, $query) =
-          $url =~ /^(http[s]?:)\/\/?([^\/\s#?]*)(.*)?$/io;
+          $url =~ /^(http[s]?:)\/\/?([^\/\s#\?]*)(.*)?$/io;
         $file_path = "/";
     }
 
@@ -301,7 +319,7 @@ sub URL_Check_Parse_URL {
         }
 
         #
-        # If we again didn't get anthing, return empty strings
+        # If we again didn't get anything, return empty strings
         #
         if ( ! defined($domain) ) {
             $protocol = "";
@@ -410,15 +428,16 @@ sub URL_Check_GET_Filename_Query_Language {
     #
     print "URL_Check_GET_Filename_Query_Language Get language of $filename_query\n" if $debug;
     ($file_path, $query) =
-          $filename_query =~ /^([\/\w\-\.\%]*[^#?]*)(.*)?$/io;
+          $filename_query =~ /^([\/\w \-\.\%]*[^#?]*)(.*)?$/io;
     print "File path = $file_path, query = $query\n" if $debug;
 
     #
     # Check for a 1..3 letter language suffix in the file name
     # (before the file type).
     #
-    ($file_suffix) = $file_path =~ /^[\w\/\-_\.]*[\-_]([a-zA-Z]{1,3})\..*/;
+    ($file_suffix) = $file_path =~ /^[\w\% \/\-_\.]*[\-_]([a-zA-Z]{1,3})\..*/;
     $file_suffix = lc($file_suffix);
+    print "File name suffix = \"$file_suffix\"\n" if $debug;
 
     #
     # Check for a 3 character language
@@ -569,7 +588,7 @@ sub URL_Check_GET_URL_Language {
         # Check for a 1..3 letter language suffix in the file name
         # (before the file type).
         #
-        ($file_suffix) = $file_path =~ /^[\w\/\-_\.]*[\-_]([a-zA-Z]{1,3})\..*/;
+        ($file_suffix) = $file_path =~ /^[\w\ \%\/\-_\.]*[\-_]([a-zA-Z]{1,3})\..*/;
         $file_suffix = lc($file_suffix);
 
         #
@@ -685,7 +704,7 @@ sub Get_English_Path {
     # Break the file path into the file name, language suffix
     # and the file suffix.
     #
-    ($file_name, $language_suffix, $file_suffix) = $file_path =~ /^([\w\/\-_\.]*[\-_])([a-zA-Z]{1,3})\.(.*)/;
+    ($file_name, $language_suffix, $file_suffix) = $file_path =~ /^([\w\ \%\/\-_\.]*[\-_])([a-zA-Z]{1,3})\.(.*)/;
     print "Get_English_Path file name = $file_name, language_suffix = $language_suffix, file_suffix = $file_suffix\n" if $debug;
     $language_suffix = lc($language_suffix);
 
