@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision: 1499 $
-# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_config.txt $
-# $Date: 2019-09-17 11:58:16 -0400 (Tue, 17 Sep 2019) $
+# $Revision: 1741 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_config.txt $
+# $Date: 2020-03-09 12:30:47 -0400 (Mon, 09 Mar 2020) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -54,10 +54,11 @@ Open_Data_Check_Profile_fra DO TPSGC
 # Testcase id
 # Common Open Data testcases
 #
-tcid OD_URL
-tcid OD_ENC
-tcid OD_VAL
 tcid OD_DATA
+tcid OD_ENC
+tcid OD_REG
+tcid OD_URL
+tcid OD_VAL
 
 #
 # PWGSC Open Data testcases
@@ -69,45 +70,6 @@ tcid TP_PW_OD_CONT_DUP
 tcid TP_PW_OD_DATA
 tcid TP_PW_OD_DD
 
-#
-# Testcase data
-#
-
-#
-# Maximum file size before requiring compression (50Mb)
-#
-Testcase_Data TP_PW_OD_DATA MAX_FILE_SIZE 50000000
-
-#
-# Supporting file URL pattern
-#
-Testcase_Data OD_VAL SUPPORT_URL support
-Testcase_Data OD_VAL SUPPORT_URL soutien
-
-#
-# Alternate format data file name pattern
-#
-Testcase_Data OD_URL ALTERNATE_DATA - Alternate Format
-Testcase_Data OD_URL ALTERNATE_DATA - Format de remplacement
-
-#
-# Data dictionary file name pattern
-#
-Testcase_Data OD_URL DICTIONARY Data Dictionary
-Testcase_Data OD_URL DICTIONARY Dictionnaire de données
-
-#
-# XML Data dictionary required languages for description tag
-#
-Testcase_Data TP_PW_OD_DATA REQUIRED_LANG en
-Testcase_Data TP_PW_OD_DATA REQUIRED_LANG fr
-
-#
-# Percentage for reporting data type consistency errors.
-# If the percentage of data values not matching the CSV column
-# data type exceeds this value, an error is reported.
-#
-Testcase_Data TP_PW_OD_CONT DATA_TYPE_CONSISTENCY_PERCENT 2.0
 
 #
 #***********************************************************************
@@ -126,10 +88,11 @@ Open_Data_Check_Profile_fra DO TPSGC (core)
 # Testcase id
 # Common Open Data testcases
 #
-tcid OD_URL
-tcid OD_ENC
-tcid OD_VAL
 tcid OD_DATA
+tcid OD_ENC
+tcid OD_REG
+tcid OD_URL
+tcid OD_VAL
 
 #
 # PWGSC Open Data testcases
@@ -141,45 +104,6 @@ tcid TP_PW_OD_CONT
 tcid TP_PW_OD_DATA
 tcid TP_PW_OD_DD
 
-#
-# Testcase data
-#
-
-#
-# Maximum file size before requiring compression (50Mb)
-#
-Testcase_Data TP_PW_OD_DATA MAX_FILE_SIZE 50000000
-
-#
-# Supporting file URL pattern
-#
-Testcase_Data OD_VAL SUPPORT_URL support
-Testcase_Data OD_VAL SUPPORT_URL soutien
-
-#
-# Alternate format data file name pattern
-#
-Testcase_Data OD_URL ALTERNATE_DATA - Alternate Format
-Testcase_Data OD_URL ALTERNATE_DATA - Format de remplacement
-
-#
-# Data dictionary file name pattern
-#
-Testcase_Data OD_URL DICTIONARY Data Dictionary
-Testcase_Data OD_URL DICTIONARY Dictionnaire de données
-
-#
-# XML Data dictionary required languages for description tag
-#
-Testcase_Data TP_PW_OD_DATA REQUIRED_LANG en
-Testcase_Data TP_PW_OD_DATA REQUIRED_LANG fr
-
-#
-# Percentage for reporting data type consistency errors.
-# If the percentage of data values not matching the CSV column
-# data type exceeds this value, an error is reported.
-#
-#Testcase_Data TP_PW_OD_CONT DATA_TYPE_CONSISTENCY_PERCENT 2.0
 
 #
 #***********************************************************************
@@ -195,28 +119,12 @@ Open_Data_Check_Profile_fra Commun
 # Testcase id
 # Common Open Data testcases
 #
-tcid OD_URL
-tcid OD_ENC
-tcid OD_VAL
 tcid OD_DATA
+tcid OD_ENC
+tcid OD_REG
+tcid OD_URL
+tcid OD_VAL
 
-#
-# Supporting file URL pattern
-#
-Testcase_Data OD_VAL SUPPORT_URL support
-Testcase_Data OD_VAL SUPPORT_URL soutien
-
-#
-# Alternate format data file name pattern
-#
-Testcase_Data OD_URL ALTERNATE_DATA_NAME - Alternate Format
-Testcase_Data OD_URL ALTERNATE_DATA_NAME - Format de remplacement
-
-#
-# Data dictionary file name
-#
-Testcase_Data OD_URL DICTIONARY_NAME Data Dictionary
-Testcase_Data OD_URL DICTIONARY_NAME Dictionnaire de données
 
 #
 #***********************************************************************
@@ -227,6 +135,49 @@ Testcase_Data OD_URL DICTIONARY_NAME Dictionnaire de données
 #
 
 #testcase_data OD_URL
+
+#
+# Maximum file size before requiring compression (50Mb)
+#
+Testcase_Data TP_PW_OD_DATA MAX_FILE_SIZE 50000000
+
+#
+# Supporting file URL pattern
+#
+Testcase_Data OD_VAL SUPPORT_URL support
+Testcase_Data OD_VAL SUPPORT_URL soutien
+
+#
+# Alternate format data file name pattern
+#
+Testcase_Data OD_URL ALTERNATE_DATA_NAME Alternate Format
+Testcase_Data OD_URL ALTERNATE_DATA_NAME Format de remplacement
+
+#
+# Data dictionary file name pattern
+#
+Testcase_Data OD_URL DICTIONARY Data Dictionary
+Testcase_Data OD_URL DICTIONARY Dictionnaire de données
+
+#
+# Required languages for language specific variants of data files
+#
+Testcase_Data TP_PW_OD_DATA REQUIRED_LANG en
+Testcase_Data TP_PW_OD_DATA REQUIRED_LANG fr
+
+#
+# Required languages for language specific attributes of data dictionary
+# headings
+#
+Testcase_Data TP_PW_OD_DD REQUIRED_LANG en
+Testcase_Data TP_PW_OD_DD REQUIRED_LANG fr
+
+#
+# Percentage for reporting data type consistency errors.
+# If the percentage of data values not matching the CSV column
+# data type exceeds this value, an error is reported.
+#
+#Testcase_Data TP_PW_OD_CONT DATA_TYPE_CONSISTENCY_PERCENT 2.0
 
 
 #

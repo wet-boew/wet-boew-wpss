@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision: 1499 $
-# $URL: svn://10.36.148.185/Open_Data/Tools/open_data_testcases.pm $
-# $Date: 2019-09-17 11:58:16 -0400 (Tue, 17 Sep 2019) $
+# $Revision: 1741 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_testcases.pm $
+# $Date: 2020-03-09 12:30:47 -0400 (Mon, 09 Mar 2020) $
 #
 # Description:
 #
@@ -101,10 +101,11 @@ my (%testcase_description_en) = (
 #
 # Standard on Open Data checkpoints
 #
-"OD_URL",   "OD_URL: Open Data URL",
-"OD_ENC",   "OD_ENC: Character Encoding",
-"OD_VAL",   "OD_VAL: Validation",
 "OD_DATA",  "OD_DATA: Data Quality",
+"OD_ENC",   "OD_ENC: Character Encoding",
+"OD_REG",   "OD_REG: Open Government Registry",
+"OD_URL",   "OD_URL: Open Data URL",
+"OD_VAL",   "OD_VAL: Validation",
 
 #
 # PWGSC Open Data checkpoints
@@ -121,10 +122,11 @@ my (%testcase_description_fr) = (
 #
 # Standard on Open Data checkpoints
 #
-"OD_URL",   "OD_URL: URL des Données Ouvertes",
-"OD_ENC",   "OD_ENC: Encodage de caractère",
-"OD_VAL",   "OD_VAL: Validation",
 "OD_DATA",  "OD_DATA: Qualité des données",
+"OD_ENC",   "OD_ENC: Encodage de caractère",
+"OD_REG",   "OD_REG: Registre du gouvernement ouvert",
+"OD_URL",   "OD_URL: URL des Données Ouvertes",
+"OD_VAL",   "OD_VAL: Validation",
 
 #
 # PWGSC Open Data checkpoints
