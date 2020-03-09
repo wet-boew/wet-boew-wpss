@@ -3,9 +3,9 @@
 #
 # Name:   install.pl
 #
-# $Revision: 1158 $
-# $URL: svn://10.36.148.185/Validator_GUI/Tools/install.pl $
-# $Date: 2019-01-18 13:27:07 -0500 (Fri, 18 Jan 2019) $
+# $Revision: 1616 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/install.pl $
+# $Date: 2019-12-02 15:18:42 -0500 (Mon, 02 Dec 2019) $
 #
 # Synopsis: install.pl [ uninstall ] [ -no_pause ]
 #
@@ -63,13 +63,12 @@ use Archive::Zip;
 
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($line, $python_path, $is_windows);
-my ($perl_install) = "";
 my ($debug) = 0;
 my ($uninstall) = 0;
 my ($pause_before_exit) = 1;
 my ($default_python_path) = "/usr/bin/python";
 my ($default_perl_path) = "/usr/bin/perl";
-
+my ($win32_gui) = "Win32-GUI-1.14";
 
 #
 # String table for UI strings.
@@ -81,10 +80,17 @@ my %string_table_en = (
     "install Win32::GUI complete","Win32::GUI package install complete",
     "installing Win32::GUI","Installing Win32::GUI package",
     "complete WPSS Validation Installation","Press <return> complete WPSS Validation Installation",
+    "Could not find gmake or dmake program", "Could not find gmake or dmake program",
 );
 
 my %string_table_fr = (
-    "k","v",
+    "Missing Win32::GUI folder","Erreur, dossier Win32::GUI manquant",
+    "Missing Win32::GUI file","Erreur, fichier Win32::GUI manquant",
+    "install Win32::GUI failed","Erreur: impossible d'installer le module Win32::GUI, code retour =",
+    "install Win32::GUI complete","L'installation du paquet Win32::GUI est terminée",
+    "installing Win32::GUI","Installer le paquet Win32::GUI",
+    "complete WPSS Validation Installation","Appuyez sur <Entrée> pour terminer l'installation de la validation WPSS",
+    "Could not find gmake or dmake program", "Impossible de trouver le programme gmake ou dmake",
 );
 
 my ($string_table) = \%string_table_en;
@@ -376,7 +382,7 @@ sub Check_Java {
     #
     # Is this Open Java version 11 (major = 11) or greater ?
     #
-    elsif ( ($lead =~ /^openjdk /i) && ($major == 11) ) {
+    elsif ( ($lead =~ /^openjdk /i) && ($major >= 11) ) {
         #
         # Have Openjdk Java 11
         #
@@ -1336,35 +1342,16 @@ sub Check_Perl {
     Write_To_Log("  Version = $version");
 
     #
-    # Is this ActiveState Perl ?
+    # Is this ActiveState Perl? ActiveState Perl is not supported as
+    # the Win32::GUI module is not available nor can it be built for
+    # it.
     #
     if ( $version =~ /ActiveState/i ) {
-        $perl_install = "ActiveState";
-
-        #
-        # Check Perl version for ActiveState Perl
-        #
-        ($major, $minor) = $] =~ /^(\d+)\.(\d\d\d).*$/;
-        Write_To_Log("Perl $major.$minor installed on system");
-        if ( $major != 5 ) {
-            Write_To_Log("Unsupported Perl version $major.$minor");
-            print "\n*****\n";
-            print "Unsupported Perl version $major.$minor\n";
-            print "\n*****\n";
-            Exit_With_Pause(1);
-        }
-        elsif ( $minor == 14 ) {
-            #
-            # Perl 5.14 installed, a valid release
-            #
-        }
-        else {
-            Write_To_Log("Unsupported Perl version $major.$minor");
-            print "\n*****\n";
-            print "Unsupported Perl version $major.$minor\n";
-            print "\n*****\n";
-            Exit_With_Pause(1);
-        }
+        Write_To_Log("Unsupported Perl: ActiveState");
+        print "\n*****\n";
+        print "Unsupported Perl: ActiveState\n";
+        print "\n*****\n";
+        Exit_With_Pause(1);
     }
     elsif ( $version =~ /This is perl/i ) {
         #
@@ -1386,88 +1373,12 @@ sub Check_Perl {
             print "\n*****\n";
             Exit_With_Pause(1);
         }
-        
-        #
-        # Check for possible 64 bit installation.  The Win32::GUI
-        # module will not install on a 64 bit installation.
-        #
-        if ( $version =~ /MSWin32-x64/i ) {
-            Write_To_Log("Unsupported 64 bit Perl installation");
-            print "\n*****\n";
-            print "Unsupported Perl 64 bit Perl installation\n";
-            print "  Version = $version\n";
-            print "\n*****\n";
-            Exit_With_Pause(1);
-        }
-    }
-    else {
-        $perl_install = "";
     }
 
     #
     # Set perl hash bang in .pl files for Linux
     #
     Set_Perl_Hash_Bang();
-}
-
-#**********************************************************************
-#
-# Name: Install_Win32_GUI_On_ActiveState_Perl
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function installs the Win32::GUI package on ActiveState Perl
-# using ppm.
-#
-#**********************************************************************
-sub Install_Win32_GUI_On_ActiveState_Perl {
-    my ($rc);
-
-    #
-    # Check that the Win32::GUI module files are present
-    #
-    Write_To_Log("Installing Win32-GUI-1.06-PPM-5.14");
-    if ( ! -d "$program_dir/Win32-GUI-1.06-PPM-5.14" ) {
-        print "\n*****\n";
-        print String_Value("Missing Win32::GUI folder") . "\n";
-        print " --> $program_dir/Win32-GUI-1.06-PPM-5.14\n";
-        print "\n*****\n";
-        Write_To_Log("Missing Win32::GUI folder");
-        Write_To_Log("  --> $program_dir/Win32-GUI-1.06-PPM-5.14");
-        Exit_With_Pause(1);
-    }
-    if ( ! -f "$program_dir/Win32-GUI-1.06-PPM-5.14/Win32-GUI-1.06.ppd" ) {
-        print "\n*****\n";
-        print String_Value("Missing Win32::GUI file") . "\n";
-        print " --> $program_dir/Win32-GUI-1.06-PPM-5.14/Win32-GUI-1.06.ppd\n";
-        print "\n*****\n";
-        Write_To_Log("Missing Win32::GUI file");
-        Write_To_Log(" --> $program_dir/Win32-GUI-1.06-PPM-5.14/Win32-GUI-1.06.ppd");
-        Exit_With_Pause(1);
-    }
-
-    #
-    # Install the Win32::GUI module
-    #
-    chdir("$program_dir/Win32-GUI-1.06-PPM-5.14");
-    print "ppm install ./Win32-GUI-1.06.ppd\n";
-    Write_To_Log("ppm install ./Win32-GUI-1.06.ppd");
-    $rc = system("ppm install ./Win32-GUI-1.06.ppd");
-
-    #
-    # Was install successful ?
-    #
-    if ( $rc != 0 ) {
-        print "\n*****\n";
-        print "ppm install ./Win32-GUI-1.06.ppd failed $rc\n";
-        print "\n*****\n";
-        Write_To_Log("ppm install ./Win32-GUI-1.06.ppd failed, rc = $rc");
-        Exit_With_Pause(1);
-    }
-    chdir($program_dir);
-    Write_To_Log("install Win32::GUI complete");
 }
 
 #**********************************************************************
@@ -1484,40 +1395,68 @@ sub Install_Win32_GUI_On_ActiveState_Perl {
 #**********************************************************************
 sub Install_Win32_GUI_On_Perl {
 
-    my ($output);
+    my ($output, $make, $make_path);
 
     #
     # Check that the Win32::GUI module files are present
     #
-    Write_To_Log("Installing Win32-GUI-1.06");
-    if ( ! -d "$program_dir/Win32-GUI-1.06" ) {
+    Write_To_Log("Installing Win32::GUI");
+    if ( ! -d "$program_dir/$win32_gui" ) {
         print "\n*****\n";
         print String_Value("Missing Win32::GUI folder") . "\n";
-        print " --> $program_dir/Win32-GUI-1.06\n";
+        print " --> $program_dir/$win32_gui\n";
         print "\n*****\n";
         Write_To_Log("Missing Win32::GUI folder");
-        Write_To_Log("  --> $program_dir/Win32-GUI-1.06");
+        Write_To_Log("  --> $program_dir/$win32_gui");
         Exit_With_Pause(1);
+    }
+
+    #
+    # Do we have gmake installed?
+    #
+    $make_path = `where gmake 2>&1`;
+    if ( $make_path =~ /Could not find/i ) {
+        #
+        # Do we have dmake installed?
+        #
+        $make_path = `where dmake 2>&1`;
+        if ( $make_path =~ /Could not find/i ) {
+            print "\n*****\n";
+            print String_Value("Could not find gmake or dmake program") . "\n";
+            print "\n*****\n";
+            Write_To_Log("Could not find gmake or dmake program");
+            Exit_With_Pause(1);
+        }
+        else {
+            $make = "dmake";
+        }
+    }
+    else {
+        $make = "gmake";
     }
 
     #
     # Install the Win32::GUI module
     #
-    chdir("$program_dir/Win32-GUI-1.06");
+    chdir("$program_dir/$win32_gui");
     print "  perl.exe Makefile.PL\n";
-    Write_To_Log("perl.exe Makefile.PL");
-    $output = `perl.exe Makefile.PL`;
+    Write_To_Log("perl.exe Makefile.PL INSTALL_BASE=\"$program_dir\"");
+    $output = `perl.exe Makefile.PL INSTALL_BASE="$program_dir"`;
     Write_To_Log("Output of perl.exe Makefile.PL");
     Write_To_Log("$output\n");
-    print "  dmake\n";
+    print "  $make\n";
     Write_To_Log("dmake");
-    $output = `dmake 2>\&1`;
-    Write_To_Log("Output of dmake");
+    $output = `$make 2>\&1`;
+    Write_To_Log("Output of $make");
     Write_To_Log("$output\n");
-    print "  dmake install\n";
-    Write_To_Log("dmake install");
-    $output = `dmake install 2>\&1`;
-    Write_To_Log("Output of dmake install");
+    print "  $make install\n";
+    Write_To_Log("$make install");
+    $output = `$make install 2>\&1`;
+    Write_To_Log("Output of $make install");
+    Write_To_Log("$output\n");
+    Write_To_Log("$make clean");
+    $output = `$make clean 2>\&1`;
+    Write_To_Log("Output of $make clean");
     Write_To_Log("$output\n");
 
     #
@@ -1530,50 +1469,47 @@ sub Install_Win32_GUI_On_Perl {
 
 #**********************************************************************
 #
-# Name: Install_Win32_GUI
+# Name: Check_Win32_GUI
 #
 # Parameters: none
 #
 # Description:
 #
-#   This function installs the Win32::GUI package on the system.
+#   This function checks for the Win32::GUI package on the system.
 #
 #**********************************************************************
-sub Install_Win32_GUI {
-    my ($rc, $major, $minor);
+sub Check_Win32_GUI {
+    my ($rc, $major, $minor, $version);
 
     #
     # Check to see if Win32::GUI is already present
     #
     Write_To_Log("Check for Win32::GUI");
     print "Check for Win32::GUI\n";
-    $rc = eval 'use Win32::GUI(); 1';
+    $rc = eval 'use FindBin;use lib "$FindBin::RealBin/lib/perl5";use Win32::GUI(); $version = Win32::GUI::Version;';
     if ( $rc ) {
-        Write_To_Log("Win32::GUI already installed");
+        Write_To_Log("Win32::GUI version $version already installed");
     }
     else {
         #
         # Install Win32_GUI system
         #
-        print "Install Win32::GUI\n";
-        if ( $perl_install eq "ActiveState" ) {
-            Install_Win32_GUI_On_ActiveState_Perl();
-        }
-        else {
-            Install_Win32_GUI_On_Perl();
-        }
+        Install_Win32_GUI_On_Perl();
 
         #
         # Check if the install of Win32::GUI was successful
         #
         Write_To_Log("Check for Win32::GUI after install");
-        $rc = eval 'use Win32::GUI(); 1';
+        $rc = eval 'use FindBin;use lib "$FindBin::RealBin/lib/perl5";use Win32::GUI(); $version = Win32::GUI::Version;';
         if ( ! $rc ) {
             Write_To_Log("Win32::GUI install failed");
             print "\n*****\n";
             print "Missing Perl module Win32::GUI\n";
             print "\n*****\n";
             Exit_With_Pause(1);
+        }
+        else {
+            Write_To_Log("Win32::GUI version $version installed ");
         }
     }
 }
@@ -2025,10 +1961,10 @@ if ($uninstall){
     Check_Perl();
 
     #
-    # Install the Win32::GUI module
+    # Check for the Win32::GUI module
     #
     if ( $is_windows ) {
-        Install_Win32_GUI();
+        Check_Win32_GUI();
     }
     
     #
