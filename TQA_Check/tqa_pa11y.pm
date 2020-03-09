@@ -2,9 +2,9 @@
 #
 # Name:   pa11y_check.pm
 #
-# $Revision: 1490 $
-# $URL: svn://10.36.148.185/TQA_Check/Tools/tqa_pa11y.pm $
-# $Date: 2019-09-13 13:09:44 -0400 (Fri, 13 Sep 2019) $
+# $Revision: 1672 $
+# $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_pa11y.pm $
+# $Date: 2020-01-08 10:11:49 -0500 (Wed, 08 Jan 2020) $
 #
 # Description:
 #
@@ -53,7 +53,6 @@ package tqa_pa11y;
 use strict;
 use Encode;
 use File::Basename;
-use File::Temp qw/ tempfile tempdir /;
 use JSON::PP;
 
 #
