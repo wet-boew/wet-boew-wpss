@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 1505 $
-# $URL: svn://10.36.148.185/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2019-09-17 12:45:02 -0400 (Tue, 17 Sep 2019) $
+# $Revision: 1728 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/wpss_tool.pl $
+# $Date: 2020-03-03 14:50:27 -0500 (Tue, 03 Mar 2020) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -68,7 +68,11 @@
 
 use FindBin;                      # locate this script
 use lib "$FindBin::RealBin/lib";  # use the lib directory
+use lib "$FindBin::RealBin/lib/perl5";  # use the perl5 directory
 
+#
+# Check for module to share data structures between threads
+#
 my $have_threads = eval 'use threads; 1';
 if ( $have_threads ) {
     $have_threads = eval 'use threads::shared; 1';
@@ -128,6 +132,7 @@ use validate_markup;
 use web_analytics_check;
 
 use strict;
+
 
 #***********************************************************************
 #
@@ -991,23 +996,9 @@ sub Read_Metadata_Config_File {
             $filename = $fields[3];
 
             #
-            # Read the thesaurus file
+            # Set the thesaurus filename for this language and scheme
             #
-            Read_Compressed_Metadata_Thesaurus_File($scheme, $filename, $thesaurus_language);
-        }
-        elsif ( $config_type =~ /thesaurus_file/i ) {
-            #
-            # Metadata content value thesaurus file
-            #
-            @fields = split(/\s+/,$_,4);
-            $thesaurus_language = $fields[1];
-            $scheme = $fields[2];
-            $filename = $fields[3];
-
-            #
-            # Read the thesaurus file
-            #
-            Read_Metadata_Thesaurus_File($scheme, $filename, $thesaurus_language);
+            Set_Metadata_Thesaurus_File($scheme, $filename, $thesaurus_language);
         }
     }
     close(CONFIG_FILE);
@@ -5123,7 +5114,9 @@ sub Runtime_Error_Callback {
     #
     # Close the web page details list
     #
-    close($files_details_fh);
+    if ( defined($files_details_fh) ) {
+        close($files_details_fh);
+    }
 
     #
     # Close the web page size file
@@ -5325,7 +5318,7 @@ sub Save_Testcase_Summary_CSV {
     #
     print "Save results summary CSV\n" if $debug;
     ($csv_results_fh, $shared_testcase_results_summary_csv_filename) =
-       tempfile("WPSS_TOOL_XXXXXXXXXX",
+       tempfile("WPSS_TOOL_WP_XXXXXXXXXX",
                 SUFFIX => '.csv',
                 TMPDIR => 1);
     if ( ! defined($csv_results_fh) ) {
@@ -6945,7 +6938,7 @@ sub Initialize_Tool_Globals {
     # Create web page details temporary file
     #
     ($files_details_fh, $shared_file_details_filename) =
-       tempfile("WPSS_TOOL_XXXXXXXXXX",
+       tempfile("WPSS_TOOL_WP_XXXXXXXXXX",
                 SUFFIX => '.csv',
                 TMPDIR => 1);
     if ( ! defined($files_details_fh) ) {
@@ -6964,7 +6957,7 @@ sub Initialize_Tool_Globals {
     # Create web page links details temporary file
     #
     ($links_details_fh, $shared_links_details_filename) =
-       tempfile("WPSS_TOOL_XXXXXXXXXX",
+       tempfile("WPSS_TOOL_WP_XXXXXXXXXX",
                 SUFFIX => '.csv',
                 TMPDIR => 1);
     if ( ! defined($links_details_fh) ) {
@@ -6976,7 +6969,7 @@ sub Initialize_Tool_Globals {
     #
     # Add UTF-8 BOM and column headings
     #
-    print $files_details_fh chr(0xFEFF);
+    print $links_details_fh chr(0xFEFF);
     print $links_details_fh join(",", @links_details_fields) . "\r\n";
 }
 
@@ -9544,7 +9537,7 @@ sub Perform_Open_Data_Check {
                 # Get contents for this member in a file
                 #
                 print "Process zip member $member_name\n" if $debug;
-                (undef, $filename) = tempfile("WPSS_TOOL_XXXXXXXXXX",
+                (undef, $filename) = tempfile("WPSS_TOOL_WP_XXXXXXXXXX",
                                               TMPDIR => 1,
                                               OPEN => 0);
                 print "Extract member to $filename\n" if $debug;
@@ -9733,7 +9726,7 @@ sub Open_Data_Callback {
     # Create open data files details temporary file
     #
     ($files_details_fh, $shared_file_details_filename) =
-       tempfile("WPSS_TOOL_XXXXXXXXXX",
+       tempfile("WPSS_TOOL_WP_XXXXXXXXXX",
                 SUFFIX => '.csv',
                 TMPDIR => 1);
     if ( ! defined($files_details_fh) ) {
