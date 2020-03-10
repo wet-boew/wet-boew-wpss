@@ -2,9 +2,9 @@
 #
 # Name:   pa11y_check.pm
 #
-# $Revision: 1672 $
+# $Revision: 1746 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_pa11y.pm $
-# $Date: 2020-01-08 10:11:49 -0500 (Wed, 08 Jan 2020) $
+# $Date: 2020-03-10 12:57:47 -0400 (Tue, 10 Mar 2020) $
 #
 # Description:
 #
@@ -549,6 +549,11 @@ sub Pa11y_Check {
                     Record_Result("Pa11y", "",
                                   String_Value("Runtime Error") .
                                   " $eval_output");
+
+                    #
+                    # Suppress further errors
+                    #
+                    $pa11y_runtime_reported = 1;
                 }
             }
             else {
@@ -579,12 +584,32 @@ sub Pa11y_Check {
                                 # Hash table is missing some fields
                                 #
                                 print "Missing hash table fields\n" if $debug;
+                                if ( ! $pa11y_runtime_reported ) {
+                                    Record_Result("Pa11y", "",
+                                                  String_Value("Runtime Error") .
+                                                  " Expected ARRAY type for top level of Pa11y output, found $ref_type");
+
+                                    #
+                                    # Suppress further errors
+                                    #
+                                    $pa11y_runtime_reported = 1;
+                                }
                             }
                         }
                     }
                 }
                 else {
                     print "Expected ARRAY type for top level, found $ref_type\n" if $debug;
+                    if ( ! $pa11y_runtime_reported ) {
+                        Record_Result("Pa11y", "",
+                                      String_Value("Runtime Error") .
+                                      " Expected ARRAY type for top level of Pa11y output, found $ref_type");
+
+                        #
+                        # Suppress further errors
+                        #
+                        $pa11y_runtime_reported = 1;
+                    }
                 }
             }
         }
