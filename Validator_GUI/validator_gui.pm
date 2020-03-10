@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 756 $
-# $URL: svn://10.36.148.185/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2018-03-12 10:56:38 -0400 (Mon, 12 Mar 2018) $
+# $Revision: 1615 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/validator_gui.pm $
+# $Date: 2019-12-02 15:17:47 -0500 (Mon, 02 Dec 2019) $
 #
 # Description:
 #
@@ -497,6 +497,7 @@ sub Validator_GUI_Remove_Temporary_Files {
     #
     # Do we have a CSV results file ?
     #
+    print "Validator_GUI_Remove_Temporary_Files\n" if $debug;
     if ( defined($csv_results_file_name) ) {
         #
         # Do we have an open results file ?
@@ -504,6 +505,7 @@ sub Validator_GUI_Remove_Temporary_Files {
         if ( defined($csv_results_fh) ) {
             close($csv_results_fh);
         }
+        print "Remove CSV results file $csv_results_file_name\n" if $debug;
         unlink($csv_results_file_name);
     }
 }
@@ -827,7 +829,7 @@ sub Print_TQA_Result_to_CSV {
 sub Validator_GUI_Print_TQA_Result {
     my ($tab_label, $result_object) = @_;
 
-    my ($output_line, $message, $source_line);
+    my ($output_line, $message, $source_line, $line_no);
 
     #
     # Do we want XML output ?
@@ -849,7 +851,8 @@ sub Validator_GUI_Print_TQA_Result {
         #
         # Print location, if there is one
         #
-        if ( $result_object->line_no != -1 ) {
+        $line_no = $result_object->line_no();
+        if ( defined($line_no) && ($line_no ne "") && ($line_no != -1 ) ) {
             $output_line = sprintf(String_Value("4 spaces") .
                                    String_Value("Line") .
                                    "%3d " . String_Value("Column") .
