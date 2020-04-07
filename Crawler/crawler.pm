@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 1690 $
+# $Revision: 1770 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler.pm $
-# $Date: 2020-01-22 13:53:51 -0500 (Wed, 22 Jan 2020) $
+# $Date: 2020-04-07 10:12:52 -0400 (Tue, 07 Apr 2020) $
 #
 # Description:
 #
@@ -19,6 +19,7 @@
 #     Crawler_Abort_Crawl
 #     Crawler_Abort_Crawl_Status
 #     Crawler_Config
+#     Crawler_Get_Skipped_Urls
 #     Crawl_Site
 #     Crawler_Get_HTTP_Response
 #     Crawler_Get_User_Agent
@@ -31,6 +32,7 @@
 #     Crawler_Get_Prod_Dev_Domain
 #     Set_Crawler_HTTP_Response_Callback
 #     Set_Crawler_HTTP_401_Callback
+#     Set_Crawler_Language
 #     Set_Crawler_Login_Logout
 #     Set_Crawler_URL_Ignore_Patterns
 #     Crawler_Remove_Temporary_Files
@@ -115,6 +117,7 @@ BEGIN {
                   Crawler_Abort_Crawl
                   Crawler_Abort_Crawl_Status
                   Crawler_Config
+                  Crawler_Get_Skipped_Urls
                   Crawl_Site
                   Crawler_Get_HTTP_Response
                   Crawler_Get_User_Agent
@@ -126,6 +129,7 @@ BEGIN {
                   Crawler_Get_Prod_Dev_Domain
                   Set_Crawler_HTTP_Response_Callback
                   Set_Crawler_HTTP_401_Callback
+                  Set_Crawler_Language
                   Set_Crawler_Login_Logout
                   Crawler_Set_Proxy
                   Set_Crawler_URL_Ignore_Patterns
@@ -149,6 +153,7 @@ my ($login_domain_e, $login_domain_f, $accepted_content_encodings);
 my (%domain_prod_dev_map, %domain_dev_prod_map, $RobotUA_cache_dir);
 my ($login_interstitial_count, $logout_interstitial_count, $user_agent_hostname);
 my ($charset, $lwp_user_agent, $content_length, $phantomjs_cookie_file);
+my (%skipped_urls);
 
 #
 # Shared variables for use between treads
@@ -172,6 +177,96 @@ my ($use_phantomjs_user_agent) = 0;
 if ( $have_threads ) {
     share(\$use_puppeteer_user_agent);
     share(\$use_phantomjs_user_agent);
+}
+
+#
+# Default delay, in seconds, between web page GETs
+#
+my ($crawler_page_delay_secs) = 1;
+
+#
+# String table for UI strings.
+#
+my %string_table_en = (
+    "duplicate checksum, previously found at", "duplicate checksum, previously found at",
+    "ignored after rewrite from",      "ignored after rewrite from",
+    "matches ignore pattern",          "matches ignore pattern",
+    "non-site url after rewrite from", "non-site url after rewrite from",
+);
+
+my %string_table_fr = (
+    "duplicate checksum, previously found at", "somme de contrôle en double, précédemment trouvée à",
+    "ignored after rewrite from",      "ignoré après la réécriture de",
+    "matches ignore pattern",          "correspond à ignorer le modèle",
+    "non-site url after rewrite from", "URL hors site après réécriture à partir de",
+);
+
+#
+# Default language is English
+#
+my ($string_table) = \%string_table_en;
+
+#**********************************************************************
+#
+# Name: Set_Crawler_Language
+#
+# Parameters: language
+#
+# Description:
+#
+#   This function sets the language of error messages generated
+# by this module.
+#
+#***********************************************************************
+sub Set_Crawler_Language {
+    my ($language) = @_;
+
+    #
+    # Check for French language
+    #
+    if ( $language =~ /^fr/i ) {
+        $string_table = \%string_table_fr;
+    }
+    else {
+        #
+        # Default language is English
+        #
+        $string_table = \%string_table_en;
+    }
+}
+
+#**********************************************************************
+#
+# Name: String_Value
+#
+# Parameters: key - string table key
+#
+# Description:
+#
+#   This function returns the value in the string table for the
+# specified key.  If there is no entry in the table an error string
+# is returned.
+#
+#**********************************************************************
+sub String_Value {
+    my ($key) = @_;
+
+    #
+    # Do we have a string table entry for this key ?
+    #
+    if ( defined($$string_table{$key}) ) {
+        #
+        # return value
+        #
+        return ($$string_table{$key});
+    }
+    else {
+        #
+        # No string table entry, either we are missing a string or
+        # we have a typo in the key name.
+        #
+        return ("*** No string for $key ***");
+    }
 }
 
 #***********************************************************************
@@ -317,6 +412,9 @@ sub Crawler_Config {
         }
         elsif ( $key eq "content_file" ) {
             $user_agent_content_file = $value;
+        }
+        elsif ( $key eq "crawler_page_delay_secs" ) {
+            $crawler_page_delay_secs = $value;
         }
     }
     
@@ -1031,6 +1129,7 @@ sub Create_User_Agents {
     #
     # Get hostname if we were not given one in the configuration options.
     #
+    print "Create_User_Agents\n" if $debug;
     if ( ! defined($user_agent_hostname) ) {
         $host = hostname;
     }
@@ -1060,7 +1159,8 @@ sub Create_User_Agents {
     $user_agent->ssl_opts(verify_hostname => 0,
                           SSL_verify_mode => SSL_VERIFY_NONE);
     $user_agent->timeout("60");
-    $user_agent->delay(1/120);
+    print "Set LWP::RobotUA::Cached delay to $crawler_page_delay_secs seconds\n" if $debug;
+    $user_agent->delay($crawler_page_delay_secs/60);
     
     #
     # Set connection caching
@@ -1726,6 +1826,15 @@ sub Crawler_Get_HTTP_Response {
             # rather than the LWP::RobotUA
             #
             if ( $user_agent_content_file ) {
+                #
+                # Force a sleep between requests to avoid hammering the web
+                # server.
+                #
+                sleep($crawler_page_delay_secs);
+                
+                #
+                # Get the content into a file
+                #
                 print "Use LWP::UserAgent to get content in file $filename\n" if $debug;
                 unlink($filename);
                 open(HTTP_FH, ">$filename");
@@ -2573,6 +2682,7 @@ sub Filter_Links {
         # exist).
         #
         if ( Matches_URL_Ignore_Pattern($this_link) ) {
+            $skipped_urls{$this_link} = String_Value("matches ignore pattern");
             next;
         }
 
@@ -2582,6 +2692,9 @@ sub Filter_Links {
         print "Filter_Links: $this_link\n" if $debug;
         if ( Matches_Site_URL_Pattern($this_link) ) {
             $filtered_links{$this_link} = 1;
+        }
+        else {
+            #$skipped_urls{$this_link} = "non-site url";
         }
 
         #
@@ -3568,6 +3681,35 @@ sub Set_Crawler_Options {
 
 #***********************************************************************
 #
+# Name: Crawler_Get_Skipped_Urls
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the set of URLs that have been skipped since
+# the last call of this function.  The set is cleared after it is returned.
+#
+#***********************************************************************
+sub Crawler_Get_Skipped_Urls {
+
+    my (%local_skipped_urls);
+    
+    #
+    # Make a copy of the skipped URLs so we can clear the data structure.
+    #
+    %local_skipped_urls = %skipped_urls;
+    %skipped_urls = ();
+
+    #
+    # Return the set of skipped URLs.
+    #
+    print "Crawler_Get_Skipped_Urls count = " . scalar(keys(%local_skipped_urls)) . "\n" if $debug;
+    return(%local_skipped_urls);
+}
+
+#***********************************************************************
+#
 # Name: Crawl_Site
 #
 # Parameters: site_dir_e - English site domain & directory
@@ -3584,9 +3726,12 @@ sub Set_Crawler_Options {
 #
 # Description:
 #
-#   This function runs the validate TQA check tool on the
-# supplied URL.  It then updates the database with the results
-# of the tool.
+#   This function performs a crawl on the site specified by the URLs.  It
+# starts with the entry pages then extracts links from each page to finc
+# other pages in the site.  A site page must contain the site directory
+# URL path.  Supporting files (e.g. css, javascript, etc.) can come from
+# any URL.
+#  A callback function is invoked for every valid site URL.
 #
 # Returns:
 #    0 - crawl successful
@@ -3619,7 +3764,12 @@ sub Crawl_Site {
     @$url_last_modified = ();
     @$url_size = ();
     @$url_referer = ();
-
+    
+    #
+    # Clear the set of skipped URLs.
+    #
+    %skipped_urls = ();
+    
     #
     # Initialize crawler variables.
     #
@@ -3678,7 +3828,6 @@ sub Crawl_Site {
     # Loop until we have finished all URLs that can be crawled
     #
     while ( (! $abort_crawl) && (@urls_to_crawl) ) {
-
         #
         # Dump initial crawl list.
         #
@@ -3729,18 +3878,20 @@ sub Crawl_Site {
             #
             if ( Matches_URL_Ignore_Pattern($rewritten_url) ) {
                 print "Rewritten URL $rewritten_url matches URL ignore patterns\n" if $debug;
+                $skipped_urls{$rewritten_url} = String_Value("ignored after rewrite from") . " $url";
                 next;
             }
             #
             # Does the URL not match one of the site URL patterns ?
             #
-            if ( ! Matches_Site_URL_Pattern($rewritten_url) ) {
+            elsif ( ! Matches_Site_URL_Pattern($rewritten_url) ) {
                 #
                 # Don't ignore CSS and JavaScript files.  
                 #
                 if ( ( ! ($rewritten_url =~ /\.css$/) ) &&
                      ( ! ($rewritten_url =~ /\.js$/) ) ) {
                     print "Rewritten URL $rewritten_url does not match site patterns\n" if $debug;
+                    $skipped_urls{$rewritten_url} = String_Value("non-site url after rewrite from") . " $url";
                     next;
                 }
             }
@@ -3769,6 +3920,8 @@ sub Crawl_Site {
             if ( defined($url_checksum_map{$checksum}) ) {
                 print "Duplicate content, previously seen at\n  --> " .
                       $url_checksum_map{$checksum} . "\n" if $debug;
+                $skipped_urls{$url} = String_Value("duplicate checksum, previously found at") .
+                                      " " . $url_checksum_map{$checksum};
                 next;
             }
             else {
@@ -3815,11 +3968,11 @@ sub Crawl_Site {
             # Call http response or content callbacks.
             #
             if ( ! Call_Callback_Functions($rewritten_url,
-                      $url_referer_map{$url}, $resp) ) {
-                    #
-                    # Exit crawler
-                    #
-                    return;
+                                           $url_referer_map{$url}, $resp) ) {
+                #
+                # Exit crawler
+                #
+                return;
             }
 
             #
