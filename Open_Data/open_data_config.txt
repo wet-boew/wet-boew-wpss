@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision: 1741 $
+# $Revision: 1772 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_config.txt $
-# $Date: 2020-03-09 12:30:47 -0400 (Mon, 09 Mar 2020) $
+# $Date: 2020-04-07 10:15:41 -0400 (Tue, 07 Apr 2020) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -65,6 +65,7 @@ tcid OD_VAL
 #
 tcid TP_PW_OD_BOM
 tcid TP_PW_OD_CONT
+tcid TP_PW_OD_CONT_COL_CONSISTENCY
 tcid TP_PW_OD_CONT_CONSISTENCY
 tcid TP_PW_OD_CONT_DUP
 tcid TP_PW_OD_DATA
@@ -99,6 +100,7 @@ tcid OD_VAL
 #
 tcid TP_PW_OD_BOM
 tcid TP_PW_OD_CONT
+#tcid TP_PW_OD_CONT_COL_CONSISTENCY
 #tcid TP_PW_OD_CONT_CONSISTENCY
 #tcid TP_PW_OD_CONT_DUP
 tcid TP_PW_OD_DATA

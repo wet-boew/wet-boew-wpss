@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision: 1741 $
+# $Revision: 1772 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_testcases.pm $
-# $Date: 2020-03-09 12:30:47 -0400 (Mon, 09 Mar 2020) $
+# $Date: 2020-04-07 10:15:41 -0400 (Tue, 07 Apr 2020) $
 #
 # Description:
 #
@@ -112,6 +112,7 @@ my (%testcase_description_en) = (
 #
 "TP_PW_OD_BOM",              "TP_PW_OD_BOM: UTF-8 BOM",
 "TP_PW_OD_CONT",             "TP_PW_OD_CONT: Content",
+"TP_PW_OD_CONT_COL_CONSISTENCY", "TP_PW_OD_CONT_COL_CONSISTENCY: Related column data consistency",
 "TP_PW_OD_CONT_CONSISTENCY", "TP_PW_OD_CONT_CONSISTENCY: Data consistency",
 "TP_PW_OD_CONT_DUP",         "TP_PW_OD_CONT: Duplicate content",
 "TP_PW_OD_DATA",             "TP_PW_OD_DATA: PWGSC Data Quality",
@@ -133,6 +134,7 @@ my (%testcase_description_fr) = (
 #
 "TP_PW_OD_BOM",              "TP_PW_OD_BOM: UTF-8 BOM",
 "TP_PW_OD_CONT",             "TP_PW_OD_CONT: Contenu",
+"TP_PW_OD_CONT_COL_CONSISTENCY", "TP_PW_OD_CONT_COL_CONSISTENCY: Cohérence des données des colonnes associées",
 "TP_PW_OD_CONT_CONSISTENCY", "TP_PW_OD_CONT_CONSISTENCY: Cohérence des données",
 "TP_PW_OD_CONT_DUP",         "TP_PW_OD_CONT: Contenu en double",
 "TP_PW_OD_DATA",             "TP_PW_OD_DATA: Qualité des données de TPSGC",
