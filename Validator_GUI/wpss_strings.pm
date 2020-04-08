@@ -68,11 +68,16 @@ BEGIN {
 }
 
 my %string_table_en = (
-    "ACC report header", "The following is a list of web documents from your site that contain Accessibility Check errors.
+    "ACC",            			"ACC",
+    "ACC report header",    "The following is a list of web documents from your site that contain Accessibility Check errors.
 
 Site:
 ",
-    "CLF report header", "The following is a list of web documents from your site that contain Layout and Design Check errors.
+    "ACC Testcase Profile",	"Accessibility Testcase Profile",
+    "Analysis completed",	  "Analysis completed at (hh:mm:ss yyyy/mm/dd) ",
+    "Analysis started",	  	"Analysis started at (hh:mm:ss yyyy/mm/dd) ",
+    "Analysis terminated",	"Analysis terminated",
+    "CLF report header",    "The following is a list of web documents from your site that contain Layout and Design Check errors.
 
 Site:
 ",
@@ -83,6 +88,7 @@ Site:
 
 Site:
 ",
+    "Crawled URLs",	        "Crawled URLs",
     "Department report header", "The following is a list of web documents from your site that contain Department Check violations.
 
 Site:
@@ -95,6 +101,9 @@ Site:
 
 Site:
 ",
+    "Entry page",	"Entry page ",
+    "Headings report header", "The following is a report of headings within documents from your site.",
+    "Image report header",	"The following is a list of images from your site.",
     "Interop report header", "The following is a list of web documents from your site that contain Interoperability Check errors.
 
 Site:
@@ -118,14 +127,7 @@ Site:
 
 Site:
 ",
-    "Image report header",	"The following is a list of images from your site.",
-    "Headings report header", "The following is a report of headings within documents from your site.",
-    "Entry page",	"Entry page ",
     "rewritten to",		" rewritten to ",
-    "Analysis terminated",	"Analysis terminated",
-    "Analysis completed",	"Analysis completed at (hh:mm:ss yyyy/mm/dd) ",
-    "Analysis started",		"Analysis started at (hh:mm:ss yyyy/mm/dd) ",
-    "Crawled URLs",		"Crawled URLs",
     "Validation",		"Validation",
     "Metadata",			"Metadata",
     "Open Data",    "Open Data",
@@ -134,7 +136,6 @@ Site:
     "Markup Validation Profile",		"Markup Validation Profile",
     "Metadata Profile",		"Metadata Profile",
     "PDF Property Profile",	"PDF Property Profile",
-    "ACC Testcase Profile",	"Accessibility Testcase Profile",
     "CLF Testcase Profile",	"Layout and Design Testcase Profile",
     "Web Analytics Testcase Profile",	"Web Analytics Testcase Profile",
     "Interop Testcase Profile",	"Interoperability Testcase Profile",
@@ -142,7 +143,6 @@ Site:
     "Open Data Testcase Profile", "Open Data Testcase Profile",
     "Content Testcase Profile", "Content Testcase Profile",
     "Department Check Testcase Profile",	"Department Check Testcase Profile",
-    "ACC",  			"ACC",
     "CLF",        "CLF",
     "INT",        "Interop",
     "Link", 			"Link",
@@ -198,6 +198,7 @@ Site:
     "Not reviewed",                     "**** Not reviewed ****",
     "Runtime Error Analysis Aborted",   "**** Runtime Error Analysis Aborted ****",
     "Testcase Profile Groups",          "Testcase Profile Groups",
+    "Skipped",                          "Skipped",
     );
 
 my %string_table_fr = (
@@ -334,6 +335,7 @@ Site:
     "Not reviewed",                     "**** Non révisé ****",
     "Runtime Error Analysis Aborted",   "**** Erreur D'Exécution Analyse abandonné ****",
     "Testcase Profile Groups",          "Groupes des profils des cas de test",
+    "Skipped",                          "Sauté",
 );
 
 #
