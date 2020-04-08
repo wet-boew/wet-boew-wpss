@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 1712 $
+# $Revision: 1773 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2020-02-10 09:43:51 -0500 (Mon, 10 Feb 2020) $
+# $Date: 2020-04-07 10:19:19 -0400 (Tue, 07 Apr 2020) $
 #
 # Description:
 #
@@ -193,6 +193,7 @@ my %string_table_en = (
     "Heading must be a single line", "Heading must be a single line",
     "Inconsistent data type in column", "Inconsistent data type in column",
     "Inconsistent field values for column", "Inconsistent field values for column",
+    "Inconsistent field values for related columns", "Inconsistent field values for related columns",
     "Inconsistent list item prefix, found", "Inconsistent list item prefix, found",
     "Inconsistent number of fields, found", "Inconsistent number of fields, found",
     "instances of currency values",  "instances of currency values",
@@ -256,6 +257,7 @@ my %string_table_fr = (
     "Heading must be a single line", "Le titre doit être une seule ligne",
     "Inconsistent data type in column", "Type de données incohérent dans la colonne",
     "Inconsistent field values for column", "Valeurs de champ incohérentes pour la colonne",
+    "Inconsistent field values for related columns", "Valeurs de champ incohérentes pour les colonnes associées",
     "Inconsistent list item prefix, found", "Préfixe d'élément de liste incompatible, trouvé",
     "Inconsistent number of fields, found", "Numéro incohérente des champs, a constaté",
     "instances of currency values",  "instances de valeurs monétaires",
@@ -2257,7 +2259,7 @@ sub Open_Data_CSV_Check_Data {
                     }
                     $leading_trailing_whitespace_count++;
                 }
-                
+
                 #
                 # Check for possible inconsistencies in the spacing,
                 # punctuation or capitalization of text values.
@@ -2344,8 +2346,8 @@ sub Open_Data_CSV_Check_Data {
                                 # Did the values not match?
                                 #
                                 if ( ! $match ) {
-                                    Record_Content_Result("TP_PW_OD_CONT_CONSISTENCY", $line_no, ($i + 1), "$line",
-                                              String_Value("Inconsistent field values for column") .
+                                    Record_Content_Result("TP_PW_OD_CONT_COL_CONSISTENCY", $line_no, ($i + 1), "$line",
+                                              String_Value("Inconsistent field values for related columns") .
                                               " \"$column_label\" (#" . ($i + 1) . ") " .
                                               String_Value("and") .
                                               " \"$other_heading\" (#" . ($other_column + 1) . ")\n " .
