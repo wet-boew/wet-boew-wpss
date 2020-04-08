@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 1615 $
+# $Revision: 1765 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2019-12-02 15:17:47 -0500 (Mon, 02 Dec 2019) $
+# $Date: 2020-03-21 15:29:57 -0400 (Sat, 21 Mar 2020) $
 #
 # Description:
 #
@@ -198,7 +198,8 @@ my ($testcase_profile_groups_config_option, $profile_directory);
 my ($csv_results_fh, $csv_results_file_name, $csv_object);
 my (@csv_results_fields) = ("type", "url", "testcase", "description", "landmark",
                             "landmark_marker", "line_no", "column_no", "page_no",
-                            "source_line", "message", "help_url");
+                            "source_line", "message", "help_url", "impact",
+                            "tags");
 if ( $have_threads ) {
     share(\$csv_results_file_name);
 }
@@ -796,9 +797,10 @@ sub Print_TQA_Result_to_CSV {
     push(@fields, substr($result_object->message, 0, 10240));
 
     #
-    # Add help URL field
+    # Add help URL field, impact and tags
     #
-    push(@fields, $result_object->help_url);
+    push(@fields, $result_object->help_url, $result_object->impact,
+         $result_object->tags);
 
     #
     # Write fields to the CSV file.
@@ -880,6 +882,22 @@ sub Validator_GUI_Print_TQA_Result {
                                "Landmark marker: " . $result_object->landmark_marker);
         }
 
+        #
+        # Print impact, if we have one
+        #
+        if ( $result_object->impact ne "" ) {
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "Impact: " . $result_object->impact);
+        }
+
+        #
+        # Print tags, if we have any
+        #
+        if ( $result_object->tags ne "" ) {
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "Tags: " . $result_object->tags);
+        }
+        
         #
         # Print error message
         #

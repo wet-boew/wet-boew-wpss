@@ -161,7 +161,8 @@ my ($testcase_profile_groups_config_option);
 my ($csv_results_fh, $csv_results_file_name, $csv_object);
 my (@csv_results_fields) = ("type", "url", "testcase", "description", "landmark",
                             "landmark_marker", "line_no", "column_no", "page_no",
-                            "source_line", "message", "help_url");
+                            "source_line", "message", "help_url", "impact",
+                            "tags");
 if ( $have_threads ) {
     share(\$csv_results_file_name);
 }
@@ -243,7 +244,10 @@ my %string_table_fr = (
     "4 spaces",                 "    ",
 );
 
-my ($string_table);
+#
+# Default language is English
+#
+my ($string_table) = \%string_table_en;
 
 #***********************************************************************
 #
@@ -531,9 +535,10 @@ sub Print_TQA_Result_to_CSV {
     push(@fields, substr($result_object->message, 0, 10240));
 
     #
-    # Add help URL field
+    # Add help URL field, impact and tags
     #
-    push(@fields, $result_object->help_url);
+    push(@fields, $result_object->help_url, $result_object->impact,
+         $result_object->tags);
 
     #
     # Write fields to the CSV file.
@@ -617,6 +622,22 @@ sub Validator_GUI_Print_TQA_Result {
                                "Landmark: " . $result_object->landmark);
             Update_Results_Tab($tab_label, String_Value("4 spaces") .
                                "Landmark marker: " . $result_object->landmark_marker);
+        }
+
+        #
+        # Print impact, if we have one
+        #
+        if ( $result_object->impact ne "" ) {
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "Impact: " . $result_object->impact);
+        }
+
+        #
+        # Print tags, if we have any
+        #
+        if ( $result_object->tags ne "" ) {
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "Tags: " . $result_object->tags);
         }
 
         #
