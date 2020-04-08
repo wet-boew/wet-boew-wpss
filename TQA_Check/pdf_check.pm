@@ -352,7 +352,7 @@ sub Initialize_Test_Results {
 sub Record_Result {
     my ( $testcase, $page, $text, $error_string ) = @_;
 
-    my ($result_object);
+    my ($result_object, $impact);
 
     #
     # Is this testcase included in the profile
@@ -368,6 +368,14 @@ sub Record_Result {
                                                 -1, -1, $text,
                                                 $error_string, $current_url);
         $result_object->testcase_groups(TQA_Testcase_Groups($testcase));
+
+        #
+        # Add impact if it is not blank.
+        #
+        $impact = TQA_Testcase_Impact($testcase);
+        if ( $impact ne "" ) {
+            $result_object->impact($impact);
+        }
 
         #
         # Set page number of the error

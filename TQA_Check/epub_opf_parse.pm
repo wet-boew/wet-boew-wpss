@@ -2,9 +2,9 @@
 #
 # Name:   epub_opf_parse.pm
 #
-# $Revision: 705 $
-# $URL: svn://10.36.148.185/TQA_Check/Tools/epub_opf_parse.pm $
-# $Date: 2018-02-02 09:01:45 -0500 (Fri, 02 Feb 2018) $
+# $Revision: 1769 $
+# $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/epub_opf_parse.pm $
+# $Date: 2020-04-07 10:11:30 -0400 (Tue, 07 Apr 2020) $
 #
 # Description:
 #
@@ -435,7 +435,7 @@ sub Print_Error {
 sub Record_Result {
     my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
-    my ($result_object);
+    my ($result_object, $impact);
     
     #
     # If the EPUB version is invalid, we don't report any errors
@@ -458,6 +458,14 @@ sub Record_Result {
                                                 $error_string, $current_url);
         $result_object->testcase_groups(TQA_Testcase_Groups($testcase));
         push (@$results_list_addr, $result_object);
+
+        #
+        # Add impact if it is not blank.
+        #
+        $impact = TQA_Testcase_Impact($testcase);
+        if ( $impact ne "" ) {
+            $result_object->impact($impact);
+        }
 
         #
         # Print error string to stdout

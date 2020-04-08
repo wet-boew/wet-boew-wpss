@@ -387,7 +387,7 @@ sub Print_Error {
 sub Record_Result {
     my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
-    my ($result_object);
+    my ($result_object, $impact);
 
     #
     # Is this testcase included in the profile
@@ -402,6 +402,14 @@ sub Record_Result {
                                                 $error_string, $current_url);
         $result_object->testcase_groups(TQA_Testcase_Groups($testcase));
         push (@$results_list_addr, $result_object);
+
+        #
+        # Add impact if it is not blank.
+        #
+        $impact = TQA_Testcase_Impact($testcase);
+        if ( $impact ne "" ) {
+            $result_object->impact($impact);
+        }
 
         #
         # Print error string to stdout

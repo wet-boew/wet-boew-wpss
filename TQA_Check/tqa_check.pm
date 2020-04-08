@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 1503 $
-# $URL: svn://10.36.148.185/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2019-09-17 12:40:23 -0400 (Tue, 17 Sep 2019) $
+# $Revision: 1769 $
+# $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_check.pm $
+# $Date: 2020-04-07 10:11:30 -0400 (Tue, 07 Apr 2020) $
 #
 # Description:
 #
@@ -552,7 +552,7 @@ sub Print_Error {
 sub Record_Result {
     my ( $testcase, $line, $column, $text, $error_string ) = @_;
 
-    my ($result_object);
+    my ($result_object, $impact);
 
     #
     # Is this testcase included in the profile
@@ -569,6 +569,14 @@ sub Record_Result {
         $result_object->landmark($current_landmark);
         $result_object->landmark_marker($landmark_marker);
         push (@$results_list_addr, $result_object);
+
+        #
+        # Add impact if it is not blank.
+        #
+        $impact = TQA_Testcase_Impact($testcase);
+        if ( $impact ne "" ) {
+            $result_object->impact($impact);
+        }
 
         #
         # Print error string to stdout
