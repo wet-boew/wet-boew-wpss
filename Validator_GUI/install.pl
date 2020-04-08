@@ -3,9 +3,9 @@
 #
 # Name:   install.pl
 #
-# $Revision: 1616 $
+# $Revision: 1774 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/install.pl $
-# $Date: 2019-12-02 15:18:42 -0500 (Mon, 02 Dec 2019) $
+# $Date: 2020-04-07 10:22:38 -0400 (Tue, 07 Apr 2020) $
 #
 # Synopsis: install.pl [ uninstall ] [ -no_pause ]
 #
@@ -69,6 +69,8 @@ my ($pause_before_exit) = 1;
 my ($default_python_path) = "/usr/bin/python";
 my ($default_perl_path) = "/usr/bin/perl";
 my ($win32_gui) = "Win32-GUI-1.14";
+my ($PERL_MIN_MAJOR_NUMBER) = 5;
+my ($PERL_MIN_MINOR_NUMBER) = 26;
 
 #
 # String table for UI strings.
@@ -1359,17 +1361,24 @@ sub Check_Perl {
         #
         ($major, $minor) = $] =~ /^(\d+)\.(\d\d\d).*$/;
         Write_To_Log("Perl $major.$minor installed on system");
-        if ( $major != 5 ) {
+        if ( $major > $PERL_MIN_MAJOR_NUMBER ) {
+            print "Perl newer than minimum major number\n" if $debug;
+        }
+        elsif ( $major < $PERL_MIN_MAJOR_NUMBER ) {
             Write_To_Log("Unsupported Perl version $major.$minor");
+            Write_To_Log("Expecting Perl version $PERL_MIN_MAJOR_NUMBER.$PERL_MIN_MINOR_NUMBER or newer");
             print "\n*****\n";
             print "Unsupported Perl version $major.$minor\n";
+            print "Expecting Perl version $PERL_MIN_MAJOR_NUMBER.$PERL_MIN_MINOR_NUMBER or newer\n";
             print "\n*****\n";
             Exit_With_Pause(1);
         }
-        elsif ( $minor < 18 ) {
+        elsif ( $minor < $PERL_MIN_MINOR_NUMBER ) {
             Write_To_Log("Unsupported Perl version $major.$minor");
+            Write_To_Log("Expecting Perl version $PERL_MIN_MAJOR_NUMBER.$PERL_MIN_MINOR_NUMBER or newer");
             print "\n*****\n";
             print "Unsupported Perl version $major.$minor\n";
+            print "Expecting Perl version $PERL_MIN_MAJOR_NUMBER.$PERL_MIN_MINOR_NUMBER or newer\n";
             print "\n*****\n";
             Exit_With_Pause(1);
         }
@@ -1512,77 +1521,6 @@ sub Check_Win32_GUI {
             Write_To_Log("Win32::GUI version $version installed ");
         }
     }
-}
-
-#**********************************************************************
-#
-# Name: Register_Installation
-#
-# Parameters: none
-#
-# Description:
-#
-#   This function creates a registration file for this tool.
-#
-#**********************************************************************
-sub Register_Installation {
-
-    my ($host, $sec, $min, $hour, $mday, $mon, $year);
-    my ($version);
-
-    #
-    # Open registration file
-    #
-    Write_To_Log("Create registration file");
-    open (REGISTER, "> $program_dir/registration.txt") ||
-        die "Error, failed to create registration file\n";
-
-    #
-    # Get host name for this workstation
-    #
-    $host = hostname;
-
-    #
-    # Get current time/date
-    #
-    ( $sec, $min, $hour, $mday, $mon, $year ) =
-      ( localtime(time) )[ 0, 1, 2, 3, 4, 5 ];
-
-    #
-    # Get full year number (not just offset from 1900).
-    #
-    $year = 1900 + $year;
-
-    #
-    # Adjust the month from 0 based (ie. Jan = 0) to 1 based (ie. Jan = 1).
-    #
-    $mon++;
-
-    #
-    # Get WPSS_Tool release version
-    #
-    if ( open(VERSION, "$program_dir/version.txt") ) {
-        $version = <VERSION>;
-        chomp($version);
-        close(VERSION);
-    }
-    else {
-        $version = "Unknown";
-    }
-
-    #
-    # Write out registration information.
-    #   Host name, date, tool version, ...
-    #
-    printf(REGISTER "Date: %4d-%02d-%02d %02d:%02d\n", $year, $mon, $mday,
-           $hour, $min);
-    printf(REGISTER "Host: %s\n", $host);
-    printf(REGISTER "Version: %s\n", $version);
-
-    #
-    # Close registration file
-    #
-    close(REGISTER);
 }
 
 #**********************************************************************
@@ -1983,11 +1921,6 @@ if ($uninstall){
             mkdir("$program_dir/$dir", 0755);
         }
     }
-
-    #
-    # Register the tool installation
-    #
-    Register_Installation();
 
     #
     # Create desktop shortcuts
