@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 1728 $
+# $Revision: 1776 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2020-03-03 14:50:27 -0500 (Tue, 03 Mar 2020) $
+# $Date: 2020-04-07 10:25:08 -0400 (Tue, 07 Apr 2020) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -3682,13 +3682,32 @@ sub HTTP_Response_Callback {
     my ($url, $referrer, $mime_type, $resp) = @_;
 
     my ($content, $generated_content, $url_line, $language, $key, $list_ref);
-    my ($image_file, $image_file_path, $title, $result_object);
+    my ($image_file, $image_file_path, $title, $result_object, %skipped_urls);
+    my ($skipped, $count);
     my ($supporting_file) = 0;
 
     #
     # Check for debug flag file
     #
     Check_Debug_File();
+    
+    #
+    # If the tool is doing a site crawl, some URLs may have been
+    # skipped between the last URL and this one.  Get the list of
+    # skipped URLs.
+    #
+    %skipped_urls = Crawler_Get_Skipped_Urls();
+    $count = 0;
+    foreach $skipped (keys(%skipped_urls)) {
+        $count++;
+        Validator_GUI_Start_URL($crawled_urls_tab,
+                                String_Value("Skipped") .
+                                " $skipped -> " . $skipped_urls{$skipped},
+                                $referrer, $supporting_file,
+                                $document_count{$crawled_urls_tab} . ".$count");
+        Validator_GUI_End_URL($crawled_urls_tab, $skipped, $referrer,
+                              $supporting_file);
+    }
 
     #
     # If we are doing process monitoring, print out some resource
@@ -9716,6 +9735,15 @@ sub Open_Data_Callback {
     %tqa_error_url_count = ();
     %tqa_error_instance_count = ();
     Crawler_Abort_Crawl(0);
+
+    #
+    # Set user agent max size if it has not been specified.
+    #
+    $crawler_config_vars{"content_file"} = 1;
+    if ( ! defined($crawler_config_vars{"user_agent_max_size"}) ) {
+        $crawler_config_vars{"user_agent_max_size"} = 1000000000;
+    }
+    Crawler_Config(%crawler_config_vars);
     
     #
     # Clean up any temporary file from a possible previous analysis run
@@ -10447,15 +10475,6 @@ sub Setup_Open_Data_Tool_GUI {
                     "markup_validate_profile", \%markup_validate_profiles_languages);
 
     #
-    # Set user agent max size if it has not been specified.
-    #
-    $crawler_config_vars{"content_file"} = 1;
-    if ( ! defined($crawler_config_vars{"user_agent_max_size"}) ) {
-        $crawler_config_vars{"user_agent_max_size"} = 1000000000;
-    }
-    Crawler_Config(%crawler_config_vars);
-
-    #
     # Setup the validator GUI configuration options
     #
     Validator_GUI_Report_Option_Labels(\%report_options_labels,
@@ -10598,7 +10617,7 @@ chdir($program_dir);
 #
 # Perform program initialization
 #
-Initialize;
+Initialize();
 
 #
 # Are we setting up for Open Data mode ?
