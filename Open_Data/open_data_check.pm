@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 1742 $
+# $Revision: 1787 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_check.pm $
-# $Date: 2020-03-09 12:32:43 -0400 (Mon, 09 Mar 2020) $
+# $Date: 2020-04-27 09:24:46 -0400 (Mon, 27 Apr 2020) $
 #
 # Description:
 #
@@ -65,6 +65,8 @@ use Archive::Zip qw(:ERROR_CODES);
 use JSON::PP;
 use File::Basename;
 use DateTime;
+use Encode qw(decode encode);
+use HTML::Entities;
 
 #
 # Use WPSS_Tool program modules
@@ -78,6 +80,7 @@ use open_data_marc;
 use open_data_testcases;
 use open_data_txt;
 use open_data_xml;
+use readability;
 use tqa_result_object;
 use url_check;
 
@@ -144,6 +147,11 @@ my (@required_json_description_metadata) = (
     "result:portal_release_date",
     "resources:date_published",
 );
+
+#
+# Maximum Flesch-Kincaid grade score for dataset descriptions
+#
+my ($maximum_flesch_kincaid) = -1;
 
 #
 # Status values
@@ -220,9 +228,11 @@ my %string_table_en = (
     "Duplicate content checksum",      "Duplicate content checksum",
     "Duplicate resource URL",          "Duplicate resource URL",
     "en",                              "English",
+    "exceeds maximum",                  "exceeds maximum",
     "expecting",                       " expecting ",
     "Error in reading ZIP, status =",  "Error in reading ZIP, status =",
     "Fails validation",                "Fails validation",
+    "Flesch-Kincaid score for English description", "Flesch-Kincaid score for English description",
     "for",                             "for",
     "for files",                       "for files",
     "for resource",                    "for resource",
@@ -265,7 +275,7 @@ my %string_table_fr = (
     "Character encoding is not UTF-8", "L'encodage des caractères ne pas UTF-8",
     "Column count mismatch, found",    "Incompatibilité du comptage des colonnes, trouvée",
     "Column headings found in",        "Les en-têtes de colonne trouvés dans",
-    "Column minimum mismatch for column", "Les valeurs maximales de colonne ne correspondent pas pour la colonne",
+    "Column maximum mismatch for column", "Les valeurs maximales de colonne ne correspondent pas pour la colonne",
     "Column minimum mismatch for column", "Les valeurs minimales de colonne ne correspondent pas pour la colonne",
     "Column sum mismatch for column",  "Incompatibilité de somme de colonne pour la colonne",
     "Column type mismatch for column", "Incompatibilité du type de colonne pour la colonne",
@@ -279,9 +289,11 @@ my %string_table_fr = (
     "Duplicate content checksum",      "Somme de contrôle en double",
     "Duplicate resource URL",          "URL de ressources en double",
     "en",                              "anglais",
+    "exceeds maximum",                 "dépasse le maximum",
     "expecting",                       " expectant ",
     "Error in reading ZIP, status =",  "Erreur de lecture fichier ZIP, status =",
     "Fails validation",                "Échoue la validation",
+    "Flesch-Kincaid score for English description", "Score Flesch-Kincaid pour la description en anglais",
     "for",                             "pour",
     "for files",                       "pour les fichiers",
     "for resource",                    "pour ressource",
@@ -388,6 +400,7 @@ sub Set_Open_Data_Check_Debug {
     Set_Open_Data_XML_Debug($debug);
     Set_Open_Data_Testcase_Debug($debug);
     Set_Data_File_Object_Debug($debug);
+    Set_Readability_Debug($debug)
 }
 
 #**********************************************************************
@@ -548,6 +561,22 @@ sub Set_Open_Data_Check_Testcase_Data {
             # Save name in list
             #
             push(@data_file_required_lang, $value);
+        }
+    }
+    #
+    # Maximum Flesch-Kincaid readability score
+    #
+    elsif ( $testcase eq "OD_REG" ) {
+        ($type, $value) = split(/\s/, $data, 2);
+
+        #
+        # Is this the readability score ?
+        #
+        if ( defined($value) && ($type eq "FLESCH-KINCAID") ) {
+            #
+            # Save limit
+            #
+            $maximum_flesch_kincaid = $value;
         }
     }
     else {
@@ -2172,6 +2201,25 @@ sub Check_Days_Since_Update {
 
 #***********************************************************************
 #
+# Name: trim
+#
+# Parameters: string - a string value
+#
+# Description:
+#
+#   This function removes leading and trailing whitespace from
+# the supplied string.
+#
+#***********************************************************************
+sub trim {
+    my ($string) = @_;
+
+    $string =~ s/^\s+|\s+$//g;
+    return($string);
+}
+
+#***********************************************************************
+#
 # Name: Read_JSON_Open_Data_Description
 #
 # Parameters: resp - HTTP::Response object
@@ -2192,6 +2240,8 @@ sub Read_JSON_Open_Data_Description {
     my ($ref, $result, $resources, $value, $url, $type, $name);
     my ($eval_output, $i, $ref_type, $format, $content, $line);
     my ($pattern, $alternate, %urls, $url_added, $required, $class, $key);
+    my ($desc_en, $desc_fr, $translated, %readability_scores);
+    my ($flesch_kincaid);
     my ($have_error) = 0;
 
     #
@@ -2295,6 +2345,44 @@ sub Read_JSON_Open_Data_Description {
                                     $$result{"date_published"},
                                     $$result{"date_modified"});
         }
+    }
+    
+    #
+    # Get the dataset description
+    #
+    if ( (! $have_error) && defined($$result{"notes_translated"}) ) {
+        print "Get the notes_translated field\n" if $debug;
+        $translated = $$result{"notes_translated"};
+
+        #
+        # Is this a hash table ?
+        #
+        $ref_type = ref $translated;
+        if ( $ref_type eq "HASH" ) {
+            #
+            # Get the English and French descriptions
+            #
+            $desc_en = encode_entities(trim($$translated{"en"}));
+            $desc_fr = encode_entities(trim($$translated{"fr"}));
+            
+            #
+            # Check grade reading level of the description
+            #
+            %readability_scores = Readability_Grade_Text(\$desc_en);
+            $flesch_kincaid = $readability_scores{"Flesch-Kincaid"};
+            if ( ($flesch_kincaid != -1) ) {
+                print "Flesch-Kincaid score is $flesch_kincaid\n" if $debug;
+                if  ( $flesch_kincaid > $maximum_flesch_kincaid ) {
+                    Record_Result("OD_REG", -1, -1, "",
+                                  String_Value("Flesch-Kincaid score for English description") .
+                                  " $flesch_kincaid " .
+                                  String_Value("exceeds maximum") . " $maximum_flesch_kincaid");
+                }
+            }
+        }
+    }
+    else {
+        print "Missing title_translated item from results object\n" if $debug;
     }
 
     #
