@@ -56,6 +56,7 @@
 package epub_check;
 
 use strict;
+use Encode;
 use URI::URL;
 use File::Basename;
 use XML::Parser;
@@ -627,6 +628,32 @@ sub Check_Navigation_File {
     }
 }
 
+
+#***********************************************************************
+#
+# Name: Is_String_UTF_8
+#
+# Parameters: byte_string - a byte string
+#
+# Description:
+#
+#   This function checks to see if a string is UTF-8 or not.
+#
+#***********************************************************************
+sub Is_String_UTF_8 {
+    my ($byte_string) = @_;
+    
+    #
+    # Attempt to decode the byte string as UTF-8
+    #
+    if ( eval { decode( 'UTF-8', $byte_string, Encode::FB_CROAK ) } ) {
+        return(1);
+    }
+    else {
+        return(0);
+    }
+}
+    
 #***********************************************************************
 #
 # Name: EPUB_Check_Manifest_File
@@ -708,8 +735,12 @@ sub EPUB_Check_Manifest_File {
         $content .= $line;
     }
     close(CONTENT);
-
+    
     #
+    # Is content UTF-8?
+    #
+    if ( Is_String_UTF_8($content) ) {
+        #
     # Did we get any content ?
     #
     print "Content length = " . length($content) . "\n" if $debug;
@@ -745,7 +776,7 @@ sub EPUB_Check_Manifest_File {
     else {
         print "No content passed to EPUB_Check_Manifest_File\n" if $debug;
     }
-    
+    }
     #
     # Is this a navigation file? Additional checks must be performed
     # such as checking for table of contents.
