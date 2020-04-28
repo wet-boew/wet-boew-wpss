@@ -1,10 +1,10 @@
 #***********************************************************************
 #
-# Name:   pa11y_check.pm
+# Name:   tqa_pa11y.pm
 #
-# $Revision: 1746 $
+# $Revision: 1763 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_pa11y.pm $
-# $Date: 2020-03-10 12:57:47 -0400 (Tue, 10 Mar 2020) $
+# $Date: 2020-03-21 15:27:58 -0400 (Sat, 21 Mar 2020) $
 #
 # Description:
 #
