@@ -2,9 +2,9 @@
 #
 # Name:   epub_html_check.pm
 #
-# $Revision: 1769 $
+# $Revision: 1789 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/epub_html_check.pm $
-# $Date: 2020-04-07 10:11:30 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2020-04-27 09:29:10 -0400 (Mon, 27 Apr 2020) $
 #
 # Description:
 #
@@ -95,7 +95,7 @@ my ($have_text_handler, @text_handler_tag_list, $current_text_handler_tag);
 my ($page_break_tag_index, @text_handler_text_list);
 my (%epub_nav_types, $illustration_count, $inside_landmarks, $table_count);
 my (%landmark_types, $section_level, %section_heading_level);
-my (@heading_level_stack);
+my (@heading_level_stack, $current_end_tag);
 
 #
 # Required landmark type to be found in landmarks section
@@ -171,6 +171,7 @@ my ($epub_check_fail)       = 1;
 my %string_table_en = (
     "Content not allowed in page break", "Content not allowed in 'pagebreak'",
     "Duplicate item id",            "Duplicate <item> 'id'",
+    "Expecting end tag",            "Expecting end tag",
     "for page break",               "for 'pagebreak'",
     "found",                        "found",
     "Heading level",                "Heading level",
@@ -193,6 +194,7 @@ my %string_table_en = (
 my %string_table_fr = (
     "Content not allowed in page break", "Contenu non autorisé dans 'pagebreak'",
     "Duplicate item id",            "Doublon <item> 'id' ",
+    "Expecting end tag",            "Attendre la balise de fin",
     "for page break",               "pour le 'pagebreak'",
     "found",                        "trouvé",
     "Heading level",                "Niveau d'en-tête",
@@ -351,6 +353,47 @@ sub String_Value {
 
 #***********************************************************************
 #
+# Name: Get_Tag_XPath
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns a string of the tags leading to the current
+# tag.
+#
+#***********************************************************************
+sub Get_Tag_XPath {
+
+    my ($tag_item, $tag, $location, $tag_string);
+
+    #
+    # Get the tags starting with the top tag
+    #
+    print "Get_Tag_XPath, tag order stack size = " . scalar(@tag_stack) . "\n" if $debug;
+    foreach $tag_item (@tag_stack) {
+        #
+        # Add separator and tag to the path
+        #
+        $tag_string .= "/$tag_item";
+    }
+
+    #
+    # Do we have an end tag?
+    #
+    if ( $current_end_tag ne "" ) {
+        $tag_string .= "/$current_end_tag";
+    }
+
+    #
+    # Return the tag string
+    #
+    print "Xpath = $tag_string\n" if $debug;
+    return($tag_string);
+}
+
+#***********************************************************************
+#
 # Name: Print_Error
 #
 # Parameters: line - line number
@@ -406,6 +449,7 @@ sub Record_Result {
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
         $result_object->testcase_groups(TQA_Testcase_Groups($testcase));
+        $result_object->xpath(Get_Tag_XPath());
         push (@$results_list_addr, $result_object);
 
         #
@@ -1476,6 +1520,7 @@ sub Start_Handler {
         print "Add tag to tag stack\n" if $debug;
         push(@tag_stack, $tagname);
     }
+    $current_end_tag = "";
 
     #
     # Check attributes
@@ -1567,6 +1612,11 @@ sub End_Handler {
     }
     
     #
+    # Save current end tag name
+    #
+    $current_end_tag = $tagname;
+
+    #
     # Pop last tag from tag stack
     #
     if ( @tag_stack > 0 ) {
@@ -1587,6 +1637,17 @@ sub End_Handler {
     elsif ( $tagname eq "section" ) {
         End_Section_Tag_Handler($self, $line, $column, $text);
     }
+
+    #
+    # Pop off the last start tag, it should match the end tag
+    #
+    if ( $last_tag ne $current_end_tag ) {
+        print "Start/End tags out of order, found end $tagname, expecting $last_tag\n" if $debug;
+        Record_Result("WCAG_2.0-H74", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Expecting end tag") . " </$last_tag> " .
+                      String_Value("found") . " </$tagname>");
+   }
 }
 
 #***********************************************************************
@@ -1657,6 +1718,7 @@ sub EPUB_HTML_Check {
         #
         # Initialize parser global variables
         #
+        $current_end_tag = "";
         $current_text_handler_tag = "";
         %epub_nav_types = ();
         $first_heading = 0;

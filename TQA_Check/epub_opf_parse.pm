@@ -2,9 +2,9 @@
 #
 # Name:   epub_opf_parse.pm
 #
-# $Revision: 1769 $
+# $Revision: 1789 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/epub_opf_parse.pm $
-# $Date: 2020-04-07 10:11:30 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2020-04-27 09:29:10 -0400 (Mon, 27 Apr 2020) $
 #
 # Description:
 #
@@ -96,7 +96,7 @@ my (%epub_check_profile_map, $current_epub_check_profile, $current_url);
 my ($spine_count, %item_id, %item_idref, %metadata_found, $metadata_tag_found);
 my (%meta_refines, $current_refines, %title_ids, $current_title_id);
 my (%id_location, $found_nav, $nav_item_object, $found_manifest);
-my ($found_spine, $linear_spine_itemref_count);
+my ($found_spine, $linear_spine_itemref_count, @tag_stack, $current_end_tag);
 my (@required_metadata) = ("dc:identifier", "dc:language", "dc:title");
 my (%required_property) = (
   # property name
@@ -144,8 +144,10 @@ my %string_table_en = (
     "Duplicate file in spine",                     "Duplicate file in <spine>",
     "Duplicate id",                                "Duplicate 'id'",
     "expecting",                                   "expecting",
+    "Expecting end tag",                           "Expecting end tag",
     "expecting one of",                            "expecting one of",
     "Fails validation",                            "Fails validation",
+    "found",                                       "found",
     "Invalid EPUB version",                        "Invalid EPUB version",
     "Invalid media type for navigation file",       "Invalid 'media-type' for navigation file",
     "Invalid schema:accessibilityHazard property value", "Invalid 'schema:accessibilityHazard' property value",
@@ -185,8 +187,10 @@ my %string_table_fr = (
     "Duplicate file in spine",                     "Dupliquer le fichier dans <spine>",
     "Duplicate id",                                "Doublon 'id' ",
     "expecting",                                   "attendre",
+    "Expecting end tag",                           "Attendre la balise de fin",
     "expecting one of",                            "attend un de",
     "Fails validation",                            "Échoue la validation",
+    "found",                                       "trouvé",
     "Invalid EPUB version",                        "Version EPUB invalide",
     "Invalid media type for navigation file",      "Valeur de 'media-type' non valide pour le fichier de navigation",
     "Invalid schema:accessibilityHazard property value", "Valeur de propriété 'schema:accessibilityHazard' non valide",
@@ -394,6 +398,47 @@ sub String_Value {
 
 #***********************************************************************
 #
+# Name: Get_Tag_XPath
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns a string of the tags leading to the current
+# tag.
+#
+#***********************************************************************
+sub Get_Tag_XPath {
+
+    my ($tag_item, $tag, $location, $tag_string);
+
+    #
+    # Get the tags starting with the top tag
+    #
+    print "Get_Tag_XPath, tag order stack size = " . scalar(@tag_stack) . "\n" if $debug;
+    foreach $tag_item (@tag_stack) {
+        #
+        # Add separator and tag to the path
+        #
+        $tag_string .= "/$tag_item";
+    }
+
+    #
+    # Do we have an end tag?
+    #
+    if ( $current_end_tag ne "" ) {
+        $tag_string .= "/$current_end_tag";
+    }
+
+    #
+    # Return the tag string
+    #
+    print "Xpath = $tag_string\n" if $debug;
+    return($tag_string);
+}
+
+#***********************************************************************
+#
 # Name: Print_Error
 #
 # Parameters: line - line number
@@ -457,6 +502,7 @@ sub Record_Result {
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
         $result_object->testcase_groups(TQA_Testcase_Groups($testcase));
+        $result_object->xpath(Get_Tag_XPath());
         push (@$results_list_addr, $result_object);
 
         #
@@ -1699,6 +1745,12 @@ sub Start_Handler {
     my ($self, $tagname, %attr) = @_;
    
     my ($key, $value);
+    
+    #
+    # Add tag name to tag stack.
+    #
+    push(@tag_stack, $tagname);
+    $current_end_tag = "";
 
     #
     # Check common attributes
@@ -1802,6 +1854,13 @@ sub Char_Handler {
 sub End_Handler {
     my ($self, $tagname) = @_;
 
+    my ($last_start);
+    
+    #
+    # Set end tag name
+    #
+    $current_end_tag = $tagname;
+    
     #
     # Check for dc:identifier tag
     #
@@ -1851,6 +1910,18 @@ sub End_Handler {
     elsif ( $tagname eq "spine" ) {
         End_Spine_Tag_Handler($self);
     }
+    
+    #
+    # Pop off the last start tag, it should match the end tag
+    #
+    $last_start = pop(@tag_stack);
+    if ( $last_start ne $current_end_tag ) {
+        print "Start/End tags out of order, found end $tagname, expecting $last_start\n" if $debug;
+        Record_Result("WCAG_2.0-H74", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Expecting end tag") . " </$last_start> " .
+                      String_Value("found") . " </$tagname>");
+   }
 }
 
 #***********************************************************************
@@ -1910,6 +1981,8 @@ sub EPUB_OPF_Parse {
     print "EPUB_OPF_Parse $filename in directory $epub_uncompressed_dir/\n" if $debug;
     $results_list_addr = \@tqa_results;
     $current_epub_check_profile = $epub_check_profile_map{$profile};
+    @tag_stack = ();
+    $current_end_tag = "";
         
     #
     # Save URL in global variable

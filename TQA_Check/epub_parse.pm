@@ -2,9 +2,9 @@
 #
 # Name:   epub_parse.pm
 #
-# $Revision: 1769 $
+# $Revision: 1789 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/epub_parse.pm $
-# $Date: 2020-04-07 10:11:30 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2020-04-27 09:29:10 -0400 (Mon, 27 Apr 2020) $
 #
 # Description:
 #
@@ -96,6 +96,7 @@ my (%epub_check_profile_map, $current_epub_check_profile, $current_url);
 my ($save_text_between_tags, $saved_text, @opf_file_names);
 my ($in_rootfiles, $in_container, $found_declaration, $in_links);
 my ($links_tag_count, $rootfile_tag_count, $link_tag_count);
+my (@tag_stack, $current_end_tag);
 
 #
 # Status values
@@ -121,6 +122,7 @@ my %string_table_en = (
     "Encrypted file found in EPUB",                 "Encrypted file found in EPUB file",
     "Error in reading EPUB, status =",              "Error in reading EPUB, status =",
     "expecting",                                    "expecting",
+    "Expecting end tag",                            "Expecting end tag",
     "Fails validation",                             "Fails validation",
     "found",                                        "found",
     "Found META-INF/rights.xml file",               "Found META-INF/rights.xml file",
@@ -148,6 +150,7 @@ my %string_table_fr = (
     "Encrypted file found in EPUB",                 "Fichier chiffré trouvé dans le fichier EPUB",
     "Error in reading EPUB, status =",              "Erreur de lecture fichier EPUB, status =",
     "expecting",                                    "valeur attendue",
+    "Expecting end tag",                            "Attendre la balise de fin",
     "Fails validation",                             "Échoue la validation",
     "found",                                        "trouvé",
     "Found META-INF/rights.xml file",               "Fichier trouvé META-INF/rights.xml",
@@ -309,6 +312,47 @@ sub String_Value {
 
 #***********************************************************************
 #
+# Name: Get_Tag_XPath
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns a string of the tags leading to the current
+# tag.
+#
+#***********************************************************************
+sub Get_Tag_XPath {
+
+    my ($tag_item, $tag, $location, $tag_string);
+
+    #
+    # Get the tags starting with the top tag
+    #
+    print "Get_Tag_XPath, tag order stack size = " . scalar(@tag_stack) . "\n" if $debug;
+    foreach $tag_item (@tag_stack) {
+        #
+        # Add separator and tag to the path
+        #
+        $tag_string .= "/$tag_item";
+    }
+
+    #
+    # Do we have an end tag?
+    #
+    if ( $current_end_tag ne "" ) {
+        $tag_string .= "/$current_end_tag";
+    }
+
+    #
+    # Return the tag string
+    #
+    print "Xpath = $tag_string\n" if $debug;
+    return($tag_string);
+}
+
+#***********************************************************************
+#
 # Name: Print_Error
 #
 # Parameters: line - line number
@@ -364,6 +408,7 @@ sub Record_Result {
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
         $result_object->testcase_groups(TQA_Testcase_Groups($testcase));
+        $result_object->xpath(Get_Tag_XPath());
         push (@$results_list_addr, $result_object);
 
         #
@@ -801,6 +846,12 @@ sub Start_Handler {
     my ($key, $value);
 
     #
+    # Add tag name to tag stack.
+    #
+    push(@tag_stack, $tagname);
+    $current_end_tag = "";
+
+    #
     # Check for container tag.
     #
     print "Start_Handler tag $tagname\n" if $debug;
@@ -873,6 +924,13 @@ sub Char_Handler {
 sub End_Handler {
     my ($self, $tagname) = @_;
 
+    my ($last_start);
+
+    #
+    # Set end tag name
+    #
+    $current_end_tag = $tagname;
+
     #
     # Check for container tag
     #
@@ -898,6 +956,18 @@ sub End_Handler {
     elsif ( $tagname eq "rootfiles" ) {
         End_Rootfiles_Tag_Handler($self);
     }
+
+    #
+    # Pop off the last start tag, it should match the end tag
+    #
+    $last_start = pop(@tag_stack);
+    if ( $last_start ne $current_end_tag ) {
+        print "Start/End tags out of order, found end $tagname, expecting $last_start\n" if $debug;
+        Record_Result("WCAG_2.0-H74", $self->current_line,
+                      $self->current_column, $self->original_string,
+                      String_Value("Expecting end tag") . " </$last_start> " .
+                      String_Value("found") . " </$tagname>");
+   }
 }
 
 #***********************************************************************
@@ -963,6 +1033,8 @@ sub EPUB_Parse_Get_OPF_File {
     $current_epub_check_profile = $epub_check_profile_map{$profile};
     $results_list_addr = \@tqa_results_list;
     $epub_uncompressed_dir = "";
+    @tag_stack = ();
+    $current_end_tag = "";
 
     #
     # Save URL in global variable
