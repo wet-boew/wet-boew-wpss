@@ -1855,7 +1855,13 @@ if ( $^O =~ /MSWin32/ ) {
     # Not Windows (should be Linux).
     #
     $is_windows = 0;
+    
+    #
+    # Minimum Perl minor version is 0.
+    #
+    $PERL_MIN_MINOR_NUMBER = 0;
 }
+
 #
 # Get the language of this system
 #
