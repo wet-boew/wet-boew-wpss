@@ -162,7 +162,7 @@ my ($csv_results_fh, $csv_results_file_name, $csv_object);
 my (@csv_results_fields) = ("type", "url", "testcase", "description", "landmark",
                             "landmark_marker", "line_no", "column_no", "page_no",
                             "source_line", "message", "help_url", "impact",
-                            "tags");
+                            "tags","xpath");
 if ( $have_threads ) {
     share(\$csv_results_file_name);
 }
@@ -535,10 +535,10 @@ sub Print_TQA_Result_to_CSV {
     push(@fields, substr($result_object->message, 0, 10240));
 
     #
-    # Add help URL field, impact and tags
+    # Add help URL field, impact, tags and xpath
     #
     push(@fields, $result_object->help_url, $result_object->impact,
-         $result_object->tags);
+         $result_object->tags,$result_object->xpath);
 
     #
     # Write fields to the CSV file.
@@ -638,6 +638,14 @@ sub Validator_GUI_Print_TQA_Result {
         if ( $result_object->tags ne "" ) {
             Update_Results_Tab($tab_label, String_Value("4 spaces") .
                                "Tags: " . $result_object->tags);
+        }
+
+        #
+        # Print xpath, if we have any
+        #
+        if ( $result_object->xpath ne "" ) {
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "xpath: " . $result_object->xpath);
         }
 
         #

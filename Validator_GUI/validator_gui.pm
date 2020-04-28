@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 1765 $
+# $Revision: 1793 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2020-03-21 15:29:57 -0400 (Sat, 21 Mar 2020) $
+# $Date: 2020-04-27 09:31:44 -0400 (Mon, 27 Apr 2020) $
 #
 # Description:
 #
@@ -199,7 +199,7 @@ my ($csv_results_fh, $csv_results_file_name, $csv_object);
 my (@csv_results_fields) = ("type", "url", "testcase", "description", "landmark",
                             "landmark_marker", "line_no", "column_no", "page_no",
                             "source_line", "message", "help_url", "impact",
-                            "tags");
+                            "tags","xpath");
 if ( $have_threads ) {
     share(\$csv_results_file_name);
 }
@@ -797,11 +797,11 @@ sub Print_TQA_Result_to_CSV {
     push(@fields, substr($result_object->message, 0, 10240));
 
     #
-    # Add help URL field, impact and tags
+    # Add help URL field, impact, tags and xpath
     #
     push(@fields, $result_object->help_url, $result_object->impact,
-         $result_object->tags);
-
+         $result_object->tags,$result_object->xpath);
+         
     #
     # Write fields to the CSV file.
     #
@@ -898,6 +898,14 @@ sub Validator_GUI_Print_TQA_Result {
                                "Tags: " . $result_object->tags);
         }
         
+        #
+        # Print xpath, if we have any
+        #
+        if ( $result_object->xpath ne "" ) {
+            Update_Results_Tab($tab_label, String_Value("4 spaces") .
+                               "xpath: " . $result_object->xpath);
+        }
+
         #
         # Print error message
         #
