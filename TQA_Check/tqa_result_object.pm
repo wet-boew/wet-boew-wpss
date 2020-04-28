@@ -24,6 +24,7 @@
 #    column_no - source column number
 #    description - testcase description
 #    help_url - testcase help URL
+#    impact - get/set impact
 #    landmark - get/set landmark
 #    landmark_marker - get/set landmark marker
 #    line_no - source line number
@@ -31,9 +32,11 @@
 #    page_no - source page number
 #    source_line - source line
 #    status - testcase status (pass/fail)
+#    tags - get/set tags
 #    testcase - testcase id
 #    testcase_groups - testcase_groups list for testcase
 #    url - URL of document
+#    xpath - get/set tag xpath
 #
 # Terms and Conditions of Use
 # 
@@ -156,15 +159,17 @@ sub new {
     $self->{"description"} = $description;
     $self->{"column_no"} = $column_no;
     $self->{"help_url"} = "";
+    $self->{"impact"} = "";
     $self->{"landmark"} = "";
     $self->{"landmark_marker"} = "";
     $self->{"line_no"} = $line_no;
-    $self->{"message"} = $message;
     $self->{"page_no"} = -1;
     $self->{"status"} = $status;
+    $self->{"tags"} = "";
     $self->{"testcase"} = $testcase;
     $self->{"testcase_groups"} = "";
     $self->{"url"} = $url;
+    $self->{"xpath"} = "";
 
     #
     # Check length of source line
@@ -207,6 +212,13 @@ sub new {
         #
         $self->{"source_line"} = substr($source_line, $start_col,
                                         $MAX_SOURCE_LINE_SIZE);
+    }
+
+    if ( defined($message) ) {
+        $self->{"message"} = $message;
+    }
+    else {
+          $self->{"message"} = "";
     }
 
     #
@@ -310,6 +322,35 @@ sub help_url {
     }
     else {
         return($self->{"help_url"});
+    }
+}
+
+#********************************************************
+#
+# Name: impact
+#
+# Parameters: self - class reference
+#             impact - impact (optional)
+#
+# Description:
+#
+#   This function either sets or returns the impact
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub impact {
+    my ($self, $impact) = @_;
+
+    #
+    # Was a impact value supplied ?
+    #
+    if ( defined($impact) ) {
+        $self->{"impact"} = $impact;
+    }
+    else {
+        return($self->{"impact"});
     }
 }
 
@@ -518,6 +559,35 @@ sub status {
 
 #********************************************************
 #
+# Name: tags
+#
+# Parameters: self - class reference
+#             tags - tags (optional)
+#
+# Description:
+#
+#   This function either sets or returns the tags
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub tags {
+    my ($self, $tags) = @_;
+
+    #
+    # Was a tags value supplied ?
+    #
+    if ( defined($tags) ) {
+        $self->{"tags"} = $tags;
+    }
+    else {
+        return($self->{"tags"});
+    }
+}
+
+#********************************************************
+#
 # Name: testcase
 #
 # Parameters: self - class reference
@@ -604,6 +674,35 @@ sub url {
     }
     else {
         return($self->{"url"});
+    }
+}
+
+#********************************************************
+#
+# Name: xpath
+#
+# Parameters: self - class reference
+#             path - path for tags (optional)
+#
+# Description:
+#
+#   This function either sets or returns the tag_path
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub xpath {
+    my ($self, $path) = @_;
+
+    #
+    # Was a path value supplied ?
+    #
+    if ( defined($path) ) {
+        $self->{"xpath"} = $path;
+    }
+    else {
+        return($self->{"xpath"});
     }
 }
 
