@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 1722 $
+# $Revision: 1788 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/html_check.pm $
-# $Date: 2020-02-17 15:37:42 -0500 (Mon, 17 Feb 2020) $
+# $Date: 2020-04-27 09:28:13 -0400 (Mon, 27 Apr 2020) $
 #
 # Description:
 #
@@ -71,9 +71,9 @@ use javascript_check;
 use javascript_validate;
 use language_map;
 use tqa_pa11y;
+use tqa_deque_axe;
 use pdf_check;
 use textcat;
-use tqa_pa11y;
 use tqa_result_object;
 use tqa_tag_object;
 use tqa_testcases;
@@ -165,7 +165,7 @@ my (%tqa_check_profile_map, $current_tqa_check_profile,
     $video_in_figure_with_no_caption, $parent_tag, %frame_title_location,
     @heading_level_stack, $found_h1, %landmark_count, $inside_frame,
     %frame_landmark_count, @tag_roles_required_children_roles,
-    $current_required_children_roles,
+    $current_required_children_roles, $current_end_tag,
 );
 
 my ($is_valid_html) = -1;
@@ -1817,7 +1817,7 @@ my %string_table_fr = (
     "End tag",                         "Balise de fin",
     "expected",                        "attendu",
     "expecting a non-blank text value", "attendant une valeur de texte non vide",
-    "Expecting end tag",               "Expecting end tag",
+    "Expecting end tag",               "Attendre la balise de fin",
     "expecting ID value",              "attente d'une valeur d'ID",
     "expecting integer value",         "attendant une valeur entière",
     "expecting numerical value",       "attente d'une valeur numérique",
@@ -2035,6 +2035,7 @@ sub Set_HTML_Check_Debug {
     Pa11y_Check_Debug($debug);
     HTML_Landmark_Debug($debug);
     XML_TTML_Text_Debug($debug);
+    Deque_AXE_Debug($debug);
 }
 
 #**********************************************************************
@@ -2071,6 +2072,7 @@ sub Set_HTML_Check_Language {
     # Set language for supporting modules
     #
     Set_Pa11y_Check_Language($language);
+    Set_Deque_AXE_Language($language);
 }
 
 #**********************************************************************
@@ -2132,6 +2134,7 @@ sub Set_HTML_Check_Testcase_Data {
     # Set testcase data for supporting modules
     #
     Set_Pa11y_Check_Testcase_Data($testcase, $data);
+    Set_Deque_AXE_Testcase_Data($testcase, $data);
 }
 
 #***********************************************************************
@@ -2166,6 +2169,7 @@ sub Set_HTML_Check_Test_Profile {
     # Set testcase data for supporting modules
     #
     Set_Pa11y_Check_Test_Profile($profile, $tqa_checks);
+    Set_Deque_AXE_Test_Profile($profile, $tqa_checks);
 }
 
 #***********************************************************************
@@ -2225,15 +2229,6 @@ sub Initialize_Test_Results {
     $results_list_addr = $local_results_list_addr;
 
     #
-    # Check to see if we were told that this document is not
-    # valid HTML
-    #
-    if ( $is_valid_html == 0 ) {
-        Record_Result("WCAG_2.0-G134", -1, 0, "",
-                      String_Value("Fails validation"));
-    }
-
-    #
     # Initialize other global variables
     #
     %abbr_acronym_text_title_lang_location = ();
@@ -2253,6 +2248,7 @@ sub Initialize_Test_Results {
     $current_a_href        = "";
     $current_a_title       = "";
     $current_content_lang_code = "";
+    $current_end_tag       = "";
     $content_heading_count = 0;
     $current_heading_level = undef;
     $current_landmark      = "";
@@ -2374,6 +2370,15 @@ sub Initialize_Test_Results {
     $implicit_end_tag_end_handler = \%implicit_html4_end_tag_end_handler;
     $implicit_end_tag_start_handler = \%implicit_html4_end_tag_start_handler;
     $valid_rel_values = \%valid_xhtml_rel_values;
+
+    #
+    # Check to see if we were told that this document is not
+    # valid HTML
+    #
+    if ( $is_valid_html == 0 ) {
+        Record_Result("WCAG_2.0-G134", -1, 0, "",
+                      String_Value("Fails validation"));
+    }
 }
 
 #***********************************************************************
@@ -2432,6 +2437,7 @@ sub Record_Result {
     my ($testcase_list, $line, $column, $text, $error_string) = @_;
 
     my ($result_object, $source_line, $new_column, $testcase, $id);
+    my ($impact);
 
     #
     # Check for a possible list of testcase identifiers.  The first
@@ -2492,7 +2498,16 @@ sub Record_Result {
         $result_object->testcase_groups(TQA_Testcase_Groups($testcase));
         $result_object->landmark($current_landmark);
         $result_object->landmark_marker($landmark_marker);
+        $result_object->xpath(Get_Tag_XPath());
         push (@$results_list_addr, $result_object);
+        
+        #
+        # Add impact if it is not blank.
+        #
+        $impact = TQA_Testcase_Impact($testcase);
+        if ( $impact ne "" ) {
+            $result_object->impact($impact);
+        }
 
         #
         # Print error string to stdout
@@ -13928,6 +13943,53 @@ sub Check_Attributes {
 
 #***********************************************************************
 #
+# Name: Get_Tag_XPath
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns a string of the tags leading to the current
+# tag.
+#
+#***********************************************************************
+sub Get_Tag_XPath {
+
+    my ($tag_item, $tag, $location, $tag_string);
+
+    #
+    # Get the tags starting with the top tag
+    #
+    print "Get_Tag_XPath, tag order stack size = " . scalar(@tag_order_stack) . "\n" if $debug;
+    foreach $tag_item (@tag_order_stack) {
+        #
+        # Get the tag and location
+        #
+        $tag = $tag_item->tag;
+        $location = $tag_item->line_no . ":" . $tag_item->column_no;
+        
+        #
+        # Add separator and tag to the path
+        #
+        $tag_string .= "/$tag";
+    }
+    
+    #
+    # Do we have an end tag?
+    #
+    if ( $current_end_tag ne "" ) {
+        $tag_string .= "/$current_end_tag";
+    }
+    
+    #
+    # Return the tag string
+    #
+    print "Xpath = $tag_string\n" if $debug;
+    return($tag_string);
+}
+
+#***********************************************************************
+#
 # Name: Check_Tag_Nesting
 #
 # Parameters: tagname - tag name
@@ -14576,6 +14638,35 @@ sub Start_Handler {
                                                 $skipped_text, $attrseq, @attr);
 
     #
+    # Check tag nesting, are there any unclosed tags?
+    #
+    Check_Tag_Nesting($tagname, $line, $column, $text);
+
+    #
+    # Get this tag's parent tag name
+    #
+    if ( defined($current_tag_object) ) {
+        $parent_tag = $current_tag_object->tag();
+    }
+    else {
+        $parent_tag = "";
+    }
+
+    #
+    # Create a new tag object and clear end tag name
+    #
+    $parent_tag_object = $current_tag_object;
+    $current_tag_object = tqa_tag_object->new($tagname, $line, $column,
+                                              \%attr_hash);
+    $current_end_tag = "";
+    
+    #
+    # Add this tag to the tag stack
+    #
+    push(@tag_order_stack, $current_tag_object);
+    print "Start_Handler, tag order stack size = " . scalar(@tag_order_stack) . "\n" if $debug;
+
+    #
     # Save skipped text in a global variable for use by other
     # functions.
     #
@@ -14605,33 +14696,10 @@ sub Start_Handler {
     Check_For_Change_In_Language($tagname, $line, $column, $text, %attr_hash);
 
     #
-    # Check tag nesting
-    #
-    Check_Tag_Nesting($tagname, $line, $column, $text);
-
-    #
     # Check to see if we have multiple instances of tags that we
     # can have only 1 instance of.
     #
     Check_Multiple_Instances_of_Tag($tagname, $line, $column, $text);
-
-    #
-    # Save current tag as the parent tag
-    #
-    if ( defined($current_tag_object) ) {
-        $parent_tag = $current_tag_object->tag();
-    }
-    else {
-        $parent_tag = "";
-    }
-    
-    #
-    # Create a new tag object
-    #
-    $parent_tag_object = $current_tag_object;
-    $current_tag_object = tqa_tag_object->new($tagname, $line, $column,
-                                              \%attr_hash);
-    push(@tag_order_stack, $current_tag_object);
 
     #
     # Compute the current landmark value.  If the new value
@@ -16432,6 +16500,11 @@ sub End_Handler {
     my (%attr_hash) = @attr;
     my (@anchor_text_list, $n, $tag_text, $last_start_tag);
     my ($last_item, $tag_item);
+    
+    #
+    # Save current end tag name
+    #
+    $current_end_tag = $tagname;
 
     #
     # Check end tag order, does this end tag close the last open
@@ -17494,7 +17567,6 @@ sub HTML_Check {
     # Did we get any content ?
     #
     if ( length($$content) > 0 ) {
-    
         #
         # Are we doing Pa11y checks (https://github.com/pa11y/pa11y) ?
         # Can only be done if we are not logged into an application
@@ -17507,7 +17579,20 @@ sub HTML_Check {
                 push(@tqa_results_list, $result_object);
             }
         }
-        
+
+        #
+        # Are we doing Deque Axe checks (https://github.com/dequelabs/axe-core) ?
+        # Can only be done if we are not logged into an application
+        #
+        if ( (! $logged_in) && defined($$current_tqa_check_profile{"AXE"}) ) {
+            print "Run Deque Axe checks\n" if $debug;
+            @other_results = Deque_AXE_Check($this_url, $language, $profile, $resp, $content);
+
+            foreach $result_object (@other_results) {
+                push(@tqa_results_list, $result_object);
+            }
+        }
+
         #
         # Get content language
         #
