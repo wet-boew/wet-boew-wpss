@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 1612 $
+# $Revision: 1791 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2019-12-02 15:14:34 -0500 (Mon, 02 Dec 2019) $
+# $Date: 2020-04-27 09:30:18 -0400 (Mon, 27 Apr 2020) $
 #
 # Description:
 #
@@ -16,6 +16,7 @@
 #     TQA_Testcase_Description
 #     TQA_Testcase_Groups
 #     TQA_Testcase_Group_Count
+#     TQA_Testcase_Impact
 #     TQA_Testcase_Read_URL_Help_File
 #     TQA_Testcase_Success_Criteria_Description
 #     TQA_Testcase_URL
@@ -69,6 +70,7 @@ BEGIN {
                   TQA_Testcase_Description
                   TQA_Testcase_Groups
                   TQA_Testcase_Group_Count
+                  TQA_Testcase_Impact
                   TQA_Testcase_Read_URL_Help_File
                   TQA_Testcase_Success_Criteria_Description
                   TQA_Testcase_URL
@@ -729,6 +731,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-H45", "1.1.1",
 "WCAG_2.0-H46", "1.1.1",
 "WCAG_2.0-H48", "1.3.1",
+"WCAG_2.0-H51", "1.3.1",
 "WCAG_2.0-H53", "1.1.1, 1.2.3",
 "WCAG_2.0-H57", "3.1.1",
 "WCAG_2.0-H58", "3.1.2",
@@ -958,6 +961,113 @@ my (%testcase_sc_description_fr) = (
 );
 
 #
+# Create table of testcase id and the level of the test.
+#
+my (%testcase_level_table) = (
+"WCAG_2.0-ARIA1", "A",
+"WCAG_2.0-ARIA2", "A",
+"WCAG_2.0-ARIA6", "A",
+"WCAG_2.0-ARIA7", "A",
+"WCAG_2.0-ARIA8", "A",
+"WCAG_2.0-ARIA9", "A",
+"WCAG_2.0-ARIA10", "A",
+"WCAG_2.0-ARIA12", "A",
+"WCAG_2.0-ARIA13", "A",
+"WCAG_2.0-ARIA15", "A",
+"WCAG_2.0-ARIA16", "A",
+"WCAG_2.0-ARIA17", "A",
+"WCAG_2.0-ARIA18", "A",
+"WCAG_2.0-C28", "AA",
+"WCAG_2.0-F2", "A",
+"WCAG_2.0-F3", "A",
+"WCAG_2.0-F4", "A",
+"WCAG_2.0-F8", "A",
+"WCAG_2.0-F16", "A",
+"WCAG_2.0-F17", "A",
+"WCAG_2.0-F25", "A",
+"WCAG_2.0-F30", "A",
+"WCAG_2.0-F32", "A",
+"WCAG_2.0-F38", "A",
+"WCAG_2.0-F39", "A",
+"WCAG_2.0-F40", "A",
+"WCAG_2.0-F41", "A",
+"WCAG_2.0-F42", "A",
+"WCAG_2.0-F43", "A",
+"WCAG_2.0-F44", "A",
+"WCAG_2.0-F46", "A",
+"WCAG_2.0-F47", "A",
+"WCAG_2.0-F54", "A",
+"WCAG_2.0-F55", "A",
+"WCAG_2.0-F58", "A",
+"WCAG_2.0-F62", "A",
+"WCAG_2.0-F65", "A",
+"WCAG_2.0-F66", "AA",
+"WCAG_2.0-F68", "A",
+"WCAG_2.0-F70", "A",
+"WCAG_2.0-F77", "A",
+"WCAG_2.0-F87", "A",
+"WCAG_2.0-F89", "A",
+"WCAG_2.0-F92", "A",
+"WCAG_2.0-G18", "AA",
+"WCAG_2.0-G19", "A",
+"WCAG_2.0-G87", "A",
+#"WCAG_2.0-G94", "A",
+"WCAG_2.0-G115", "A",
+"WCAG_2.0-G125", "AA",
+"WCAG_2.0-G130", "AA",
+"WCAG_2.0-G131", "A",
+"WCAG_2.0-G134", "A",
+"WCAG_2.0-G142", "AA",
+"WCAG_2.0-G145", "AA",
+"WCAG_2.0-G152", "A",
+"WCAG_2.0-G158", "A",
+"WCAG_2.0-G197", "AA",
+"WCAG_2.0-H2", "A",
+"WCAG_2.0-H24", "A",
+"WCAG_2.0-H25", "A",
+"WCAG_2.0-H27", "A",
+"WCAG_2.0-H30", "A",
+"WCAG_2.0-H32", "A",
+"WCAG_2.0-H33", "A",
+"WCAG_2.0-H35", "A",
+"WCAG_2.0-H36", "A",
+"WCAG_2.0-H39", "A",
+"WCAG_2.0-H42", "A",
+"WCAG_2.0-H43", "A",
+"WCAG_2.0-H44", "A",
+"WCAG_2.0-H45", "A",
+"WCAG_2.0-H46", "A",
+"WCAG_2.0-H48", "A",
+"WCAG_2.0-H51", "A",
+"WCAG_2.0-H53", "A",
+"WCAG_2.0-H57", "A",
+"WCAG_2.0-H58", "AA",
+"WCAG_2.0-H64", "A",
+"WCAG_2.0-H65", "A",
+"WCAG_2.0-H67", "A",
+"WCAG_2.0-H71", "A",
+"WCAG_2.0-H73", "A",
+"WCAG_2.0-H74", "A",
+"WCAG_2.0-H88", "A",
+"WCAG_2.0-H91", "A",
+"WCAG_2.0-H94", "A",
+"WCAG_2.0-PDF1", "A",
+"WCAG_2.0-PDF2", "AA",
+"WCAG_2.0-PDF2", "A",
+"WCAG_2.0-PDF12", "A",
+"WCAG_2.0-PDF16", "A",
+"WCAG_2.0-PDF18", "A",
+"WCAG_2.0-SC1.3.1", "A",
+"WCAG_2.0-SC1.4.4", "AA",
+"WCAG_2.0-SC2.4.3", "A",
+"WCAG_2.0-SC3.1.1", "A",
+"WCAG_2.0-SC4.1.2", "A",
+"WCAG_2.0-SCR20", "A",
+"WCAG_2.0-SCR21", "A",
+"WCAG_2.0-Guideline41", "A",
+);
+
+#
 # Default messages to English
 #
 my ($testcase_sc_description_table) = \%testcase_sc_description_en;
@@ -1171,6 +1281,33 @@ sub TQA_Testcase_Group_Count {
         #
         # No testcase group count table entry, return empty string.
         #
+        return("");
+    }
+}
+
+#**********************************************************************
+#
+# Name: TQA_Testcase_Impact
+#
+# Parameters: key - testcase id
+#
+# Description:
+#
+#   This function returns the value in the testcase level
+# table for the specified key.  If there is no entry in the table
+# an empty string is returned.
+#
+#**********************************************************************
+sub TQA_Testcase_Impact {
+    my ($key) = @_;
+    
+    #
+    # Do we have an entry in the level table for this testcase id?
+    #
+    if ( defined($testcase_level_table{$key}) ) {
+        return($testcase_level_table{$key});
+    }
+    else {
         return("");
     }
 }
