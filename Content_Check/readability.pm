@@ -194,7 +194,7 @@ my (%implicit_end_tag_end_handler) = (
 #
 # Minimum number of characters needed to analyse
 #
-my ($MINIMUM_INPUT_LENGTH) = 500;
+my ($MINIMUM_INPUT_LENGTH) = 100;
 
 #***********************************************************************
 #
