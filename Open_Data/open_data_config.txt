@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision: 1772 $
+# $Revision: 1786 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_config.txt $
-# $Date: 2020-04-07 10:15:41 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2020-04-27 09:12:34 -0400 (Mon, 27 Apr 2020) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -173,6 +173,11 @@ Testcase_Data TP_PW_OD_DATA REQUIRED_LANG fr
 #
 Testcase_Data TP_PW_OD_DD REQUIRED_LANG en
 Testcase_Data TP_PW_OD_DD REQUIRED_LANG fr
+
+#
+# Maximum Flesch-Kincaid readability score
+#
+Testcase_Data OD_REG FLESCH-KINCAID 8
 
 #
 # Percentage for reporting data type consistency errors.
