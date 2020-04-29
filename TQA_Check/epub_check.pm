@@ -2,9 +2,9 @@
 #
 # Name:   epub_check.pm
 #
-# $Revision: 1769 $
+# $Revision: 1794 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/epub_check.pm $
-# $Date: 2020-04-07 10:11:30 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2020-04-29 08:44:45 -0400 (Wed, 29 Apr 2020) $
 #
 # Description:
 #
@@ -741,42 +741,46 @@ sub EPUB_Check_Manifest_File {
     #
     if ( Is_String_UTF_8($content) ) {
         #
-    # Did we get any content ?
-    #
-    print "Content length = " . length($content) . "\n" if $debug;
-    if ( length($content) > 0 ) {
+        # Did we get any content ?
         #
-        # Check mime-type/media-type of file
-        #
-        $media_type = $epub_item_object->media_type();
-        print "Check media_type = $media_type\n" if $debug;
-        if ( $media_type =~ /html/i ) {
-            print "Run HTML check on content\n" if $debug;
-            @tqa_results_list = HTML_Check_EPUB_File($this_url,
+        print "Content length = " . length($content) . "\n" if $debug;
+        if ( length($content) > 0 ) {
+            #
+            # Check mime-type/media-type of file
+            #
+            $media_type = $epub_item_object->media_type();
+            print "Check media_type = $media_type\n" if $debug;
+            if ( $media_type =~ /html/i ) {
+                print "Run HTML check on content\n" if $debug;
+                @tqa_results_list = HTML_Check_EPUB_File($this_url,
                                                      $language, $profile,
                                                      \$content);
                                            
-            #
-            # Run EPUB specific checks on the HTML content
-            #
-            print "Run EPUB specific HTML check on content\n" if $debug;
-            @other_results = EPUB_HTML_Check($this_url,
-                                             $language, $profile,
-                                             \$content, $epub_item_object);
+                #
+                # Run EPUB specific checks on the HTML content
+                #
+                print "Run EPUB specific HTML check on content\n" if $debug;
+                @other_results = EPUB_HTML_Check($this_url,
+                                                 $language, $profile,
+                                                 \$content, $epub_item_object);
 
-            #
-            # Add results from the EPUB checks to the general
-            # HTML checks
-            #
-            foreach $result_object (@other_results) {
-                push(@tqa_results_list, $result_object);
+                #
+                # Add results from the EPUB checks to the general
+                # HTML checks
+                #
+                foreach $result_object (@other_results) {
+                    push(@tqa_results_list, $result_object);
+                }
             }
+        }
+        else {
+            print "No content passed to EPUB_Check_Manifest_File\n" if $debug;
         }
     }
     else {
-        print "No content passed to EPUB_Check_Manifest_File\n" if $debug;
+            print "Non UTF-8 content passed to EPUB_Check_Manifest_File\n" if $debug;
     }
-    }
+    
     #
     # Is this a navigation file? Additional checks must be performed
     # such as checking for table of contents.
