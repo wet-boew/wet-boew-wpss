@@ -27,7 +27,7 @@ RUN cpanm LWP::Protocol::https
 RUN mkdir /opt/wpss/wpss_scan_results
 RUN chmod 777 /opt/wpss/wpss_scan_results -R
 
-RUN /opt/wpss/install.pl
- && rm -rf /var/cache/apk/*
+RUN /opt/wpss/install.pl && \
+    rm -rf /var/cache/apk/*
 
 CMD ["/bin/sh"]
