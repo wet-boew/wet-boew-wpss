@@ -14,6 +14,7 @@
 #     Validate_Markup
 #     Validate_Markup_Debug
 #     Validate_Markup_Language
+#     Validate_Markup_Last_Validation_Output
 #
 # Terms and Conditions of Use
 # 
@@ -77,6 +78,7 @@ BEGIN {
                   Validate_Markup_Debug
                   Validate_Markup_Language
                   Set_Validate_Markup_Test_Profile
+                  Validate_Markup_Last_Validation_Output
                   );
     $VERSION = "1.0";
 }
@@ -86,8 +88,7 @@ BEGIN {
 # File Local variable declarations
 #
 #***********************************************************************
-my (%markup_validate_profile_map);
-
+my (%markup_validate_profile_map, $last_url, $last_validation_output);
 my ($debug) = 0;
 
 #
@@ -271,7 +272,9 @@ sub Validate_Markup {
         return;
     }
     $testcase_profile = $markup_validate_profile_map{$profile};
-    
+    $last_url = $this_url;
+    $last_validation_output = "";
+
     #
     # Do we have any content ?
     #
@@ -287,6 +290,7 @@ sub Validate_Markup {
             if ( defined($$testcase_profile{"CSS_VALIDATION"}) ) {
                 print "Validate CSS content\n" if $debug;
                 @results_list = CSS_Validate_Content($this_url, $content);
+                $last_validation_output = CSS_Validate_Last_Validation_Output();
             }
         }
         elsif ( ($mime_type =~ /application\/epub\+zip/) ||
@@ -299,13 +303,15 @@ sub Validate_Markup {
             #
             print "Validate EPUB content\n" if $debug;
             @results_list = EPUB_Validate_Content($this_url, $resp, $content);
-            
+            $last_validation_output = EPUB_Validate_Last_Validation_Output();
+
             #
             # Do we discard the validation results ?
             #
             if ( ! defined($$testcase_profile{"EPUB_VALIDATION"}) ) {
                 print "Ignore epub validation result\n" if $debug;
                 @results_list = ();
+                $last_validation_output = "";
             }
         }
         elsif ( $mime_type =~ /text\/html/ ) {
@@ -316,6 +322,7 @@ sub Validate_Markup {
                 print "Validate HTML content\n" if $debug;
                 @results_list = HTML_Validate_Content($this_url, $resp,
                                                       $content);
+                $last_validation_output = HTML_Validate_Last_Validation_Output();
              }
 
             #
@@ -404,6 +411,38 @@ sub Validate_Markup {
     #
     return(@results_list);
 }
+
+#***********************************************************************
+#
+# Name: Validate_Markup_Last_Validation_Output
+#
+# Parameters: url - URL value
+#
+# Description:
+#
+#   This function returns the output of the last run of the validator.
+#
+#***********************************************************************
+sub Validate_Markup_Last_Validation_Output {
+    my ($url) = @_;
+    
+    #
+    # Does the URL match the last URL that was validated?
+    #
+    if ( $url eq $last_url ) {
+        #
+        # Return validation output
+        #
+        return($last_validation_output);
+    }
+    else {
+        #
+        # Return empty string
+        #
+        return("");
+    }
+}
+
 
 #***********************************************************************
 #
