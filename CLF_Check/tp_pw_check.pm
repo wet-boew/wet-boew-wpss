@@ -2,9 +2,9 @@
 #
 # Name:   tp_pw_check.pm
 #
-# $Revision: 1660 $
+# $Revision: 2003 $
 # $URL: svn://10.36.148.185/WPSS_Tool/CLF_Check/Tools/tp_pw_check.pm $
-# $Date: 2020-01-08 10:08:09 -0500 (Wed, 08 Jan 2020) $
+# $Date: 2021-04-13 14:56:26 -0400 (Tue, 13 Apr 2021) $
 #
 # Description:
 #
@@ -177,6 +177,7 @@ my %string_table_en = (
     "DOCTYPE is not",                 "DOCTYPE is not",
     "does not match mailto",          "does not match 'mailto'",
     "expecting",                      "expecting ",
+    "expecting all of",               "expecting all of ",
     "expecting one of",               "expecting one of ",
     "GC footer",                      "Government of Canada footer",
     "GC navigation bar",              "Government of Canada navigation bar",
@@ -215,6 +216,7 @@ my %string_table_fr = (
     "DOCTYPE is not",                 "DOCTYPE ne pas",
     "does not match mailto",          "ne correspond pas au 'mailto'",
     "expecting",                      "expectant ",
+    "expecting all of",               "expectant tous de ",
     "expecting one of",               "expectant une de ",
     "GC footer",                      "Pied de page du gouvernement du Canada",
     "GC navigation bar",              "Barre de navigation du gouvernement du Canada",
@@ -1969,6 +1971,74 @@ sub Check_Server_Side_Include_Errors {
 
 #***********************************************************************
 #
+# Name: Check_Web_Analytics_Markers
+#
+# Parameters: content - page content pointer
+#             profile - testcase profile
+#
+# Description:
+#
+#   This function checks for Web analytics markers.
+#
+#***********************************************************************
+sub Check_Web_Analytics_Markers {
+    my ($content, $profile) = @_;
+
+    my ($object, $pattern, $analytics_patterns, $found_analytics);
+
+    #
+    # Are we checking web analytics markers ?
+    #
+    print "Check_Web_Analytics_Markers\n" if $debug;
+    if ( defined($$current_clf_check_profile{"TP_PW_ANALYTICS"}) ) {
+
+        #
+        # Get web analytics patterns value
+        #
+        $object = $testcase_data_objects{$profile};
+        if ( defined($object) ) {
+            $analytics_patterns = $object->get_field("web_analytics_links");
+        }
+
+        #
+        # Do we have any analytics patterns ?
+        #
+        if ( (! defined($analytics_patterns)) || (@$analytics_patterns == 0) ) {
+            #
+            # No web analytics values
+            #
+            print "No web analytics values defined\n" if $debug;
+            return;
+        }
+
+        #
+        # Check each analytics pattern in the HTML markup
+        #
+        $found_analytics = 1;
+        foreach $pattern (@$analytics_patterns) {
+            print "Check for pattern \"$pattern\"\n" if $debug;
+            if ( ! ($$content =~ /$pattern/) ) {
+                print "Missing web analytics pattern $pattern\n" if $debug;
+                $found_analytics = 0;
+            }
+        }
+
+        #
+        # Did we find all analytics patterns?
+        #
+        if ( ! $found_analytics ) {
+            $current_landmark = "";
+            $landmark_marker = "";
+            Record_Result("TP_PW_ANALYTICS", -1, -1, "",
+                          String_Value("Did not find web analytics code") .
+                                       String_Value("expecting all of") .
+                                       join(", ", @$analytics_patterns));
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Check_Template_Markers
 #
 # Parameters: none
@@ -2135,6 +2205,11 @@ sub TP_PW_Check {
     # Check tempplate markers, did we find all the required markers ?
     #
     Check_Template_Markers();
+    
+    #
+    # Check for web analytics markers
+    #
+    Check_Web_Analytics_Markers($content, $profile);
     
     #
     # Return list of results
@@ -3089,120 +3164,6 @@ sub Check_Application_Template_Navigation {
 
 #***********************************************************************
 #
-# Name: Check_Web_Analytics_Link
-#
-# Parameters: url - URL
-#             link_sets - table of lists of link objects (1 list per
-#               document section)
-#             logged_in - flag to indicate if we are logged into an
-#               application
-#             profile - testcase profile
-#
-# Description:
-#
-# This function checks for the presence of Web Analytics links
-# (e.g. link to piwik.php).
-#
-#***********************************************************************
-sub Check_Web_Analytics_Link {
-    my ($url, $link_sets, $logged_in, $profile) = @_;
-
-    my ($section, $list_addr, $link, $link_url, $pattern, $analytics_patterns);
-    my ($object, $pattern_list);
-    my ($found_analytics_link) = 0;
-
-    #
-    # Are we logged in ? If so, skip check for analytics link as it is
-    # unlikely to be included on web pages behind a login.
-    #
-    if ( $logged_in ) {
-        print "Skip Check_Web_Analytics_Link behind login\n" if $debug;
-        return;
-    }
-    #
-    # Get web analytics patterns value
-    #
-    print "Check_Web_Analytics_Link\n" if $debug;
-    $object = $testcase_data_objects{$profile};
-    if ( defined($object) ) {
-        $analytics_patterns = $object->get_field("web_analytics_links");
-        
-        #
-        # Do we have any patterns ?
-        #
-        if ( defined($analytics_patterns) ) {
-            $pattern_list = join(", ", @$analytics_patterns);
-        }
-    }
-    
-    #
-    # Do we have any analytics patterns ?
-    #
-    if ( (! defined($pattern_list)) || ($pattern_list eq "") ) {
-        #
-        # No web analytics values
-        #
-        print "No web analytics values defined\n" if $debug;
-        return;
-    }
-
-    #
-    # Check each document section's list of links
-    #
-    while ( ($section, $list_addr) = each %$link_sets ) {
-        print "Check site include links in section $section\n" if $debug;
-
-        #
-        # Check each link in the section
-        #
-        foreach $link (@$list_addr) {
-            $link_url = $link->abs_url;
-            $current_landmark = $link->landmark();
-            $landmark_marker = $link->landmark_marker();
-
-            #
-            # Check each possible analytics pattern
-            #
-            foreach $pattern (@$analytics_patterns) {
-                print "Check for pattern \"$pattern\" in \"$link_url\"\n" if $debug;
-                if ( index($link_url, $pattern) != -1 ) {
-                    print "Found web analytics pattern $pattern\n" if $debug;
-                    $found_analytics_link = 1;
-                    last;
-                }
-            }
-
-            #
-            # Did we find a pattern match ?
-            #
-            if ( $found_analytics_link ) {
-                last;
-            }
-        }
-
-        #
-        # Did we find a pattern match ?
-        #
-        if ( $found_analytics_link ) {
-            last;
-        }
-    }
-
-    #
-    # Did we not find an analytics link ?
-    #
-    if ( ! $found_analytics_link ) {
-        $current_landmark = "body";
-        $landmark_marker = "<body>";
-        Record_Result("TP_PW_ANALYTICS", -1, -1, "",
-                      String_Value("Did not find web analytics code") .
-                                  String_Value("expecting one of") .
-                                  join(", ", @$analytics_patterns));
-    }
-}
-
-#***********************************************************************
-#
 # Name: TP_PW_Check_Links
 #
 # Parameters: tqa_results_list - address of hash table results
@@ -3300,11 +3261,6 @@ sub TP_PW_Check_Links {
     # login.
     #
     Check_Application_Template_Navigation($url, $link_sets, $logged_in);
-
-    #
-    # Check for web analytics links.
-    #
-    Check_Web_Analytics_Link($url, $link_sets, $logged_in, $profile);
 
     #
     # Add our results to previous results
