@@ -14,6 +14,7 @@
 #     EPUB_Validate_Content
 #     EPUB_Validate_Language
 #     EPUB_Validate_Debug
+#     EPUB_Validate_Last_Validation_Output
 #
 # Terms and Conditions of Use
 #
@@ -71,6 +72,7 @@ BEGIN {
     @EXPORT  = qw(EPUB_Validate_Content
                   EPUB_Validate_Language
                   EPUB_Validate_Debug
+                  EPUB_Validate_Last_Validation_Output
                   );
     $VERSION = "1.0";
 }
@@ -84,7 +86,7 @@ BEGIN {
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
 my ($runtime_error_reported) = 0;
 my ($debug) = 0;
-my ($temp_folder);
+my ($temp_folder, $last_validation_output);
 
 #
 # String table for error strings.
@@ -244,7 +246,8 @@ sub EPUB_Validate_Content {
         print "Run epubcheck validator\n$validate_cmnd \"$epub_file\"\n" if $debug;
         $validator_output = `$validate_cmnd \"$epub_file\" 2>\&1`;
         print "Validator output = $validator_output\n" if $debug;
-        
+        $last_validation_output = $validator_output;
+
         #
         # Strip out the temporary file name from the validator output.
         # This avoids confusion since the file name does not match the
@@ -273,14 +276,15 @@ sub EPUB_Validate_Content {
             # Some error trying to run the validator
             #
             print "EPUB validator command failed\n" if $debug;
-            print STDERR "EPUB validator command failed\n";
-            print STDERR "$validate_cmnd \"$epub_file\"\n";
-            print STDERR "$validator_output\n";
+            $last_validation_output = "";
 
             #
             # Report runtime error only once
             #
             if ( ! $runtime_error_reported ) {
+                print STDERR "EPUB validator command failed\n";
+                print STDERR "$validate_cmnd \"$epub_file\"\n";
+                print STDERR "$validator_output\n";
                 $result_object = tqa_result_object->new("EPUB_VALIDATION",
                                                         1, "EPUB_VALIDATION",
                                                         -1, -1, "",
@@ -289,6 +293,16 @@ sub EPUB_Validate_Content {
                                                         " \"$validator_output\"",
                                                         $this_url);
                 $runtime_error_reported = 1;
+
+                #
+                # Reset the source line value of the testcase error result.
+                # The initial setting may have been truncated while in this
+                # case we want the entire value.
+                #
+                $result_object->source_line(String_Value("Runtime Error") .
+                                            " \"$validate_cmnd \"$epub_file\"\n" .
+                                            " \"$validator_output\"");
+
                 push (@results_list, $result_object);
             }
         }
@@ -328,6 +342,25 @@ sub EPUB_Validate_Content {
     # Return result list
     #
     return(@results_list);
+}
+
+#***********************************************************************
+#
+# Name: EPUB_Validate_Last_Validation_Output
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the output of the last run of the validator.
+#
+#***********************************************************************
+sub EPUB_Validate_Last_Validation_Output {
+
+    #
+    # Return validation output
+    #
+    return($last_validation_output);
 }
 
 #***********************************************************************
