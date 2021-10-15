@@ -2,9 +2,9 @@
 #
 # Name:   interop_html_check.pm
 #
-# $Revision: 1726 $
+# $Revision: 2040 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Interop_Check/Tools/interop_html_check.pm $
-# $Date: 2020-03-03 14:48:15 -0500 (Tue, 03 Mar 2020) $
+# $Date: 2021-05-12 10:27:03 -0400 (Wed, 12 May 2021) $
 #
 # Description:
 #
@@ -58,9 +58,7 @@ package interop_html_check;
 # Check for module to share data structures between threads
 #
 my $have_threads = eval 'use threads; 1';
-if ( $have_threads ) {
-    $have_threads = eval 'use threads::shared; 1';
-}
+$have_threads = eval 'use threads::shared; 1';
 
 use strict;
 use HTML::Entities;
@@ -143,15 +141,21 @@ if ( $have_threads ) {
 
 #
 # Valid values for the rel attribute of tags
-#  Source: http://www.w3.org/TR/2011/WD-html5-20110525/links.html#linkTypes
+#  Source: https://html.spec.whatwg.org/multipage/links.html#sec-link-types
+#          https://www.w3.org/TR/resource-hints/
 #  Value "shortcut" is not listed in the above page but is a valid value
 #  for <link> tags.
-#  Date: 2012-11-09
+#  Date: 2020-07-30
 #
 my %valid_rel_values = (
-   "a",    " alternate author bookmark external help license next nofollow noreferrer prefetch prev search sidebar tag ",
-   "area", " alternate author bookmark external help license next nofollow noreferrer prefetch prev search sidebar tag ",
-   "link", " alternate author help icon license next pingback prefetch prev search shortcut sidebar stylesheet tag ",
+   "a",    " alternate author bookmark external help license next nofollow" .
+           " noopener noreferrer opener prefetch prev search sidebar tag ",
+   "area", " alternate author bookmark external help license next nofollow" .
+           " noopener noreferrer opener prefetch prev search sidebar tag ",
+   "form", " external help license next nofollow noopener noreferrer opener prev search ",
+   "link", " alternate author canonical dns-prefetch help icon license manifest" .
+           " modulepreload next pingback preconnect prefetch preload prerender" .
+           " prev search shortcut sidebar stylesheet tag ",
 );
 
 #
@@ -159,9 +163,38 @@ my %valid_rel_values = (
 #  Source: http://microformats.org/wiki/existing-rel-values#HTML5_link_type_extensions
 #  Date: 2012-11-09
 #
-$valid_rel_values{"a"} .= "attachment category disclosure entry-content external home index profile publisher rendition sidebar widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
-$valid_rel_values{"area"} .= "attachment category disclosure entry-content external home index profile publisher rendition sidebar widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
-$valid_rel_values{"link"} .= "apple-touch-icon apple-touch-icon-precomposed apple-touch-startup-image attachment canonical category dns-prefetch EditURI home index meta openid.delegate openid.server openid2.local_id openid2.provider p3pv1 pgpkey pingback prerender profile publisher rendition servive shortlink sidebar sitemap timesheet widget wlwmanifest image_src  http://docs.oasis-open.org/ns/cmis/link/200908/acl stylesheet/less schema.dc schema.dcterms ";
+$valid_rel_values{"a"} .= "amphtml archived attachment category code-license" .
+       " code-repository disclosure entry-content external home hub in-reply-to root index issues jslicense last lightbox lightvideo prerender profile" .
+       " publisher radioepg rendition reply-to sidebar syndication webmention widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
+$valid_rel_values{"area"} .= "amphtml archived attachment category" .
+       " code-license code-repository disclosure entry-content external home hub" .
+       " in-reply-to root index issues jslicense last lightbox lightvideo prerender profile publisher radioepg rendition reply-to sidebar syndication webmention widget http://docs.oasis-open.org/ns/cmis/link/200908/acl ";
+$valid_rel_values{"link"} .= "amphtml apple-touch-icon apple-touch-icon-precomposed" .
+       " apple-touch-startup-image archived attachment authorization_endpoint" .
+       " canonical category code-license code-repository component" .
+       " DCTERMS.conformsTo DCTERMS.contributor DCTERMS.creator DCTERMS.description" .
+       " DCTERMS.hasFormat DCTERMS.hasPart DCTERMS.hasVersion DCTERMS.isFormatOf" .
+       " DCTERMS.isPartOf DCTERMS.isReferencedBy DCTERMS.isReplacedBy" .
+       " DCTERMS.isRequiredBy DCTERMS.isVersionOf DCTERMS.license DCTERMS.mediator" .
+       " DCTERMS.publisher DCTERMS.references DCTERMS.relation DCTERMS.replaces" .
+       " DCTERMS.requires DCTERMS.rightsHolder DCTERMS.source DCTERMS.subject" .
+       " disclosure discussion dns-prefetch edit EditURI enclosure entry-content" .
+       " external first gbfs gtfs-static gtfs-realtime home hub import in-reply-to" .
+       " root index issues jslicense last lightbox lightvideo manifest" .
+       " mask-icon meta micropub openid.delegate openid.server openid2.local_id" .
+       " openid2.provider p3pv1 pgpkey pingback preconnect prerender profile" .
+       " publisher radioepg rendition reply-to schema.DCTERMS servive shortlink" .
+       " sidebar sitemap subresource sword syndication timesheet token_endpoint" .
+       " webmention widget wlwmanifest image_src" .
+       " http://docs.oasis-open.org/ns/cmis/link/200908/acl stylesheet/less" .
+       " schema.dc schema.dcterms yandex-tableau-widget ";
+
+#
+# Values for the rel attribute of tags
+#   http://microformats.org/wiki/rel-pronunciation
+#   Date: 2020-07-30
+#
+$valid_rel_values{"link"} .= "pronunciation ";
 
 #
 # List of HTML tags that do not have an explicit end tag.
@@ -974,11 +1007,14 @@ sub Check_Typeof_Attribute {
                 if ( ! ($content =~ /:/) ) {
                     if ( ! defined($$current_schema_types{$content}) ) {
                         print "Error: typeof \"$content\" not defined in vocab\n" if $debug;
-                        Record_Result("SWI_E_RDFA", $line, $column, $text,
-                                      String_Value("Value not defined in vocab") .
-                                      " \"$current_schema_vocab\" " .
-                                      String_Value("for attribute") .
-                                      " \'typeof=\"$content\"\'");
+#
+# Don't report error, the schema_org.json file is out of date.
+#
+#                        Record_Result("SWI_E_RDFA", $line, $column, $text,
+#                                      String_Value("Value not defined in vocab") .
+#                                      " \"$current_schema_vocab\" " .
+#                                      String_Value("for attribute") .
+#                                      " \'typeof=\"$content\"\'");
                     }
                 }
             }
@@ -1096,11 +1132,14 @@ sub Check_Property_Attribute {
                 #
                 if ( ! $found ) {
                     print "Error: property \"$content\" not defined in vocab\n" if $debug;
-                    Record_Result("SWI_E_RDFA", $line, $column, $text,
-                                  String_Value("Value not defined in vocab") .
-                                  " \"$current_schema_vocab\" " .
-                                  String_Value("for attribute") .
-                                  " \'typeof=\"$current_typeof_value\" property=\"$content\"\'");
+#
+# Don't report error, the schema_org.json file is out of date.
+#
+#                    Record_Result("SWI_E_RDFA", $line, $column, $text,
+#                                  String_Value("Value not defined in vocab") .
+#                                  " \"$current_schema_vocab\" " .
+#                                  String_Value("for attribute") .
+#                                  " \'typeof=\"$current_typeof_value\" property=\"$content\"\'");
                 }
             }
         }
@@ -1866,7 +1905,7 @@ sub Check_Invalid_Rel_Value {
     # Did we find the invalid value ?
     #
     if ( $found ) {
-        print "Invalid rel value\n" if $debug;
+        print "Invalid rel value \"$value\" in list \"$rel\"\n" if $debug;
         Record_Result("SWI_D", $link->line_no, $link->column_no,
                       $link->source_line,
                       String_Value("Invalid rel value") .
@@ -1951,7 +1990,7 @@ sub Check_Rel_Attribute {
             #
             foreach $rel_value (split(/\s+/, $rel)) {
                 if ( index($valid_rel_values{$tag}, " $rel_value ") == -1 ) {
-                    print "Unknown rel value '$rel_value'\n" if $debug;
+                    print "Unknown rel value '$rel_value' for tag $tag\n" if $debug;
                     Record_Result("SWI_D", $link->line_no, $link->column_no,
                                   $link->source_line,
                                   String_Value("Invalid rel value") .
@@ -2125,7 +2164,7 @@ sub Link_Tag {
     #
     # Check for and get any attributes of the link
     #
-    $rel = Check_Rel_Attribute($link, "link", 1);
+    $rel = Check_Rel_Attribute($link, "link", 0);
 
     #
     # Check the mime type of the link
