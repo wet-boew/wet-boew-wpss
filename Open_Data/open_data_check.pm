@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 1787 $
+# $Revision: 2022 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_check.pm $
-# $Date: 2020-04-27 09:24:46 -0400 (Mon, 27 Apr 2020) $
+# $Date: 2021-05-04 08:28:17 -0400 (Tue, 04 May 2021) $
 #
 # Description:
 #
@@ -149,9 +149,11 @@ my (@required_json_description_metadata) = (
 );
 
 #
-# Maximum Flesch-Kincaid grade score for dataset descriptions
+# TBS Quality Rating System configuration values
 #
 my ($maximum_flesch_kincaid) = -1;
+my ($tbs_maintainer_email) = "";
+my ($tbs_org_name) = "";
 
 #
 # Status values
@@ -212,7 +214,10 @@ my %string_table_en = (
     "API URL unavailable",             "API URL unavailable",
     "as found in",                     " as found in ",
     "Character encoding is not UTF-8", "Character encoding is not UTF-8",
+    "column",                          "column",
     "Column count mismatch, found",    "Column count mismatch, found",
+    "Column heading dictionary id mismatch for column", "Column heading dictionary id mismatch for column",
+    "Column heading out of order",     "Column heading out of order",
     "Column headings found in",        "Column headings found in",
     "Column maximum mismatch for column", "Column maximum mismatch for column",
     "Column minimum mismatch for column", "Column minimum mismatch for column",
@@ -228,7 +233,8 @@ my %string_table_en = (
     "Duplicate content checksum",      "Duplicate content checksum",
     "Duplicate resource URL",          "Duplicate resource URL",
     "en",                              "English",
-    "exceeds maximum",                  "exceeds maximum",
+    "expected at column",              "expected at column",
+    "exceeds maximum",                 "exceeds maximum",
     "expecting",                       " expecting ",
     "Error in reading ZIP, status =",  "Error in reading ZIP, status =",
     "Fails validation",                "Fails validation",
@@ -247,6 +253,9 @@ my %string_table_en = (
     "Invalid mime-type for data file", "Invalid mime-type for data file",
     "Invalid mime-type for description", "Invalid mime-type for description",
     "Language specific dataset file count mismatch, found", "Language specific dataset file count mismatch, found",
+    "Maintainer email address must not be", "Maintainer email address must not be",
+    "Maintainer email address is invalid", "Maintainer email address is invalid",
+    "Maintainer email address missing", "Maintainer email address missing",
     "Missing CSV data file format for JSON-CSV format", "Missing CSV data file format for JSON-CSV format",
     "Missing data array item fields",    "Missing data array item fields",
     "Missing dataset description field", "Missing dataset description field",
@@ -255,10 +264,14 @@ my %string_table_en = (
     "Missing or null dataset resource metadata field", "Missing or null dataset resource metadata field",
     "Missing required language data file", "Missing required language data file",
     "Multiple file types in ZIP",      "Multiple file types in ZIP",
+    "No data dictionary in dataset",   "No data dictionary in dataset",
+    "No data files in dataset",        "No data files in dataset",
+    "No resources of type guide in dataset", "No resources of type 'guide' in dataset",
     "Non blank cell count mismatch for column", "Non blank cell count mismatch for column",
     "Non blank cell count mismatch for JSON-CSV field/CSV column", "Non blank cell count mismatch for JSON-CSV field/CSV column",
     "Not equal to data column count",  "Not equal to data column count",
     "Not equal to data row count",     "Not equal to data row count",
+    "Only alternate format data files in dataset", "Only alternate format data files in dataset",
     "Row count mismatch, found",       "Row count mismatch, found ",
     "Sum mismatch for numeric JSON-CSV field/CSV column", "Sum mismatch for numeric JSON-CSV field/CSV column",
     "Type mismatch for JSON-CSV field/CSV column", "Type mismatch for JSON-CSV field/CSV column",
@@ -273,7 +286,10 @@ my %string_table_fr = (
     "API URL unavailable",             "URL du API disponible",
     "as found in",                     " que l'on trouve dans ",
     "Character encoding is not UTF-8", "L'encodage des caractères ne pas UTF-8",
+    "column",                          "colonne",
     "Column count mismatch, found",    "Incompatibilité du comptage des colonnes, trouvée",
+    "Column heading dictionary id mismatch for column", "Incompatibilité d'ID de dictionnaire d'en-tête de colonne pour la colonne",
+    "Column heading out of order",     "Titre de colonne dans le désordre",
     "Column headings found in",        "Les en-têtes de colonne trouvés dans",
     "Column maximum mismatch for column", "Les valeurs maximales de colonne ne correspondent pas pour la colonne",
     "Column minimum mismatch for column", "Les valeurs minimales de colonne ne correspondent pas pour la colonne",
@@ -290,6 +306,7 @@ my %string_table_fr = (
     "Duplicate resource URL",          "URL de ressources en double",
     "en",                              "anglais",
     "exceeds maximum",                 "dépasse le maximum",
+    "expected at column",              "attendu à la colonne",
     "expecting",                       " expectant ",
     "Error in reading ZIP, status =",  "Erreur de lecture fichier ZIP, status =",
     "Fails validation",                "Échoue la validation",
@@ -308,6 +325,9 @@ my %string_table_fr = (
     "Invalid mime-type for data file", "Invalid type MIME pour le jeu de donnée",
     "Invalid mime-type for description", "Invalid mime-type pour description",
     "Language specific dataset file count mismatch, found", "Décomposition du nombre de fichiers de dataset spécifique au langage trouvé",
+    "Maintainer email address must not be", "L'adresse e-mail du responsable ne doit pas être",
+    "Maintainer email address is invalid",  "L'adresse e-mail du responsable n'est pas valide",
+    "Maintainer email address missing", "L'adresse e-mail du responsable est manquante",
     "Missing CSV data file format for JSON-CSV format", "Le format de fichier de données CSV manquant pour le format JSON-CSV",
     "Missing data array item fields",    "Champs d'élément du tableau de données manquant",
     "Missing dataset description field", "Champ de description de dataset manquant",
@@ -316,10 +336,14 @@ my %string_table_fr = (
     "Missing or null dataset resource metadata field", "Champ de métadonnées de ressource de jeu de données manquant ou nul",
     "Missing required language data file", "Fichier de données de langue requise manquant",
     "Multiple file types in ZIP",      "Plusieurs types de fichiers dans un fichier ZIP",
+    "No data files in dataset",        "Aucun fichier de données dans l'ensemble de données",
+    "No data dictionary in dataset",   "Aucun dictionnaire de données dans l'ensemble de données",
+    "No resources of type guide in dataset", "Aucune ressource de type 'guide' dans l'ensemble de données" ,
     "Non blank cell count mismatch for column", "Incompatibilité du nombre de cellules non vierges pour la colonne",
     "Non blank cell count mismatch for JSON-CSV field/CSV column", "Incompatibilité non vide de cellules pour JSON-CSV field / CSV column",
     "Not equal to data column count",  "Pas égal au nombre de colonnes de données",
     "Not equal to data row count",     "Pas égal au nombre de lignes de données",
+    "Only alternate format data files in dataset", "Seuls les fichiers de données de format alternatif dans l'ensemble de données",
     "Row count mismatch, found",       "Incompatibilité du nombre de lignes, trouvée",
     "Sum mismatch for numeric JSON-CSV field/CSV column", "Incompatibilité de somme pour la colonne numériques JSON-CSV / CSV",
     "Type mismatch for JSON-CSV field/CSV column", "Type incompatibilité pour le champ JSON-CSV / colonne CSV",
@@ -497,11 +521,14 @@ sub Set_Open_Data_Check_Testcase_Data {
     my ($type, $value);
     
     #
+    # Get type and value portions of the data
+    #
+    ($type, $value) = split(/\s/, $data, 2);
+    
+    #
     # Is this a URL pattern for supporting files ?
     #
     if ( $testcase eq "OD_VAL" ) {
-        ($type, $value) = split(/\s/, $data, 2);
-
         #
         # Is this a supporting file URL pattern ?
         #
@@ -517,8 +544,6 @@ sub Set_Open_Data_Check_Testcase_Data {
     # data file?
     #
     if ( $testcase eq "OD_URL" ) {
-        ($type, $value) = split(/\s/, $data, 2);
-
         #
         # An alternate format data file name pattern ?
         #
@@ -542,8 +567,6 @@ sub Set_Open_Data_Check_Testcase_Data {
     # Maximum file size for unzipped files
     #
     elsif ( $testcase eq "TP_PW_OD_DATA" ) {
-        ($type, $value) = split(/\s/, $data, 2);
-
         #
         # Is this a file size limit ?
         #
@@ -563,20 +586,34 @@ sub Set_Open_Data_Check_Testcase_Data {
             push(@data_file_required_lang, $value);
         }
     }
+    # Quanity Rating System configuration items
     #
-    # Maximum Flesch-Kincaid readability score
-    #
-    elsif ( $testcase eq "OD_REG" ) {
-        ($type, $value) = split(/\s/, $data, 2);
-
+    elsif ( $testcase eq "TBS_QRS_Readable" ) {
         #
-        # Is this the readability score ?
+        # Maximum Flesch-Kincaid readability score ?
         #
         if ( defined($value) && ($type eq "FLESCH-KINCAID") ) {
             #
             # Save limit
             #
             $maximum_flesch_kincaid = $value;
+        }
+    }
+    #
+    # Quanity Rating System configuration items
+    #
+    elsif ( $testcase eq "TBS_QRS_Connected" ) {
+        #
+        # TBS organization name
+        #
+        if ( defined($value) && ($type eq "TBS_ORG_NAME") ) {
+            $tbs_org_name = $value;
+        }
+        #
+        # TBS maintainer email address
+        #
+        elsif ( defined($value) && ($type eq "TBS_MAINTAINER_EMAIL") ) {
+            $tbs_maintainer_email = $value;
         }
     }
     else {
@@ -715,7 +752,7 @@ sub Print_Error {
 #
 # Name: Record_Result
 #
-# Parameters: testcase - testcase identifier
+# Parameters: testcase - list of testcase identifiers
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -723,13 +760,26 @@ sub Print_Error {
 #
 # Description:
 #
-#   This function records the testcase result.
+#   This function records the testcase result and stores it in the
+# list of content errors.
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+    my ($testcase_list, $line, $column, $text, $error_string) = @_;
 
-    my ($result_object);
+    my ($result_object, $id, $testcase);
+
+    #
+    # Check for a possible list of testcase identifiers.  The first
+    # identifier that is part of the current profile is the one that
+    # the error will be reported against.
+    #
+    foreach $id (split(/,/, $testcase_list)) {
+        if ( defined($$current_open_data_profile{$id}) ) {
+            $testcase = $id;
+            last;
+        }
+    }
 
     #
     # Is this testcase included in the profile
@@ -755,7 +805,7 @@ sub Record_Result {
 #
 # Name: Record_Content_Result
 #
-# Parameters: testcase - testcase identifier
+# Parameters: testcase - list of testcase identifiers
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -768,10 +818,21 @@ sub Record_Result {
 #
 #***********************************************************************
 sub Record_Content_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+    my ($testcase_list, $line, $column, $text, $error_string) = @_;
 
-    my ($result_object);
+    my ($result_object, $id, $testcase);
 
+    #
+    # Check for a possible list of testcase identifiers.  The first
+    # identifier that is part of the current profile is the one that
+    # the error will be reported against.
+    #
+    foreach $id (split(/,/, $testcase_list)) {
+        if ( defined($$current_open_data_profile{$id}) ) {
+            $testcase = $id;
+            last;
+        }
+    }
     #
     # Do we have a maximum number of errors to report and have we reached it?
     #
@@ -842,7 +903,7 @@ sub Check_Content_Encoding {
             # Not UTF 8 content
             #
             $output =  eval { decode('utf8', $content, Encode::FB_WARN);};
-            Record_Result("OD_ENC", 0, -1, "$output",
+            Record_Result("OD_ENC,TBS_QRS_International", 0, -1, "$output",
                           String_Value("Character encoding is not UTF-8"));
         }
     }
@@ -965,7 +1026,7 @@ sub Check_Dictionary_URL {
         #
         # Unexpected mime-type for a dictionary.
         #
-        Record_Result("OD_URL", -1, -1, "",
+        Record_Result("OD_URL,TBS_QRS_Honest", -1, -1, "",
                       String_Value("Invalid mime-type for data dictionary")
                        . " \"" . $mime_type . "\"");
     }
@@ -1119,6 +1180,7 @@ sub Check_Data_File_URL {
         # CSV file type
         #
         $data_file_object = data_file_object->new($url, "CSV");
+        $data_file_object->lang($lang);
 
         #
         # Check for UTF-8 encoding
@@ -1145,6 +1207,7 @@ sub Check_Data_File_URL {
         # JSON file type
         #
         $data_file_object = data_file_object->new($url, "JSON");
+        $data_file_object->lang($lang);
 
         #
         # Check for UTF-8 encoding
@@ -1170,6 +1233,7 @@ sub Check_Data_File_URL {
         # MARC file type
         #
         $data_file_object = data_file_object->new($url, "MARC");
+        $data_file_object->lang($lang);
         
         #
         # Check MARC data file
@@ -1192,6 +1256,7 @@ sub Check_Data_File_URL {
         # XML file type
         #
         $data_file_object = data_file_object->new($url, "XML");
+        $data_file_object->lang($lang);
 
         #
         # Check for UTF-8 encoding
@@ -1216,7 +1281,7 @@ sub Check_Data_File_URL {
         if ( ($mime_type =~ /application\/zip/) ) {
             ($base, $mime_type) = $url =~ /(.*)\.(.*)$/; 
         }
-        Record_Result("OD_URL", -1, -1, "",
+        Record_Result("OD_URL,TBS_QRS_Honest", -1, -1, "",
                       String_Value("Invalid mime-type for data file") .
                       " \"" . $mime_type . "\"");
     }
@@ -1229,7 +1294,6 @@ sub Check_Data_File_URL {
         # Set data file object attributes and save it in a
         # table.
         #
-        $data_file_object->lang($lang);
         $data_file_object->checksum($checksum);
         $data_file_objects{$url} = $data_file_object;
     }
@@ -1391,7 +1455,7 @@ sub Check_Format_and_Mime_Type_File_Suffix {
         #
         if ( ! $consistent ) {
             print "Format, mime-type are inconsistent\n" if $debug;
-            Record_Result("OD_URL", -1, -1, "",
+            Record_Result("OD_URL,TBS_QRS_Honest", -1, -1, "",
                   String_Value("Inconsistent format and mime-type") .
                                " format = \"$format\"" .
                                " mime-type = \"$mime_type\"" .
@@ -1481,7 +1545,7 @@ sub Check_API_URL {
             #
             # Unexpected mime-type for API
             #
-            Record_Result("OD_URL", -1, -1, "",
+            Record_Result("OD_URL,TBS_QRS_Honest", -1, -1, "",
                           String_Value("Invalid mime-type for API")
                            . " \"" . $mime_type . "\"");
         }
@@ -1554,12 +1618,12 @@ sub Is_Supporting_File {
         # Failed to get url
         #
         if ( defined($resp) ) {
-            Record_Result("OD_URL", -1, -1, "",
+            Record_Result("OD_URL,TBS_QRS_Online", -1, -1, "",
                           String_Value("Dataset URL unavailable") .
                           " : " . $resp->status_line);
         }
         else {
-            Record_Result("OD_URL", -1, -1, "",
+            Record_Result("OD_URL,TBS_QRS_Online", -1, -1, "",
                           String_Value("Dataset URL unavailable"));
         }
     }
@@ -1633,12 +1697,12 @@ sub Open_Data_Check {
     if ( (! defined($resp)) || (! $resp->is_success) ) {
         print "Broken link to dataset file\n" if $debug;
         if ( defined($resp) ) {
-            Record_Result("OD_URL", -1, -1, "",
+            Record_Result("OD_URL,TBS_QRS_Online", -1, -1, "",
                           String_Value("Dataset URL unavailable") .
                           " : " . $resp->status_line);
         }
         else {
-            Record_Result("OD_URL", -1, -1, "",
+            Record_Result("OD_URL,TBS_QRS_Online", -1, -1, "",
                           String_Value("Dataset URL unavailable"));
         }
         return(@tqa_results_list);
@@ -2174,7 +2238,7 @@ sub Check_Days_Since_Update {
                     #
                     # Too long between updates.
                     #
-                    Record_Result("OD_REG", -1, -1, "",
+                    Record_Result("TBS_QRS_Timely", -1, -1, "",
                                   String_Value("Dataset not updated within expected number of days for frequency") .
                                   " " . $frequency_label{$frequency} .
                                   String_Value("expecting") .
@@ -2241,7 +2305,8 @@ sub Read_JSON_Open_Data_Description {
     my ($eval_output, $i, $ref_type, $format, $content, $line);
     my ($pattern, $alternate, %urls, $url_added, $required, $class, $key);
     my ($desc_en, $desc_fr, $translated, %readability_scores);
-    my ($flesch_kincaid);
+    my ($flesch_kincaid, $maintainer_email, $organization, $org_name);
+    my ($data_file_count, $guide_file_count);
     my ($have_error) = 0;
 
     #
@@ -2373,7 +2438,7 @@ sub Read_JSON_Open_Data_Description {
             if ( ($flesch_kincaid != -1) ) {
                 print "Flesch-Kincaid score is $flesch_kincaid\n" if $debug;
                 if  ( $flesch_kincaid > $maximum_flesch_kincaid ) {
-                    Record_Result("OD_REG", -1, -1, "",
+                    Record_Result("TBS_QRS_Readable", -1, -1, "",
                                   String_Value("Flesch-Kincaid score for English description") .
                                   " $flesch_kincaid " .
                                   String_Value("exceeds maximum") . " $maximum_flesch_kincaid");
@@ -2383,6 +2448,74 @@ sub Read_JSON_Open_Data_Description {
     }
     else {
         print "Missing title_translated item from results object\n" if $debug;
+    }
+
+    #
+    # Get the maintainer email address
+    #
+    if ( (! $have_error) && defined($$result{"maintainer_email"}) ) {
+        print "Get the maintainer_email field\n" if $debug;
+        $maintainer_email = $$result{"maintainer_email"};
+        
+        #
+        # Get the organization name
+        #
+        $org_name = "";
+        if ( defined($$result{"organization"}) ) {
+            $organization = $$result{"organization"};
+
+            #
+            # Is this a hash table ?
+            #
+            $ref_type = ref $organization;
+            if ( $ref_type eq "HASH" ) {
+                #
+                # Get the organization name field
+                #
+                $org_name = $$organization{"name"};
+            }
+        }
+        
+        #
+        # Is the email address en empty string?
+        #
+        if ( $maintainer_email =~ /^\s*$/ ) {
+            Record_Result("TBS_QRS_Connected", -1, -1, "",
+                          String_Value("Maintainer email address missing"));
+        }
+        #
+        # Is the email address syntactally correct (a non exhaustive check)?
+        #
+        elsif ( $maintainer_email =~ /^([a-zA-Z0-9_\-\.]+)@([a-zA-Z0-9_\-\.]+)\.([a-zA-Z]{2,})$/ ) {
+            #
+            # If the organization name is not TBS, the maintainer email must not
+            # be TBS.
+            #
+            if ( $org_name ne $tbs_org_name ) {
+                #
+                # Check that the maintainer email address is not the TBS
+                # open government email address.
+                #
+                if ( $maintainer_email eq $tbs_maintainer_email ) {
+                    Record_Result("TBS_QRS_Connected", -1, -1, "",
+                                  String_Value("Maintainer email address must not be") .
+                                  " $tbs_maintainer_email");
+                }
+            }
+        }
+        #
+        # Invalid email address
+        #
+        else {
+            Record_Result("TBS_QRS_Connected", -1, -1, "",
+                          String_Value("Maintainer email address is invalid") .
+                          " \"$maintainer_email\"");
+        }
+    }
+    else {
+        print "Missing maintainer_email item from results object\n" if $debug;
+        Record_Result("TBS_QRS_Connected", -1, -1, "",
+                      String_Value("Maintainer email address missing"));
     }
 
     #
@@ -2423,6 +2556,8 @@ sub Read_JSON_Open_Data_Description {
         #
         $i = 1;
         print "Get dataset URLs\n" if $debug;
+        $data_file_count = 0;
+        $guide_file_count = 0;
         foreach $value (@$resources) {
             $url_added = 0;
             if ( ref $value eq "HASH" ) {
@@ -2459,11 +2594,12 @@ sub Read_JSON_Open_Data_Description {
                     $dataset_urls{"API"} .= "$format\t$url\n";
                     $url_added = 1;
                 }
-                elsif ( ($type eq "doc") || ($type eq "guide") ) {
+                elsif ( $type eq "guide" ) {
                     #
                     # Accept TXT and XML formatted documents. Other formats are
                     # likely to be supporting documents, not data dictionaries.
                     #
+                    $guide_file_count++;
                     if ( ($format eq "TXT") || ($format eq "XML") ) {
                         $dataset_urls{"DICTIONARY"} .= "$format\t$url\n";
                         $url_added = 1;
@@ -2487,7 +2623,10 @@ sub Read_JSON_Open_Data_Description {
                         }
                     }
                 }
-                elsif ( ($type eq "file") || ($type eq "dataset") ) {
+                #
+                # Check for dataset file (i.e. a data file)
+                #
+                elsif ( $type eq "dataset" ) {
                     #
                     # Check for possible alternate format data file
                     #
@@ -2507,6 +2646,7 @@ sub Read_JSON_Open_Data_Description {
                     if ( ! $alternate ) {
                        $dataset_urls{"DATA"} .= "$format\t$url\n";
                        $url_added = 1;
+                       $data_file_count++;
                     }
                 }
                
@@ -2567,18 +2707,32 @@ sub Read_JSON_Open_Data_Description {
         #
         if ( ! defined($dataset_urls{"DICTIONARY"}) ) {
             Record_Result("TP_PW_OD_DATA", -1, -1, "",
-                          String_Value("Missing dataset description file types") .
-                          " \"Data Dictionary\"");
+                          String_Value("No data dictionary in dataset"));
+        }
+        #
+        # Are there any supporting documentation resources (i.e. of type "guide")
+        #
+        elsif ( $guide_file_count == 0 ) {
+            Record_Result("TBS_QRS_Documented", -1, -1, "",
+                          String_Value("No resources of type guide in dataset"));
         }
 
         #
         # Are there any data files specified in the
         # dataset files?
         #
-        if ( ! defined($dataset_urls{"DATA"}) ) {
-            Record_Result("TP_PW_OD_DATA", -1, -1, "",
-                          String_Value("Missing dataset description file types") .
-                          " \"Dataset\"");
+        if ( $data_file_count == 0 ) {
+            #
+            # Did we only find alternate format data files?
+            #
+            if ( defined($dataset_urls{"ALTERNATE_DATA"}) ) {
+                Record_Result("TP_PW_OD_DATA,TBS_QRS_Structured", -1, -1, "",
+                              String_Value("Only alternate format data files in dataset"));
+            }
+            else {
+                Record_Result("TP_PW_OD_DATA,TBS_QRS_Structured", -1, -1, "",
+                              String_Value("No data files in dataset"));
+            }
         }
     }
 
@@ -2828,6 +2982,402 @@ sub Check_Data_File_Languages {
 
 #***********************************************************************
 #
+# Name: Check_CSV_Column_Type_Value
+#
+# Parameters: exp_column_objects - pointer to list of expected column object
+#             column_objects - pointer to list of column object
+#             column_count - number of columns
+#             exp_url - URL of CSV file for expected columns
+#             url - URL of CSV file
+#
+# Description:
+#
+#   This function performs checks on CSV data columns to see if the current
+# columns match the expected columns for
+#   - column data type (e.g. numeric, date, etc.)
+#   - numeric and date column min, max and sum
+#
+#***********************************************************************
+sub Check_CSV_Column_Type_Value {
+    my ($exp_column_objects, $column_objects, $column_count, $exp_url, $url) = @_;
+
+    my ($i, $col_obj, $expected_col_obj, $value_exp, $value_col);
+
+    #
+    # Check the column types (e.g. numeric, text), the number of
+    # non-blank cells, min, max and sum values of numeric columns.
+    #
+    print "Check_CSV_Column_Type_Value\n" if $debug;
+    for ($i = 0; $i < $column_count; $i++) {
+        #
+        # Get the column objects
+        #
+        $expected_col_obj = $$exp_column_objects[$i];
+        $col_obj = $$column_objects[$i];
+
+        #
+        # If we did not determine the column content type
+        # (e.g. may be all blanks), skip checks.
+        #
+        print "Column types for column $i, " .
+        $col_obj->type() . " and " .
+        $expected_col_obj->type() . "\n" if $debug;
+        print "Column non-blank cell count for column $i, " .
+               $col_obj->non_blank_cell_count() . " and " .
+               $expected_col_obj->non_blank_cell_count() . "\n" if $debug;
+        if ( ($col_obj->type() eq "") || ($expected_col_obj->type() eq "") ) {
+            print "Column data type not determined\n" if $debug;
+            next
+        }
+        #
+        # Do the column types match?
+        #
+        elsif ( $col_obj->type() ne $expected_col_obj->type() ) {
+             Record_Result("OD_DATA", -1, ($i + 1), "",
+                          String_Value("Column type mismatch for column") .
+                          " \"" . $col_obj->heading() . "\" (" . ($i + 1) . ") \n" .
+                          String_Value("found") . " " . $col_obj->type() .
+                          " " . String_Value("in") . " $url\n" .
+                          String_Value("expecting") .
+                          $expected_col_obj->type() .
+                          String_Value("as found in") . $exp_url);
+        }
+        #
+        # Do the number of non-blank cells match?
+        #
+        elsif ( $col_obj->non_blank_cell_count() != $expected_col_obj->non_blank_cell_count() ) {
+            Record_Result("OD_DATA", -1, ($i + 1), "",
+                          String_Value("Non blank cell count mismatch for column") .
+                          " \"" . $col_obj->heading() . "\" (" . ($i + 1) . ") \n" .
+                          String_Value("found") . " " . $col_obj->non_blank_cell_count() .
+                          " " . String_Value("in") . " $url\n" .
+                          String_Value("expecting") .
+                          $expected_col_obj->non_blank_cell_count() .
+                          String_Value("as found in") . $exp_url);
+        }
+
+        #
+        # Is this a numeric or date (YYYY-MM-DD) column type?
+        #
+        if ( ($col_obj->type() eq "numeric") ||
+             ($col_obj->type() eq "date") ) {
+            #
+            # Do the column sums match?
+            #
+            print "Column sum for column $i, " .
+                   $col_obj->sum() . " and " .
+                   $expected_col_obj->sum() . "\n" if $debug;
+            if ( $col_obj->sum() != $expected_col_obj->sum() ) {
+                  Record_Result("OD_DATA", -1, ($i + 1), "",
+                                String_Value("Column sum mismatch for column") .
+                                " \"" . $col_obj->heading() . "\" (" . ($i + 1) . ") \n" .
+                                String_Value("found") . " " . $col_obj->sum() .
+                                " " . String_Value("in") . " $url\n" .
+                                String_Value("expecting") .
+                                $expected_col_obj->sum() .
+                                String_Value("as found in") . $exp_url);
+            }
+
+            #
+            # If the column type is date, convert the maximum date
+            # into a number
+            #
+            if ( $col_obj->type() eq "date" ) {
+                if ( defined($expected_col_obj->max()) ) {
+                    $value_exp = $expected_col_obj->max();
+                    $value_exp =~ s/\-//g;
+                }
+                else {
+                     $value_exp = 0;
+                }
+                if ( defined($col_obj->max()) ) {
+                    $value_col = $col_obj->max();
+                                $value_col =~ s/\-//g;
+                }
+                else {
+                    $value_col = 0;
+                }
+            }
+            else {
+                if ( defined($expected_col_obj->max()) ) {
+                    $value_exp = $expected_col_obj->max();
+                }
+                else {
+                    $value_exp = 0;
+                }
+                if ( defined($col_obj->max()) ) {
+                    $value_col = $col_obj->max();
+                }
+                else {
+                    $value_col = 0;
+                }
+            }
+
+            #
+            # Do the column maximum values match?
+            #
+            print "Column max for column $i, " .
+                   $col_obj->max() . " and " .
+                   $expected_col_obj->max() . "\n" if $debug;
+            if ( $value_col != $value_exp ) {
+                  Record_Result("OD_DATA", -1, ($i + 1), "",
+                                String_Value("Column maximum mismatch for column") .
+                                " \"" . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
+                                String_Value("found") . " " . $col_obj->max() .
+                                " " . String_Value("in") . " $url\n" .
+                                String_Value("expecting") .
+                                $expected_col_obj->max() .
+                                String_Value("as found in") . $exp_url);
+            }
+
+            #
+            # If the column type is date, convert the minimum date
+            # into a number
+            #
+            if ( $col_obj->type() eq "date" ) {
+                if ( defined($expected_col_obj->min()) ) {
+                    $value_exp = $expected_col_obj->min();
+                    $value_exp =~ s/\-//g;
+                }
+                else {
+                    $value_exp = 0;
+                }
+                if ( defined($col_obj->min()) ) {
+                    $value_col = $col_obj->min();
+                    $value_col =~ s/\-//g;
+                }
+                else {
+                    $value_col = 0;
+                }
+            }
+            else {
+                if ( defined($expected_col_obj->min()) ) {
+                    $value_exp = $expected_col_obj->min();
+                }
+                else {
+                    $value_exp = 0;
+                }
+                if ( defined($col_obj->min()) ) {
+                    $value_col = $col_obj->min();
+                }
+                else {
+                    $value_col = 0;
+                }
+            }
+
+            #
+            # Do the column minimum values match?
+            #
+            print "Column min for column $i, " .
+                   $col_obj->min() . " and " .
+                   $expected_col_obj->min() . "\n" if $debug;
+            if ( $value_col != $value_exp ) {
+                  Record_Result("OD_DATA", -1, ($i + 1), "",
+                                String_Value("Column minimum mismatch for column") .
+                                " \"" . $col_obj->heading() . "\" (" . ($i + 1) . ") \n" .
+                                String_Value("found") . " " . $col_obj->min() .
+                                " " . String_Value("in") . " $url\n" .
+                                String_Value("expecting") .
+                                $expected_col_obj->min() .
+                                String_Value("as found in") . $exp_url);
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
+# Name: Check_CSV_Column_Heading_Order
+#
+# Parameters: exp_column_objects - pointer to list of expected column object
+#             column_objects - pointer to list of column object
+#             column_count - number of columns
+#             exp_url - URL of CSV file for expected columns
+#             url - URL of CSV file
+#             lang - language of the url
+#
+# Description:
+#
+#   This function performs checks on CSV data columns heading to see
+# if the order of headings match the expected order.
+#
+#***********************************************************************
+sub Check_CSV_Column_Heading_Order {
+    my ($exp_column_objects, $column_objects, $column_count,
+        $exp_url, $url, $lang) = @_;
+
+    my ($i, $j, $col_obj, $expected_col_obj, $value_exp, $value_col);
+    my ($exp_dict_id, $dict_id, $dict_obj, $found_heading_match);
+
+    #
+    # Number of columns match, now check the column types
+    # (e.g. numeric, text), the number of non-blank cells,
+    # the column headings and language.
+    #
+    print "Check_CSV_Column_Heading_Order\n" if $debug;
+    for ($i = 0; $i < $column_count; $i++) {
+        #
+        # Get the expected column object
+        #
+        $expected_col_obj = $$exp_column_objects[$i];
+
+        #
+        # If the expected column heading is a valid heading
+        # get the data dictionary object and id values
+        #
+        if ( $expected_col_obj->valid_heading() ) {
+            $dict_obj = $expected_col_obj->dictionary_object();
+            $exp_dict_id = $dict_obj->id();
+            print "Expected heading " . $expected_col_obj->heading() . " # " . ($i + 1) .
+                  "\n" if $debug;
+        }
+        else {
+            print "Expected heading " . $expected_col_obj->first_data() . " # " . ($i + 1) .
+                  " is not a valid heading, check heading label only\n" if $debug;
+        }
+
+        #
+        # Look for this a heading matching the expected heading in the
+        # current file's heading list.
+        #
+        $found_heading_match = 0;
+        for ($j = 0; $j < $column_count; $j++) {
+            #
+            # Get the column object
+            #
+            $col_obj = $$column_objects[$j];
+
+            #
+            # If current column heading is a valid heading get the
+            # data dictionary object and id values
+            #
+            if ( $col_obj->valid_heading() ) {
+                #
+                # Is the expected column heading valid? If so this compare
+                # heading data dictionary id values for a possible match
+                #
+                print "Current heading " . $col_obj->heading() . " # " . ($i + 1) .
+                      "\n" if $debug;
+                if ( $expected_col_obj->valid_heading() ) {
+                    #
+                    # Get the data dictionary id value for this column heading
+                    #
+                    $dict_obj = $col_obj->dictionary_object();
+                    $dict_id = $dict_obj->id();
+                    
+                    #
+                    # Does the data file have a language? If it doesn't the
+                    # data dictionary id values may not be unique for headings.
+                    # The data file may contain 2 columns, one for each
+                    # language variant for a single data dictionary heading entry.
+                    # Compare the heading labels for the order check.
+                    #
+                    if ( ($lang eq "") ) {
+                        if ( $col_obj->heading() eq $expected_col_obj->heading() ) {
+                            #
+                            # Found expected heading, does the column number match
+                            # the expected column number?
+                            #
+                            if ( $j != $i ) {
+                                #
+                                # Error, column heading out of order.
+                                #
+                                Record_Result("OD_DATA", -1, ($j + 1), "",
+                                              String_Value("Column heading out of order") .
+                                              " \"" . $col_obj->heading() . "\" " .
+                                              String_Value("column") . " " . ($j + 1) . " \n" .
+                                              " " . String_Value("in") . " $url\n" .
+                                              String_Value("expected at column") .
+                                              " " . ($i + 1) . " " .
+                                              String_Value("as found in") . $exp_url);
+                            }
+
+                            #
+                            # Stop looking for a heading match
+                            #
+                            $found_heading_match = 1;
+                            last;
+                        }
+                    }
+                    #
+                    # Compare id values for a match
+                    #
+                    elsif ( $exp_dict_id eq $dict_id ) {
+                        #
+                        # Found expected heading, does the column number match
+                        # the expected column number?
+                        #
+                        if ( $j != $i ) {
+                            #
+                            # Error, column heading out of order.
+                            #
+                            Record_Result("OD_DATA", -1, ($j + 1), "",
+                                          String_Value("Column heading out of order") .
+                                          " \"" . $col_obj->heading() . "\" " .
+                                          String_Value("column") . " " . ($j + 1) . " \n" .
+                                          " " . String_Value("in") . " $url\n" .
+                                          String_Value("expected at column") .
+                                          " " . ($i + 1) . " " .
+                                          String_Value("as found in") . $exp_url);
+                        }
+
+
+                        #
+                        # Stop looking for a heading match
+                        #
+                        $found_heading_match = 1;
+                        last;
+                    }
+                }
+            }
+            #
+            # Current column heading is not valid (i.e. not in dictionary)
+            #
+            else {
+                print "Current heading " . $col_obj->first_data() . " # " . ($i + 1) .
+                      " is not a valid heading, check heading label only\n" if $debug;
+
+                #
+                # Is the expected column heading non-valid? If so then compare
+                # heading labels for a possible match
+                #
+                if ( ! $expected_col_obj->valid_heading() ) {
+                    #
+                    # Compare first row values (assume they are headings) for a match
+                    #
+                    if ( $expected_col_obj->first_data() eq $col_obj->first_data() ) {
+                        #
+                        # Found expected heading, does the column number match
+                        # the expected column number?
+                        #
+                        if ( $j != $i ) {
+                            #
+                            # Error, column heading out of order.
+                            #
+                            Record_Result("OD_DATA", -1, ($j + 1), "",
+                                          String_Value("Column heading out of order") .
+                                          " \"" . $col_obj->first_data() . "\" " .
+                                          String_Value("column") . " " . ($j + 1) . " \n" .
+                                          " " . String_Value("in") . " $url\n" .
+                                          String_Value("expected at column") .
+                                          " " . ($i + 1) . " " .
+                                          String_Value("as found in") . $exp_url);
+                        }
+
+                        #
+                        # Stop looking for a heading match
+                        #
+                        $found_heading_match = 1;
+                        last;
+                    }
+                }
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Check_CSV_Data_File_Rows_Columns
 #
 # Parameters: url_lang_map - hash table of data file URLs
@@ -2851,9 +3401,8 @@ sub Check_CSV_Data_File_Rows_Columns {
     my ($data_file_object, $rows, $cols, $expected_rows, $expected_cols);
     my ($column_objects, $first_columns_url);
     my ($first_rows, $first_cols, $first_column_objects);
-    my ($col_obj, $i, $expected_col_obj);
+    my ($dict_obj, $expected_dict_obj, $heading_lang, $file_lang);
     my ($expected_cols, $expected_column_objects, $expected_columns_url);
-    my ($value_exp, $value_col);
 
     #
     # Check each entry in the URL language map
@@ -2996,183 +3545,19 @@ sub Check_CSV_Data_File_Rows_Columns {
             else {
                 #
                 # Number of columns match, now check the column types
-                # (e.g. numeric, text) and number of non-blank cells.
+                # (e.g. numeric, text), the number of non-blank cells,
+                # column min, max and sums (for numeric columns).
                 #
-                for ($i = 0; $i < $cols; $i++) {
-                    #
-                    # Get the column objects
-                    #
-                    $expected_col_obj = $$first_column_objects[$i];
-                    $col_obj = $$column_objects[$i];
-                    
-                    #
-                    # If we did not determine the column content type
-                    # (e.g. may be all blanks), skip checks.
-                    #
-                    print "Column types for column $i, " .
-                           $col_obj->type() . " and " .
-                           $expected_col_obj->type() . "\n" if $debug;
-                    print "Column non-blank cell count for column $i, " .
-                           $col_obj->non_blank_cell_count() . " and " .
-                           $expected_col_obj->non_blank_cell_count() . "\n" if $debug;
-                    if ( ($col_obj->type() eq "") || ($expected_col_obj->type() eq "") ) {
-                        print "Column data type not determined\n" if $debug;
-                        next
-                    }
-                    #
-                    # Do the column types match?
-                    #
-                    elsif ( $col_obj->type() ne $expected_col_obj->type() ) {
-                         Record_Result("OD_DATA", -1, -1, "",
-                                      String_Value("Column type mismatch for column") .
-                                      " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
-                                      String_Value("found") . " " . $col_obj->type() .
-                                      " " . String_Value("in") . " $url\n" .
-                                      String_Value("expecting") .
-                                      $expected_col_obj->type() .
-                                      String_Value("as found in") . $first_columns_url);
-                    }
-                    #
-                    # Do the number of non-blank cells match?
-                    #
-                    elsif ( $col_obj->non_blank_cell_count() != $expected_col_obj->non_blank_cell_count() ) {
-                        Record_Result("OD_DATA", -1, -1, "",
-                                      String_Value("Non blank cell count mismatch for column") .
-                                      " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
-                                      String_Value("found") . " " . $col_obj->non_blank_cell_count() .
-                                      " " . String_Value("in") . " $url\n" .
-                                      String_Value("expecting") .
-                                      $expected_col_obj->non_blank_cell_count() .
-                                      String_Value("as found in") . $first_columns_url);
-                    }
-                    
-                    #
-                    # Is this a numeric or date (YYYY-MM-DD) column type?
-                    #
-                    if ( ($col_obj->type() eq "numeric") ||
-                         ($col_obj->type() eq "date") ) {
-                        #
-                        # Do the column sums match?
-                        #
-                        print "Column sum for column $i, " .
-                               $col_obj->sum() . " and " .
-                               $expected_col_obj->sum() . "\n" if $debug;
-                        if ( $col_obj->sum() != $expected_col_obj->sum() ) {
-                              Record_Result("OD_DATA", -1, -1, "",
-                                            String_Value("Column sum mismatch for column") .
-                                            " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
-                                            String_Value("found") . " " . $col_obj->sum() .
-                                            " " . String_Value("in") . " $url\n" .
-                                            String_Value("expecting") .
-                                            $expected_col_obj->sum() .
-                                            String_Value("as found in") . $first_columns_url);
-                        }
-                        
-                        #
-                        # If the column type is date, convert the maximum date
-                        # into a number
-                        #
-                        if ( $col_obj->type() eq "date" ) {
-                            if ( defined($expected_col_obj->max()) ) {
-                                $value_exp = $expected_col_obj->max();
-                                $value_exp =~ s/\-//g;
-                            }
-                            else {
-                                $value_exp = 0;
-                            }
-                            if ( defined($col_obj->max()) ) {
-                                $value_col = $col_obj->max();
-                                $value_col =~ s/\-//g;
-                            }
-                            else {
-                                $value_col = 0;
-                            }
-                        }
-                        else {
-                            if ( defined($expected_col_obj->max()) ) {
-                                $value_exp = $expected_col_obj->max();
-                            }
-                            else {
-                                $value_exp = 0;
-                            }
-                            if ( defined($col_obj->max()) ) {
-                                $value_col = $col_obj->max();
-                            }
-                            else {
-                                $value_col = 0;
-                            }
-                        }
+                Check_CSV_Column_Type_Value($first_column_objects,
+                                            $column_objects, $cols,
+                                            $first_columns_url, $url);
 
-                        #
-                        # Do the column maximum values match?
-                        #
-                        print "Column max for column $i, " .
-                               $col_obj->max() . " and " .
-                               $expected_col_obj->max() . "\n" if $debug;
-                        if ( $value_col != $value_exp ) {
-                              Record_Result("OD_DATA", -1, -1, "",
-                                            String_Value("Column maximum mismatch for column") .
-                                            " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
-                                            String_Value("found") . " " . $col_obj->max() .
-                                            " " . String_Value("in") . " $url\n" .
-                                            String_Value("expecting") .
-                                            $expected_col_obj->max() .
-                                            String_Value("as found in") . $first_columns_url);
-                        }
-
-                        #
-                        # If the column type is date, convert the minimum date
-                        # into a number
-                        #
-                        if ( $col_obj->type() eq "date" ) {
-                            if ( defined($expected_col_obj->min()) ) {
-                                $value_exp = $expected_col_obj->min();
-                                $value_exp =~ s/\-//g;
-                            }
-                            else {
-                                $value_exp = 0;
-                            }
-                            if ( defined($col_obj->min()) ) {
-                                $value_col = $col_obj->min();
-                                $value_col =~ s/\-//g;
-                            }
-                            else {
-                                $value_col = 0;
-                            }
-                        }
-                        else {
-                            if ( defined($expected_col_obj->min()) ) {
-                                $value_exp = $expected_col_obj->min();
-                            }
-                            else {
-                                $value_exp = 0;
-                            }
-                            if ( defined($col_obj->min()) ) {
-                                $value_col = $col_obj->min();
-                            }
-                            else {
-                                $value_col = 0;
-                            }
-                        }
-
-                        #
-                        # Do the column minimum values match?
-                        #
-                        print "Column min for column $i, " .
-                               $col_obj->min() . " and " .
-                               $expected_col_obj->min() . "\n" if $debug;
-                        if ( $value_col != $value_exp ) {
-                              Record_Result("OD_DATA", -1, -1, "",
-                                            String_Value("Column minimum mismatch for column") .
-                                            " " . $col_obj->heading() . " (" . ($i + 1) . ") \n" .
-                                            String_Value("found") . " " . $col_obj->min() .
-                                            " " . String_Value("in") . " $url\n" .
-                                            String_Value("expecting") .
-                                            $expected_col_obj->min() .
-                                            String_Value("as found in") . $first_columns_url);
-                        }
-                    }
-                }
+                #
+                # Check the column heading order
+                #
+                Check_CSV_Column_Heading_Order($first_column_objects, $column_objects,
+                                               $cols, $first_columns_url, $url,
+                                               $data_file_object->lang());
             }
         }
     }
@@ -3662,6 +4047,7 @@ sub Open_Data_Check_Dataset_Data_Files {
     my (%url_lang_map, $lang_item_addr, $data_file_object, %file_checksums);
     my ($checksum, $url_lang, $eng_file_query, $url_file_query);
     my ($protocol, $domain, $file_path, $query, $new_url);
+    my ($found_eng_or_fra);
 
     #
     # Do we have a valid profile ?
@@ -3692,6 +4078,7 @@ sub Open_Data_Check_Dataset_Data_Files {
     #
     # Process the list of URLs
     #
+    $found_eng_or_fra = 0;
     foreach $list_item (@$url_list) {
         #
         # The URL may include a format specifier (e.g. CSV)
@@ -3720,6 +4107,16 @@ sub Open_Data_Check_Dataset_Data_Files {
         }
         $url_lang = URL_Check_GET_URL_Language($url);
         print "URL = $url, language = $url_lang, English URL = $eng_url\n" if $debug;
+        
+        #
+        # Did we find an English or French URL? We only do language variant
+        # check if we find an English or French URL. This avoids checking
+        # files if thy have what appears to be a language suffix when they
+        # actually don't.
+        #
+        if ( ($url_lang eq "eng") || ($url_lang eq "fra") ) {
+            $found_eng_or_fra = 1;
+        }
         
         #
         # Get URL components, we only need the file name and query parameters.
@@ -3812,12 +4209,16 @@ sub Open_Data_Check_Dataset_Data_Files {
     #
     # Check for matching language counts and required languages
     #
-    Check_Data_File_Languages(%url_lang_map);
+    if ( $found_eng_or_fra ) {
+        Check_Data_File_Languages(%url_lang_map);
+    }
     
     #
     # Check CSV file content for rows/column matches and other technical checks
     #
-    Check_CSV_Data_File_Rows_Columns(%url_lang_map);
+    if ( $found_eng_or_fra ) {
+        Check_CSV_Data_File_Rows_Columns(%url_lang_map);
+    }
 
     #
     # Check JSON-CSV file content for item/field matches and other content checks
