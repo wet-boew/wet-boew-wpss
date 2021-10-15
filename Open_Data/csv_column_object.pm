@@ -2,9 +2,9 @@
 #
 # Name: csv_column_object.pm
 #
-# $Revision: 1602 $
+# $Revision: 1940 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/csv_column_object.pm $
-# $Date: 2019-11-26 09:09:20 -0500 (Tue, 26 Nov 2019) $
+# $Date: 2021-02-10 13:06:40 -0500 (Wed, 10 Feb 2021) $
 #
 # Description:
 #
@@ -18,6 +18,7 @@
 # Class Methods
 #    new - create new object instance
 #    check_consistent_value - check for consistent values
+#    dictionary_object - set/get data dictionary object value
 #    first_data - set/get the first data cell value
 #    get_data_type_details - get the details for a specific data type
 #    get_data_types_list - get the list of data types
@@ -92,7 +93,7 @@ BEGIN {
 
 my ($debug) = 0;
 my ($MIN_DATA_LENGTH) = 10;
-my ($MAX_DATA_LENGTH) = 1000;
+my ($MAX_DATA_LENGTH) = 100;
 
 #********************************************************
 #
@@ -219,6 +220,7 @@ sub new {
     $self->{"data_type_count"} = \%data_type_count;
     $self->{"data_type_data"} = \%data_type_data;
     $self->{"data_type_line"} = \%data_type_line;
+    $self->{"dictionary_object"} = undef;
     $self->{"first_data"} = 1;
     $self->{"heading"} = $heading;
     $self->{"max"} = undef;
@@ -486,6 +488,36 @@ sub consistent_multi_cell_value_table {
         }
     }
 }
+
+#********************************************************
+#
+# Name: dictionary_object
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the dictionary_object
+# attribute of the object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub dictionary_object {
+    my ($self, $value) = @_;
+   
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"dictionary_object"} = $value;
+    }
+    else {
+        return($self->{"dictionary_object"});
+    }
+}
+
 #********************************************************
 #
 # Name: first_data
@@ -503,7 +535,7 @@ sub consistent_multi_cell_value_table {
 #********************************************************
 sub first_data {
     my ($self, $value) = @_;
-   
+
     #
     # Was a value supplied ?
     #
