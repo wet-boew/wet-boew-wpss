@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision: 1772 $
+# $Revision: 2156 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_testcases.pm $
-# $Date: 2020-04-07 10:15:41 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2021-10-01 14:01:19 -0400 (Fri, 01 Oct 2021) $
 #
 # Description:
 #
@@ -108,6 +108,22 @@ my (%testcase_description_en) = (
 "OD_VAL",   "OD_VAL: Validation",
 
 #
+# TBS Open Data checkpoints
+#
+"TBS_QRS_Structured",    "TBS_QRS_Structured: Your data is made available in a structured format",
+"TBS_QRS_Open",          "TBS_QRS_Open: Your data is made available in a nonproprietary structured format",
+"TBS_QRS_Noticed",       "TBS_QRS_Noticed: Receive 5 or more User Ratings",
+"TBS_QRS_Popular",       "TBS_QRS_Popular: Receive 10 or more User Ratings with an average score of 3 or higher",
+"TBS_QRS_Timely",        "TBS_QRS_Timely: Dataset is updated in accordance with user-defined frequency",
+"TBS_QRS_Documented",    "TBS_QRS_Documented: Valid supporting documentation",
+"TBS_QRS_Connected",     "TBS_QRS_Connected: Valid maintainer email supplied for the owning department",
+"TBS_QRS_Readable",      "TBS_QRS_Readable: Description is at appropriate readability level",
+"TBS_QRS_Online",        "TBS_QRS_Online: The link to the dataset is valid",
+"TBS_QRS_Tidy",          "TBS_QRS_Tidy: Dataset is successfully validated via a linting tool and returns no errors",
+"TBS_QRS_Honest",        "TBS_QRS_Honest: The supplied data file matches the indicated file type",
+"TBS_QRS_International", "TBS_QRS_International: Data is supplied with UTF-8 character encoding",
+
+#
 # PWGSC Open Data checkpoints
 #
 "TP_PW_OD_BOM",              "TP_PW_OD_BOM: UTF-8 BOM",
@@ -117,6 +133,7 @@ my (%testcase_description_en) = (
 "TP_PW_OD_CONT_DUP",         "TP_PW_OD_CONT: Duplicate content",
 "TP_PW_OD_DATA",             "TP_PW_OD_DATA: PWGSC Data Quality",
 "TP_PW_OD_DD",               "TP_PW_OD_DD: Data Dictionary",
+"TP_PW_OD_VAL",              "TP_PW_OD_VAL: Validation",
 );
 
 my (%testcase_description_fr) = (
@@ -130,6 +147,22 @@ my (%testcase_description_fr) = (
 "OD_VAL",   "OD_VAL: Validation",
 
 #
+# TBS Open Data checkpoints
+#
+"TBS_QRS_Structured",    "TBS_QRS_Structured: Your data is made available in a structured format",
+"TBS_QRS_Open",          "TBS_QRS_Open: Your data is made available in a nonproprietary structured format",
+"TBS_QRS_Noticed",       "TBS_QRS_Noticed: Receive 5 or more User Ratings",
+"TBS_QRS_Popular",       "TBS_QRS_Popular: Receive 10 or more User Ratings with an average score of 3 or higher",
+"TBS_QRS_Timely",        "TBS_QRS_Timely: Dataset is updated in accordance with user-defined frequency",
+"TBS_QRS_Documented",    "TBS_QRS_Documented: Valid supporting documentation",
+"TBS_QRS_Connected",     "TBS_QRS_Connected: Valid maintainer email supplied for the owning department",
+"TBS_QRS_Readable",      "TBS_QRS_Readable: Description is at appropriate readability level",
+"TBS_QRS_Online",        "TBS_QRS_Online: The link to the dataset is valid",
+"TBS_QRS_Tidy",          "TBS_QRS_Tidy: Dataset is successfully validated via a linting tool and returns no errors",
+"TBS_QRS_Honest",        "TBS_QRS_Honest: The supplied data file matches the indicated file type",
+"TBS_QRS_International", "TBS_QRS_International: Data is supplied with UTF-8 character encoding",
+
+#
 # PWGSC Open Data checkpoints
 #
 "TP_PW_OD_BOM",              "TP_PW_OD_BOM: UTF-8 BOM",
@@ -139,6 +172,7 @@ my (%testcase_description_fr) = (
 "TP_PW_OD_CONT_DUP",         "TP_PW_OD_CONT: Contenu en double",
 "TP_PW_OD_DATA",             "TP_PW_OD_DATA: Qualité des données de TPSGC",
 "TP_PW_OD_DD",               "TP_PW_OD_DD: XML Dictionnaire",
+"TP_PW_OD_VAL",              "TP_PW_OD_VAL: Validation",
 );
 
 #
