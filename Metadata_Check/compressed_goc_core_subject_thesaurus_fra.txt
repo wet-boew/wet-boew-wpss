@@ -7,18 +7,20 @@
 # text delimited file.  It contains only the prefered subject terms.
 # This file was generated as follows
 #    compress_thesaurus_file.pl goc_core_subject_thesaurus_fra.txt
-# at: 13:16 2016-09-19
+# at: 10:02 2021-09-09
 #
 # This file should not be modified.
 #
 #***********************************************************************
 abattage d'animaux
-abréviation
-accès à l'éducation
-accès à l'information
-accès public
-accessibilité
-accessibilité aux personnes handicapées
+abrÃ©viation
+accÃ©lÃ©rateur d'entreprises
+accÃ¨s Ã  l'Ã©ducation
+accÃ¨s Ã  l'information
+accÃ¨s public
+accessibilitÃ©
+accessibilitÃ© aux personnes handicapÃ©es
+accessoire de bureau
 accident
 accident d'aviation
 accident de la route
@@ -30,18 +32,18 @@ accident minier
 accise
 accord
 accord commercial
-accord de coopération
-accord de libre-échange
-accord de réciprocité
+accord de coopÃ©ration
+accord de libre-Ã©change
+accord de rÃ©ciprocitÃ©
 accord de service
-accord en matière d'environnement
-accord fédéral-provincial
-accord fédéral-territorial
+accord en matiÃ¨re d'environnement
+accord fÃ©dÃ©ral-provincial
+accord fÃ©dÃ©ral-territorial
 accord fiscal
 accord international
-accord multilatéral
-accord multilatéral sur l'investissement
-accréditation
+accord multilatÃ©ral
+accord multilatÃ©ral sur l'investissement
+accrÃ©ditation
 acculturation
 achat
 acheteur
@@ -54,74 +56,74 @@ action
 action positive
 actuariat
 adaptation
-adaptation à l'environnement
-administration aéroportuaire
+adaptation Ã  l'environnement
+administration aÃ©roportuaire
 administration locale
 administration portuaire
 administration publique
-admissibilité
+admissibilitÃ©
 adolescence
 adolescent
 adoption
 adoption internationale
 adulte
-aéroglisseur
-aéronef
-aéronef civil
-aéronef militaire
-aéroport
+aÃ©roglisseur
+aÃ©ronef
+aÃ©ronef civil
+aÃ©ronef militaire
+aÃ©roport
 affaires autochtones
-affaires étrangères
+affaires Ã©trangÃ¨res
 affectation
 affiche
 affranchissement des droits
-Âge adulte
+Ã‚ge adulte
 agriculture
-aide à l'agriculture
-aide à l'étranger
-aide à l'industrie
+aide Ã  l'agriculture
+aide Ã  l'Ã©tranger
+aide Ã  l'industrie
 aide au logement
-aide financière
+aide financiÃ¨re
 aide fiscale
 aide humanitaire
-aide hypothécaire
+aide hypothÃ©caire
 aide juridique
 aide sociale
-aîné
+aÃ®nÃ©
 air
 aire de conservation
 aire marine de conservation
 alcoolisme
-alerte météorologique
+alerte mÃ©tÃ©orologique
 aliment
 aliment biologique
 aliment fonctionnel
-aliment génétiquement modifié
+aliment gÃ©nÃ©tiquement modifiÃ©
 alimentation
 alimentation animale
-alimentation du nouveau-né
-allègement tarifaire
+alimentation du nouveau-nÃ©
+allÃ¨gement tarifaire
 allergie
 allocation
-allocation de crédits
+allocation de crÃ©dits
 allocation des ressources
 allocations familiales
 almanach
-alphabétisation
+alphabÃ©tisation
 amende
 amendement
 ameublement
 amphibien
 analyse
-analyse coût-bénéfice
+analyse coÃ»t-bÃ©nÃ©fice
 analyse de l'industrie
-analyse de marché
-analyse économique
-analyse financière
-analyse macro-économique
-analyse micro-économique
+analyse de marchÃ©
+analyse Ã©conomique
+analyse financiÃ¨re
+analyse macro-Ã©conomique
+analyse micro-Ã©conomique
 analyse sectorielle
-analyse socio-économique
+analyse socio-Ã©conomique
 analyse statistique
 analytique
 anatomie
@@ -131,13 +133,13 @@ anglais langue seconde
 animal
 animal aquatique
 animal domestique
-année civile
+annÃ©e civile
 annuaire
 antarctique
 anthropologie
-antigivrage des aéronefs
+antigivrage des aÃ©ronefs
 apiculture
-appareil électrique
+appareil Ã©lectrique
 appauvrissement de l'ozone
 appel
 appel d'offres
@@ -150,7 +152,7 @@ aquarium
 arachnide
 arbitrage
 arbre
-archéologie
+archÃ©ologie
 architecture
 architecture commerciale
 architecture domestique
@@ -166,15 +168,15 @@ archives visuelles
 arctique
 argent (minerai)
 arme
-arme à feu
+arme Ã  feu
 arme biologique
 arme chimique
-arme nucléaire
+arme nuclÃ©aire
 arpentage
 arrestation
 arsenal
 art culinaire
-art d'être parent
+art d'Ãªtre parent
 art populaire
 artefact
 arthrite
@@ -182,27 +184,27 @@ arthropode
 artisanat
 artiste
 arts
-arts d'interprétation
-arts décoratifs
+arts d'interprÃ©tation
+arts dÃ©coratifs
 arts graphiques
 arts visuels
-assemblée législative
+assemblÃ©e lÃ©gislative
 assistance professionnelle
-assistant numérique personnel
+assistant numÃ©rique personnel
 association
 association professionnelle
 assurance
 assurance-emploi
-assurance-récolte
+assurance-rÃ©colte
 assurance-vie
 assurance dentaire
-assurance hypothécaire
+assurance hypothÃ©caire
 assurance maladie
-assurance médicaments
+assurance mÃ©dicaments
 assurance sur les biens et risques
 astronaute
 astronomie
-athlète
+athlÃ¨te
 atlas
 attentes
 attitude
@@ -229,74 +231,75 @@ avion
 avis public
 avoine
 avortement
-bactérie
-bactériologie
+bactÃ©rie
+bactÃ©riologie
 bail
 baleine
 banque
+banque centrale
 barrage
-barrière tarifaire
-base de données
+barriÃ¨re tarifaire
+base de donnÃ©es
 bassin hydrologique
 bateau de plaisance
-bâtiment
-bâtiment agricole
-bâtiment commercial
-bâtiment industriel
-bénéficiaire
-bénévolat
+bÃ¢timent
+bÃ¢timent agricole
+bÃ¢timent commercial
+bÃ¢timent industriel
+bÃ©nÃ©ficiaire
+bÃ©nÃ©volat
 besoins
 besoins en eau
-bétail
-béton
+bÃ©tail
+bÃ©ton
 beurre
 bibliographie
 bibliographie nationale
-bibliothèque
-bibliothèque gouvernementale
-bibliothèque nationale
-bibliothèque numérique
-bibliothèque publique
-bibliothèque spécialisée
+bibliothÃ¨que
+bibliothÃ¨que gouvernementale
+bibliothÃ¨que nationale
+bibliothÃ¨que numÃ©rique
+bibliothÃ¨que publique
+bibliothÃ¨que spÃ©cialisÃ©e
 biens
 biens de la couronne
 biens mobiliers
-bière
+biÃ¨re
 bilinguisme
 biochimie
-biodégradation
-bioénergie
-bioéthique
+biodÃ©gradation
+bioÃ©nergie
+bioÃ©thique
 biographie
 biologie
 biologie marine
 biomasse
 biotechnologie
-blé
+blÃ©
 blessure
 bois
 boisement
 boisson
-boisson alcoolisée
+boisson alcoolisÃ©e
 botanique
-bourse d'études
-bovin
-bovin de boucherie
-bovin laitier
+bourse d'Ã©tudes
+bovins
+bovins de boucherie
+bovins laitiers
 braconnage
 braille
 brevet
 brise-glace
 brochure
 budget
-budget supplémentaire des dépenses
+budget supplÃ©mentaire des dÃ©penses
 bulletin
 bulletin d'information
 bureau commercial
 bureautique
-câblodistribution
-cadre de référence
-café
+cÃ¢blodistribution
+cadre de rÃ©fÃ©rence
+cafÃ©
 caisse populaire
 calotte glaciaire
 camion
@@ -315,12 +318,12 @@ carburant de remplacement
 carburant diesel
 carotte
 carte
-carte aéronautique
-carte démographique
-carte géographique
-carte géologique
+carte aÃ©ronautique
+carte dÃ©mographique
+carte gÃ©ographique
+carte gÃ©ologique
 carte marine
-carte routière
+carte routiÃ¨re
 carte topographique
 cartographie
 casier judiciaire
@@ -328,23 +331,23 @@ casino
 catalogage
 catalogue
 catastrophe naturelle
-cécité
-cédérom
+cÃ©citÃ©
+cÃ©dÃ©rom
 cellule
 cellule souche
-cénotaphe
+cÃ©notaphe
 censure
-centrale électrique
-centrale hydroélectrique
-centrale nucléaire
+centrale Ã©lectrique
+centrale hydroÃ©lectrique
+centrale nuclÃ©aire
 centralisation
 centre d'emploi
 centre de formation
-céramique
-céréale
-cérémonial d'État
+cÃ©ramique
+cÃ©rÃ©ale
+cÃ©rÃ©monial d'Ã‰tat
 certificat d'origine
-certificat de décès
+certificat de dÃ©cÃ¨s
 certificat de naissance
 cessation d'emploi
 chaire de recherche
@@ -355,8 +358,8 @@ changement climatique
 changement d'adresse
 charbon
 charte
-charte des droits et libertés
-chasse à la baleine
+charte des droits et libertÃ©s
+chasse Ã  la baleine
 chasse au phoque
 chasse sportive
 chauffage
@@ -364,11 +367,13 @@ chauffage solaire
 chef de l'opposition officielle
 cheval
 chimie
-chômage
-cimetière
-cinéma
-circonscription électorale
-citoyenneté
+chirurgie
+chirurgien
+chÃ´mage
+cimetiÃ¨re
+cinÃ©ma
+circonscription Ã©lectorale
+citoyennetÃ©
 classification
 classification des emplois
 classification des industries
@@ -386,228 +391,232 @@ codification administrative
 collecte de fonds
 collection
 collection de monographies
-collection muséale
-collection numérique
-collège
-collège militaire
+collection musÃ©ale
+collection numÃ©rique
+collÃ¨ge
+collÃ¨ge militaire
 colonisation
 combustible
-comité
-comité consultatif
+comitÃ©
+comitÃ© consultatif
 commandement militaire
 commandite
-commémoration
+commÃ©moration
 commerce
-commerce de détail
+commerce de dÃ©tail
 commerce de gros
-commerce électronique
-commerce extérieur
-commerce intérieur
+commerce Ã©lectronique
+commerce extÃ©rieur
+commerce intÃ©rieur
 commercialisation
-commission d'enquête
+commission d'enquÃªte
 commission parlementaire
 commission scolaire
 commonwealth
-communauté isolée
-communauté rurale
-communauté urbaine
+communautÃ© isolÃ©e
+communautÃ© rurale
+communautÃ© urbaine
 communication orale
 communications
 communications gouvernementales
 communications militaires
-communiqué de presse
-compagnie aérienne
+communiquÃ© de presse
+compagnie aÃ©rienne
 compagnie d'assurances
 compagnie ferroviaire
 comparaison
 comparution
-compétitivité
+compÃ©titivitÃ©
 comportement
 compostage
-comptabilité
+comptabilitÃ©
 comptes publics
 conception
+conciliation
 concurrence
 condamnation
 condition d'utilisation
 condition de la femme
-condition de la personne âgée
-condition de la personne handicapée
+condition de la personne Ã¢gÃ©e
+condition de la personne handicapÃ©e
 condition physique
 conditions de travail
-conditions économiques
+conditions Ã©conomiques
 conditions sociales
 conduite automobile
-confidentialité
+confidentialitÃ©
 conflit
-conflit d'intérêt
+conflit d'intÃ©rÃªt
 conflit de travail
-conformité
-congé
-congédiement
-conglomérat
-congrès
+conformitÃ©
+congÃ©
+congÃ©diement
+conglomÃ©rat
+congrÃ¨s
 conseil d'administration
 conseil des ministres
-conseil du trésor
+conseil du trÃ©sor
 conservation
 conservation de l'eau
-conservation de l'énergie
+conservation de l'Ã©nergie
 conservation de la nature
 conservation des documents
 conservation des ressources
 consommateur
 consommation
 consommation d'alcool
-consommation d'énergie
+consommation d'Ã©nergie
 consommation de drogues
 consortium
 constitution
 construction
 construction navale
-construction routière
+construction routiÃ¨re
 consultation
 contrat
 contrat de service
-contrat du gouvernement fédéral
+contrat du gouvernement fÃ©dÃ©ral
 contravention
-contrôle
-contrôle d'application
-contrôle de la qualité
-contrôle des armements
+contribution non remboursable
+contribution remboursable
+contrÃ´le
+contrÃ´le d'application
+contrÃ´le de la qualitÃ©
+contrÃ´le des armements
 convention collective
-coopération
-coopération internationale
-coopération régionale
-coopérative
+coopÃ©ration
+coopÃ©ration internationale
+coopÃ©ration rÃ©gionale
+coopÃ©rative
 coordination
+coronavirus
+coronavirus du covid-19
 correspondance
 corruption
 costume
 couple
-couple de même sexe
-courrier électronique
+couple de mÃªme sexe
+courrier Ã©lectronique
 cours d'eau
 cours de conduite automobile
-coût
+coÃ»t
 coutume
 couture
 couverture du sol
 couveuse
-créance
-création d'emploi
-crédit
-crédit d'impôt
-crédit ménager
-crème
+crÃ©ance
+crÃ©ation d'emploi
+crÃ©dit
+crÃ©dit d'impÃ´t
+crÃ©dit mÃ©nager
+crÃ¨me
 crime
-crime contre l'humanité
+crime contre l'humanitÃ©
 crime de guerre
-crime économique
+crime Ã©conomique
 crime informatique
-crime organisé
+crime organisÃ©
 crise
-crise financière
+crise financiÃ¨re
 crise humanitaire
-crustacé
+crustacÃ©
 cryptographie
 culture
 culture autochtone
 culture hydroponique
 culture populaire
 cultures
-cultures fourragères
-cultures fruitières
-cultures maraîchères
+cultures fourragÃ¨res
+cultures fruitiÃ¨res
+cultures maraÃ®chÃ¨res
 curriculum
 cyclisme
 danse
-débiteur
-déboisement
-décaissement
-décentralisation
-déchets
-déchets dangereux
-déchets domestiques
-déchets électroniques
-déchets industriels
-déchets radioactifs
-décision
-décision du tribunal
-déclaration
-décontamination
-décoration
-défense des droits
-déficience
-déficience auditive
-déficience intellectuelle
-déficience physique
-déficience visuelle
-déficit
-dégivrage des aéronefs
-délégation
-délégation commerciale
-délégation de pouvoir
+dÃ©biteur
+dÃ©boisement
+dÃ©caissement
+dÃ©centralisation
+dÃ©chets
+dÃ©chets dangereux
+dÃ©chets domestiques
+dÃ©chets Ã©lectroniques
+dÃ©chets industriels
+dÃ©chets radioactifs
+dÃ©cision
+dÃ©cision du tribunal
+dÃ©claration
+dÃ©contamination
+dÃ©coration
+dÃ©fense des droits
+dÃ©ficience
+dÃ©ficience auditive
+dÃ©ficience intellectuelle
+dÃ©ficience physique
+dÃ©ficience visuelle
+dÃ©ficit
+dÃ©givrage des aÃ©ronefs
+dÃ©lÃ©gation
+dÃ©lÃ©gation commerciale
+dÃ©lÃ©gation de pouvoir
 demande
 demande d'admission
 demande d'emploi
 demande d'information
 demandeur
-démarrage d'une entreprise
-déminage
-démission
-démographie
-dépendance
-dépenses
-dépenses publiques
-dépistage (médecine)
-déportation
-député fédéral
-dérogation
-désastre
+dÃ©marrage d'une entreprise
+dÃ©minage
+dÃ©mission
+dÃ©mographie
+dÃ©pendance
+dÃ©penses
+dÃ©penses publiques
+dÃ©pistage (mÃ©decine)
+dÃ©portation
+dÃ©putÃ© fÃ©dÃ©ral
+dÃ©rogation
+dÃ©sastre
 description de poste
 dessaisissement
 dessin
 dessin d'architecture
 dessin industriel
 destroyer
-détection
-détenu
-détournement de fonds
+dÃ©tection
+dÃ©tenu
+dÃ©tournement de fonds
 dette
 dette nationale
-development tool [ang]
-développement
-développement communautaire
-développement culturel
-développement de l'enfant
-développement de l'entreprise
-développement de produit
-développement des marchés
-développement du commerce international
-développement du nord
-développement durable
-développement économique
-développement industriel
-développement international
-développement professionnel
-développement régional
-développement rural
-développement social
-développement urbain
-déversement de pétrole
-déversement de substances toxiques
-diabète
+dÃ©veloppement
+dÃ©veloppement communautaire
+dÃ©veloppement culturel
+dÃ©veloppement de l'enfant
+dÃ©veloppement de l'entreprise
+dÃ©veloppement de produit
+dÃ©veloppement des marchÃ©s
+dÃ©veloppement du commerce international
+dÃ©veloppement du nord
+dÃ©veloppement durable
+dÃ©veloppement Ã©conomique
+dÃ©veloppement industriel
+dÃ©veloppement international
+dÃ©veloppement professionnel
+dÃ©veloppement rÃ©gional
+dÃ©veloppement rural
+dÃ©veloppement social
+dÃ©veloppement urbain
+dÃ©versement de pÃ©trole
+dÃ©versement de substances toxiques
+diabÃ¨te
 diagnostic
 diamant
 diapositive
 dictionnaire
-dictionnaire de données
-différend commercial
+dictionnaire de donnÃ©es
+diffÃ©rend commercial
 diffusion de l'information
 diplomatie ouverte
 directeur des finances
-directeur général des élections
+directeur gÃ©nÃ©ral des Ã©lections
 direction
 dirigeant principal de l'information
 dirigeant principal des ressources humaines
@@ -615,37 +624,37 @@ discipline du travail
 discrimination
 discrimination raciale
 discrimination sexuelle
-disponibilités alimentaires
-disponibilités en combustible
-disponibilités énergétiques
+disponibilitÃ©s alimentaires
+disponibilitÃ©s en combustible
+disponibilitÃ©s Ã©nergÃ©tiques
 disque compact
 dissolution
 distribution
 diversification
-diversité biologique
-diversité culturelle
-diversité linguistique
+diversitÃ© biologique
+diversitÃ© culturelle
+diversitÃ© linguistique
 division
 divorce
 divulgation d'actes fautifs
 document d'information
-document électronique
+document Ã©lectronique
 document juridique
 don
-don de charité
-données administratives
-données démographiques
-données du recensement
-données géographiques
-données hydrométriques en temps réel
-données hydrométriques historiques
-données lisibles par machine
-données météorologiques
-données numériques d'élévation
-données ouvertes
-données socio-économiques
+don de charitÃ©
+donnÃ©es administratives
+donnÃ©es dÃ©mographiques
+donnÃ©es du recensement
+donnÃ©es gÃ©ographiques
+donnÃ©es hydromÃ©triques en temps rÃ©el
+donnÃ©es hydromÃ©triques historiques
+donnÃ©es lisibles par machine
+donnÃ©es mÃ©tÃ©orologiques
+donnÃ©es numÃ©riques d'Ã©lÃ©vation
+donnÃ©es ouvertes
+donnÃ©es socio-Ã©conomiques
 dossier
-dossier médical
+dossier mÃ©dical
 dotation
 douanes
 douleur
@@ -666,86 +675,86 @@ droit du travail
 droit fiscal
 droit international
 droit maritime
-droit médical
+droit mÃ©dical
 droit militaire
 droits antidumping
 droits civils
 droits de l'enfant
 droits de la personne
-droits de pêche
+droits de pÃªche
 droits des animaux
 droits des autochtones
 droits linguistiques
 droits sociaux
-dualité linguistique
+dualitÃ© linguistique
 dumping
 eau
 eau de surface
 eau douce
 eau potable
-eau salée
+eau salÃ©e
 eau souterraine
-eaux côtières
-eaux intérieures
+eaux cÃ´tiÃ¨res
+eaux intÃ©rieures
 eaux limitrophes
-eaux usées
-Échange de données bibliographiques
-Échange de données informatisées
-Échantillon
-Éclairage
-Écluse
-École
-École primaire
-École privée
-École publique
-École résidentielle
-École secondaire
-Écologie
-Économie
-Économie agricole
-Économie de l'environnement
-Économie domestique
-Économie du savoir
-Économie internationale
-Écosystème
-Écosystème aquatique
-Écosystème arctique
-Écosystème boréal
-Écosystème prairial
-Écosystème terrestre
-Édifice municipal
-Édifice patrimonial
-Édifice public
-Édifice religieux
-Édition
-Édition électronique
-Éducation
-Éducation à l'environnement
-Éducation communautaire
-Éducation familiale
-Éducation permanente
-Éducation préscolaire
+eaux usÃ©es
+Ã‰change de donnÃ©es bibliographiques
+Ã‰change de donnÃ©es informatisÃ©es
+Ã‰chantillon
+Ã‰clairage
+Ã‰cluse
+Ã‰cole
+Ã‰cole primaire
+Ã‰cole privÃ©e
+Ã‰cole publique
+Ã‰cole rÃ©sidentielle
+Ã‰cole secondaire
+Ã‰cologie
+Ã‰conomie
+Ã‰conomie agricole
+Ã‰conomie de l'environnement
+Ã‰conomie domestique
+Ã‰conomie du savoir
+Ã‰conomie internationale
+Ã‰cosystÃ¨me
+Ã‰cosystÃ¨me aquatique
+Ã‰cosystÃ¨me arctique
+Ã‰cosystÃ¨me borÃ©al
+Ã‰cosystÃ¨me prairial
+Ã‰cosystÃ¨me terrestre
+Ã‰difice municipal
+Ã‰difice patrimonial
+Ã‰difice public
+Ã‰difice religieux
+Ã‰dition
+Ã‰dition Ã©lectronique
+Ã‰ducation
+Ã‰ducation Ã  l'environnement
+Ã‰ducation communautaire
+Ã‰ducation familiale
+Ã‰ducation permanente
+Ã‰ducation prÃ©scolaire
 effet de serre
 effet secondaire
-Égalité des chances
-Égalité des sexes
-Élaboration de programme
-Élaboration des politiques
-Élection partielle
-Élections
-Électricité
-Électronique
-Élevage
-Élimination des documents
+Ã‰galitÃ© des chances
+Ã‰galitÃ© des sexes
+Ã‰laboration de programme
+Ã‰laboration des politiques
+Ã‰lection partielle
+Ã‰lections
+Ã‰lectricitÃ©
+Ã‰lectronique
+Ã‰levage
+Ã‰limination des documents
 emballage
 embarcation
-emblème
-Émigration
-Émissions atmosphériques
+emblÃ¨me
+Ã‰migration
+Ã‰missions atmosphÃ©riques
 emploi
-emploi à l'étranger
-emploi à temps partiel
-emploi à temps plein
+emploi Ã  l'Ã©tranger
+emploi Ã  temps partiel
+emploi Ã  temps plein
 emploi autonome
 emploi saisonnier
 emploi temporaire
@@ -753,34 +762,36 @@ employeur
 empoisonnement
 emprisonnement
 emprunteur
-encyclopédie
-Énergie
-Énergie de remplacement
-Énergie éolienne
-Énergie géothermique
-Énergie marine
-Énergie nucléaire
-Énergie renouvelable
-Énergie solaire
+encyclopÃ©die
+Ã‰nergie
+Ã‰nergie de remplacement
+Ã‰nergie Ã©olienne
+Ã‰nergie gÃ©othermique
+Ã‰nergie marine
+Ã‰nergie nuclÃ©aire
+Ã‰nergie renouvelable
+Ã‰nergie solaire
 enfance
 enfant
 enfant en famille d'accueil
 engrais
-Énoncé de mission
-enquête
-enquête criminelle
-enquête de sécurité
-enquête publique
-enquête sociale
+Ã‰noncÃ© de mission
+enquÃªte
+enquÃªte criminelle
+enquÃªte de sÃ©curitÃ©
+enquÃªte publique
+enquÃªte sociale
 enregistrement
-enregistrement numérique
+enregistrement numÃ©rique
 enregistrement sonore
-enregistrement vidéo
+enregistrement vidÃ©o
 enseignant
-enseignement coopératif
-enseignement dans la langue de la minorité
+enseignement
+enseignement Ã  domicile
+enseignement coopÃ©ratif
+enseignement dans la langue de la minoritÃ©
 enseignement de la langue seconde
-enseignement de la sécurité
+enseignement de la sÃ©curitÃ©
 enseignement des langues
 enseignement des sciences
 enseignement postsecondaire
@@ -788,9 +799,9 @@ enseignement primaire
 enseignement secondaire
 enseignement technique
 entomologie
-entraînement des astronautes
-entrée au canada
-entrée sur le marché
+entraÃ®nement des astronautes
+entrÃ©e au canada
+entrÃ©e sur le marchÃ©
 entreposage
 entrepreneur
 entrepreneuriat
@@ -803,92 +814,92 @@ entreprise individuelle
 entretien
 entrevue
 environnement
-Épargne
-Épidémie
-Épidémiologie
-Épreuve biologique
-Équipement
-Équipement audiovisuel
-Équipement de bureau
-Équipement de communications
-Équipement de réfrigération
-Équipement de sauvetage
-Équipement de sécurité
-Équipement de sécurité automobile
-Équipement de sécurité cycliste
-Équipement de sécurité nautique
-Équipement électrique
-Équipement électronique
-Équipement maritime
-Équipement ménager
-Équipement scientifique
-Équité en matière d'emploi
-Équité salariale
-Équité sociale
+Ã‰pargne
+Ã‰pidÃ©mie
+Ã‰pidÃ©miologie
+Ã‰preuve biologique
+Ã‰quipement
+Ã‰quipement audiovisuel
+Ã‰quipement de bureau
+Ã‰quipement de communications
+Ã‰quipement de rÃ©frigÃ©ration
+Ã‰quipement de sauvetage
+Ã‰quipement de sÃ©curitÃ©
+Ã‰quipement de sÃ©curitÃ© automobile
+Ã‰quipement de sÃ©curitÃ© cycliste
+Ã‰quipement de sÃ©curitÃ© nautique
+Ã‰quipement Ã©lectrique
+Ã‰quipement Ã©lectronique
+Ã‰quipement maritime
+Ã‰quipement mÃ©nager
+Ã‰quipement scientifique
+Ã‰quitÃ© en matiÃ¨re d'emploi
+Ã‰quitÃ© salariale
+Ã‰quitÃ© sociale
 ergonomie
-Érosion
-espèce envahissante
-espèce menacée
-espèce protégée
-espérance de vie
+Ã‰rosion
+espÃ¨ce envahissante
+espÃ¨ce menacÃ©e
+espÃ¨ce protÃ©gÃ©e
+espÃ©rance de vie
 essence
 estuaire
-Établissement d'enseignement
-Établissement de santé
-Établissement des prix
-Établissement pénitentiaire
-État matrimonial
-États financiers
-Éthique
+Ã‰tablissement d'enseignement
+Ã‰tablissement de santÃ©
+Ã‰tablissement des prix
+Ã‰tablissement pÃ©nitentiaire
+Ã‰tat matrimonial
+Ã‰tats financiers
+Ã‰thique
 ethnologie
-Étiquetage
-Étiquetage des aliments
-Étiquetage des médicaments
-Être humain
-Étude d'impact
-Étude de cas
-Étude de faisabilité
-Études à l'étranger
-Études canadiennes
-Études culturelles
-Études nordiques
-Étudiant
-Étudiant à temps partiel
-Étudiant étranger
+Ã‰tiquetage
+Ã‰tiquetage des aliments
+Ã‰tiquetage des mÃ©dicaments
+ÃŠtre humain
+Ã‰tude d'impact
+Ã‰tude de cas
+Ã‰tude de faisabilitÃ©
+Ã‰tudes Ã  l'Ã©tranger
+Ã‰tudes canadiennes
+Ã‰tudes culturelles
+Ã‰tudes nordiques
+Ã‰tudiant
+Ã‰tudiant Ã  temps partiel
+Ã‰tudiant Ã©tranger
 euthanasie
-Évacuation
-Évaluation
-Évaluation de la langue seconde
-Évaluation de programme
-Évaluation du rendement
-Évaluation environnementale
-Événement culturel
-Événement sportif
-Évitement fiscal
+Ã‰vacuation
+Ã‰valuation
+Ã‰valuation de la langue seconde
+Ã‰valuation de programme
+Ã‰valuation du rendement
+Ã‰valuation environnementale
+Ã‰vÃ©nement culturel
+Ã‰vÃ©nement sportif
+Ã‰vitement fiscal
 examen
 examen des politiques
 exclusion
-expédition
-expérimentation
-expérimentation biomédicale
-expérimentation sur les animaux
+expÃ©dition
+expÃ©rimentation
+expÃ©rimentation biomÃ©dicale
+expÃ©rimentation sur les animaux
 expertise
 exploitation agricole
 exploitation des ressources
 exploration
-exploration de données
+exploration de donnÃ©es
 exploration spatiale
 explosif
 explosion
 exportation
-exposé de principe
-exposition d'œuvres d'art
+exposÃ© de principe
+exposition d'Å“uvres d'art
 exposition internationale
 exposition virtuelle
 expropriation
 extraction
 extradition
-facilité d'emploi du web
+facilitÃ© d'emploi du web
 faible revenu
 faillite
 faim
@@ -901,26 +912,28 @@ fardeau administratif
 faune
 faune aquatique
 fauteuil roulant
-fécondité
+fÃ©conditÃ©
 femme
 festival
 fichier de renseignements personnels
 fiduciaire
+finance sociale
 financement
-financement de l'éducation
+financement de l'Ã©ducation
 financement public
 finances
 finances internationales
 finances personnelles
 finances publiques
+fleuve
 flore
 fluorure
-flux transfrontière de données
+flux transfrontiÃ¨re de donnÃ©es
 foire agricole
 foire aux questions
 folklore
 fonction
-fonction de contrôleur
+fonction de contrÃ´leur
 fonction publique
 fonctionnement
 fond marin
@@ -928,14 +941,14 @@ fonds de roulement
 fongicide
 forage
 forage en mer
-forces alliées
-forces armées
+forces alliÃ©es
+forces armÃ©es
 forces de maintien de la paix
 foresterie
-forêt
-forêt modèle
+forÃªt
+forÃªt modÃ¨le
 formation
-formation à distance
+formation Ã  distance
 formation de reconversion
 formation des utilisateurs
 formation linguistique
@@ -944,58 +957,59 @@ formation professionnelle
 formation syndicale
 formulaire
 fossile
-fouilles archéologiques
+fouilles archÃ©ologiques
 fournisseur
 fournitures de bureau
 fourrure
 frais
-français
-français au travail
-français langue seconde
+franÃ§ais
+franÃ§ais au travail
+franÃ§ais langue seconde
 franchise
 francophonie
 fraude
 fraude fiscale
-frégate
+frÃ©gate
 fret
 fromage
-frontière
+frontiÃ¨re
 fruit
 fruits de mer
-fugitif recherché par la justice
+fugitif recherchÃ© par la justice
 fumier
 fuseau horaire
 fusion
 futur
+gai
 galerie d'art
 gangs
 garantie
 garantie juridique
-garde côtière
+garde cÃ´tiÃ¨re
 garde des enfants
 garderie
 gare ferroviaire
 gaz
-gaz à effet de serre
+gaz Ã  effet de serre
 gaz naturel
-généalogie
-génétique
-génie génétique
-génie mécanique
-génie militaire
-génomique
-géochimie
-géochronologie
-géodésie
-géographie
-géologie
-géologie des dépôts meubles
-géomatique
-géomorphologie
-géophysique
-gérance
-gériatrie
-gérontologie
+gÃ©nÃ©alogie
+gÃ©nÃ©tique
+gÃ©nie gÃ©nÃ©tique
+gÃ©nie mÃ©canique
+gÃ©nie militaire
+gÃ©nomique
+gÃ©ochimie
+gÃ©ochronologie
+gÃ©odÃ©sie
+gÃ©ographie
+gÃ©ologie
+gÃ©ologie des dÃ©pÃ´ts meubles
+gÃ©omatique
+gÃ©omorphologie
+gÃ©ophysique
+gÃ©rance
+gÃ©riatrie
+gÃ©rontologie
 gestion
 gestion administrative
 gestion de l'eau
@@ -1007,24 +1021,24 @@ gestion de programme
 gestion de projet
 gestion de site
 gestion des biens
-gestion des déchets
-gestion des dépenses
+gestion des dÃ©chets
+gestion des dÃ©penses
 gestion des documents
-gestion des pêches
+gestion des pÃªches
 gestion des ressources
 gestion des risques
 gestion des terres
-gestion du matériel
+gestion du matÃ©riel
 gestion du parc automobile
 gestion du personnel
 gestion du savoir
 gestion du spectre
-gestion énergétique
-gestion financière
-gestion forestière
+gestion Ã©nergÃ©tique
+gestion financiÃ¨re
+gestion forestiÃ¨re
 gestion industrielle
-gestion intégrée
-gestion stratégique
+gestion intÃ©grÃ©e
+gestion stratÃ©gique
 gibier
 glace
 glacier
@@ -1033,101 +1047,105 @@ gouvernance
 gouvernement
 gouvernement autochtone
 gouvernement en ligne
-gouvernement fédéral
+gouvernement fÃ©dÃ©ral
 gouvernement ouvert
 gouvernement provincial
 gouvernement territorial
-gouverneur général
+gouverneur gÃ©nÃ©ral
 grain
 gravure
 grippe
 grossesse
 groupe culturel
-groupe d'intérêt
+groupe d'intÃ©rÃªt
 groupe ethnique
 groupe linguistique
 guerre
 guerre biologique
 guerre chimique
-guide de rédaction
-habiletés
-habiletés fondamentales
+guide de rÃ©daction
+habiletÃ©s
+habiletÃ©s fondamentales
 habillement
 habitant du nord
 habitat
-harcèlement
-harcèlement sexuel
-hélicoptère
-hépatite
-héraldique
+harcÃ¨lement
+harcÃ¨lement sexuel
+haricot
+hÃ©licoptÃ¨re
+hÃ©patite
+hÃ©raldique
 herbicide
 herbier
-hérédité
-héritage
-heure avancée
+hÃ©rÃ©ditÃ©
+hÃ©ritage
+heure avancÃ©e
 hibernation
 histoire
 histoire du canada
-histoire économique
+histoire Ã©conomique
 histoire militaire
 histoire naturelle
 histoire religieuse
 histoire sociale
 hockey
-homéopathie
+homÃ©opathie
 homicide
 homme
 homologation
 horticulture
 huile de canola
 huiles et gras comestibles
-humidité
+humiditÃ©
 humour
-hydroélectricité
-hydrogéologie
+hydroÃ©lectricitÃ©
+hydrogÃ©ologie
 hydrographie
 hydrologie
-hydrométrie
-hygiène
+hydromÃ©trie
+hygiÃ¨ne
 hymne national
 ichtyologie
 identification
-identité canadienne
+identitÃ© canadienne
 idiome
 illustration
 image de marque
+image satellite
+imagerie satellite
 immeuble d'habitation
 immigrant
 immigration
 immobilier
 immunisation
-impact économique
+impact Ã©conomique
 impact sur l'environnement
-impact sur la santé
+impact sur la santÃ©
 implantation
 importation
-impôt
-impôt fédéral
-impôt foncier
-impôt provincial
-impôt sur le revenu
-impôt sur le revenu des particuliers
-impôt sur le revenu des sociétés
+impÃ´t
+impÃ´t fÃ©dÃ©ral
+impÃ´t foncier
+impÃ´t provincial
+impÃ´t sur le revenu
+impÃ´t sur le revenu des particuliers
+impÃ´t sur le revenu des sociÃ©tÃ©s
 imprimerie
-imputabilité
+imputabilitÃ©
 incendie
-incendie de forêt
+incendie de forÃªt
 incitatif
 incitatif fiscal
 incorporation
-indemnité
-indemnité de cessation d'emploi
+incubateur d'entreprises
+indemnitÃ©
+indemnitÃ© de cessation d'emploi
 index
 indicateur
-indicateur de l'éducation
+indicateur de l'Ã©ducation
 indicateur de performance
-indicateur de santé
-indicateur économique
+indicateur de santÃ©
+indicateur Ã©conomique
 indicateur environnemental
 indicateur social
 indice des prix
@@ -1137,102 +1155,104 @@ indiens
 industrie
 industrie agro-alimentaire
 industrie chimique
-industrie cinématographique
+industrie cinÃ©matographique
 industrie culturelle
-industrie de l'aéronautique
-industrie de l'aérospatiale
+industrie de l'aÃ©ronautique
+industrie de l'aÃ©rospatiale
 industrie de l'automobile
-industrie de l'électronique
-industrie de l'équipement
-industrie de l'exploitation forestière
+industrie de l'Ã©lectronique
+industrie de l'Ã©quipement
+industrie de l'exploitation forestiÃ¨re
 industrie de l'immobilier
 industrie de la chaussure
 industrie de la construction
-industrie de la défense
+industrie de la dÃ©fense
 industrie de la fabrication
 industrie de la musique
 industrie de la radiodiffusion
 industrie des boissons
 industrie des communications
-industrie des matières plastiques
-industrie des pâtes et papiers
-industrie des produits médicaux
+industrie des matiÃ¨res plastiques
+industrie des pÃ¢tes et papiers
+industrie des produits mÃ©dicaux
 industrie des services
-industrie des soins de santé
+industrie des soins de santÃ©
 industrie du bois
-industrie du bois d'œuvre
+industrie du bois d'Å“uvre
 industrie du camionnage
 industrie du caoutchouc
 industrie du meuble
 industrie du tabac
 industrie du transport
-industrie du transport aérien
+industrie du transport aÃ©rien
 industrie du transport ferroviaire
 industrie du transport maritime
 industrie du verre
-industrie du vêtement
-industrie forestière
-industrie gazière
-industrie hôtelière
-industrie laitière
-industrie métallurgique
-industrie minière
-industrie pétrolière
+industrie du vÃªtement
+industrie forestiÃ¨re
+industrie gaziÃ¨re
+industrie hÃ´teliÃ¨re
+industrie laitiÃ¨re
+industrie mÃ©tallurgique
+industrie miniÃ¨re
+industrie pÃ©troliÃ¨re
 industrie pharmaceutique
 industrie primaire
 industrie secondaire
 industrie textile
 industrie vinicole
-inégalité
+inÃ©galitÃ©
+infections Ã  coronavirus
 inflation
 information
-information électronique
+information Ã©lectronique
 information gouvernementale
-information numérisée
+information numÃ©risÃ©e
 information scientifique
 informatique
 infraction
 infraction sexuelle
 infrastructure
 infrastructure communautaire
-ingénierie
+ingÃ©nierie
 inhumation
 injonction
 innovation
+innovation sociale
 innovation technologique
 innu
 inondation
 insecte
 insecticide
-insémination artificielle
+insÃ©mination artificielle
 inspection
 inspection des aliments
 inspection des animaux
 installations ferroviaires
 installations maritimes
 installations militaires
-installations nucléaires
-installations récréatives
+installations nuclÃ©aires
+installations rÃ©crÃ©atives
 installations touristiques
 institut de recherche
 institution culturelle
-institution fédérale
-institution financière
+institution fÃ©dÃ©rale
+institution financiÃ¨re
 institution provinciale
 instrument de politique
-intégration
+intÃ©gration
 intelligence artificielle
 interdiction
 internet
-interprétation
+interprÃ©tation
 intimidation
 intranet
 inuit
 inventaire
 invention
 investissement
-investissement étranger
-investissement privé
+investissement Ã©tranger
+investissement privÃ©
 irradiation
 irradiation des aliments
 irrigation
@@ -1248,15 +1268,15 @@ jeune autochtone
 jeune contrevenant
 jeunesse
 jeux olympiques
-jeux panaméricains
+jeux panamÃ©ricains
 joaillerie
 jouet
-jour férié
+jour fÃ©riÃ©
 journal
 journalisme
 juge
 justice communautaire
-justice pénale
+justice pÃ©nale
 laboratoire
 lac
 lait
@@ -1265,7 +1285,7 @@ langage simple
 langue
 langue ancestrale
 langue autochtone
-langue étrangère
+langue Ã©trangÃ¨re
 langue maternelle
 langue officielle
 langue seconde
@@ -1273,19 +1293,22 @@ leader du gouvernement
 leader parlementaire
 leadership
 lecture
-législation
-légume
-libération conditionnelle
-liberté d'information
-libre-échange
-lieu du marché
+lÃ©gislation
+lÃ©gume
+lÃ©gumineuse
+lentille
+lesbienne
+libÃ©ration conditionnelle
+libertÃ© d'information
+libre-Ã©change
+lieu du marchÃ©
 lieu historique
 lieutenant-gouverneur
 lignes directrices
 litige
-littérature
-littérature canadienne
-littérature de jeunesse
+littÃ©rature
+littÃ©rature canadienne
+littÃ©rature de jeunesse
 littoral
 livraison
 livre
@@ -1294,93 +1317,98 @@ livre pour enfant
 lobbying
 location
 logement
-logement subventionné
+logement subventionnÃ©
 logiciel
 logistique
 loi sur l'emploi
-loi sur les médicaments
+loi sur les mÃ©dicaments
 loisir
 loisir de plein air
 loterie
 lutte antidrogue
 lutte contre la pollution
-magnétisme
-main-d'œuvre
+magnÃ©tisme
+main-d'Å“uvre
 maintien de l'effectif
 maintien de l'ordre public
 maintien de la paix
-maïs
+maÃ¯s
 maladie
+maladie Ã  coronavirus
+maladie Ã  coronavirus (covid-19)
+maladie Ã  coronavirus 2019
 maladie animale
 maladie cardiovasculaire
 maladie chronique
 maladie d'alzheimer
-maladie dégénérative
+maladie de la covid-19
+maladie dÃ©gÃ©nÃ©rative
 maladie des plantes
+maladie du sars-cov-2
 maladie infantile
 maladie infectieuse
 maladie professionnelle
 maladie respiratoire
 maladie transmise sexuellement
-mammifère
-management tool [ang]
+mammifÃ¨re
 mandat
 mandat de perquisition
 manuel
 manuscrit
 manutention
-marché
-marché de capitaux
-marché des valeurs
-marché du travail
-marché intérieur
-marché international
-marché régional
-marée
+marchÃ©
+marchÃ© de capitaux
+marchÃ© des valeurs
+marchÃ© du travail
+marchÃ© intÃ©rieur
+marchÃ© international
+marchÃ© rÃ©gional
+marÃ©e
 mariage
 marijuana
 marketing
 marketing direct
 marque de commerce
 matelassage
-matériau de construction
-matériel didactique
-mathématiques
-matière dangereuse
-matière radioactive
-matière recyclable
-médecine
-médecine douce
-médecine légale
-médecine nucléaire
-médecine préventive
-médecine vétérinaire
-média
-média social
-médiation
-médicament
-médicament breveté
-médicament d'ordonnance
-médicament en vente libre
-médicament vétérinaire
+matÃ©riau de construction
+matÃ©riel didactique
+mathÃ©matiques
+matiÃ¨re dangereuse
+matiÃ¨re radioactive
+matiÃ¨re recyclable
+mÃ©decine
+mÃ©decine douce
+mÃ©decine lÃ©gale
+mÃ©decine nuclÃ©aire
+mÃ©decine prÃ©ventive
+mÃ©decine vÃ©tÃ©rinaire
+mÃ©dia
+mÃ©dia social
+mÃ©diation
+mÃ©dicament
+mÃ©dicament brevetÃ©
+mÃ©dicament d'ordonnance
+mÃ©dicament en vente libre
+mÃ©dicament vÃ©tÃ©rinaire
 meilleures pratiques
 mentorat
 mer
 mercure
-mérite
+mÃ©rite
+mers-cov (virus)
 messagerie vocale
 mesure
-mesure de sécurité
-métadonnées
-métal
-métal précieux
-métamorphisme
-météorologie
-méthadone
-méthodologie
-métis
+mesure de sÃ©curitÃ©
+mÃ©tadonnÃ©es
+mÃ©tal
+mÃ©tal prÃ©cieux
+mÃ©tamorphisme
+mÃ©tÃ©orologie
+mÃ©thadone
+mÃ©thodologie
+mÃ©tis
 microbiologie
-microélectronique
+microÃ©lectronique
 micrographie
 microorganisme
 miel
@@ -1393,20 +1421,20 @@ milieu rural
 milieu urbain
 mine terrestre
 minerai
-ministère
-ministère du gouvernement fédéral
-ministère gouvernemental
+ministÃ¨re
+ministÃ¨re du gouvernement fÃ©dÃ©ral
+ministÃ¨re gouvernemental
 ministre
-minorité
-minorité ethnique
-minorité linguistique
-minorité visible
+minoritÃ©
+minoritÃ© ethnique
+minoritÃ© linguistique
+minoritÃ© visible
 mission diplomatique
-mobilité de la main-d'œuvre
+mobilitÃ© de la main-d'Å“uvre
 mode de vie
-modèle
-modèles
-modélisation
+modÃ¨le
+modÃ¨les
+modÃ©lisation
 modernisation
 mollusque
 monarchie
@@ -1415,15 +1443,16 @@ monnaie
 montagne
 monument
 moratoire
+morse
 mort
 mouton
 mouvement social
 multiculturalisme
 multilinguisme
-multimédia
+multimÃ©dia
 multinationale
-municipalité
-musée
+municipalitÃ©
+musÃ©e
 musique
 mutation de personnel
 naissance
@@ -1432,47 +1461,49 @@ nationalisme
 navigation
 navire
 navire commercial
-navire de croisière
-navire de pêche
-négociation
-négociation collective
-négociation commerciale
+navire de croisiÃ¨re
+navire de pÃªche
+nÃ©gociation
+nÃ©gociation collective
+nÃ©gociation commerciale
 neige
 niveau de vie
 nom commercial
 nomenclature
 nomination
+nomination judiciaire
 nord canadien
 normalisation
 norme
-norme de qualité
-norme de sécurité
-norme relative à l'environnement
+norme de qualitÃ©
+norme de sÃ©curitÃ©
+norme relative Ã  l'environnement
 normes comptables
 normes du travail
-nouveau-né
-numératie
-numérisation
-numéro d'assurance sociale
-numéro d'entreprise
+nouveau-nÃ©
+nouveau coronavirus 2019
+numÃ©ratie
+numÃ©risation
+numÃ©ro d'assurance sociale
+numÃ©ro d'entreprise
 numismatique
-obésité
+obÃ©sitÃ©
 objectif
 obligation d'adaptation
 obligation fiduciaire
-obligation légale
+obligation lÃ©gale
 obligations
 observatoire
-océan
-océanographie
-Œuf
-Œuvre d'art
+ocÃ©an
+ocÃ©anographie
+Å’uf
+Å’uvre d'art
 offre
 offre permanente
 oiseau
 oiseau aquatique
 oiseau migrateur
-opération bancaire
+opÃ©ration bancaire
 opinion publique
 or
 orchestre
@@ -1482,11 +1513,11 @@ organigramme
 organisation
 organisation du travail
 organisation non gouvernementale
-organisme à but non lucratif
-organisme d'enquête
+organisme Ã  but non lucratif
+organisme d'enquÃªte
 organisme de bienfaisance
-organisme de réglementation
-organisme génétiquement modifié
+organisme de rÃ©glementation
+organisme gÃ©nÃ©tiquement modifiÃ©
 organisme intergouvernemental
 organisme international
 organisme nuisible
@@ -1497,15 +1528,15 @@ orientation scolaire
 orientation sexuelle
 ornithologie
 outil
-outil de développement
+outil de dÃ©veloppement
 outil de gestion
 outillage
 ozone
 paiement de transfert
-paiement étranger
+paiement Ã©tranger
 paix
-paléobotanique
-paléontologie
+palÃ©obotanique
+palÃ©ontologie
 papeterie
 papillon
 parasite
@@ -1519,14 +1550,14 @@ pari mutuel
 parlement
 partenariat
 partenariat communautaire
-partenariat public-privé
+partenariat public-privÃ©
 parti politique
 participation
 participation du citoyen
 partition musicale
 parure
-passage des frontières
-passation des marchés
+passage des frontiÃ¨res
+passation des marchÃ©s
 passeport
 patinage
 patrimoine
@@ -1537,49 +1568,59 @@ patrimoine mondial
 patrimoine national
 patrimoine naturel
 patrimoine religieux
-pâturage
-pauvreté
-pauvreté dans l'enfance
-pays en développement
-péage
-pêche sportive
-pêcheries
+pÃ¢turage
+pauvretÃ©
+pauvretÃ© dans l'enfance
+pays en dÃ©veloppement
+pÃ©age
+pÃªche sportive
+pÃªcheries
 peinture
 pension
 pension alimentaire
-pension d'invalidité
+pension d'invaliditÃ©
 pension des anciens combattants
-pension privée
+pension privÃ©e
 pension publique
-pénurie
+pÃ©nurie
 perception
-pergélisol
+pergÃ©lisol
 permis
 permis de chasse
-permis de pêche
+permis de pÃªche
 permis de travail
 personne-ressource
-personne défavorisée
-personne handicapée
+personne asexuelle
+personne bisexuelle
+personne bispirituelle
+personne dÃ©favorisÃ©e
+personne gaie
+personne handicapÃ©e
+personne intersexuelle
+personne lgbtq2
+personne non-binaire
+personne pansexuelle
+personne queer
+personne transgenre
 personnel de direction
 personnel militaire
 pesticide
 petite entreprise
-pétrole
-pétrologie
+pÃ©trole
+pÃ©trologie
 phare
 pharmacologie
-philatélie
+philatÃ©lie
 philosophie
 philosophie du droit
 phoque
 photographie (art)
 photographie (image)
-photographie aérienne
+photographie aÃ©rienne
 physiologie
 physique
-pièce de monnaie
-piégeage
+piÃ¨ce de monnaie
+piÃ©geage
 pilotage
 pionnier
 pipeline
@@ -1592,19 +1633,20 @@ plainte
 plan d'affaires
 plan gouvernemental
 plancher
-planétarium
+planÃ©tarium
 planification
-planification budgétaire
+planification budgÃ©taire
 planification des naissances
 plante
 plante aquatique
-plante médicinale
+plante mÃ©dicinale
 plante nuisible
 plante ornementale
 plante sauvage
 plomb
 pluies acides
-poésie
+poÃ©sie
+pois
 poisson
 poisson d'eau douce
 poisson de mer
@@ -1618,29 +1660,29 @@ politique culturelle
 politique d'immigration
 politique d'information
 politique d'investissement
-politique de défense
-politique des pêches
+politique de dÃ©fense
+politique des pÃªches
 politique des transports
-politique économique
-politique éducative
-politique en matière de santé
-politique en matière de télécommunications
-politique énergétique
+politique Ã©conomique
+politique Ã©ducative
+politique en matiÃ¨re de santÃ©
+politique en matiÃ¨re de tÃ©lÃ©communications
+politique Ã©nergÃ©tique
 politique environnementale
-politique étrangère
+politique Ã©trangÃ¨re
 politique fiscale
-politique forestière
+politique forestiÃ¨re
 politique gouvernementale
 politique industrielle
 politique linguistique
-politique microéconomique
-politique monétaire
+politique microÃ©conomique
+politique monÃ©taire
 politique scientifique
 politique sociale
 politique technologique
 polluant
 pollution
-pollution atmosphérique
+pollution atmosphÃ©rique
 pollution de l'eau
 pollution des sols
 pollution en milieu de travail
@@ -1654,55 +1696,55 @@ pornographie
 port
 port de plaisance
 portefeuille
-possibilité d'affaires
-possibilité d'emploi
+possibilitÃ© d'affaires
+possibilitÃ© d'emploi
 poterie
 pourvoirie
-précipitations
+prÃ©cipitations
 premier ministre
-présentation
-préservation des sols
+prÃ©sentation
+prÃ©servation des sols
 prestation au survivant
-prestation de maternité
-prestation de paternité
-prêt
-prêt à l'entreprise
-prêt à la consommation
-prêt à la petite entreprise
-prêt à terme
-prêt entre bibliothèques
-prêt étudiant
-prêt hypothécaire
-prêt non remboursé
+prestation de maternitÃ©
+prestation de paternitÃ©
+prÃªt
+prÃªt Ã  l'entreprise
+prÃªt Ã  la consommation
+prÃªt Ã  la petite entreprise
+prÃªt Ã  terme
+prÃªt entre bibliothÃ¨ques
+prÃªt Ã©tudiant
+prÃªt hypothÃ©caire
+prÃªt non remboursÃ©
 preuve
-preuve de citoyenneté
-prévention
-prévention de l'alcoolisme
-prévention de la criminalité
-prévention de la pollution
-prévention de la toxicomanie
-prévention des accidents
-prévention des incendies
-prévention du tabagisme
-prévision
-prévision économique
-prévisions budgétaires
-prévisions météorologiques
+preuve de citoyennetÃ©
+prÃ©vention
+prÃ©vention de l'alcoolisme
+prÃ©vention de la criminalitÃ©
+prÃ©vention de la pollution
+prÃ©vention de la toxicomanie
+prÃ©vention des accidents
+prÃ©vention des incendies
+prÃ©vention du tabagisme
+prÃ©vision
+prÃ©vision Ã©conomique
+prÃ©visions budgÃ©taires
+prÃ©visions mÃ©tÃ©orologiques
 primate
 prime
 prime de risque
-priorité gouvernementale
-prise de décision
+prioritÃ© gouvernementale
+prise de dÃ©cision
 privatisation
 prix
-problème social
-procédure d'agrément
-procédure parlementaire
-procès-verbal
+problÃ¨me social
+procÃ©dure d'agrÃ©ment
+procÃ©dure parlementaire
+procÃ¨s-verbal
 production
-production d'énergie
-productivité
-productivité industrielle
+production d'Ã©nergie
+productivitÃ©
+productivitÃ© industrielle
 produit
 produit agro-alimentaire
 produit biochimique
@@ -1710,20 +1752,20 @@ produit biologique
 produit chimique
 produit de base
 produit de consommation
-produit de l'érable
-produit de la criminalité
-produit de la pêche
-produit de soins de santé
+produit de l'Ã©rable
+produit de la criminalitÃ©
+produit de la pÃªche
+produit de soins de santÃ©
 produit de soins personnels
-produit écologique
+produit Ã©cologique
 produit forestier
 produit industriel
-produit intérieur brut
+produit intÃ©rieur brut
 produit laitier
-produit médical
+produit mÃ©dical
 produit national brut
 profession
-professionnel de la santé
+professionnel de la santÃ©
 profil
 profil statistique
 programmation
@@ -1732,30 +1774,30 @@ programmation d'ordinateur
 programme
 programme communautaire
 programme d'aide
-programme d'échanges
+programme d'Ã©changes
 programme d'emploi
-programme fédéral
+programme fÃ©dÃ©ral
 programme international
-programme multilatéral
+programme multilatÃ©ral
 programme pour autochtones
-programme relatif à l'environnement
+programme relatif Ã  l'environnement
 programmes sociaux
-promotion de la santé
+promotion de la santÃ©
 promotion des langues officielles
 promotion du commerce
 promotion en emploi
 prononciation
 propagande
 propane
-propriété intellectuelle
+propriÃ©tÃ© intellectuelle
 prospection
 prostitution
 protecteur du citoyen
 protection civile
 protection de l'environnement
-protection de la santé
-protection des dénonciateurs
-protection des données
+protection de la santÃ©
+protection des dÃ©nonciateurs
+protection des donnÃ©es
 protection des tarifs douaniers
 protection du consommateur
 protection du patrimoine
@@ -1766,21 +1808,21 @@ provinces atlantiques
 provinces de l'ouest
 provinces du centre
 psychologie
-publication en série
+publication en sÃ©rie
 publication gouvernementale
-publicité
+publicitÃ©
 quai
 qualifications
-qualité de l'air
-qualité de l'eau
-qualité de l'environnement
-qualité de service
-qualité de vie
-qualité des soins de santé
-qualité des sols
+qualitÃ© de l'air
+qualitÃ© de l'eau
+qualitÃ© de l'environnement
+qualitÃ© de service
+qualitÃ© de vie
+qualitÃ© des soins de santÃ©
+qualitÃ© des sols
 quarantaine
 questionnaire
-questions économiques
+questions Ã©conomiques
 questions fiscales
 questions juridiques
 questions sociales
@@ -1788,137 +1830,137 @@ rabais
 radar
 radio
 radio communautaire
-radioactivité
+radioactivitÃ©
 radiodiffusion
 raisin
 raison sociale
-randonnée pédestre
+randonnÃ©e pÃ©destre
 rappel de produit
 rapport
 rapport annuel
-rapport d'étape
+rapport d'Ã©tape
 rapport financier trimestriel
 rapport technique
 rayonnement
 rayonnement ultraviolet
-réadaptation
-réadaptation professionnelle
-réalisation de programme
+rÃ©adaptation
+rÃ©adaptation professionnelle
+rÃ©alisation de programme
 reboisement
 recensement
-receveur général
-réchauffement de la planète
+receveur gÃ©nÃ©ral
+rÃ©chauffement de la planÃ¨te
 recherche
-recherche appliquée
-recherche coopérative
+recherche appliquÃ©e
+recherche coopÃ©rative
 recherche d'emploi
-recherche économique
-recherche et développement
+recherche Ã©conomique
+recherche et dÃ©veloppement
 recherche historique
 recherche industrielle
-recherche médicale
+recherche mÃ©dicale
 recherche scientifique
 recherche sur les animaux
-récolte
-récompense
+rÃ©colte
+rÃ©compense
 recours
 recouvrement
 recrutement
 recyclage
-rédaction
-rédaction administrative
-rédaction des lois
-rédaction technique
+rÃ©daction
+rÃ©daction administrative
+rÃ©daction des lois
+rÃ©daction technique
 redevances
-réduction du fardeau administratif
-réforme
-réfugié
-région
-région polaire
+rÃ©duction du fardeau administratif
+rÃ©forme
+rÃ©fugiÃ©
+rÃ©gion
+rÃ©gion polaire
 registre
-règlement administratif
-réglementation
-réglementation des prix
-réglementation en matière d'économie
-réglementation en matière de sécurité
-réglementation en matière de taxation
-règlements
-relations avec les médias
-relations canado-américaines
+rÃ¨glement administratif
+rÃ©glementation
+rÃ©glementation des prix
+rÃ©glementation en matiÃ¨re d'Ã©conomie
+rÃ©glementation en matiÃ¨re de sÃ©curitÃ©
+rÃ©glementation en matiÃ¨re de taxation
+rÃ¨glements
+relations avec les mÃ©dias
+relations canado-amÃ©ricaines
 relations commerciales
 relations communautaires
 relations de travail
 relations est-ouest
-relations extérieures
-relations fédérales-provinciales
-relations fédérales-territoriales
+relations extÃ©rieures
+relations fÃ©dÃ©rales-provinciales
+relations fÃ©dÃ©rales-territoriales
 relations intergouvernementales
 relations interpersonnelles
 relations interprovinciales
-relations ministérielles
+relations ministÃ©rielles
 relations nord-sud
 relations publiques
 relations raciales
-relevé d'emploi
+relevÃ© d'emploi
 religion
-remboursement d'impôt
+remboursement d'impÃ´t
 remboursement de la dette
-rémunération assurable
-rendement énergétique
-rénovation domiciliaire
-renseignement de sécurité
+rÃ©munÃ©ration assurable
+rendement Ã©nergÃ©tique
+rÃ©novation domiciliaire
+renseignement de sÃ©curitÃ©
 renseignements d'affaires
 renseignements personnels
-rentabilité
-répartition de la population
-répartition des pouvoirs
-repère
-répertoire
-répertoire géographique
-répertoire téléphonique
-représentant
+rentabilitÃ©
+rÃ©partition de la population
+rÃ©partition des pouvoirs
+repÃ¨re
+rÃ©pertoire
+rÃ©pertoire gÃ©ographique
+rÃ©pertoire tÃ©lÃ©phonique
+reprÃ©sentant
 reproduction animale
 reprographie
 reptile
-réseau
-réseau de télécommunications
-réseau ferroviaire
-réseau hydrométrique
-réseau informatique
-réseau routier
-réserve autochtone
-résidence officielle
-résolution de conflit
+rÃ©seau
+rÃ©seau de tÃ©lÃ©communications
+rÃ©seau ferroviaire
+rÃ©seau hydromÃ©trique
+rÃ©seau informatique
+rÃ©seau routier
+rÃ©serve autochtone
+rÃ©sidence officielle
+rÃ©solution de conflit
 ressources halieutiques
 ressources humaines
 ressources naturelles
 ressources non renouvelables
-ressources pédagogiques
+ressources pÃ©dagogiques
 ressources renouvelables
 restaurant
 restauration
 restructuration
 retraite
-réunion
+rÃ©union
 revendication
 revendication territoriale
 revenu
 revenu familial
 revenu individuel
 revenu national
-révision
-révision de programme
-révocation
+rÃ©vision
+rÃ©vision de programme
+rÃ©vocation
 risque pour l'environnement
-risque pour la santé
-rivière
+risque pour la santÃ©
+riviÃ¨re
 robotique
 roche dure
-roche ignée
-roche métamorphique
-roche sédimentaire
+roche ignÃ©e
+roche mÃ©tamorphique
+roche sÃ©dimentaire
 rodenticide
-rôle
+rÃ´le
 rongeur
 rotation des cultures
 ruisseau
@@ -1927,26 +1969,27 @@ saisie
 salaire
 salaire minimum
 salon professionnel
-salubrité des aliments
-sanction économique
-sang contaminé
+salubritÃ© des aliments
+sanction Ã©conomique
+sang contaminÃ©
 sans-abri
-santé
-santé animale
-santé au travail
-santé buccodentaire
-santé de l'enfant
-santé de la femme
-santé mentale
+santÃ©
+santÃ© animale
+santÃ© au travail
+santÃ© buccodentaire
+santÃ© de l'enfant
+santÃ© de la femme
+santÃ© mentale
+sars-cov-2 (virus)
 satellite
 satisfaction du client
 sauvetage
-science économique
+science Ã©conomique
 science politique
 sciences
 sciences de l'environnement
 sciences de l'espace
-sciences de la santé
+sciences de la santÃ©
 sciences de la terre
 sciences de la vie
 sciences humaines
@@ -1956,50 +1999,51 @@ sciences polaires
 sciences sociales
 scientifique
 sculpture
-sécheresse
+sÃ©cheresse
 secours d'urgence
-secours en cas de désastre
-secrétariat du conseil du trésor
-secteur privé
+secours en cas de dÃ©sastre
+secrÃ©tariat du conseil du trÃ©sor
+secteur privÃ©
 secteur public
 section
-sécurité
-sécurité aérienne
-sécurité alimentaire
-sécurité au travail
-sécurité de l'enfant
-sécurité des transports
-sécurité du revenu
-sécurité ferroviaire
-sécurité humaine
-sécurité informatique
-sécurité internationale
-sécurité nationale
-sécurité nautique
-sécurité publique
-sécurité routière
-sécurité sociale
-sédiment
-sédimentologie
-sélection
-sénat
-sénateur
+sÃ©curitÃ©
+sÃ©curitÃ©
+sÃ©curitÃ© aÃ©rienne
+sÃ©curitÃ© alimentaire
+sÃ©curitÃ© au travail
+sÃ©curitÃ© de l'enfant
+sÃ©curitÃ© des transports
+sÃ©curitÃ© du revenu
+sÃ©curitÃ© ferroviaire
+sÃ©curitÃ© humaine
+sÃ©curitÃ© informatique
+sÃ©curitÃ© internationale
+sÃ©curitÃ© maritime
+sÃ©curitÃ© nationale
+sÃ©curitÃ© publique
+sÃ©curitÃ© routiÃ¨re
+sÃ©curitÃ© sociale
+sÃ©diment
+sÃ©dimentologie
+sÃ©lection
+sÃ©nat
+sÃ©nateur
 sensibilisation
 serre
 service
-service à la clientèle
+service Ã  la clientÃ¨le
 service conseil
-service d'aliénation
+service d'aliÃ©nation
 service d'approche
 service d'orientation
 service de l'architecture
 service de police
-service de référence
+service de rÃ©fÃ©rence
 service diplomatique
 service postal
 services administratifs
 services aux entreprises
-services aux marchés
+services aux marchÃ©s
 services bilingues
 services communautaires
 services consulaires
@@ -2011,33 +2055,33 @@ services gouvernementaux
 services immobiliers
 services informatiques
 services juridiques
-services juridiques bénévoles
+services juridiques bÃ©nÃ©voles
 services publics
 services sociaux
 services techniques
 sida
-siège social
+siÃ¨ge social
 signalisation
-silo à grains
+silo Ã  grains
 sismologie
-site contaminé
+site contaminÃ©
 site web
 ski
 smog
-société d'État
-société d'histoire
-société de crédit
-société de fiducie
-société de financement
-société mutuelle d'assurances
-sociétés
+sociÃ©tÃ© d'Ã‰tat
+sociÃ©tÃ© d'histoire
+sociÃ©tÃ© de crÃ©dit
+sociÃ©tÃ© de fiducie
+sociÃ©tÃ© de financement
+sociÃ©tÃ© mutuelle d'assurances
+sociÃ©tÃ©s
 sociologie
 soignant
 soin de l'enfant
-soin de la personne âgée
-soin du nouveau-né
-soins de santé
-soins périnataux
+soin de la personne Ã¢gÃ©e
+soin du nouveau-nÃ©
+soins de santÃ©
+soins pÃ©rinataux
 sol
 solvant
 sondage
@@ -2045,23 +2089,23 @@ sondage d'opinion
 soumission
 sous-marin
 soutien logistique
-souveraineté
-spécification
+souverainetÃ©
+spÃ©cification
 sperme
 sport
 sport amateur
 sport d'hiver
 stage
-station hydrométrique
+station hydromÃ©trique
 station orbitale
 stationnement
 statistiques
 statistiques de l'agriculture
-statistiques de l'état civil
-statistiques démographiques
-statistiques économiques
+statistiques de l'Ã©tat civil
+statistiques dÃ©mographiques
+statistiques Ã©conomiques
 statistiques sociales
-stratégie
+stratÃ©gie
 stratigraphie
 structure sociale
 substance toxique
@@ -2070,40 +2114,42 @@ subvention de recherche
 succession
 suicide
 supervision
-supplément
-surdité
+supplÃ©ment
+surditÃ©
 surplus
-surveillance des médias
-surveillance électronique
+surveillance des mÃ©dias
+surveillance Ã©lectronique
 survie
 suspension
 symbole
 symbole national
 syndicat
-système
-système d'aide à la navigation
-système d'information
-système d'information de gestion
-système d'information géographique
-système de positionnement global
-système de soins de santé
-système de transport intelligent
-système électoral
-système informatique
-système intelligent
-système judiciaire
-système métrique
+syndrome respiratoire aigu sÃ©vÃ¨re
+syndrome respiratoire du moyen-orient
+systÃ¨me
+systÃ¨me d'aide Ã  la navigation
+systÃ¨me d'information
+systÃ¨me d'information de gestion
+systÃ¨me d'information gÃ©ographique
+systÃ¨me de positionnement global
+systÃ¨me de soins de santÃ©
+systÃ¨me de transport intelligent
+systÃ¨me Ã©lectoral
+systÃ¨me informatique
+systÃ¨me intelligent
+systÃ¨me judiciaire
+systÃ¨me mÃ©trique
 tabagisme
 tableau
 tarif douanier
 taux
-taux d'intérêt
+taux d'intÃ©rÃªt
 taux de change
-taux de mortalité
-taux de natalité
+taux de mortalitÃ©
+taux de natalitÃ©
 taxe d'accise
 taxe de vente
-taxe de vente harmonisée
+taxe de vente harmonisÃ©e
 taxe sur les produits et services
 taxonomie
 technologie
@@ -2111,42 +2157,42 @@ technologie agricole
 technologie antipollution
 technologie d'aide
 technologie de l'information
-technologie de la pêche
+technologie de la pÃªche
 technologie de la reproduction
 technologie de pointe
-technologie des matériaux
-technologie éducative
-technologie énergétique
+technologie des matÃ©riaux
+technologie Ã©ducative
+technologie Ã©nergÃ©tique
 technologie environnementale
-technologie forestière
+technologie forestiÃ¨re
 technologie industrielle
-technologie médicale
+technologie mÃ©dicale
 technologie militaire
-technologie minière
-technologie nucléaire
-technologie numérique
+technologie miniÃ¨re
+technologie nuclÃ©aire
+technologie numÃ©rique
 technologie propre
 technologie spatiale
 tectonique
-télécommunications
-télécommunications internationales
-téléconférence
-télédétection
-télégraphe
-télémédecine
-téléphone
-téléphone cellulaire
-télésanté
-télétravail
-télévision
-témoignage
-température
-température de l'air
-tempête
+tÃ©lÃ©communications
+tÃ©lÃ©communications internationales
+tÃ©lÃ©confÃ©rence
+tÃ©lÃ©dÃ©tection
+tÃ©lÃ©graphe
+tÃ©lÃ©mÃ©decine
+tÃ©lÃ©phone
+tÃ©lÃ©phone cellulaire
+tÃ©lÃ©santÃ©
+tÃ©lÃ©travail
+tÃ©lÃ©vision
+tÃ©moignage
+tempÃ©rature
+tempÃ©rature de l'air
+tempÃªte
 temps
-temps (météorologie)
+temps (mÃ©tÃ©orologie)
 tendances
-tendances économiques
+tendances Ã©conomiques
 tendances sociales
 terminologie
 terre agricole
@@ -2156,12 +2202,12 @@ territoire
 terrorisme
 test
 textile
-thé
-théâtre
-thérapie
-thésaurus
+thÃ©
+thÃ©Ã¢tre
+thÃ©rapie
+thÃ©saurus
 timbre
-tiré à part
+tirÃ© Ã  part
 tissage
 tissu (biologie)
 titre de voyage
@@ -2175,21 +2221,21 @@ train
 traite de personnes
 traitement
 traitement des demandes
-traitement des données
+traitement des donnÃ©es
 transfert
-transfert d'habiletés
+transfert d'habiletÃ©s
 transfert de droit
-transfert de responsabilités
+transfert de responsabilitÃ©s
 transfert technologique
 transformation
 transformation des aliments
 transmission du savoir
-transplantation (médecine)
+transplantation (mÃ©decine)
 transplantation d'organes
 transport
 transport accessible
-transport aérien
-transport des matières dangereuses
+transport aÃ©rien
+transport des matiÃ¨res dangereuses
 transport durable
 transport en commun
 transport ferroviaire
@@ -2200,8 +2246,8 @@ transport maritime
 transport routier
 transport urbain
 travail
-travail étudiant
-travail non rémunéré
+travail Ã©tudiant
+travail non rÃ©munÃ©rÃ©
 travailleur
 travailleur agricole
 travailleur de l'industrie
@@ -2218,30 +2264,30 @@ tsunami
 tunnel
 type d'entreprise
 union de fait
-université
+universitÃ©
 urbanisme
 urgence environnementale
 utilisation
 utilisation de l'eau
 vacances
 valeurs
-valeurs mobilières
+valeurs mobiliÃ¨res
 vandalisme
-véhicule
-véhicule automobile
-véhicule électrique
+vÃ©hicule
+vÃ©hicule automobile
+vÃ©hicule Ã©lectrique
 vendeur
 vent
 vente
-vente aux enchères
-vérification
-vérification comptable
-vérification interne
+vente aux enchÃ¨res
+vÃ©rification
+vÃ©rification comptable
+vÃ©rification interne
 verre
 viande
 victime
 vie politique
-vie privée
+vie privÃ©e
 vie quotidienne
 vie sociale
 vieillesse
@@ -2251,7 +2297,7 @@ violence
 violence en milieu de travail
 violence faite aux enfants
 violence faite aux femmes
-violence faite aux personnes âgées
+violence faite aux personnes Ã¢gÃ©es
 violence familiale
 virus
 visa
@@ -2264,9 +2310,9 @@ volaille
 volcan
 voyage
 voyage international
-xénotransplantation
+xÃ©notransplantation
 yogourt
-zone de pêche
-zone extracôtière
+zone de pÃªche
+zone extracÃ´tiÃ¨re
 zone humide
 zoologie

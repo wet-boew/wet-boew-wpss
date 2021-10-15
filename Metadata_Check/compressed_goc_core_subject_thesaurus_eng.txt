@@ -6,26 +6,15 @@
 # This file is a compressed verion of the Core Subject Thesaurus
 # text delimited file.  It contains only the prefered subject terms.
 # This file was generated as follows
-#    compress_thesaurus_file.pl goc_core_subject_thesaurus_eng.txt
-# at: 13:14 2016-09-19
+#    compress_thesaurus_file.pl CST20201211.csv
+# at:  9:02 2021-03-08
 #
 # This file should not be modified.
 #
 #***********************************************************************
+2019-ncov disease
+2019 novel coronavirus disease
 abbreviations
-aboriginal affairs
-aboriginal businesses
-aboriginal culture
-aboriginal governments
-aboriginal lands
-aboriginal languages
-aboriginal law
-aboriginal peoples
-aboriginal policing
-aboriginal programs
-aboriginal reserves
-aboriginal rights
-aboriginal youth
 abortion
 access to education
 access to information
@@ -168,6 +157,7 @@ artificial insemination
 artificial intelligence
 artists
 arts
+asexual people
 assessment
 assets
 assignments
@@ -204,6 +194,7 @@ bankruptcies
 banks
 barley
 battlefields
+beans
 beef cattle
 beekeeping
 beer
@@ -240,6 +231,7 @@ birds
 birth
 birth certificates
 birth rate
+bisexual people
 blindness
 blood supply
 board of directors
@@ -265,7 +257,9 @@ budgets
 buildings
 burials
 buses
+business accelerators
 business development
+business incubators
 business intelligence
 business loans
 business names
@@ -314,6 +308,7 @@ cemeteries
 censorship
 census
 census data
+central banks
 central provinces
 centralization
 ceramics
@@ -423,6 +418,7 @@ computer security
 computer services
 computer systems
 computers
+conciliation
 concrete
 conferences
 confidentiality
@@ -463,6 +459,12 @@ coordination
 copyright
 copyright clearance
 corn
+coronavirus disease-19
+coronavirus disease (covid-19)
+coronavirus disease 2019
+coronavirus diseases
+coronavirus infections
+coronaviruses
 corporate image
 corporate income tax
 corporate names
@@ -478,6 +480,8 @@ couples
 court appearances
 court decisions
 courts
+covid-19 (disease)
+covid-19 virus disease
 crafts
 cream
 credit
@@ -924,7 +928,10 @@ gardens
 gas industry
 gases
 gasoline
+gay men
+gay people
 gazetteers
+gender-nonconforming people
 gender discrimination
 gender equality
 genealogy
@@ -1041,6 +1048,7 @@ hogs
 holidays
 home-based businesses
 home economics
+home education
 home renovations
 homelessness
 homeopathy
@@ -1106,6 +1114,19 @@ independent living
 indexes
 indians
 indicators
+indigenous affairs
+indigenous businesses
+indigenous culture
+indigenous governments
+indigenous lands
+indigenous languages
+indigenous law
+indigenous peoples
+indigenous policing
+indigenous programs
+indigenous reserves
+indigenous rights
+indigenous youth
 industrial buildings
 industrial design
 industrial development
@@ -1194,6 +1215,7 @@ interpersonal relations
 interpretation
 interprovincial relations
 interprovincial transport
+intersex people
 interviews
 intimidation
 intranets
@@ -1218,6 +1240,7 @@ job promotion
 job search
 journalism
 judges
+judicial appointments
 jurisprudence
 justice system
 juvenile court
@@ -1268,7 +1291,11 @@ legal services
 legislation
 legislative assemblies
 legislative writing
+legumes
+lentils
+lesbians
 lettuce
+lgbtq2 people
 liability
 libraries
 licensing
@@ -1360,6 +1387,7 @@ mentoring
 mercury
 mergers
 merit
+mers (disease)
 metadata
 metals
 metalworking industry
@@ -1369,7 +1397,7 @@ meteorological data
 meteorology
 methadone
 methodology
-métis
+mÃ©tis
 metric system
 microbiology
 microeconomic analysis
@@ -1377,6 +1405,7 @@ microeconomic policy
 microelectronics
 micrographics
 microorganisms
+middle east respiratory syndrome
 migrant workers
 migration
 migratory birds
@@ -1470,6 +1499,7 @@ newspapers
 nomenclature
 non-profit organizations
 non-renewable resources
+non-repayable contributions
 non-status indians
 nongovernmental organizations
 nonprescription drugs
@@ -1500,6 +1530,7 @@ ocean floor
 oceanography
 oceans
 offences
+office appliances
 office automation
 office consolidations
 office equipment
@@ -1540,6 +1571,7 @@ painting
 palaeontology
 paleobotany
 panamerican games
+pansexual people
 parasites
 parenting
 parents
@@ -1563,6 +1595,7 @@ pay equity
 peace
 peacekeeping
 peacekeeping forces
+peas
 pensions
 perceptions
 performance assessment
@@ -1738,6 +1771,7 @@ quality of service
 quality standards
 quarantine
 quarterly financial reports
+queer people
 questionnaires
 quilting
 race relations
@@ -1762,6 +1796,7 @@ real estate
 real estate industry
 real property services
 receiver general
+recipients
 reciprocal agreements
 record of employment
 records
@@ -1800,6 +1835,7 @@ religious history
 remote sensing
 renewable energy
 renewable resources
+repayable contributions
 reports
 representatives
 reproductive technology
@@ -1860,6 +1896,9 @@ salt water
 salt water fish
 same-sex couples
 samples
+sars-cov-2 disease
+satellite imagery
+satellite images
 satellites
 savings
 scholarships
@@ -1888,6 +1927,7 @@ secondary schools
 sections
 sector analysis
 securities
+security
 security intelligence
 security investigations
 sedimentary rocks
@@ -1906,6 +1946,7 @@ service contracts
 service industry
 services
 severance pay
+severe acute respiratory syndrome
 sewing
 sexual harassment
 sexual offences
@@ -1940,8 +1981,10 @@ social assistance
 social conditions
 social development
 social equity
+social finance
 social history
 social indicators
+social innovation
 social insurance number
 social issues
 social life
@@ -2029,6 +2072,8 @@ supply
 support businesses
 surface water
 surficial geology
+surgeons
+surgery
 surplus
 surveying
 surveys
@@ -2132,6 +2177,7 @@ transfer payments
 transfers
 transfers of personnel
 transformation
+transgender people
 translation
 transplantation (medicine)
 transport
@@ -2151,6 +2197,7 @@ trust companies
 trustees
 tsunamis
 tunnels
+two-spirit people
 ultraviolet radiation
 unemployment
 universities
@@ -2198,6 +2245,7 @@ vocational training
 voice mail
 volcanoes
 volunteer work
+walruses
 war
 war crimes
 war memorials
