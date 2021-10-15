@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 1770 $
+# $Revision: 2124 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler.pm $
-# $Date: 2020-04-07 10:12:52 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2021-09-03 15:22:37 -0400 (Fri, 03 Sep 2021) $
 #
 # Description:
 #
@@ -21,6 +21,7 @@
 #     Crawler_Config
 #     Crawler_Get_Skipped_Urls
 #     Crawl_Site
+#     Crawler_Error_String
 #     Crawler_Get_HTTP_Response
 #     Crawler_Get_User_Agent
 #     Crawler_Robots_Handling
@@ -34,8 +35,10 @@
 #     Set_Crawler_HTTP_401_Callback
 #     Set_Crawler_Language
 #     Set_Crawler_Login_Logout
+#     Set_Crawler_Options
 #     Set_Crawler_URL_Ignore_Patterns
 #     Crawler_Remove_Temporary_Files
+#     Crawler_User_Agent_Details
 #
 # Terms and Conditions of Use
 # 
@@ -96,6 +99,9 @@ use IO::Socket::SSL qw( SSL_VERIFY_NONE );
 #
 use crawler_phantomjs;
 use crawler_puppeteer;
+# Can't do a use of the extract_links module due to a circular use loop.
+# It is imported later in the module.
+#use extract_links;
 use LWP::RobotUA::Cached;
 use textcat;
 use url_check;
@@ -119,6 +125,7 @@ BEGIN {
                   Crawler_Config
                   Crawler_Get_Skipped_Urls
                   Crawl_Site
+                  Crawler_Error_String
                   Crawler_Get_HTTP_Response
                   Crawler_Get_User_Agent
                   Crawler_Robots_Handling
@@ -131,9 +138,12 @@ BEGIN {
                   Set_Crawler_HTTP_401_Callback
                   Set_Crawler_Language
                   Set_Crawler_Login_Logout
+                  Set_Crawler_Options
                   Crawler_Set_Proxy
                   Set_Crawler_URL_Ignore_Patterns
-                  Crawler_Remove_Temporary_Files);
+                  Crawler_Remove_Temporary_Files
+                  Crawler_User_Agent_Details
+                  );
     $VERSION = "1.0";
 }
 
@@ -154,6 +164,7 @@ my (%domain_prod_dev_map, %domain_dev_prod_map, $RobotUA_cache_dir);
 my ($login_interstitial_count, $logout_interstitial_count, $user_agent_hostname);
 my ($charset, $lwp_user_agent, $content_length, $phantomjs_cookie_file);
 my (%skipped_urls);
+my ($headless_user_agent_error_string) = "";
 
 #
 # Shared variables for use between treads
@@ -192,6 +203,7 @@ my %string_table_en = (
     "ignored after rewrite from",      "ignored after rewrite from",
     "matches ignore pattern",          "matches ignore pattern",
     "non-site url after rewrite from", "non-site url after rewrite from",
+    "User agent not used",             "User agent not used",
 );
 
 my %string_table_fr = (
@@ -199,6 +211,7 @@ my %string_table_fr = (
     "ignored after rewrite from",      "ignoré après la réécriture de",
     "matches ignore pattern",          "correspond à ignorer le modèle",
     "non-site url after rewrite from", "URL hors site après réécriture à partir de",
+    "User agent not used",             "Agent utilisateur non utilisé",
 );
 
 #
@@ -233,6 +246,11 @@ sub Set_Crawler_Language {
         #
         $string_table = \%string_table_en;
     }
+    
+    #
+    # Set language in supporting modules
+    #
+    Set_Crawler_Puppeteer_Language($language);
 }
 
 #**********************************************************************
@@ -933,7 +951,8 @@ sub Crawler_Get_Generated_Content {
     #
     # Do we have a valid HTTP::Response object ?
     #
-    print "Crawler_Decode_Content\n" if $debug;
+    $headless_user_agent_error_string = "";
+    print "Crawler_Get_Generated_Content\n" if $debug;
     if ( ! defined($resp) ) {
         return("");
     }
@@ -976,6 +995,15 @@ sub Crawler_Get_Generated_Content {
              ($$markup{"generated_content"} ne "") ) {
             print "Return generated markup\n" if $debug;
             return($$markup{"generated_content"});
+        }
+        #
+        # Did we encounter an error with the headless user agent
+        #
+        elsif ( defined($markup) && defined($$markup{"error"}) &&
+             ($$markup{"error"} ne "") ) {
+            $headless_user_agent_error_string = $$markup{"error"};
+            print "Headless user agent error $headless_user_agent_error_string\n" if $debug;
+            return("");
         }
     }
 
@@ -1705,7 +1733,7 @@ sub Crawler_Get_HTTP_Response {
     my ($user, $password, $realm, $url, $header, $redirect_domain);
     my ($redirect_protocol, $protocol, $host, $path, $query, $port);
     my ($redirect_file_path, $redirect_query, $redirect_dir, $new_url);
-    my ($sec, $min, $hour, $date, $set_credentials, $redirect_url);
+    my ($sec, $min, $hour, $time, $set_credentials, $redirect_url);
     my ($just_query, $named_anchor);
     my ($redirect_count) = 0;
     my ($http_401_count) = 0;
@@ -1758,14 +1786,14 @@ sub Crawler_Get_HTTP_Response {
     # Get current time/date
     #
     ($sec, $min, $hour) = (localtime)[0,1,2];
-    $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+    $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
 
     #
     # Loop, following redirects, until we have the web document
     #
     $url = $this_url;
     $set_credentials = 0;
-    print "GET start $date url = $url, Referrer = $referer_url\n" if $debug;
+    print "GET start $time url = $url, Referrer = $referer_url\n" if $debug;
     while ( ! $done ) {
 
         #
@@ -1803,6 +1831,12 @@ sub Crawler_Get_HTTP_Response {
         }
 
         #
+        # Get current time/date
+        #
+        ($sec, $min, $hour) = (localtime)[0,1,2];
+        $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+
+        #
         # Are we doing a simple request (the usual case) ?
         #
         if ( $use_simple_request ) {
@@ -1810,7 +1844,7 @@ sub Crawler_Get_HTTP_Response {
             # Perform a simple request, this prevents automatic redirecting
             #
             $user_agent->prepare_request($req);
-            print "Request  = " . $req->as_string . "\n" if $debug;
+            print "Request at $time = " . $req->as_string . "\n" if $debug;
             $resp = $user_agent->simple_request($req);
         }
         else {
@@ -1819,7 +1853,7 @@ sub Crawler_Get_HTTP_Response {
             # it is also necessary when getting password protected
             # documents.
             #
-            print "Request  = " . $req->as_string . "\n" if $debug;
+            print "Request at $time = " . $req->as_string . "\n" if $debug;
             
             #
             # If we are saving content to a file, use the LWP::UserAgent
@@ -2145,8 +2179,8 @@ sub Crawler_Get_HTTP_Response {
                 # Did the URL look like a valid URL ?
                 #
                 if ( $redirect_protocol eq "" ) {
-                    $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
-                    print "Crawler_Get_HTTP_Response end   $date Invalid URL provided in redirect, $url\n" if $debug;
+                    $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+                    print "Crawler_Get_HTTP_Response end   $time Invalid URL provided in redirect, $url\n" if $debug;
 
                     #
                     # Do we have a temporary content file ?
@@ -2211,8 +2245,8 @@ sub Crawler_Get_HTTP_Response {
         }
     }
     ($sec, $min, $hour) = (localtime)[0,1,2];
-    $date = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
-    print "Crawler_Get_HTTP_Response end   $date GET\n" if $debug;
+    $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
+    print "Crawler_Get_HTTP_Response end   $time GET\n" if $debug;
     
     #
     # Make sure the response URL is properly formatted
@@ -3659,9 +3693,11 @@ sub Set_Crawler_Options {
     #
     # Check for maximum crawl depth
     #
+    print "Set_Crawler_Options\n" if $debug;
     if ( defined($crawler_options)
          && defined($$crawler_options{"crawl_depth"})) {
         $max_crawl_depth = $$crawler_options{"crawl_depth"};
+        print "Set max_crawl_depth = $max_crawl_depth\n" if $debug;
     }
     else {
         $max_crawl_depth = 0;
@@ -3673,9 +3709,25 @@ sub Set_Crawler_Options {
     if ( defined($crawler_options)
          && (defined($$crawler_options{"max_urls_to_return"})) ) {
         $max_urls_to_return = $$crawler_options{"max_urls_to_return"};
+        print "Set max_urls_to_return = $max_urls_to_return\n" if $debug;
     }
     else {
         $max_urls_to_return = 0;
+    }
+
+    #
+    # Check for delay between page GETs
+    #
+    if ( defined($crawler_options)
+         && defined($$crawler_options{"crawler_page_delay_secs"})
+         && ($$crawler_options{"crawler_page_delay_secs"} ne "") ) {
+        $crawler_page_delay_secs = $$crawler_options{"crawler_page_delay_secs"};
+        print "Set crawler_page_delay_secs = $crawler_page_delay_secs\n" if $debug;
+        
+        #
+        # Have to recreate user agents with this configuration setting
+        #
+        Create_User_Agents();
     }
 }
 
@@ -3754,6 +3806,7 @@ sub Crawl_Site {
     #
     # Set crawler options
     #
+    print "Crawl_site\n" if $debug;
     Set_Crawler_Options($crawler_options);
 
     #
@@ -4189,6 +4242,60 @@ sub Crawler_Remove_Temporary_Files {
 
 #***********************************************************************
 #
+# Name: Crawler_Error_String
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the value of the crawler error string.
+#
+#***********************************************************************
+sub Crawler_Error_String {
+
+    #
+    # Return the last error string from the headless
+    # user agent.
+    #
+    return($headless_user_agent_error_string);
+}
+
+#***********************************************************************
+#
+# Name: Crawler_User_Agent_Details
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the details of the headless user agents.
+#
+#***********************************************************************
+sub Crawler_User_Agent_Details {
+
+  my (%user_agent_details);
+  
+  #
+  # Set details for prefered user agent, Puppeteer/Chrome
+  #
+  print "Crawler_User_Agent_Details\n" if $debug;
+  $user_agent_details{"Puppeteer/Chrome"} = Crawler_Puppeteer_User_Agent_Details();
+
+  #
+  # Did we use Phantomjs?
+  #
+  if ( $use_phantomjs_user_agent ) {
+      $user_agent_details{"PhantomJS"} = Crawler_Phantomjs_User_Agent_Details();
+  }
+  else {
+      $user_agent_details{"PhantomJS"} = String_Value("User agent not used");
+  }
+  
+  return(%user_agent_details);
+}
+
+#***********************************************************************
+#
 # Name: Import_Packages
 #
 # Parameters: none
@@ -4263,9 +4370,10 @@ if ( $program_dir eq "." ) {
 $RobotUA_cache_dir = tempdir("WPSS_TOOL_RobotUA_cache_XXXXXXXXXX", TMPDIR => 1);
 
 #
-# Import required packages
+# Import require modules that cannot be imported via a use statement
+# (e.g. circular use loop)
 #
-Import_Packages;
+Import_Packages();
 
 #
 # Return true to indicate we loaded successfully
