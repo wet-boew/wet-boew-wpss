@@ -16,6 +16,7 @@
 #     CSS_Validate_Content
 #     CSS_Validate_Extract_CSS_From_HTML
 #     CSS_Validate_Language
+#     CSS_Validate_Last_Validation_Output
 #
 # Terms and Conditions of Use
 # 
@@ -73,6 +74,7 @@ BEGIN {
                   CSS_Validate_Debug
                   CSS_Validate_Extract_CSS_From_HTML
                   CSS_Validate_Language
+                  CSS_Validate_Last_Validation_Output
                   );
     $VERSION = "1.0";
 }
@@ -85,8 +87,10 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($validate_cmnd, $extracted_css_content, $have_text_handler);
-my ($last_style_end, $inline_style_count);
+my ($last_style_end, $inline_style_count, $last_validation_output);
 my ($runtime_error_reported) = 0;
+
+my ($css_validator_version) = "cssval-20190320";
 
 my ($debug) = 0;
 
@@ -211,10 +215,11 @@ sub String_Value {
 sub CSS_Validate_Content {
     my ($this_url, $content) = @_;
 
-    my ($validator_output, $format, $temp_file_name);
+    my ($validator_output, $lang, $temp_file_name);
     my (@results_list, $result_object, $fh);
     my ($in_error) = 0;
     my ($errors) = "";
+    my ($no_errors_found) = 0;
 
     #
     # Create temporary file for CSS content.
@@ -234,19 +239,20 @@ sub CSS_Validate_Content {
     # Set tool output language
     #
     if ( $language =~ /^fr/ ) {
-        $format = "-lang fr";
+        $lang = "-lang fr";
     }
     else {
-        $format = "-lang en";
+        $lang = "-lang en";
     }
 
     #
     # Run the validator on the supplied content
     #
-    print "Run validator\n --> $validate_cmnd $format file:$temp_file_name 2>\&1\n" if $debug;
-    $validator_output = `$validate_cmnd $format file:$temp_file_name 2>\&1`;
+    print "Run validator\n --> $validate_cmnd $lang file:$temp_file_name 2>\&1\n" if $debug;
+    $validator_output = `$validate_cmnd $lang file:$temp_file_name 2>\&1`;
     print "Validator output = $validator_output\n" if $debug;
     unlink($temp_file_name);
+    $last_validation_output = $validator_output;
 
     #
     # Read the output from the validator looking for errors
@@ -254,9 +260,16 @@ sub CSS_Validate_Content {
     foreach (split(/\n/, $validator_output)) {
 
         #
+        # Were no errors found?
+        #
+        if ( /Congratulations! No Error Found/i ) {
+            $no_errors_found = 1;
+            last;
+        }
+        #
         # Are we at the end of the errors section ?
         #
-        if ( (/^Valid CSS information/i) ||
+        elsif ( (/^Valid CSS information/i) ||
              (/^Votre feuille de style CSS/i) ) {
             last;
         }
@@ -308,27 +321,38 @@ sub CSS_Validate_Content {
                                                 $errors, $this_url);
         push (@results_list, $result_object);
     }
-    else {
+    elsif ( ! $no_errors_found ) {
         #
         # Some error trying to run the validator
         #
         print "CSS validator command failed\n" if $debug;
-        print STDERR "CSS validator command failed\n";
-        print STDERR "$validate_cmnd $format file:$temp_file_name\n";
-        print STDERR "$validator_output\n";
+        $last_validation_output = "";
 
         #
         # Report runtime error only once
         #
         if ( ! $runtime_error_reported ) {
+            print STDERR "CSS validator command failed\n";
+            print STDERR "$validate_cmnd $lang file:$temp_file_name\n";
+            print STDERR "$validator_output\n";
             $result_object = tqa_result_object->new("CSS_VALIDATION",
                                                     1, "CSS_VALIDATION",
                                                     -1, -1, "",
                                                     String_Value("Runtime Error") .
-                                                    " \"$validate_cmnd $format file:$temp_file_name\"\n" .
+                                                    " \"$validate_cmnd $lang file:$temp_file_name\"\n" .
                                                     " \"$validator_output\"",
                                                     $this_url);
             $runtime_error_reported = 1;
+
+            #
+            # Reset the source line value of the testcase error result.
+            # The initial setting may have been truncated while in this
+            # case we want the entire value.
+            #
+            $result_object->source_line(String_Value("Runtime Error") .
+                                        " \"$validate_cmnd $lang file:$temp_file_name\"\n" .
+                                        " \"$validator_output\"");
+
             push (@results_list, $result_object);
         }
     }
@@ -657,6 +681,25 @@ sub CSS_Validate_Extract_CSS_From_HTML {
 
 #***********************************************************************
 #
+# Name: CSS_Validate_Last_Validation_Output
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the output of the last run of the validator.
+#
+#***********************************************************************
+sub CSS_Validate_Last_Validation_Output {
+
+    #
+    # Return validation output
+    #
+    return($last_validation_output);
+}
+
+#***********************************************************************
+#
 # Mainline
 #
 #***********************************************************************
@@ -687,20 +730,12 @@ if ( $program_dir eq "." ) {
 
 #
 # Set validator command and options
-#   -profile css3 = validate to CSS3
 #   -warning -1 = suppress warnings
 #   -vextwarning true = treat vendor extensions as warnings
 #
-$validate_cmnd = "java -classpath \"$program_dir/lib/css-validator.jar;" .
-                 "$program_dir/lib/jigsaw.jar;" .
-                 "$program_dir/lib/velocity.jar;" .
-                 "$program_dir/lib/tagsoup.jar;" .
-                 "$program_dir/lib/commons-lang.jar;" .
-                 "$program_dir/lib/commons-collections.jar;" .
-                 "$program_dir/lib/xercesImpl.jar\" " .
-                 "-Dhttp.agent=\"WPSS_Tool css-validator\" " .
-                 "org.w3c.css.css.CssValidator " .
-                 "-profile css3 -warning -1 -vextwarning true";
+$validate_cmnd = "java -jar $program_dir/lib/css-validator.jar " .
+                 "-warning -1 " .
+                 "-vextwarning true ";
 
 #
 # Check for operating system specifics
