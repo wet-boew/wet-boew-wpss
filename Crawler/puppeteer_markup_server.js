@@ -2,9 +2,9 @@
 //
 // Name: puppeteer_markup_server.js
 //
-// $Revision: 1710 $
+// $Revision: 2106 $
 // $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/puppeteer_markup_server.js $
-// $Date: 2020-02-10 09:26:00 -0500 (Mon, 10 Feb 2020) $
+// $Date: 2021-08-20 10:12:45 -0400 (Fri, 20 Aug 2021) $
 //
 // Synopsis: node puppeteer_markup_server.js <port> <chrome_path>
 //                                           <user_data_directory> -debug
@@ -265,220 +265,232 @@ server = http.createServer(function(req, res) {
         //
         (async () => {
             try {
-            //
-            // Do we already have a chrome instance?
-            //
-            if (wsendpoint != undefined) {
                 //
-                // Reconnect to existing chrome instance
+                // Do we already have a chrome instance?
                 //
-                if (debug === 1) console.log('Reconnect to chrome');
-                browser = await puppeteer.connect({
-                    browserWSEndpoint: wsendpoint,
-                    ignoreHTTPSErrors: true
-                });
+                if (wsendpoint != undefined) {
+                    //
+                    // Reconnect to existing chrome instance
+                    //
+                    if (debug === 1) console.log('Reconnect to chrome');
+                    browser = await puppeteer.connect({
+                        browserWSEndpoint: wsendpoint,
+                        ignoreHTTPSErrors: true
+                    });
 
-                if (browser == undefined) {
-                    console.log('Failed to reconnect to chrome browser');
-                    program.exit(1);
+                    if (browser == undefined) {
+                        console.log('Failed to reconnect to chrome browser');
+                        program.exit(1);
+                    } else {
+                        if (debug === 1) console.log('Chrome reconnected');
+                    }
                 } else {
-                    if (debug === 1) console.log('Chrome reconnected');
+                    //
+                    // Launch Chrome browser instance
+                    //
+                    if (debug === 1) console.log("Launch chrome, executablePath = " +
+                                                 chrome_path + " userDataDir = " +
+                                                 user_data_directory +
+                                                 " --ignore-certificate-errors");
+                    browser = await puppeteer.launch({
+                        headless: true,
+                        userDataDir: user_data_directory,
+                        executablePath: chrome_path,
+                        args: ['--ignore-certificate-errors'],
+                    });
+
+                    //
+                    // Did chrome start?
+                    //
+                    if (browser == undefined) {
+                        console.log('Failed to start chrome browser');
+                        program.exit(1);
+                    } else {
+                        if (debug === 1) console.log('Chrome launched');
+                    }
+
+                    //
+                    // Get endpoint to allow reconnection
+                    //
+                    wsendpoint = await browser.wsEndpoint();
+                    if (debug === 1) console.log('Endpoint: ' + wsendpoint);
+                };
+
+                //
+                // Is this a request to exit the server?
+                //
+                if (pathname === '/EXIT') {
+                    t = new Date();
+                    console.log('Exit server at ' + t.toLocaleTimeString());
+
+                    //
+                    // Close the browser
+                    //
+                    if (browser != undefined) {
+                        await browser.close();
+                    }
+                    process.exit();
                 }
-            } else {
+
                 //
-                // Launch Chrome browser instance
+                // Get new page object
                 //
-                if (debug === 1) console.log("Launch chrome, executablePath = " +
-                                             chrome_path + " userDataDir = " +
-                                             user_data_directory);
-                browser = await puppeteer.launch({
-                    headless: true,
-                    userDataDir: user_data_directory,
-                    executablePath: chrome_path
+                if (debug === 1) {
+                    t = new Date();
+                    console.log('await browser.newPage at ' + t.toLocaleTimeString());
+                }
+                const page = await browser.newPage();
+                
+                //
+                // Set user agent string
+                //
+                user_agent = await browser.userAgent();
+                await page.setUserAgent(user_agent + ' - WPSS_Tool');
+                user_agent = await page.evaluate('navigator.userAgent');
+                if (debug === 1) console.log('User agent string ' + user_agent);
+
+                //
+                // Set viewport size
+                //
+                await page.setViewport({
+                    width: 1280,
+                    height: 847
                 });
 
                 //
-                // Did chrome start?
+                // Get the requested page
                 //
-                if (browser == undefined) {
-                    console.log('Failed to start chrome browser');
-                    program.exit(1);
+                if (debug === 1) {
+                    t = new Date();
+                    console.log('page.goto at ' + t.toLocaleTimeString());
+                }
+                response = await page.goto(get_url);
+                status = response.status();
+                if (debug === 1) {
+                    t = new Date();
+                    console.log('page.content at ' + t.toLocaleTimeString());
+                    console.log('status ' + status);
+                }
+
+                //
+                // Did we get the page?
+                //
+                if (!response.ok) {
+                    if (debug === 1) console.log('Failed to get URL');
+                    res.writeHead(500, {
+                        'Content-Type': 'text/plain; charset=UTF-8'
+                    });
+                    res.end(); //end the response
+                    return;
+                }
+
+                //
+                // Did we get an Unauthorized (401) response code?
+                //
+                if (status == 401) {
+                    if ((username != "") && (password != "")) {
+                        //
+                        // Add page credentials if we have them.
+                        //
+                        if (debug === 1) console.log('Add authentication credentials');
+                        await page.authenticate(username, password);
+
+                        //
+                        // Get the page again
+                        //
+                        response = await page.goto(get_url);
+                        status = response.status();
+                    }
+                }
+
+                //
+                // Did we get the page?
+                //
+                if (status == 404) {
+                    if (debug === 1) console.log('Received 404 - Not Found error');
+                    res.writeHead(404, {
+                        'Content-Type': 'text/plain; charset=UTF-8'
+                    });
+                    res.end(); //end the response
+                    return;
+                }
+
+                //
+                // Check mime type of response, only handle text/html.
+                // Get at the response headers
+                //
+                headers = response.headers();
+                if (headers['content-type'] != undefined) {
+                    content_type = headers['content-type'];
+
+                    //
+                    // Is the content type HTML?
+                    //
+                    if (content_type.indexOf('html') == -1) {
+                        if (debug === 1) console.log('page is not HTML ' + content_type);
+                        res.end(); //end the response
+                        await page.close();
+                        return;
+                    }
                 } else {
-                    if (debug === 1) console.log('Chrome launched');
-                }
-
-                //
-                // Get endpoint to allow reconnection
-                //
-                wsendpoint = await browser.wsEndpoint();
-                if (debug === 1) console.log('Endpoint: ' + wsendpoint);
-            };
-
-            //
-            // Is this a request to exit the server?
-            //
-            if (pathname === '/EXIT') {
-                t = new Date();
-                console.log('Exit server at ' + t.toLocaleTimeString());
-
-                //
-                // Close the browser
-                //
-                if (browser != undefined) {
-                    await browser.close();
-                }
-                process.exit();
-            }
-
-            //
-            // Get new page object and set viewport size
-            //
-            if (debug === 1) {
-                t = new Date();
-                console.log('await browser.newPage at ' + t.toLocaleTimeString());
-            }
-            const page = await browser.newPage();
-            user_agent = await browser.userAgent();
-            await page.setUserAgent(user_agent + ' - WPSS_Tool');
-            user_agent = await page.evaluate('navigator.userAgent');
-            if (debug === 1) console.log('User agent string ' + user_agent);
-
-            await page.setViewport({
-                width: 1280,
-                height: 847
-            });
-
-            //
-            // Get the requested page
-            //
-            if (debug === 1) {
-                t = new Date();
-                console.log('page.goto at ' + t.toLocaleTimeString());
-            }
-            response = await page.goto(get_url);
-            status = response.status();
-            if (debug === 1) {
-                t = new Date();
-                console.log('page.content at ' + t.toLocaleTimeString());
-                console.log('status ' + status);
-            }
-
-            //
-            // Did we get the page?
-            //
-            if (!response.ok) {
-                if (debug === 1) console.log('Failed to get URL');
-                res.writeHead(500, {
-                    'Content-Type': 'text/plain; charset=UTF-8'
-                });
-                res.end(); //end the response
-                return;
-            }
-
-            //
-            // Did we get an Unauthorized (401) response code?
-            //
-            if (status == 401) {
-                if ((username != "") && (password != "")) {
                     //
-                    // Add page credentials if we have them.
+                    // No content-type header
                     //
-                    if (debug === 1) console.log('Add authentication credentials');
-                    await page.authenticate(username, password);
-
-                    //
-                    // Get the page again
-                    //
-                    response = await page.goto(get_url);
-                    status = response.status();
-                }
-            }
-
-            //
-            // Did we get the page?
-            //
-            if (status == 404) {
-                if (debug === 1) console.log('Received 404 - Not Found error');
-                res.writeHead(404, {
-                    'Content-Type': 'text/plain; charset=UTF-8'
-                });
-                res.end(); //end the response
-                return;
-            }
-
-            //
-            // Check mime type of response, only handle text/html.
-            // Get at the response headers
-            //
-            headers = response.headers();
-            if (headers['content-type'] != undefined) {
-                content_type = headers['content-type'];
-
-                //
-                // Is the content type HTML?
-                //
-                if (content_type.indexOf('html') == -1) {
-                    if (debug === 1) console.log('page is not HTML ' + content_type);
+                    if (debug === 1) console.log('Missing content-type header');
                     res.end(); //end the response
                     await page.close();
                     return;
                 }
-            } else {
+
                 //
-                // No content-type header
+                // Get HTML markup from the page
                 //
-                if (debug === 1) console.log('Missing content-type header');
-                res.end(); //end the response
-                await page.close();
-                return;
-            }
+                html = await page.content();
 
-            //
-            // Get HTML markup from the page
-            //
-            html = await page.content();
+                //
+                // Do we want a screenshot for the page?
+                //
+                if (page_image) {
+                    if (debug === 1) console.log('Generate page snapshot');
+                    await page.screenshot({
+                        path: page_image_file_name,
+                        type: 'jpeg',
+                        fullPage: true
+                    });
+                }
 
-            //
-            // Do we want a screenshot for the page?
-            //
-            if (page_image) {
-                if (debug === 1) console.log('Generate page snapshot');
-                await page.screenshot({
-                    path: page_image_file_name,
-                    type: 'jpeg',
-                    fullPage: true
-                });
-            }
-
-            //
-            // Write a response to the client that includes the HTML markup
-            // for the requested page.
-            //
-            res.writeHead(200, {
-                'Content-Type': 'text/plain; charset=UTF-8'
-            });
-            res.write('===== PAGE MARKUP BEGINS =====\n');
-            res.write(html);
-
-            // Add an HTML comment indicating this markup came from Node/Puppeteer/Headless Chrome
-            res.write('\n');
-            res.write('<!-- Page markup generated by Node/Puppeteer/Headless Chrome -->\n');
-
-            res.write('\n===== PAGE MARKUP ENDS =====\n');
-            res.end(); //end the response
-            await page.close();
-            if (debug === 1) {
-                t = new Date();
-                console.log('After sending response ' + get_url + ' at ' + t.toLocaleTimeString());
-            }
-            } catch(err) {
-                // Error trying to get page from browser.
-                // Return Success but with no markup
-                console.log('Error trying to get ' + get_url);
-                console.log(err.message);
+                //
+                // Write a response to the client that includes the HTML markup
+                // for the requested page.
+                //
                 res.writeHead(200, {
                     'Content-Type': 'text/plain; charset=UTF-8'
                 });
+                res.write('===== PAGE MARKUP BEGINS =====\n');
+                res.write(html);
+
+                // Add an HTML comment indicating this markup came from Node/Puppeteer/Headless Chrome
+                res.write('\n');
+                res.write('<!-- Page markup generated by Node/Puppeteer/Headless Chrome -->\n');
+
+                res.write('===== PAGE MARKUP ENDS =====\n');
+                res.end(); //end the response
+                await page.close();
+                if (debug === 1) {
+                    t = new Date();
+                    console.log('After sending response ' + get_url + ' at ' + t.toLocaleTimeString());
+                }
+           } catch(err) {
+                // Error trying to get page from browser.
+                // Return error message
+                console.log('Error trying to get ' + get_url);
+                console.log(err.message);
+                res.writeHead(500, {
+                    'Content-Type': 'text/plain; charset=UTF-8'
+                });
+                res.write('===== PAGE ERROR BEGINS =====\n');
+                res.write(err.message + '\n');
+                res.write('===== PAGE ERROR ENDS =====\n');
                 res.end(); //end the response
             }
         })();
