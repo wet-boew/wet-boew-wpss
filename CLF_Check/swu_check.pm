@@ -2,9 +2,9 @@
 #
 # Name:   swu_check.pm
 #
-# $Revision: 142 $
-# $URL: svn://10.36.20.203/CLF_Check/Tools/swu_check.pm $
-# $Date: 2016-12-07 13:05:31 -0500 (Wed, 07 Dec 2016) $
+# $Revision: 2059 $
+# $URL: svn://10.36.148.185/WPSS_Tool/CLF_Check/Tools/swu_check.pm $
+# $Date: 2021-06-07 08:57:35 -0400 (Mon, 07 Jun 2021) $
 #
 # Description:
 #
@@ -264,7 +264,6 @@ my %string_table_en = (
     "Breadcrumb links found on home page",  "Breadcrumb links found on home page",
     "Incorrect site title found",      "Incorrect site title found",
     "Incorrect subsite title found",   "Incorrect subsite title found",
-    "Mismatch in WET version, found",  "Mismatch in WET version, found",
     "Missing target=_blank when expected", "Missing target=\"_blank\" in link when expected",
     "Have target=_blank when not expected", "Have target=\"_blank\" in link when not expected",
     "Content before GC Navigation bar",  "Content before GC Navigation bar",
@@ -354,7 +353,6 @@ my %string_table_fr = (
     "Breadcrumb links found on home page", "Trouvé piste de navigation dans un page d'accueil",
     "Incorrect site title found",      "Titre de site incorrecte trouve",
     "Incorrect subsite title found",   "Titre de sous-site incorrecte trouve",
-    "Mismatch in WET version, found",  "Erreur de correspondance des versions BOEW version, a trouvé",
     "Missing target=_blank when expected", "Manquante target=\"_blank\" en lien moment prévu",
     "Have target=_blank when not expected", "Avez target=\"_blank\" en lien quand il n'est pas prévu",
     "Content before GC Navigation bar",  "Contenu avant la barre de navigation du GC",
@@ -5179,11 +5177,7 @@ sub Check_Site_Banner_Links {
     #
     # Did we find a site title URL ?
     #
-    if ( ! defined($site_title_link) ) {
-        Record_Result("SWU_E2.2.5", -1, -1, "",
-                      String_Value("Missing link in site title"));
-    }
-    else {
+    if ( defined($site_title_link) ) {
         #
         # Check site title link to see that they have the expected
         # "Open in new window" status.
@@ -5621,8 +5615,8 @@ sub Check_Terms_and_Conditions_Links {
         # Site footer links are text only links, check for
         # any image links.
         #
-        Check_For_Image_Links($url, $list_addr, "SWU_E2.2.7",
-                              String_Value("Site footer"));
+#        Check_For_Image_Links($url, $list_addr, "SWU_E2.2.7",
+#                              String_Value("Site footer"));
     }
     else {
         print "No TERMS_CONDITIONS_FOOTER section links\n" if $debug;
@@ -5729,8 +5723,8 @@ sub Check_Site_Footer_Links {
         # Site footer links are text only links, check for
         # any image links.
         #
-        Check_For_Image_Links($url, $list_addr, "SWU_E2.2.7",
-                              String_Value("Site footer"));
+#        Check_For_Image_Links($url, $list_addr, "SWU_E2.2.7",
+#                              String_Value("Site footer"));
     }
     else {
         print "No SITE_FOOTER section links\n" if $debug;
@@ -6932,88 +6926,6 @@ sub Get_WET_Version {
 
 #***********************************************************************
 #
-# Name: Check_Template_Link_Version
-#
-# Parameters: url - URL
-#             link_sets - table of lists of link objects (1 list per
-#               document section)
-#             profile - testcase profile
-#
-# Description:
-#
-#    This function checks all the template links to see that they are
-# from the same WET release.
-#
-#***********************************************************************
-sub Check_Template_Link_Version {
-    my ($url, $link_sets, $profile) = @_;
-
-    my ($section, $list_addr, $link, $link_url, $protocol, $domain);
-    my ($file_path, $query, $version, $current_wet_version);
-
-    #
-    # Check each document section's list of links
-    #
-    while ( ($section, $list_addr) = each %$link_sets ) {
-        print "Check template links in section $section\n" if $debug;
-
-        #
-        # Check each link in the section
-        #
-        foreach $link (@$list_addr) {
-            $link_url = $link->abs_url;
-            print "Check link $link_url\n" if $debug;
-
-            #
-            # Break URL into components
-            #
-            ($protocol, $domain, $file_path, $query) = URL_Check_Parse_URL($link_url);
-
-            #
-            # Is this a supporting file (e.g. CSS or JavaScript ?)
-            #
-            if ( ($file_path =~ /\.css$/i) || ($file_path =~ /\.js$/i) ) {
-                #
-                # Get possible WET revision number in the supporting file.
-                #
-                $version = Get_WET_Version($link_url);
-
-                #
-                # Do we have a current WET version ?
-                #
-                if ( defined($current_wet_version) ) {
-                    #
-                    # If we got a version from the supporting file, does
-                    # it match the current WET version ?
-                    # A supporting file may not contain a version as it may be
-                    # a custom file (not part of WET). This is not an error.
-                    #
-                    if ( ($version ne "") && 
-                         ($version ne $current_wet_version) ) {
-                        print "Supporting file version \"$version\" does not match current WET version \"$current_wet_version\"\n" if $debug;
-                        Record_Result("SWU_TEMPLATE", $link->line_no,
-                                      $link->column_no, $link->source_line,
-                       String_Value("Mismatch in WET version, found") .
-                                      " \"$version\" " .
-                                      String_Value("expecting") .
-                                      "\"$current_wet_version\"");
-                    }
-                }
-                elsif ( $version ne "" ) {
-                    #
-                    # Use current file's version (if it has one) as
-                    # the WET version.
-                    #
-                    print "WET version = $version\n" if $debug;
-                    $current_wet_version = $version;
-                }
-            }
-        }
-    }
-}
-
-#***********************************************************************
-#
 # Name: SWU_Check_Links
 #
 # Parameters: tqa_results_list - address of hash table results
@@ -7168,11 +7080,6 @@ sub SWU_Check_Links {
             Check_Skip_Links($url, $language, $link_sets, $profile);
         }
     }
-
-    #
-    # Check template files version
-    #
-    Check_Template_Link_Version($url, $link_sets, $profile);
 
     #
     # Add our results to previous results
