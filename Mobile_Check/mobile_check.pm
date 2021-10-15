@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check.pm
 #
-# $Revision: 1668 $
+# $Revision: 2036 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Mobile_Check/Tools/mobile_check.pm $
-# $Date: 2020-01-08 10:10:08 -0500 (Wed, 08 Jan 2020) $
+# $Date: 2021-05-12 10:10:55 -0400 (Wed, 12 May 2021) $
 #
 # Description:
 #
@@ -374,7 +374,12 @@ sub Set_Mobile_Check_Testcase_Data {
         #
         # Copy the data into the table
         #
-        $testcase_data{$testcase} = $data;
+        if ( defined($testcase_data{$testcase}) ) {
+            $testcase_data{$testcase} .= "\n$data";
+        }
+        else {
+            $testcase_data{$testcase} = $data;
+        }
     }
 
     #
@@ -770,6 +775,7 @@ sub Check_Cookies {
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
 #             content - content pointer
+#             generated_content - content pointer
 #
 # Description:
 #
@@ -777,7 +783,8 @@ sub Check_Cookies {
 #
 #***********************************************************************
 sub Mobile_Check {
-    my ($this_url, $language, $profile, $mime_type, $resp, $content) = @_;
+    my ($this_url, $language, $profile, $mime_type, $resp, $content,
+        $generated_content) = @_;
 
     my (@tqa_results_list, $result_object, @other_tqa_results_list, $tcid);
 
@@ -809,7 +816,8 @@ sub Mobile_Check {
     if ( $mime_type =~ /text\/html/ ) {
         @other_tqa_results_list = Mobile_Check_HTML($this_url, $language,
                                                     $profile, $mime_type,
-                                                    $resp, $content);
+                                                    $resp, $content,
+                                                    $generated_content);
     }
     elsif ( $mime_type =~ /text\/css/ ) {
         #
@@ -1121,6 +1129,7 @@ sub Check_Broken_Redirect_Links {
                     #
                     # Is this a redirect we ignore (e.g. language switching)
                     #
+                    print "Link redirects, check ignore patterns\n" if $debug;
                     $match_pattern = 0;
                     foreach $pattern (@redirect_ignore_text_patterns) {
                         if ( $link->anchor =~ /$pattern/i ) {
@@ -1161,6 +1170,7 @@ sub Check_Broken_Redirect_Links {
                     #
                     # Do we have a size for this file ?
                     #
+                    print "Have supporting file link\n" if $debug;
                     if ( ! defined($supporting_file_size{$link->abs_url}) ) {
                         ($resp_url, $resp) = Crawler_Get_HTTP_Response($link->abs_url, "");
                         
@@ -1293,16 +1303,16 @@ sub Check_CSS_Links {
                     print "Found stylesheet\n" if $debug;
                     $css_count++;
                     $css_urls{$link->abs_url} = 1;
-                }
-                
-                #
-                # Are we outside the HEAD section ? We should not find CSS
-                # files outside the <head>.
-                #
-                if ( $section ne "HEAD" ) {
-                    Record_Result("CSS_TOP", $link->line_no,
-                                  $link->column_no, $link->source_line,
-                                  String_Value("CSS link found outside of <head>"));
+
+                    #
+                    # Are we outside the HEAD section ? We should not find CSS
+                    # files outside the <head>.
+                    #
+                    if ( $section ne "HEAD" ) {
+                        Record_Result("CSS_TOP", $link->line_no,
+                                      $link->column_no, $link->source_line,
+                                      String_Value("CSS link found outside of <head>"));
+                    }
                 }
             }
         }
@@ -1330,14 +1340,15 @@ sub Check_CSS_Links {
 # Description:
 #
 #    This function checks JS links on the page.  It checks the number of
-# JS links.
+# JavaScript links and the position of those links in the web page (e.g.
+# <head>).
 #
 #***********************************************************************
 sub Check_JS_Links {
     my ($link_sets, $content) = @_;
 
     my ($section, $list_addr, $link, $js_count, %attr, %urls, $src);
-    my ($line_no, $content_line_count, @lines);
+    my ($line_no, $content_line_count, @lines, $value, $allowed_js);
 
     #
     # Get a count of the number of lines of content.  We need the count
@@ -1419,9 +1430,27 @@ sub Check_JS_Links {
                 # Is the <script> tag inside the HEAD section ?
                 #
                 elsif ( $section eq "HEAD" ) {
-                    Record_Result("JS_BOTTOM", $link->line_no,
-                                  $link->column_no, $link->source_line,
-                                  String_Value("JS link found in <head>"));
+                    #
+                    # Do we ignore this link (e.g. used for analytics)?
+                    #
+                    $allowed_js = 0;
+                    if ( defined($testcase_data{"JS_BOTTOM"}) ) {
+                        foreach $value (split(/\n/, $testcase_data{"JS_BOTTOM"}) ) {
+                            if ( $src =~ /$value/i ) {
+                                $allowed_js = 1;
+                                last;
+                            }
+                        }
+                    }
+                        
+                    #
+                    # Is the JavaScript not allowed?
+                    #
+                    if ( ! $allowed_js ) {
+                        Record_Result("JS_BOTTOM", $link->line_no,
+                                      $link->column_no, $link->source_line,
+                                      String_Value("JS link found in <head>"));
+                    }
                 }
                 #
                 # Is the <script> tag near the bottom of the web page ?
@@ -1439,6 +1468,7 @@ sub Check_JS_Links {
                         #
                         print "Link line number $line_no, content line count = $content_line_count\n" if $debug;
                         if ( $line_no < (int($content_line_count * 0.90)) ) {
+                            print "Script at line $line_no is at " . int($content_line_count * 0.90) . "% position of the content\n" if $debug;
                             Record_Result("JS_BOTTOM", $link->line_no,
                                           $link->column_no, $link->source_line,
                                           String_Value("JS link not near end of <body>"));
