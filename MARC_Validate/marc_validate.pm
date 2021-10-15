@@ -2,9 +2,9 @@
 #
 # Name:   marc_validate.pm
 #
-# $Revision: 1667 $
+# $Revision: 1851 $
 # $URL: svn://10.36.148.185/WPSS_Tool/MARC_Validate/Tools/marc_validate.pm $
-# $Date: 2020-01-08 10:09:51 -0500 (Wed, 08 Jan 2020) $
+# $Date: 2020-09-15 07:02:11 -0400 (Tue, 15 Sep 2020) $
 #
 # Description:
 #
@@ -297,20 +297,30 @@ sub MARC_Validate_Content {
         # Some error trying to run the validator
         #
         print "MARC validator command failed\n" if $debug;
-        print STDERR "MARC validator command failed\n";
-        print STDERR "$validate_cmnd $temp_file_name\n";
-        print STDERR "$validator_output\n";
 
         #
         # Report runtime error only once
         #
         if ( ! $runtime_error_reported ) {
+            print STDERR "MARC validator command failed\n";
+            print STDERR "$validate_cmnd $temp_file_name\n";
+            print STDERR "$validator_output\n";
             $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
                                                     -1, -1, "",
                                                     String_Value("Runtime Error") .
                                                     " \"$validate_cmnd $temp_file_name\"\n" .
                                                     " \"$validator_output\"",
                                                     $this_url);
+
+            #
+            # Reset the source line value of the testcase error result.
+            # The initial setting may have been truncated while in this
+            # case we want the entire value.
+            #
+            $result_object->source_line(String_Value("Runtime Error") .
+                                        " \"$validate_cmnd $temp_file_name\"\n" .
+                                        " \"$validator_output\"");
+
             $runtime_error_reported = 1;
             push (@results_list, $result_object);
         }
