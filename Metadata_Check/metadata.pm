@@ -319,7 +319,7 @@ sub Set_Metadata_Thesaurus_File {
 sub Read_Compressed_Metadata_Thesaurus_File {
     my ($profile, $filename, $language) = @_;
 
-    my (%terms, $term, $i, @fields);
+    my (%terms, $term, $encoded_term, $i, @fields);
     
     if ( $have_threads ) {
         share(\%terms);
@@ -338,7 +338,7 @@ sub Read_Compressed_Metadata_Thesaurus_File {
             return;
         }
         open(THESAURUS, $filename) || die "Error: Failed to open thesaurus file $filename\n";
-        binmode THESAURUS;
+        binmode THESAURUS, ":utf8";;
 
         #
         # Read the file, ignore blank lines and comment lines.
@@ -356,14 +356,15 @@ sub Read_Compressed_Metadata_Thesaurus_File {
             #
             chomp($term);
             $term =~ s/\r//g;
-            $term = encode_entities($term);
+            $encoded_term = encode_entities($term);
 
             #
             # Save the thersaurus term
             #
             if ( $term ne "" ) {
+                $terms{lc($encoded_term)} = lc($encoded_term);
                 $terms{lc($term)} = lc($term);
-                #print "Save DC_Subject term \"$term\" as \"" . lc($term) . "\"\n" if $debug;
+                #print "Save DC_Subject term \"$term\" as \"" . lc($term) . "\" and " . lc($encoded_term) . "\"\n" if $debug;
             }
         }
         close(THESAURUS);
@@ -952,7 +953,7 @@ sub DC_Subject_Content_Check {
     my ($language, $scheme, $content) = @_;
 
     my ($term, $alt_term, $thesaurus, @terms, $orig_term, $invalid_term_list);
-    my ($filename);
+    my ($filename, $utf8_term);
     my ($status) = $metadata_success;
     my ($message) = "";
 
@@ -1043,12 +1044,14 @@ sub DC_Subject_Content_Check {
         #
         # Eliminate whitespace and convert to lowercase
         #
-        $orig_term = $term;
         $term =~ s/^\s+//g;
         $term =~ s/\s+$//g;
         $term =~ s/’/'/g;
         $term = lc($term);
+        $orig_term = $term;
+        $utf8_term = decode_entities($term);
         $term = encode_entities($term);
+
         
         #
         # Convert windows right single quote character (’) into a regular
@@ -1062,9 +1065,11 @@ sub DC_Subject_Content_Check {
         # Is this term in the thesaurus ?
         #
         if ( (! defined($$thesaurus{$term})) &&
-             (! defined($$thesaurus{$alt_term})) ) {
+             (! defined($$thesaurus{$alt_term})) &&
+             (! defined($$thesaurus{$utf8_term})) &&
+             (! defined($$thesaurus{$orig_term})) ) {
             $status = $metadata_error;
-            print "Invalid term, \"$orig_term\" looking for \"$term\" or \"$alt_term\", in dc.subject\n" if $debug;
+            print "Invalid term, \"$orig_term\" looking for \"$term\" or \"$alt_term\" or \"$orig_term\" or \"$utf8_term\", in dc.subject\n" if $debug;
 
             #
             # Add invalid term to messages string
