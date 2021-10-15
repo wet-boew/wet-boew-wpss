@@ -14,6 +14,7 @@
 #     HTML_Validate_Content
 #     HTML_Validate_Language
 #     HTML_Validate_Debug
+#     HTML_Validate_Last_Validation_Output
 #
 # Terms and Conditions of Use
 # 
@@ -80,6 +81,7 @@ BEGIN {
     @EXPORT  = qw(HTML_Validate_Content
                   HTML_Validate_Language
                   HTML_Validate_Debug
+                  HTML_Validate_Last_Validation_Output
                   );
     $VERSION = "1.0";
 }
@@ -92,6 +94,7 @@ BEGIN {
 
 my (@paths, $this_path, $program_dir, $program_name, $paths );
 my ($doctype_label, $doctype_version, $doctype_class);
+my ($last_validation_output);
 my ($runtime_error_reported) = 0;
 
 #
@@ -358,6 +361,7 @@ sub Validate_XHTML_Content {
     #
     print "Run validator\n --> $validate_cmnd $charset $html_file_name 2>\&1\n" if $debug;
     $validator_output = `$validate_cmnd $charset $html_file_name 2>\&1`;
+    $last_validation_output = $validator_output;
 
     #
     # Do we have an error ? ('Error at' in the output line)
@@ -375,10 +379,8 @@ sub Validate_XHTML_Content {
         #
         # Some error trying to run the validator
         #
-        print "csv-validator command failed\n" if $debug;
-        print STDERR "csv-validator command failed\n";
-        print STDERR "  $validate_cmnd $charset $html_file_name\n";
-        print STDERR "$validator_output\n";
+        print "XHTML validator command failed\n" if $debug;
+        $last_validation_output = "";
 
         #
         # Report runtime error only once
@@ -391,6 +393,19 @@ sub Validate_XHTML_Content {
                                                     " \"$validate_cmnd $charset $html_file_name\"\n" .
                                                     " \"$validator_output\"",
                                                     $this_url);
+
+            #
+            # Reset the source line value of the testcase error result.
+            # The initial setting may have been truncated while in this
+            # case we want the entire value.
+            #
+            $result_object->source_line(String_Value("Runtime Error") .
+                                        " \"$validate_cmnd $charset $html_file_name\"\n" .
+                                        " \"$validator_output\"");
+
+            print STDERR "XHTML validator command failed\n";
+            print STDERR "  $validate_cmnd $charset $html_file_name\n";
+            print STDERR "$validator_output\n";
             push (@results_list, $result_object);
             $runtime_error_reported = 1;
         }
@@ -460,6 +475,7 @@ sub Validate_HTML5_Content {
     print "Run Nu Markup Checker\n --> java -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\" 2>\&1\n" if $debug;
     $validator_output = `java $java_options -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\" 2>\&1`;
     print "Validator output = $validator_output\n" if $debug;
+    $last_validation_output = "";
 
     #
     # Do we have any output ?
@@ -546,6 +562,14 @@ sub Validate_HTML5_Content {
                         }
 
                         #
+                        # Add to validator output sting in text format rather
+                        # than JSON format.
+                        #
+                        $last_validation_output .= "Error: $message\n" .
+                                                   "Line: $line_no column: $column_no\n" .
+                                                   "Source line: $source_line\n";
+
+                        #
                         # Get source line fragment.
                         #
                         $source_line = substr($lines[$line_no - 1], $start_col,
@@ -598,14 +622,15 @@ sub Validate_HTML5_Content {
             # Some error trying to run the validator
             #
             print "HTML5 validator command failed\n" if $debug;
-            print STDERR "HTML5 validator command failed\n";
-            print STDERR "java $java_options -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\"\n";
-            print STDERR "$validator_output\n";
+            $last_validation_output = "";
 
             #
             # Report runtime error only once
             #
             if ( ! $runtime_error_reported ) {
+                print STDERR "HTML5 validator command failed\n";
+                print STDERR "java $java_options -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\"\n";
+                print STDERR "$validator_output\n";
                 $result_object = tqa_result_object->new("HTML_VALIDATION",
                                                         1, "HTML_VALIDATION",
                                                         -1, -1, "",
@@ -613,6 +638,16 @@ sub Validate_HTML5_Content {
                                                         " \"java $java_options -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\"\"\n" .
                                                         " \"$validator_output\"",
                                                         $this_url);
+
+                #
+                # Reset the source line value of the testcase error result.
+                # The initial setting may have been truncated while in this
+                # case we want the entire value.
+                #
+                $result_object->source_line(String_Value("Runtime Error") .
+                                            " \"java $java_options -jar \"$html5_validate_jar\" --errors-only --format json \"$html_file_name\"\"\n" .
+                                            " \"$validator_output\"");
+
                 $runtime_error_reported = 1;
                 push (@results_list, $result_object);
             }
@@ -807,6 +842,7 @@ sub HTML_Validate_Content {
         }
         else {
             print "No validator for $doctype_label version $doctype_version\n" if $debug;
+            $last_validation_output = "";
         }
     }
     else {
@@ -814,12 +850,32 @@ sub HTML_Validate_Content {
         # No content
         #
         print "No content passed to HTML_Validate_Content\n" if $debug;
+        $last_validation_output = "";
     }
 
     #
     # Return number of errors and result objects
     #
     return(@results_list);
+}
+
+#***********************************************************************
+#
+# Name: HTML_Validate_Last_Validation_Output
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the output of the last run of the validator.
+#
+#***********************************************************************
+sub HTML_Validate_Last_Validation_Output {
+
+    #
+    # Return validation output
+    #
+    return($last_validation_output);
 }
 
 #***********************************************************************
