@@ -2,9 +2,9 @@
 #
 # Name:   mobile_check_html.pm
 #
-# $Revision: 776 $
-# $URL: svn://10.36.148.185/Mobile_Check/Tools/mobile_check_html.pm $
-# $Date: 2018-03-15 13:50:46 -0400 (Thu, 15 Mar 2018) $
+# $Revision: 2035 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Mobile_Check/Tools/mobile_check_html.pm $
+# $Date: 2021-05-12 10:09:02 -0400 (Wed, 12 May 2021) $
 #
 # Description:
 #
@@ -984,6 +984,7 @@ sub Check_HTML {
 #             mime_type - mime type of content
 #             resp - HTTP::Response object
 #             content - content pointer
+#             generated_content - content pointer
 #
 # Description:
 #
@@ -991,7 +992,8 @@ sub Check_HTML {
 #
 #***********************************************************************
 sub Mobile_Check_HTML {
-    my ($this_url, $language, $profile, $mime_type, $resp, $content) = @_;
+    my ($this_url, $language, $profile, $mime_type, $resp, $content,
+        $generated_content) = @_;
 
     my (@tqa_results_list, $result_object, $css_content, $char_count);
     my ($js_content, @other_results);
@@ -1055,7 +1057,7 @@ sub Mobile_Check_HTML {
     #
     # Check the HTML markup
     #
-    Check_HTML($this_url, $content);
+    Check_HTML($this_url, $generated_content);
 
     #
     # Return list of results
