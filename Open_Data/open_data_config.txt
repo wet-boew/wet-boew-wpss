@@ -2,9 +2,9 @@
 #
 # Name:   open_data_config.txt
 #
-# $Revision: 1786 $
+# $Revision: 2160 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_config.txt $
-# $Date: 2020-04-27 09:12:34 -0400 (Mon, 27 Apr 2020) $
+# $Date: 2021-10-08 15:18:58 -0400 (Fri, 08 Oct 2021) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -43,7 +43,6 @@ Testcase_URL_Help_File conf/open_data_testcase_url.config
 #***********************************************************************
 #
 # PWGSC Open Data
-#    http://www.tbs-sct.gc.ca/pol/doc-eng.aspx?section=text&id=25875
 #
 #***********************************************************************
 #
@@ -61,6 +60,22 @@ tcid OD_URL
 tcid OD_VAL
 
 #
+# TBS Quality Rating System
+#
+tcid TBS_QRS_Structured
+tcid TBS_QRS_Open
+tcid TBS_QRS_Noticed
+tcid TBS_QRS_Popular
+tcid TBS_QRS_Timely
+tcid TBS_QRS_Documented
+tcid TBS_QRS_Connected
+tcid TBS_QRS_Readable
+tcid TBS_QRS_Online
+tcid TBS_QRS_Tidy
+tcid TBS_QRS_Honest
+tcid TBS_QRS_International
+
+#
 # PWGSC Open Data testcases
 #
 tcid TP_PW_OD_BOM
@@ -70,13 +85,13 @@ tcid TP_PW_OD_CONT_CONSISTENCY
 tcid TP_PW_OD_CONT_DUP
 tcid TP_PW_OD_DATA
 tcid TP_PW_OD_DD
+tcid TP_PW_OD_VAL
 
 
 #
 #***********************************************************************
 #
 # PWGSC Open Data Core
-#    http://www.tbs-sct.gc.ca/pol/doc-eng.aspx?section=text&id=25875
 #
 #  Duplicate content and data inconsistency testcases are disabled
 #
@@ -96,6 +111,22 @@ tcid OD_URL
 tcid OD_VAL
 
 #
+# TBS Quality Rating System
+#
+tcid TBS_QRS_Structured
+tcid TBS_QRS_Open
+tcid TBS_QRS_Noticed
+tcid TBS_QRS_Popular
+tcid TBS_QRS_Timely
+tcid TBS_QRS_Documented
+tcid TBS_QRS_Connected
+tcid TBS_QRS_Readable
+tcid TBS_QRS_Online
+tcid TBS_QRS_Tidy
+tcid TBS_QRS_Honest
+tcid TBS_QRS_International
+
+#
 # PWGSC Open Data testcases
 #
 tcid TP_PW_OD_BOM
@@ -105,7 +136,71 @@ tcid TP_PW_OD_CONT
 #tcid TP_PW_OD_CONT_DUP
 tcid TP_PW_OD_DATA
 tcid TP_PW_OD_DD
+tcid TP_PW_OD_VAL
 
+
+#
+#***********************************************************************
+#
+# TBS Open Government Portal
+#
+#***********************************************************************
+#
+Open_Data_Check_Profile_eng TBS Open Government Portal
+Open_Data_Check_Profile_fra Portail du gouvernement ouvert SCT
+
+#
+# Testcase id
+# Common Open Data testcases
+#
+tcid OD_DATA
+tcid OD_ENC
+tcid OD_REG
+tcid OD_URL
+tcid OD_VAL
+
+#
+# TBS Quality Rating System
+#
+tcid TBS_QRS_Structured
+tcid TBS_QRS_Open
+tcid TBS_QRS_Noticed
+tcid TBS_QRS_Popular
+tcid TBS_QRS_Timely
+tcid TBS_QRS_Documented
+tcid TBS_QRS_Connected
+tcid TBS_QRS_Readable
+tcid TBS_QRS_Online
+tcid TBS_QRS_Tidy
+tcid TBS_QRS_Honest
+tcid TBS_QRS_International
+
+
+#
+#***********************************************************************
+#
+# TBS Quality Rating System
+#
+#***********************************************************************
+#
+Open_Data_Check_Profile_eng TBS Data Quality Rating System
+Open_Data_Check_Profile_fra SCT Système d'évaluation des données
+
+#
+# Testcase id
+#
+tcid TBS_QRS_Structured
+tcid TBS_QRS_Open
+tcid TBS_QRS_Noticed
+tcid TBS_QRS_Popular
+tcid TBS_QRS_Timely
+tcid TBS_QRS_Documented
+tcid TBS_QRS_Connected
+tcid TBS_QRS_Readable
+tcid TBS_QRS_Online
+tcid TBS_QRS_Tidy
+tcid TBS_QRS_Honest
+tcid TBS_QRS_International
 
 #
 #***********************************************************************
@@ -177,7 +272,18 @@ Testcase_Data TP_PW_OD_DD REQUIRED_LANG fr
 #
 # Maximum Flesch-Kincaid readability score
 #
-Testcase_Data OD_REG FLESCH-KINCAID 8
+Testcase_Data TBS_QRS_Readable FLESCH-KINCAID 8
+
+#
+# TBS organization name
+#
+Testcase_Data TBS_QRS_Connected TBS_ORG_NAME tbs-sct
+
+
+#
+# TBS maintainer email address
+#
+Testcase_Data TBS_QRS_Connected TBS_MAINTAINER_EMAIL open-ouvert@tbs-sct.gc.ca
 
 #
 # Percentage for reporting data type consistency errors.
