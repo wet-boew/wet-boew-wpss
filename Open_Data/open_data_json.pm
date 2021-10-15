@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 1682 $
+# $Revision: 2155 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_json.pm $
-# $Date: 2020-01-14 11:04:37 -0500 (Tue, 14 Jan 2020) $
+# $Date: 2021-10-01 14:00:07 -0400 (Fri, 01 Oct 2021) $
 #
 # Description:
 #
@@ -114,7 +114,7 @@ my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%testcase_data, $results_list_addr, $dictionary_ptr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($filename, $python_file, $python_output, $tag_count);
-my (@content_results_list, $last_json_headings_list);
+my (@content_results_list, $last_json_headings_list, $current_url_base);
 my ($pythonpath_set) = 0;
 
 #
@@ -483,7 +483,7 @@ sub Print_Error {
 #
 # Name: Record_Result
 #
-# Parameters: testcase - testcase identifier
+# Parameters: testcase - list of testcase identifiers
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -491,13 +491,26 @@ sub Print_Error {
 #
 # Description:
 #
-#   This function records the testcase result.
+#   This function records the testcase result and stores it in the
+# list of content errors.
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+    my ($testcase_list, $line, $column, $text, $error_string) = @_;
 
-    my ($result_object);
+    my ($result_object, $id, $testcase);
+
+    #
+    # Check for a possible list of testcase identifiers.  The first
+    # identifier that is part of the current profile is the one that
+    # the error will be reported against.
+    #
+    foreach $id (split(/,/, $testcase_list)) {
+        if ( defined($$current_open_data_profile{$id}) ) {
+            $testcase = $id;
+            last;
+        }
+    }
 
     #
     # Is this testcase included in the profile
@@ -519,13 +532,14 @@ sub Record_Result {
         #
         Print_Error($line, $column, $text, "$testcase : $error_string");
     }
+    return($result_object);
 }
 
 #***********************************************************************
 #
 # Name: Record_Content_Result
 #
-# Parameters: testcase - testcase identifier
+# Parameters: testcase - list of testcase identifiers
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -538,9 +552,21 @@ sub Record_Result {
 #
 #***********************************************************************
 sub Record_Content_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+    my ($testcase_list, $line, $column, $text, $error_string) = @_;
 
-    my ($result_object);
+    my ($result_object, $id, $testcase);
+
+    #
+    # Check for a possible list of testcase identifiers.  The first
+    # identifier that is part of the current profile is the one that
+    # the error will be reported against.
+    #
+    foreach $id (split(/,/, $testcase_list)) {
+        if ( defined($$current_open_data_profile{$id}) ) {
+            $testcase = $id;
+            last;
+        }
+    }
 
     #
     # Do we have a maximum number of errors to report and have we reached it?
@@ -794,7 +820,7 @@ sub Open_Data_JSON_Check_API {
         if ( ! eval { $ref = decode_json($content); 1 } ) {
             $eval_output = $@;
             $eval_output =~ s/ at \S* line \d*\.$//g;
-            Record_Result("OD_VAL", -1, 0, "",
+            Record_Result("OD_VAL,TBS_QRS_Tidy", -1, 0, "",
                           String_Value("Fails validation") . " $eval_output");
         }
     }
@@ -833,7 +859,7 @@ sub Open_Data_JSON_Check_API {
 sub Validate_JSON_Against_Schema {
     my ($this_url, $json_filename, $schema_url) = @_;
 
-    my ($resp_url, $resp, $schema_filename, $output);
+    my ($resp_url, $resp, $schema_filename, $output, $result_object);
     
     #
     # Do we have a schema URL
@@ -854,7 +880,7 @@ sub Validate_JSON_Against_Schema {
     # Is this a valid URI ?
     #
     if ( ! defined($resp) ) {
-        Record_Result("OD_VAL", "", "", "",
+        Record_Result("OD_VAL,TBS_QRS_Tidy", "", "", "",
                       String_Value("Invalid URL in Schema") .
                       " \"$schema_url\"");
     }
@@ -862,7 +888,7 @@ sub Validate_JSON_Against_Schema {
     # Is it a broken link ?
     #
     elsif ( ! $resp->is_success ) {
-        Record_Result("OD_VAL", "", "", "",
+        Record_Result("OD_VAL,TBS_QRS_Tidy", "", "", "",
                       String_Value("Broken link in Schema") .
                       " \"$schema_url\"");
     }
@@ -907,7 +933,7 @@ sub Validate_JSON_Against_Schema {
         #
         elsif ( $output =~ /Schema Error/i ) {
             print "Schema Error\n" if $debug;
-            Record_Result("OD_VAL", -1, -1, "",
+            Record_Result("OD_VAL,TBS_QRS_Tidy", -1, -1, "",
                           String_Value("json_schema_validator failed") .
                           " Schema: $schema_url\n" .
                           " \"$output\"");
@@ -917,7 +943,7 @@ sub Validate_JSON_Against_Schema {
         #
         elsif ( $output =~ /Validation Error/i ) {
             print "Validation Error\n" if $debug;
-            Record_Result("OD_VAL", -1, -1, "",
+            Record_Result("OD_VAL,TBS_QRS_Tidy", -1, -1, "",
                           String_Value("json_schema_validator failed") .
                           " Schema: $schema_url\n" .
                           " \"$output\"");
@@ -927,19 +953,30 @@ sub Validate_JSON_Against_Schema {
             # Runtime error with JSON schema validator
             #
             print "Runtime error, output = \"$output\"\n" if $debug;
-            print STDERR "json_schema_validator command failed\n";
-            print STDERR "  $json_schema_validator $schema_filename $json_filename $MAX_JSON_SCHEMA_ERRORS\n";
-            print STDERR "$output\n";
 
             #
             # Report runtime error only once
             #
             if ( ! $runtime_error_reported ) {
-                Record_Result("OD_VAL", -1, -1, "",
-                              String_Value("Runtime Error") .
+                print STDERR "json_schema_validator command failed\n";
+                print STDERR "  $json_schema_validator $schema_filename $json_filename $MAX_JSON_SCHEMA_ERRORS\n";
+                print STDERR "$output\n";
+                $result_object = Record_Result("OD_VAL", -1, -1, "",
+                                               String_Value("Runtime Error") .
+                                               " Schema: $schema_url\n" .
+                                               " \"$json_schema_validator $schema_filename $json_filename $MAX_JSON_SCHEMA_ERRORS\"\n" .
+                                               " \"$output\"");
+
+                #
+                # Reset the source line value of the testcase error result.
+                # The initial setting may have been truncated while in this
+                # case we want the entire value.
+                #
+                $result_object->source_line(String_Value("Runtime Error") .
                               " Schema: $schema_url\n" .
                               " \"$json_schema_validator $schema_filename $json_filename $MAX_JSON_SCHEMA_ERRORS\"\n" .
                               " \"$output\"");
+
                 $runtime_error_reported = 1;
             }
         }
@@ -980,7 +1017,7 @@ sub Check_JSON_Schema {
         #
         # No schema specified
         #
-        Record_Result("OD_VAL", -1, 0, "",
+        Record_Result("TP_PW_OD_VAL", -1, 0, "",
                       String_Value("No Schema found in JSON file"));
     }
     else {
@@ -988,6 +1025,16 @@ sub Check_JSON_Schema {
         # Found a schema specification
         #
         $schema = $$ref{'$schema'};
+        
+        #
+        # Check for relative schema specification
+        #
+        if ( ! ($schema =~ /^http/) ) {
+            if ( $current_url_base ne "" ) {
+                $schema =~ s/^\.\///g;
+                $schema = "$current_url_base/$schema";
+            }
+        }
 
         #
         # Is this a single schema (variable is not a reference) or
@@ -999,7 +1046,7 @@ sub Check_JSON_Schema {
             Validate_JSON_Against_Schema($this_url, $filename, $schema);
         }
         else {
-            Record_Result("OD_VAL", -1, 0, "",
+            Record_Result("OD_VAL,TBS_QRS_Tidy", -1, 0, "",
               String_Value("Invalid Schema specification in JSON file") .
                            " ref = $ref_type");
         }
@@ -1630,6 +1677,12 @@ sub Open_Data_JSON_Check_Data {
     #
     if ( ($this_url =~ /^http/i) || ($this_url =~ /^file/i) ) {
         $current_url = $this_url;
+        
+        #
+        # Get base for URL path. May be used for relative URL
+        # references.
+        #
+        $current_url_base = dirname($current_url);
     }
     else {
         #
@@ -1637,6 +1690,7 @@ sub Open_Data_JSON_Check_Data {
         # from the standalone validator which does not have a URL.
         #
         $current_url = "";
+        $current_url_base = "";
     }
 
     #
@@ -1699,7 +1753,7 @@ sub Open_Data_JSON_Check_Data {
         if ( ! eval { $ref = decode_json($content); 1 } ) {
             $eval_output = $@;
             $eval_output =~ s/ at \S* line \d*\.$//g;
-            Record_Result("OD_VAL", -1, 0, "",
+            Record_Result("OD_VAL,TBS_QRS_Tidy", -1, 0, "",
                           String_Value("Fails validation") . " $eval_output");
         }
         else {
