@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml_dictionary.pm
 #
-# $Revision: 1718 $
+# $Revision: 1888 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_xml_dictionary.pm $
-# $Date: 2020-02-12 14:20:21 -0500 (Wed, 12 Feb 2020) $
+# $Date: 2020-12-16 14:27:07 -0500 (Wed, 16 Dec 2020) $
 #
 # Description:
 #
@@ -60,6 +60,7 @@ use XML::Parser;
 # Use WPSS_Tool program modules
 #
 use crawler;
+use language_map;
 use open_data_dictionary_object;
 use open_data_testcases;
 use tqa_result_object;
@@ -742,7 +743,7 @@ sub Start_Consistent_Data_Heading_Tag_Handler {
     my ($self, %attr) = @_;
 
     #
-    # Start a text handler to get the consistent dataheading
+    # Start a text handler to get the consistent data heading
     #
     Start_Text_Handler();
 }
@@ -1505,6 +1506,9 @@ sub End_Heading_Tag_Handler {
             print "Save dictionary object for label $label\n" if $debug;
             $new_dictionary_object = open_data_dictionary_object->new();
             $new_dictionary_object->term($label);
+            if ( $lang ne "unknown" ) {
+                $new_dictionary_object->term_lang($lang);
+            }
             $new_dictionary_object->id($dictionary_object->id());
             $new_dictionary_object->regex($dictionary_object->regex());
             $new_dictionary_object->condition($dictionary_object->condition());
@@ -1595,6 +1599,13 @@ sub Start_Label_Tag_Handler {
     if ( defined($attr{"xml:lang"}) ) {
         $current_label_language = $attr{"xml:lang"};
         print "Start label for language $current_label_language\n" if $debug;
+
+        #
+        # Set term language
+        #
+        if ( defined($dictionary_object) ) {
+            $dictionary_object->term_lang($current_label_language);
+        }
     }
     else {
         #
