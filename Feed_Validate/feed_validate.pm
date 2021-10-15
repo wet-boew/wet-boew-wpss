@@ -239,14 +239,14 @@ sub Run_Web_Feed_Validator {
         # An error trying to run the tool
         #
         print "Error running feedvalidator.py\n" if $debug;
-        print STDERR "Error running feedvalidator.py\n";
-        print STDERR "  $validate_cmnd $this_url 2>\&1\n";
-        print STDERR "$validator_output\n";
 
         #
         # Report runtime error only once
         #
         if ( ! $runtime_error_reported ) {
+            print STDERR "Error running feedvalidator.py\n";
+            print STDERR "  $validate_cmnd $this_url 2>\&1\n";
+            print STDERR "$validator_output\n";
             $result_object = tqa_result_object->new("XML_VALIDATION",
                                                     1, "XML_VALIDATION",
                                                     -1, -1, "",
@@ -254,6 +254,16 @@ sub Run_Web_Feed_Validator {
                                                     " \"$validate_cmnd $this_url\"\n" .
                                                     " \"$validator_output\"",
                                                     $this_url);
+
+            #
+            # Reset the source line value of the testcase error result.
+            # The initial setting may have been truncated while in this
+            # case we want the entire value.
+            #
+            $result_object->source_line(String_Value("Runtime Error") .
+                                        " \"$validate_cmnd $this_url\"\n" .
+                                        " \"$validator_output\"");
+
             push (@results_list, $result_object);
             $runtime_error_reported = 1;
         }
