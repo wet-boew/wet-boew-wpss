@@ -2,9 +2,9 @@
 #
 # Name:   open_data_xml.pm
 #
-# $Revision: 1550 $
+# $Revision: 2022 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_xml.pm $
-# $Date: 2019-10-04 15:23:14 -0400 (Fri, 04 Oct 2019) $
+# $Date: 2021-05-04 08:28:17 -0400 (Tue, 04 May 2021) $
 #
 # Description:
 #
@@ -400,7 +400,7 @@ sub Print_Error {
 #
 # Name: Record_Result
 #
-# Parameters: testcase - testcase identifier
+# Parameters: testcase - list of testcase identifiers
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -408,13 +408,26 @@ sub Print_Error {
 #
 # Description:
 #
-#   This function records the testcase result.
+#   This function records the testcase result and stores it in the
+# list of content errors.
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+    my ($testcase_list, $line, $column, $text, $error_string) = @_;
 
-    my ($result_object);
+    my ($result_object, $id, $testcase);
+
+    #
+    # Check for a possible list of testcase identifiers.  The first
+    # identifier that is part of the current profile is the one that
+    # the error will be reported against.
+    #
+    foreach $id (split(/,/, $testcase_list)) {
+        if ( defined($$current_open_data_profile{$id}) ) {
+            $testcase = $id;
+            last;
+        }
+    }
 
     #
     # Is this testcase included in the profile
@@ -428,56 +441,6 @@ sub Record_Result {
                                                 $line, $column, $text,
                                                 $error_string, $current_url);
         push (@$results_list_addr, $result_object);
-
-        #
-        # Print error string to stdout
-        #
-        Print_Error($line, $column, $text, "$testcase : $error_string");
-    }
-}
-
-#***********************************************************************
-#
-# Name: Record_Content_Result
-#
-# Parameters: testcase - testcase identifier
-#             line - line number
-#             column - column number
-#             text - text from tag
-#             error_string - error string
-#
-# Description:
-#
-#   This function records the testcase result and stores it in the
-# list of content errors.
-#
-#***********************************************************************
-sub Record_Content_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
-
-    my ($result_object);
-
-    #
-    # Do we have a maximum number of errors to report and have we reached it?
-    #
-    if ( ($TQA_Result_Object_Maximum_Errors > 0) &&
-         (@content_results_list >= $TQA_Result_Object_Maximum_Errors) ) {
-        print "Skip reporting errors, maximum reached\n" if $debug;
-        return;
-    }
-
-    #
-    # Is this testcase included in the profile
-    #
-    if ( defined($testcase) && defined($$current_open_data_profile{$testcase}) ) {
-        #
-        # Create result object and save details
-        #
-        $result_object = tqa_result_object->new($testcase, $check_fail,
-                                                Open_Data_Testcase_Description($testcase),
-                                                $line, $column, $text,
-                                                $error_string, $current_url);
-        push (@content_results_list, $result_object);
 
         #
         # Print error string to stdout
@@ -816,7 +779,7 @@ sub Open_Data_XML_Check_Data {
         else {
             print "Validation failed\n\"$eval_output\"\n" if $debug;
             $eval_output =~ s/\n at .* line \d*$//g;
-            Record_Result("OD_VAL", -1, 0, "$eval_output",
+            Record_Result("OD_VAL,TBS_QRS_Tidy", -1, 0, "$eval_output",
                           String_Value("Fails validation"));
             $validation_failed = 1;
         }
@@ -844,7 +807,7 @@ sub Open_Data_XML_Check_Data {
         $validation_failed = 1;
     }
     #
-    # We have neither a doctye nor a schema
+    # We have neither a doctype nor a schema
     #
     elsif ( (! $have_schema) && (! $have_doctype) ) {
         Record_Result("OD_VAL", -1, 0, "",
@@ -1079,7 +1042,7 @@ sub Open_Data_XML_Check_Dictionary {
     if ( ! $eval_output ) {
         $eval_output = $@;
         $eval_output =~ s/ at [\w:\/\.]*Parser.pm line \d*.*$//g;
-        Record_Result("OD_VAL", -1, 0, "$eval_output",
+        Record_Result("OD_VAL,TBS_QRS_Tidy", -1, 0, "$eval_output",
                       String_Value("Fails validation"));
         $validation_failed = 1;
     }
@@ -1101,7 +1064,7 @@ sub Open_Data_XML_Check_Dictionary {
     # Did we find some tags (may or may not be data) ?
     #
     elsif ( $tag_count == 0 ) {
-        Record_Result("OD_VAL", -1, 0, "", String_Value("No content in file"));
+        Record_Result("OD_VAL,TBS_QRS_Tidy", -1, 0, "", String_Value("No content in file"));
         $validation_failed = 1;
     }
     #
@@ -1139,7 +1102,7 @@ sub Open_Data_XML_Check_Dictionary {
     # Did we find some tags (may or may not be terms) ?
     #
     elsif ( $tag_count == 0 ) {
-        Record_Result("OD_VAL", -1, 0, "",
+        Record_Result("OD_VAL,TBS_QRS_Tidy", -1, 0, "",
                       String_Value("No terms found in data dictionary"));
     }
     #
@@ -1260,7 +1223,7 @@ sub Open_Data_XML_Check_API {
     if ( ! $eval_output ) {
         $eval_output = $@;
         $eval_output =~ s/ at [\w:\/\.]*Parser.pm line \d*.*$//g;
-        Record_Result("OD_VAL", -1, 0, "$eval_output",
+        Record_Result("OD_VAL,TBS_QRS_Tidy", -1, 0, "$eval_output",
                       String_Value("Fails validation"));
     }
 
