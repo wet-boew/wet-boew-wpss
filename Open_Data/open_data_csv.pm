@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 1773 $
+# $Revision: 2063 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2020-04-07 10:19:19 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2021-06-10 09:35:01 -0400 (Thu, 10 Jun 2021) $
 #
 # Description:
 #
@@ -70,6 +70,7 @@ use Encode;
 use crawler;
 use csv_column_object;
 use csv_parser;
+use language_map;
 use open_data_testcases;
 use open_data_json;
 use tqa_result_object;
@@ -112,10 +113,12 @@ my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($csv_validator, $last_csv_headings_list);
 my ($leading_trailing_whitespace_count, $dollar_symbol_found);
 my ($thousands_separator_found, $thousands_separator_count);
-my ($dollar_symbol_count);
+my ($dollar_symbol_count, $csvlint_cmnd);
+my ($csvlint_runtime_error_reported) = 0;
 
 my ($max_error_message_string)= 2048;
-my ($runtime_error_reported) = 0;
+my ($csv_validator_runtime_error_reported) = 0;
+my ($MAX_LINT_ERRORS) = 10;
 
 #
 # Data file object attribute names
@@ -169,7 +172,9 @@ my %string_table_en = (
     "Blank column header",           "Blank column header",
     "Cannot access URL",             "Cannot access URL",
     "Column",                        "Column",
+    "Column heading language does not match data file language", "Column heading language does not match data file language",
     "CSV and JSON-CSV values do not match for column", "CSV and JSON-CSV values do not match for column",
+    "CSV lint errors",               "CSV lint errors",
     "csv-validator failed",          "csv-validator failed",
     "Currency value found",          "Currency value found",
     "Data pattern",                  "Data pattern",
@@ -177,6 +182,7 @@ my %string_table_en = (
     "Duplicate content in columns",  "Duplicate content in columns",
     "Duplicate row content, first instance at", "Duplicate row content, first instance at row",
     "Empty line as first line of multi-line field", "Empty line as first line of multi-line field",
+    "Error list truncated",          "*** Error list truncated ***",
     "Expected a heading after 2 blank lines", "Expected a heading after 2 blank lines",
     "expecting",                     "expecting",
     "expecting values to be of type", "expecting values to be of type",
@@ -233,7 +239,9 @@ my %string_table_fr = (
     "Blank column header",           "En-tête de colonne vide",
     "Cannot access URL",             "Impossible d'accéder à l'URL",
     "Column",                        "Colonne",
+    "Column heading language does not match data file language", "La langue de l'en-tête de colonne ne correspond pas à la langue du fichier de données",
     "CSV and JSON-CSV values do not match for column", "Les valeurs CSV et JSON-CSV ne correspondent pas à la colonne",
+    "CSV lint errors",               "Erreurs de CSV lint",
     "csv-validator failed",          "csv-validator a échoué",
     "Currency value found",          "Valeur monétaire trouvée",
     "Data pattern",                  "Modèle de données",
@@ -508,7 +516,7 @@ sub Print_Error {
 #
 # Name: Record_Result
 #
-# Parameters: testcase - testcase identifier
+# Parameters: testcase_list - list of testcase identifiers
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -520,9 +528,9 @@ sub Print_Error {
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+    my ( $testcase_list, $line, $column, $text, $error_string ) = @_;
 
-    my ($result_object);
+    my ($result_object, $id, $testcase);
     
     #
     # Do we have a maximum number of errors to report and have we reached it?
@@ -531,6 +539,18 @@ sub Record_Result {
          (@$results_list_addr >= $TQA_Result_Object_Maximum_Errors) ) {
         print "Skip reporting errors, maximum reached\n" if $debug;
         return;
+    }
+
+    #
+    # Check for a possible list of testcase identifiers.  The first
+    # identifier that is part of the current profile is the one that
+    # the error will be reported against.
+    #
+    foreach $id (split(/,/, $testcase_list)) {
+        if ( defined($$current_open_data_profile{$id}) ) {
+            $testcase = $id;
+            last;
+        }
     }
 
     #
@@ -551,13 +571,14 @@ sub Record_Result {
         #
         Print_Error($line, $column, $text, "$testcase : $error_string");
     }
+    return($result_object);
 }
 
 #***********************************************************************
 #
 # Name: Record_Content_Result
 #
-# Parameters: testcase - testcase identifier
+# Parameters: testcase - list of testcase identifiers
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -570,9 +591,21 @@ sub Record_Result {
 #
 #***********************************************************************
 sub Record_Content_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+    my ($testcase_list, $line, $column, $text, $error_string) = @_;
 
-    my ($result_object);
+    my ($result_object, $id, $testcase);
+
+    #
+    # Check for a possible list of testcase identifiers.  The first
+    # identifier that is part of the current profile is the one that
+    # the error will be reported against.
+    #
+    foreach $id (split(/,/, $testcase_list)) {
+        if ( defined($$current_open_data_profile{$id}) ) {
+            $testcase = $id;
+            last;
+        }
+    }
 
     #
     # Do we have a maximum number of errors to report and have we reached it?
@@ -893,7 +926,7 @@ sub Run_CSV_Validator {
     my ($this_url, $filename, $have_bom, @headings) = @_;
 
     my ($heading, $condition, $csvs_fh, $csvs_filename, $output);
-    my ($csv_filename, $csv_fh, $temp_csv_fh, $line);
+    my ($csv_filename, $csv_fh, $temp_csv_fh, $line, $result_object);
     my ($have_condition) = 0;
     
     #
@@ -1040,19 +1073,28 @@ sub Run_CSV_Validator {
                 # Some error trying to run the validator
                 #
                 print "csv-validator command failed\n" if $debug;
-                print STDERR "csv-validator command failed\n";
-                print STDERR "  $csv_validator $csv_filename $csvs_filename\n";
-                print STDERR "$output\n";
-                
+
                 #
                 # Report runtime error only once
                 #
-                if ( ! $runtime_error_reported ) {
-                    Record_Result("OD_DATA", -1, -1, "",
-                                  String_Value("Runtime Error") .
-                                  " \"$csv_validator $csv_filename $csvs_filename\"\n" .
-                                  " \"$output\"");
-                    $runtime_error_reported = 1;
+                if ( ! $csv_validator_runtime_error_reported ) {
+                    print STDERR "csv-validator command failed\n";
+                    print STDERR "  $csv_validator $csv_filename $csvs_filename\n";
+                    print STDERR "$output\n";
+                    $result_object = Record_Result("OD_DATA", -1, -1, "",
+                                                   String_Value("Runtime Error") .
+                                                   " \"$csv_validator $csv_filename $csvs_filename\"\n" .
+                                                   " \"$output\"");
+
+                    #
+                    # Reset the source line value of the testcase error result.
+                    # The initial setting may have been truncated while in this
+                    # case we want the entire value.
+                    #
+                    $result_object->source_line(String_Value("Runtime Error") .
+                                      " \"$csv_validator $csv_filename $csvs_filename\"\n" .
+                                      " \"$output\"");
+                    $csv_validator_runtime_error_reported = 1;
                 }
             }
         }
@@ -1606,6 +1648,137 @@ sub Convert_Nonprintable_to_Hex {
 
 #***********************************************************************
 #
+# Name: Run_CSV_Lint
+#
+# Parameters: filename - CSV content file
+#
+# Description:
+#
+#   This function runs the csvlint program on the file to check the
+# structure of the file.
+#
+# The csvlint program is available at
+#    https://github.com/Clever/csvlint
+#
+#***********************************************************************
+sub Run_CSV_Lint {
+    my ($filename) = @_;
+    
+    my ($output, $result_object, $line, $errors, $error_count);
+    my ($bom_free_file, $bom_free_filename, $csv_file, $line);
+    
+    #
+    # Is the testcase for the csvlint program in the current testcase
+    # profile?
+    #
+    if ( defined($$current_open_data_profile{"TBS_QRS_Tidy"}) ||
+         defined($$current_open_data_profile{"OD_VAL"})) {
+        #
+        # Strip the UTF-8 BOM from the CSV file. The csvlint command does not
+        # allow it, however if it is not present Excel may not properly display
+        # a CSV file.
+        #
+        ($bom_free_file, $bom_free_filename) = tempfile("WPSS_TOOL_OD_CSV_XXXXXXXXXX",
+                                                        SUFFIX => '.csv',
+                                                        TMPDIR => 1);
+        if ( ! defined($bom_free_file) ) {
+            print "Error: Failed to create temporary file in Run_CSV_Lint\n";
+            print STDERR "Error: Failed to create temporary file in Run_CSV_Lint\n";
+            return;
+        }
+        binmode $bom_free_file, ":utf8";
+        print "CSV schema file = $bom_free_filename\n" if $debug;
+        
+        #
+        # Open the source CSV file and skip over the UTF-8 BOM, if there is one.
+        #
+        open($csv_file, $filename);
+        Check_UTF8_BOM($csv_file);
+        
+        #
+        # Copy the source CSV file into the BOM free file
+        #
+        while ( <$csv_file> ) {
+            print $bom_free_file $_;
+        }
+        close($bom_free_file);
+        close($csv_file);
+
+        #
+        # Validate the CSV file using csvlint
+        #
+        print "Run_CSV_Lint $bom_free_filename\n" if $debug;
+        print "$csvlint_cmnd $bom_free_filename 2>\&1\n" if $debug;
+        $output = `$csvlint_cmnd \"$bom_free_filename\" 2>\&1`;
+        print "Output = $output\n" if $debug;
+        unlink($bom_free_filename);
+        
+        #
+        # Is the file a valid CSV file?
+        #
+        if ( $output =~ /file is valid/i ) {
+            print "Valid CSV file\n" if $debug;
+        }
+        #
+        # Did we find error messages?
+        #
+        elsif ( $output =~ /Record/ ) {
+            print "Error messages found\n" if $debug;
+            $result_object = Record_Result("TBS_QRS_Tidy,OD_VAL", -1, -1, "", "");
+            
+            #
+            # Limit the number of messages so the testcase result
+            # doesn't get too big
+            #
+            $errors = "";
+            $error_count = 0;
+            foreach $line (split(/\n/, $output)) {
+                $errors .= "$line\n";
+                $error_count++;
+                
+                if ( $error_count >= $MAX_LINT_ERRORS ) {
+                    $errors .= String_Value("Error list truncated");
+                    last;
+                }
+            }
+
+            #
+            # Reset the source line value of the testcase error result.
+            # The initial setting may have been truncated while in this
+            # case we want the entire value.
+            #
+            $result_object->source_line(String_Value("CSV lint errors") .
+                                        "\n\"$errors\"");
+        }
+        #
+        # An error running the csvlint program
+        #
+        else {
+            #
+            # Report runtime error only once
+            #
+            if ( ! $csvlint_runtime_error_reported ) {
+                print STDERR "Error running csvlint command\n";
+                print STDERR "  $csvlint_cmnd \"$bom_free_filename\"\n";
+                print STDERR "$output\n";
+                $result_object = Record_Result("TBS_QRS_Tidy,OD_VAL", -1, -1, "", "");
+
+                #
+                # Reset the source line value of the testcase error result.
+                # The initial setting may have been truncated while in this
+                # case we want the entire value.
+                #
+                $result_object->source_line(String_Value("Runtime Error") .
+                                            " \"$csvlint_cmnd \"$bom_free_filename\"\"\n" .
+                                            "\"$output\"");
+                $csvlint_runtime_error_reported = 1;
+            }
+        }
+    }
+}
+
+#***********************************************************************
+#
 # Name: Open_Data_CSV_Check_Data
 #
 # Parameters: this_url - a URL
@@ -1638,6 +1811,7 @@ sub Open_Data_CSV_Check_Data {
     my ($valid_heading, $lc_value, %headings_to_columns);
     my (@consistent_data_headings, $other_heading, $other_column, $other_data);
     my ($first_data, $first_other_data, $first_line, $resp_url, $resp);
+    my ($dictionary_object, $file_lang, $heading_lang);
 
     #
     # Do we have a valid profile ?
@@ -1671,6 +1845,22 @@ sub Open_Data_CSV_Check_Data {
     # Save the list of CSV column heading objects for this URL
     #
     $data_file_object->attribute($column_list_attribute, \@csv_columns);
+    
+    #
+    # Get the language of the CSV file
+    #
+    if ( defined($data_file_object->lang()) ) {
+        $file_lang = ISO_639_2_Language_Code($data_file_object->lang());
+        print "Data file language is $file_lang\n" if $debug;
+    }
+    else {
+        print "No language for data file\n" if $debug;
+    }
+    
+    #
+    # Run the csvlint program to check the file structure
+    #
+    Run_CSV_Lint($filename);
 
     #
     # Open the CSV file for reading.
@@ -1721,7 +1911,7 @@ sub Open_Data_CSV_Check_Data {
             $message = $parser->error_diag();
             print "CSV file error at line $line_no, line = \"$line\"\n" if $debug;
             print "parser->error_diag = \"$message\"\n" if $debug;
-            Record_Result("OD_VAL", $line_no, 0, $line,
+            Record_Result("OD_VAL,TBS_QRS_Tidy", $line_no, 0, $line,
                           String_Value("Parse error in line") .
                           " \"$message\"");
             $parse_error_reported = 1;
@@ -1791,6 +1981,7 @@ sub Open_Data_CSV_Check_Data {
                 }
                 else {
                     $valid_heading = 1;
+                    $dictionary_object = $headings[$i];
                 }
                 
                 #
@@ -1803,15 +1994,48 @@ sub Open_Data_CSV_Check_Data {
                 # Create mapping of headings to column numbers
                 #
                 $headings_to_columns{$heading} = $i;
-
+                
                 #
-                # If this is not a valid data dictionary heading,
-                # record the value for the first data cell.  We
-                # may not have a data dictionary to check headings
-                # against, but we may still want to check CSV vs JSON-CSV
-                # headings.
+                # If this is a valid data dictionary heading, check that
+                # the language of the heading (for headings that have
+                # language specific labels) matches the language of
+                # the data file.
                 #
-                if ( ! $valid_heading ) {
+                if ( $valid_heading ) {
+                    #
+                    # Save dictionary object pointer.
+                    #
+                    $column_object->dictionary_object($dictionary_object);
+                    
+                    #
+                    # Do both the heading and data file have language
+                    # values?
+                    #
+                    print "Check heading and data file language\n" if $debug;
+                    if ( ($dictionary_object->term_lang() ne "") &&
+                         defined($file_lang) ) {
+                        #
+                        # Do the languages match?
+                        #
+                        $heading_lang = ISO_639_2_Language_Code($dictionary_object->term_lang());
+                        print "Heading language $heading_lang data file language $file_lang\n" if $debug;
+                        if ( ($file_lang ne "") && ($heading_lang ne $file_lang) ) {
+                            Record_Result("OD_DATA", -1, ($i + 1), "",
+                                          String_Value("Column heading language does not match data file language") .
+                                          " " . $column_object->heading() . " (" . ($i + 1) . ") \n" .
+                                          String_Value("found") . " $heading_lang " .
+                                          String_Value("expecting") . " $file_lang");
+                        }
+                    }
+                }
+                else {
+                    #
+                    # If this is not a valid data dictionary heading,
+                    # record the value for the first data cell.  We
+                    # may not have a data dictionary to check headings
+                    # against, but we may still want to check CSV vs JSON-CSV
+                    # headings.
+                    #
                     $column_object->first_data($fields[$i]);
                 }
                 push(@csv_columns, $column_object);
@@ -2492,7 +2716,7 @@ sub Open_Data_CSV_Check_Data {
     if ( (! $eval_output) && (! $parse_error_reported) ) {
         print STDERR "parser->getrow fail, eval_output = \"$@\"\n";
         print "parser->getrow fail, eval_output = \"$@\"\n" if $debug;
-        Record_Result("OD_VAL", $line_no, 0, $line,
+        Record_Result("OD_VAL,TBS_QRS_Tidy", $line_no, 0, $line,
                       String_Value("Parse error in line") .
                       " \"$@\"");
     }
@@ -2505,7 +2729,7 @@ sub Open_Data_CSV_Check_Data {
         $message = $parser->error_diag();
         print "CSV file error at end of CSV at line $line_no, line = \"$line\"\n" if $debug;
         print "parser->error_diag = \"$message\"\n" if $debug;
-        Record_Result("OD_VAL", $line_no, 0, $line,
+        Record_Result("OD_VAL,TBS_QRS_Tidy", $line_no, 0, $line,
                       String_Value("Parse error in line") .
                       " \"$message\"");
     }
@@ -3151,18 +3375,20 @@ if ( $program_dir eq "." ) {
 }
 
 #
-# Generate path the the csv-validator
+# Generate path the the csv-validator and csvlint
 #
 if ( $^O =~ /MSWin32/ ) {
     #
     # Windows.
     #
     $csv_validator = ".\\bin\\csv-validator\\bin\\validate.bat";
+    $csvlint_cmnd = ".\\bin\\csvlint";
 } else {
     #
     # Not Windows.
     #
     $csv_validator = "$program_dir/bin/csv-validator/bin/validate";
+    $csvlint_cmnd = "$program_dir/bin/csvlint";
 }
 
 #
