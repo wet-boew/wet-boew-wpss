@@ -2,9 +2,9 @@
 #
 # Name:   crawler_phantomjs.pm
 #
-# $Revision: 1415 $
-# $URL: svn://10.36.148.185/Crawler/Tools/crawler_phantomjs.pm $
-# $Date: 2019-07-30 11:59:55 -0400 (Tue, 30 Jul 2019) $
+# $Revision: 2105 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler_phantomjs.pm $
+# $Date: 2021-08-20 10:11:33 -0400 (Fri, 20 Aug 2021) $
 #
 # Description:
 #
@@ -17,6 +17,7 @@
 #     Crawler_Phantomjs_Start_Markup_Server
 #     Crawler_Phantomjs_Stop_Markup_Server
 #     Crawler_Phantomjs_Page_Markup
+#     Crawler_Phantomjs_User_Agent_Details
 #
 # Terms and Conditions of Use
 #
@@ -55,6 +56,7 @@ use Encode;
 use File::Basename;
 use File::Path qw(remove_tree);
 use LWP::UserAgent;
+use IO::Socket::INET;
 
 #***********************************************************************
 #
@@ -72,6 +74,7 @@ BEGIN {
                   Crawler_Phantomjs_Start_Markup_Server
                   Crawler_Phantomjs_Stop_Markup_Server
                   Crawler_Phantomjs_Page_Markup
+                  Crawler_Phantomjs_User_Agent_Details
                   );
     $VERSION = "1.0";
 }
@@ -250,6 +253,7 @@ sub Crawler_Phantomjs_Start_Markup_Server {
     my ($cookie_file) = @_;
 
     my ($debug_option, $sec, $min, $hour, $time, $output, $cmnd, $rc);
+    my ($port, $port_found, $socket);
 
     #
     # Are we running in single page mode (start PhantonJS for each
@@ -272,6 +276,49 @@ sub Crawler_Phantomjs_Start_Markup_Server {
     #
     Crawler_Phantomjs_Stop_Markup_Server();
     
+    #
+    # Check to see if port number is available
+    #
+    $port = $markup_server_port;
+    $port_found = 0;
+    while ( ! $port_found ) {
+        #
+        # Create a socket object and attempt to bind to the port
+        #
+        print "Attempt to connect to port $port\n" if $debug;
+        $socket = new IO::Socket::INET (LocalHost => '127.0.0.1',
+                                        LocalPort => $port,
+                                        Proto => 'tcp',
+                                        Listen => 5,
+                                        Reuse => 1);
+
+        #
+        # Were we successful?
+        #
+        if ( defined($socket) ) {
+            #
+            # Found a usable port, release it and stop search
+            #
+            $socket->close();
+            $port_found = 1;
+        }
+        else {
+            #
+            # Could not connect to socket, increment port number.
+            # Try a maximum of 10 times.
+            #
+            if ( ($port - $markup_server_port) < 10 ) {
+                $port++;
+            }
+            else {
+                print "Failed to find a free port starting at $markup_server_port\n" if $debug;
+                print STDERR "Failed to find a free port for puppeteer starting at $markup_server_port\n";
+                $markup_server_running = 0;
+                return(0);
+            }
+        }
+    }
+
     #
     # Pass debug flag to markup server
     #
@@ -616,6 +663,32 @@ sub Crawler_Phantomjs_Page_Markup {
     #
     print "Return markup table\n" if $debug;
     return($markup);
+}
+
+#***********************************************************************
+#
+# Name: Crawler_Phantomjs_User_Agent_Details
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the versions of software for the headless
+# user agent. If the aent is not installed, it returns the reason
+# it is not used.
+#
+#***********************************************************************
+sub Crawler_Phantomjs_User_Agent_Details {
+
+    my ($version);
+  
+    #
+    # Get the PhantomJS version
+    #
+    print "Crawler_Phantomjs_User_Agent_Details\n" if $debug;
+    $version = `$phantomjs_cmnd -v`;
+    chomp($version);
+    return("PhantomJS = $version");
 }
 
 #***********************************************************************

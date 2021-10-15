@@ -2,9 +2,9 @@
 #
 # Name:   crawler_puppeteer.pm
 #
-# $Revision: 1711 $
+# $Revision: 2138 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler_puppeteer.pm $
-# $Date: 2020-02-10 09:37:42 -0500 (Mon, 10 Feb 2020) $
+# $Date: 2021-09-21 08:55:19 -0400 (Tue, 21 Sep 2021) $
 #
 # Description:
 #
@@ -15,9 +15,11 @@
 #     Crawler_Puppeteer_Clear_Cache
 #     Crawler_Puppeteer_Config
 #     Crawler_Puppeteer_Debug
+#     Set_Crawler_Puppeteer_Language
 #     Crawler_Puppeteer_Start_Markup_Server
 #     Crawler_Puppeteer_Stop_Markup_Server
 #     Crawler_Puppeteer_Page_Markup
+#     Crawler_Puppeteer_User_Agent_Details
 #
 # Terms and Conditions of Use
 #
@@ -57,6 +59,7 @@ use File::Basename;
 use File::Path qw(remove_tree);
 use LWP::UserAgent;
 use File::Temp qw/ tempfile tempdir /;
+use IO::Socket::INET;
 
 my $have_threads = eval 'use threads; 1';
 if ( $have_threads ) {
@@ -76,9 +79,11 @@ BEGIN {
     @EXPORT  = qw(Crawler_Puppeteer_Clear_Cache
                   Crawler_Puppeteer_Config
                   Crawler_Puppeteer_Debug
+                  Set_Crawler_Puppeteer_Language
                   Crawler_Puppeteer_Start_Markup_Server
                   Crawler_Puppeteer_Stop_Markup_Server
                   Crawler_Puppeteer_Page_Markup
+                  Crawler_Puppeteer_User_Agent_Details
                   );
     $VERSION = "1.0";
 }
@@ -96,14 +101,110 @@ my ($debug) = 0;
 my ($markup_server_port) = "8000";
 my ($retry_page) = 0;
 my ($default_windows_chrome_path);
+my ($chrome_install_error_reported) = 0;
 
-my ($headless_chrome_installed, $chrome_path);
+my ($headless_chrome_installed, $chrome_path, $chrome_install_error);
+my ($user_agent_software_versions);
 if ( $have_threads ) {
     share(\$headless_chrome_installed);
     share(\$chrome_path);
+    share(\$chrome_install_error);
+    share(\$user_agent_software_versions);
 }
 
 my ($markup_server_running) = 0;
+
+#
+# String table for error strings.
+#
+my %string_table_en = (
+    "Chrome not installed, headless chrome not available", "Chrome not installed, headless chrome not available",
+    "Chrome version below minimum value",                  "Chrome version below minimum value",
+    "No puppeteer configuration paramters supplied",       "No puppeteer configuration paramters supplied",
+    "Node not installed, headless chrome not available",   "Node not installed, headless chrome not available",
+    "Puppeteer-core module not installed",                 "Puppeteer-core module not installed",
+);
+
+#
+# String table for error strings (French).
+#
+my %string_table_fr = (
+    "Chrome not installed, headless chrome not available", "Chrome not installed, headless chrome not available",
+    "Chrome version below minimum value",                  "Version Chrome inférieure à la valeur minimale",
+    "No puppeteer configuration paramters supplied",       "No puppeteer configuration paramters supplied",
+    "Node not installed, headless chrome not available",   "Node not installed, headless chrome not available",
+    "Puppeteer-core module not installed",                 "Module Puppeteer-core non installé",
+);
+
+#
+# Default messages to English
+#
+my ($string_table) = \%string_table_en;
+
+#**********************************************************************
+#
+# Name: Set_Crawler_Puppeteer_Language
+#
+# Parameters: language
+#
+# Description:
+#
+#   This function sets the language of error messages generated
+# by this module.
+#
+#***********************************************************************
+sub Set_Crawler_Puppeteer_Language {
+    my ($language) = @_;
+
+    #
+    # Check for French language
+    #
+    if ( $language =~ /^fr/i ) {
+        print "Set_Crawler_Puppeteer_Language, language = French\n" if $debug;
+        $string_table = \%string_table_fr;
+    }
+    else {
+        #
+        # Default language is English
+        #
+        print "Set_Crawler_Puppeteer_Language, language = English\n" if $debug;
+        $string_table = \%string_table_en;
+    }
+}
+
+#**********************************************************************
+#
+# Name: String_Value
+#
+# Parameters: key - string table key
+#
+# Description:
+#
+#   This function returns the value in the string table for the
+# specified key.  If there is no entry in the table an error string
+# is returned.
+#
+#**********************************************************************
+sub String_Value {
+    my ($key) = @_;
+
+    #
+    # Do we have a string table entry for this key ?
+    #
+    if ( defined($$string_table{$key}) ) {
+        #
+        # return value
+        #
+        return ($$string_table{$key});
+    }
+    else {
+        #
+        # No string table entry, either we are missing a string or
+        # we have a typo in the key name.
+        #
+        return ("*** No string for $key ***");
+    }
+}
 
 #********************************************************
 #
@@ -198,7 +299,7 @@ sub Crawler_Puppeteer_Config {
         #
         # Check for known configuration variables
         #
-        if ( $key eq "puppeteer_markup_server_port" ) {
+        if ( $key eq "markup_server_port" ) {
             $markup_server_port = $value;
         }
         elsif ( $key eq "default_windows_chrome_path" ) {
@@ -265,10 +366,10 @@ sub Crawler_Puppeteer_Stop_Markup_Server {
 #***********************************************************************
 sub Check_Puppeteer_Requirements {
     my ($file_path, $version, $major, $minor, $version_str);
-    my ($js_fh, $js_filename, $node_output);
+    my ($js_fh, $js_filename, $node_output, $line);
     my ($bat_fh, $bat_filename);
     my ($meets_requirements) = 1;
-    
+
     #
     # Have we already checked that puppeteer requirements are available
     #
@@ -276,7 +377,7 @@ sub Check_Puppeteer_Requirements {
     if ( defined($headless_chrome_installed) ) {
         return($headless_chrome_installed);
     }
-
+    
     #
     # Do we have configuration parameters?
     #
@@ -286,6 +387,7 @@ sub Check_Puppeteer_Requirements {
         print "No puppeteer configuration paramters supplied\n" if $debug;
         print STDERR "No puppeteer configuration paramters supplied\n";
         $meets_requirements = 0;
+        $chrome_install_error = String_Value("No puppeteer configuration paramters supplied");
         return($meets_requirements);
     }
 
@@ -330,6 +432,7 @@ sub Check_Puppeteer_Requirements {
             ($version) = $version_str =~ /^[\s\n\r]*version=([\d\.]+).*$/mio;
             ($major, $minor) = $version =~ /^(\d+)\.([\d\.]+)$/io;
             print "Chrome version = $major from $version_str\n" if $debug;
+            $user_agent_software_versions = "Chrome = $major.$minor";
         }
         else {
             #
@@ -338,6 +441,7 @@ sub Check_Puppeteer_Requirements {
             print "Chrome executable not found\n" if $debug;
             print STDERR "Chrome not installed, headless chrome not available\n";
             $meets_requirements = 0;
+            $chrome_install_error = String_Value("Chrome not installed, headless chrome not available");
         }
         
         #
@@ -349,9 +453,13 @@ sub Check_Puppeteer_Requirements {
             print "Node not in path\n" if $debug;
             print STDERR "Node not installed, headless chrome not available\n";
             $meets_requirements = 0;
+            $chrome_install_error = String_Value("Node not installed, headless chrome not available");
         }
         else {
             print "Node found at $file_path\n" if $debug;
+            $version = `node -v`;
+            chomp($version);
+            $user_agent_software_versions .= ", Node = $version";
         }
     }
     else {
@@ -379,6 +487,7 @@ sub Check_Puppeteer_Requirements {
             #
             print "Chrome version below minimum or no minimum value set\n" if $debug;
             print STDERR "Headless Chrome version below minimum or no version found\n";
+            $chrome_install_error = String_Value("Chrome version below minimum value");
             $meets_requirements = 0;
         }
     }
@@ -400,8 +509,13 @@ sub Check_Puppeteer_Requirements {
         }
         binmode $js_fh, ":utf8";
         print $js_fh "
+var fs = require('fs');
 const puppeteer = require('puppeteer-core');
 console.log('Puppeteer installed');
+var file = 'puppeteer-core/package.json';
+var json = require(file);
+var version = json.version;
+console.log('Version: ' + version);
 ";
         close($js_fh);
 
@@ -428,14 +542,26 @@ node \"$js_filename\"
         #
         # Check to see if puppeteer is installed.
         #
-        print "Test for puppeteer module\n" if $debug;
+        print "Test for puppeteer-core module\n" if $debug;
         print "$bat_filename 2>&1\n" if $debug;
         $node_output = `$bat_filename 2>&1`;
         print "Output = $node_output\n" if $debug;
         if ( $node_output =~ /Cannot find module/im ) {
-            print "Puppeteer module not installed, output = $node_output\n" if $debug;
-            print STDERR "Node/Puppeteer module not installed, headless chrome not available\n";
+            print "Puppeteer-core module not installed, output = $node_output\n" if $debug;
+            print STDERR "Node/Puppeteer-core module not installed, headless chrome not available\n";
+            $chrome_install_error = String_Value("Puppeteer-core module not installed");
             $meets_requirements = 0;
+        }
+        else {
+            $version = "unknown";
+            foreach $line (split(/\n/, $node_output)) {
+                if ( $line =~ /Version: /i ) {
+                    $line =~ s/Version: //i;
+                    $version = $line;
+                    last;
+                }
+            }
+            $user_agent_software_versions .= ", Puppeteer-core = $version";
         }
         unlink($js_filename);
         unlink($bat_filename);
@@ -471,6 +597,7 @@ node \"$js_filename\"
 sub Crawler_Puppeteer_Start_Markup_Server {
 
     my ($debug_option, $sec, $min, $hour, $time, $cmd, $rc);
+    my ($port, $port_found, $socket);
 
     #
     # Check to see if the required programs and files are
@@ -487,6 +614,49 @@ sub Crawler_Puppeteer_Start_Markup_Server {
         # Remove any existing cache
         #
         Crawler_Puppeteer_Clear_Cache("");
+        
+        #
+        # Check to see if port number is available
+        #
+        $port = $markup_server_port;
+        $port_found = 0;
+        while ( ! $port_found ) {
+            #
+            # Create a socket object and attempt to bind to the port
+            #
+            print "Attempt to connect to port $port\n" if $debug;
+            $socket = new IO::Socket::INET (LocalHost => '127.0.0.1',
+                                            LocalPort => $port,
+                                            Proto => 'tcp',
+                                            Listen => 5,
+                                            Reuse => 1);
+        
+            #
+            # Were we successful?
+            #
+            if ( defined($socket) ) {
+                #
+                # Found a usable port, release it and stop search
+                #
+                $socket->close();
+                $port_found = 1;
+            }
+            else {
+                #
+                # Could not connect to socket, increment port number.
+                # Try a maximum of 10 times.
+                #
+                if ( ($port - $markup_server_port) < 10 ) {
+                    $port++;
+                }
+                else {
+                    print "Failed to find a free port starting at $markup_server_port\n" if $debug;
+                    print STDERR "Failed to find a free port for puppeteer starting at $markup_server_port\n";
+                    $markup_server_running = 0;
+                    return(0);
+                }
+            }
+        }
 
         #
         # Pass debug flag to markup server
@@ -513,7 +683,7 @@ sub Crawler_Puppeteer_Start_Markup_Server {
         ($sec, $min, $hour) = (localtime)[0,1,2];
         $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
         print "Crawler_Puppeteer_Start_Markup_Server at $time\n" if $debug;
-        $cmd = "$puppeteer_server_cmnd $markup_server_port \"$chrome_path\" \"$puppeteer_user_dir\" $debug_option";
+        $cmd = "$puppeteer_server_cmnd $port \"$chrome_path\" \"$puppeteer_user_dir\" $debug_option";
         print "$cmd\n" if $debug;
         $rc = system("$cmd");
 
@@ -560,7 +730,7 @@ sub Server_Page_Markup {
 
     my ($content, $output, $line, $load_time, $markup);
     my ($sec, $min, $hour, $time, $image_param, %generated_markup);
-    my ($user_agent, $resp, $url, $req, $authen_param);
+    my ($user_agent, $resp, $url, $req, $authen_param, $error);
     my ($markup_ptr) = \%generated_markup;
 
     #
@@ -655,7 +825,6 @@ sub Server_Page_Markup {
                 }
             }
             print "Found page markup and load time $load_time\n" if $debug;
-            #$content = decode("utf8", $content, Encode::FB_HTMLCREF);
             $generated_markup{"generated_content"} = $content;
         }
         else {
@@ -664,10 +833,63 @@ sub Server_Page_Markup {
             #
             print "Error with puppeteer output\n" if $debug;
             print STDERR "Error Server_Page_Markup\n";
-            print STDERR "  LWP::UserAgent->get($url)\n";
+            print STDERR "Missing page markup markers\n";
+            print STDERR "  get($url)\n";
             print STDERR "$output\n";
             $generated_markup{"generated_content"} = "";
         }
+    }
+    #
+    # Did the puppeteer server encounter an error with the headless user agent?
+    #
+    elsif ( defined($resp) && (! $resp->is_success) ) {
+        $output = $resp->decoded_content;
+        print "Got error response\n" if $debug;
+
+        #
+        # Get the error message from the markup server
+        #
+        if ( $output =~ /===== PAGE ERROR ENDS =====/ ) {
+            print "Found markup end marker\n" if $debug;
+            $error = 0;
+            foreach $line (split(/\n/, $output)) {
+                if ( $line =~ /===== PAGE ERROR BEGINS =====/ ) {
+                    #
+                    # Start of error message
+                    #
+                    $error = 1;
+                }
+                elsif ( $line =~ /===== PAGE ERROR ENDS =====/ ) {
+                    #
+                    # End of error message
+                    #
+                    $error = 0;
+                }
+                elsif ( $error ) {
+                    $content .= $line . "\n";
+                }
+            }
+            print "Found page error\n" if $debug;
+            $generated_markup{"error"} = $content;
+            print "Error with puppeteer/headless browser output\n" if $debug;
+            print STDERR "Error Server_Page_Markup\n";
+            print STDERR "Response not successful\n";
+            print STDERR "Missing page markup markers\n";
+            print STDERR "  get($url)\n";
+            print STDERR "$output\n";
+        }
+        else {
+            #
+            # Error running puppeteer
+            #
+            print "Error with puppeteer output\n" if $debug;
+            print STDERR "Error Server_Page_Markup\n";
+            print STDERR "Response not successful\n";
+            print STDERR "  get($url)\n";
+            print STDERR "$output\n";
+            $generated_markup{"error"} = "";
+        }
+        $generated_markup{"generated_content"} = "";
     }
     else {
         #
@@ -698,7 +920,8 @@ sub Server_Page_Markup {
             # Failed to get page twice, report error.
             #
             print STDERR "Error in Server_Page_Markup\n";
-            print STDERR "  LWP::UserAgent->get($url)\n";
+            print STDERR "Response not defined\n";
+            print STDERR "  get($url)\n";
             if ( defined($resp) ) {
                 print STDERR "  HTTP response:" . $resp->status_line . "\n";
                 print STDERR $resp->as_string . "\n";
@@ -706,6 +929,8 @@ sub Server_Page_Markup {
             else {
                 print STDERR "  HTTP response: undefined\n";
             }
+            $generated_markup{"error"} = "";
+            $generated_markup{"generated_content"} = "";
         }
         $retry_page = 0;
     }
@@ -750,6 +975,32 @@ sub Crawler_Puppeteer_Page_Markup {
     #
     print "Return markup table\n" if $debug;
     return($markup);
+}
+
+#***********************************************************************
+#
+# Name: Crawler_Puppeteer_User_Agent_Details
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the versions of software for the headless
+# user agent. If the agent is not installed, it returns the reason
+# it is not used.
+#
+#***********************************************************************
+sub Crawler_Puppeteer_User_Agent_Details {
+    #
+    # Do we have an installation error string?
+    #
+    print "Crawler_Puppeteer_User_Agent_Details\n" if $debug;
+    if ( defined($chrome_install_error) && ($chrome_install_error ne "") ) {
+        return($chrome_install_error);
+    }
+    else {
+        return($user_agent_software_versions);
+    }
 }
 
 #***********************************************************************
@@ -814,5 +1065,4 @@ unlink("puppeteer_stderr.txt");
 # Return true to indicate we loaded successfully
 #
 return 1;
-
 
