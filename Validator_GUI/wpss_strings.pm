@@ -77,10 +77,12 @@ Site:
     "Analysis completed",	  "Analysis completed at (hh:mm:ss yyyy/mm/dd) ",
     "Analysis started",	  	"Analysis started at (hh:mm:ss yyyy/mm/dd) ",
     "Analysis terminated",	"Analysis terminated",
+    "CLF",                  "CLF",
     "CLF report header",    "The following is a list of web documents from your site that contain Layout and Design Check errors.
 
 Site:
 ",
+    "CLF Testcase Profile",	"Layout and Design Testcase Profile",
     "Content report header", "The following is a list of files that contain Content Check violations.
 
 ",
@@ -89,10 +91,13 @@ Site:
 Site:
 ",
     "Crawled URLs",	        "Crawled URLs",
+    "Crawler error",        "Crawler error",
+    "Department Check Testcase Profile",	"Department Check Testcase Profile",
     "Department report header", "The following is a list of web documents from your site that contain Department Check violations.
 
 Site:
 ",
+    "Document List",       "Document List",
     "Document Features report header", "The following is a list of web documents from your site that contain document features.
 
 Site:
@@ -104,46 +109,41 @@ Site:
     "Entry page",	"Entry page ",
     "Headings report header", "The following is a report of headings within documents from your site.",
     "Image report header",	"The following is a list of images from your site.",
+    "Interop Testcase Profile",	"Interoperability Testcase Profile",
     "Interop report header", "The following is a list of web documents from your site that contain Interoperability Check errors.
 
 Site:
 ",
+    "Link Check Profile",		"Link Check Profile",
     "Link report header", "The following is a list of web documents from your site that contain Link Check violations.
 
 Site:
 ",
+    "Markup Validation Profile",		"Markup Validation Profile",
+    "Metadata",			"Metadata",
     "Metadata report header",	"The following is a list of web documents from your site that contain Metadata Check errors.
 
 Site:
 ",
+    "Metadata Profile",		"Metadata Profile",
     "Mobile report header", "The following is a list of web documents from your site that contain Mobile Check violations.
 
 Site:
 ",
+    "Mobile Testcase Profile",	"Mobile Testcase Profile",
+    "Open Data",    "Open Data",
     "Open Data report header", "The following is a list of documents that contain Open Data Check violations.
 
 ",
+    "PDF Property Profile",	"PDF Property Profile",
     "Validation report header",	"The following is a list of web documents from your site that contain validation errors.
 
 Site:
 ",
-    "rewritten to",		" rewritten to ",
-    "Validation",		"Validation",
-    "Metadata",			"Metadata",
-    "Open Data",    "Open Data",
-    "Document List",		"Document List",
-    "Link Check Profile",		"Link Check Profile",
-    "Markup Validation Profile",		"Markup Validation Profile",
-    "Metadata Profile",		"Metadata Profile",
-    "PDF Property Profile",	"PDF Property Profile",
-    "CLF Testcase Profile",	"Layout and Design Testcase Profile",
     "Web Analytics Testcase Profile",	"Web Analytics Testcase Profile",
-    "Interop Testcase Profile",	"Interoperability Testcase Profile",
-    "Mobile Testcase Profile",	"Mobile Testcase Profile",
+
     "Open Data Testcase Profile", "Open Data Testcase Profile",
     "Content Testcase Profile", "Content Testcase Profile",
-    "Department Check Testcase Profile",	"Department Check Testcase Profile",
-    "CLF",        "CLF",
     "INT",        "Interop",
     "Link", 			"Link",
     "Mobile",  		"Mobile",
@@ -196,9 +196,13 @@ Site:
     "Malformed URL",                    "Malformed URL",
     "Analysis Aborted",                 "**** Analysis Aborted ****",
     "Not reviewed",                     "**** Not reviewed ****",
+    "rewritten to",		" rewritten to ",
     "Runtime Error Analysis Aborted",   "**** Runtime Error Analysis Aborted ****",
     "Testcase Profile Groups",          "Testcase Profile Groups",
     "Skipped",                          "Skipped",
+    "Supporting tool",                  "Supporting tool",
+    "User agent details",               "User agent details",
+    "Validation",		"Validation",
     );
 
 my %string_table_fr = (
@@ -217,6 +221,7 @@ Site:
 
 Site:
 ",
+    "Crawler error",        "Erreur du robot d'exploration",
     "Department report header", "Ce qui suit est une liste de documents Web de votre site qui contient des erreurs de department.
 
 Site:
@@ -318,11 +323,11 @@ Site:
     "2 spaces",				"  ",
     "4 spaces",				"    ",
     "Content violations",               "Erreurs de contenu",
+    "Headings Report Title",            "Rapport des En-têtes",
+    "help",                             "aide",
     "Results summary table",            "Tableau récapitulatif des résultats",
     "instances",                        "instances",
-    "help",                             "aide",
     "Image/lang/alt/title Report",      "Rapport des image/lang/alt/title",
-    "Headings Report Title",            "Rapport des En-têtes",
     "robots.txt handling",              "Manutention du robots.txt",
     "Respect robots.txt",               "Respectez robots.txt",
     "Ignore robots.txt",                "Ignorer robots.txt",
@@ -336,6 +341,8 @@ Site:
     "Runtime Error Analysis Aborted",   "**** Erreur D'Exécution Analyse abandonné ****",
     "Testcase Profile Groups",          "Groupes des profils des cas de test",
     "Skipped",                          "Sauté",
+    "Supporting tool",                  "Outil d'aide",
+    "User agent details",               "Détails de l'agent utilisateur",
 );
 
 #
