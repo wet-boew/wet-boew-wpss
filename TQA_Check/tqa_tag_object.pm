@@ -2,9 +2,9 @@
 #
 # Name: tqa_tag_object.pm
 #
-# $Revision: 1461 $
-# $URL: svn://10.36.148.185/TQA_Check/Tools/tqa_tag_object.pm $
-# $Date: 2019-08-30 14:14:51 -0400 (Fri, 30 Aug 2019) $
+# $Revision: 1936 $
+# $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_tag_object.pm $
+# $Date: 2021-02-01 08:36:31 -0500 (Mon, 01 Feb 2021) $
 #
 # Description:
 #
@@ -18,8 +18,10 @@
 # Class Methods
 #    new - create new object instance
 #    accessible_name_content - get/set attribute value
+#    add_children_role - add role to list of children roles
 #    attr - get/set hash table of attributes
 #    attr_value - get attribute value
+#    children_roles - get the list of children roles
 #    column_no - get/set source column number
 #    content - get/set current tag content
 #    explicit_role - get/set the explicit role value
@@ -130,6 +132,8 @@ sub new {
     my ($class, $tag, $line_no, $column_no, $attr) = @_;
 
     my ($self) = {};
+    
+    my (%children_roles);
 
     #
     # Bless the reference as a tqa_tag_object class item
@@ -141,6 +145,7 @@ sub new {
     #
     $self->{"accessible_name_content"} = 0;
     $self->{"attr"} = $attr;
+    $self->{"children_roles"} = \%children_roles;
     $self->{"column_no"} = $column_no;
     $self->{"content"} = "";
     $self->{"explicit_role"} = "";
@@ -195,6 +200,36 @@ sub accessible_name_content {
     }
     else {
         return($self->{"accessible_name_content"});
+    }
+}
+
+
+#********************************************************
+#
+# Name: add_children_role
+#
+# Parameters: self - class reference
+#             value - role value
+#
+# Description:
+#
+#   This function either add a role to the list of children_roles.
+
+#
+#********************************************************
+sub add_children_role {
+    my ($self, $value) = @_;
+    
+    my ($children_roles_addr, $child_role);
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $children_roles_addr = $self->{"children_roles"};
+        foreach $child_role (split(/\s+/, $value)) {
+            $$children_roles_addr{"$child_role"} = 1;
+        }
     }
 }
 
@@ -257,6 +292,30 @@ sub attr_value {
     # Return the attribute value (if there is one)
     #
     return($value);
+}
+
+#********************************************************
+#
+# Name: children_roles
+#
+# Parameters: self - class reference
+#
+# Description:
+#
+#   This function either returns the list of children_roles.
+#
+#********************************************************
+sub children_roles {
+    my ($self, $value) = @_;
+
+    my ($children_roles_addr);
+
+    #
+    # Get the table of children roles and return the list
+    # of keys.
+    #
+    $children_roles_addr = $self->{"children_roles"};
+    return(keys(%$children_roles_addr));
 }
 
 #********************************************************
@@ -577,6 +636,7 @@ sub line_no {
         return($self->{"line_no"});
     }
 }
+
 
 #********************************************************
 #
