@@ -157,6 +157,7 @@ my (%url_401_user, %url_401_password, $enable_generated_markup);
 my ($testcase_profile_groups_label, $testcase_profile_groups_names);
 my ($testcase_profile_groups_values, %report_options_values);
 my ($testcase_profile_groups_config_option);
+my (%non_ui_configuration_options);
 
 my ($csv_results_fh, $csv_results_file_name, $csv_object);
 my (@csv_results_fields) = ("type", "url", "testcase", "description", "landmark",
@@ -189,6 +190,9 @@ my (%site_configuration_fields) = (
     "process_pdf", "",
     "report_fails_only", "",
     "report_passes_only", "",
+   );
+my (%non_ui_configuration_fields) = (
+    "crawler_page_delay_secs", "",
    );
 
 my ($language) = "eng";
@@ -420,7 +424,7 @@ sub Update_Results_Tab {
             # Append text to the end of the file
             #
             if ( open(FILE, ">>$file_name") ) {
-                binmode FILE;
+                binmode FILE, ":utf8";
                 print(FILE "$text\n");
                 close(FILE);
             }
@@ -501,6 +505,7 @@ sub Print_TQA_Result_to_CSV {
             return;
         }
         binmode $csv_results_fh, ":utf8";
+        print $csv_results_fh chr(0xFEFF);
         print "Testcase results CSV file $csv_results_file_name\n" if $debug;
 
         #
@@ -574,7 +579,7 @@ sub Print_TQA_Result_to_CSV {
 sub Validator_GUI_Print_TQA_Result {
     my ($tab_label, $result_object) = @_;
 
-    my ($output_line, $message, $source_line);
+    my ($output_line, $message, $source_line, $line_no);
 
     #
     # Do we want XML output ?
@@ -596,7 +601,8 @@ sub Validator_GUI_Print_TQA_Result {
         #
         # Print location, if there is one
         #
-        if ( $result_object->line_no != -1 ) {
+        $line_no = $result_object->line_no();
+        if ( defined($line_no) && ($line_no ne "") && ($line_no != -1 ) ) {
             $output_line = sprintf(String_Value("4 spaces") .
                                    String_Value("Line") .
                                    "%3d " . String_Value("Column") .
@@ -2109,6 +2115,16 @@ sub Read_Crawl_File {
             $crawl_details{$key} = $value;
         }
         #
+        # Is this an configuration option that does not have a UI
+        # control?
+        #
+        elsif ( defined($non_ui_configuration_fields{$key}) ) {
+            #
+            # Load value into main dialog
+            #
+            $crawl_details{$key} = $value;
+        }
+        #
         # Check for single English URL (both directory and entry page
         # in a single value).
         #
@@ -2393,6 +2409,16 @@ sub Read_URL_File {
                 #
                 Select_Testcase_Profile_Group($value, \%report_options);
             }
+        }
+        #
+        # Is this an configuration option that does not have a UI
+        # control?
+        #
+        elsif ( defined($non_ui_configuration_fields{$key}) ) {
+            #
+            # Load value into main dialog
+            #
+            $report_options{$key} = $value;
         }
         #
         # Is an output file specified
