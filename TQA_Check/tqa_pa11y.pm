@@ -2,9 +2,9 @@
 #
 # Name:   tqa_pa11y.pm
 #
-# $Revision: 1763 $
+# $Revision: 2147 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_pa11y.pm $
-# $Date: 2020-03-21 15:27:58 -0400 (Sat, 21 Mar 2020) $
+# $Date: 2021-09-21 11:06:59 -0400 (Tue, 21 Sep 2021) $
 #
 # Description:
 #
@@ -17,6 +17,7 @@
 #     Set_Pa11y_Check_Testcase_Data
 #     Set_Pa11y_Check_Test_Profile
 #     Pa11y_Check
+#     Pa11y_Version
 #
 # Terms and Conditions of Use
 #
@@ -82,6 +83,7 @@ BEGIN {
                   Set_Pa11y_Check_Testcase_Data
                   Set_Pa11y_Check_Test_Profile
                   Pa11y_Check
+                  Pa11y_Version
                   );
     $VERSION = "1.0";
 }
@@ -98,9 +100,11 @@ my ($current_url, $results_list_addr, %testcase_data);
 my ($debug) = 0;
 my ($pa11y_runtime_reported) = 0;
 
-my ($pa11y_installed);
+my ($pa11y_installed, $pa11y_version, $pa11y_install_error);
 if ( $have_threads ) {
     share(\$pa11y_installed);
+    share(\$pa11y_version);
+    share(\$pa11y_install_error);
 }
 
 
@@ -303,7 +307,7 @@ sub Set_Pa11y_Check_Test_Profile {
 #
 #***********************************************************************
 sub Check_Pa11y_Requirements {
-    my ($file_path);
+    my ($file_path, $version);
     my ($meets_requirements) = 1;
 
     #
@@ -329,8 +333,15 @@ sub Check_Pa11y_Requirements {
             print "Pa11y not in path\n" if $debug;
             print STDERR "Pa11y not installed, Pa11y not available\n";
             $meets_requirements = 0;
+            $pa11y_install_error = "Pa11y not installed, Pa11y not available";
         }
         else {
+            #
+            # Get pa11y version
+            #
+            $version = `pa11y --version 2>&1`;
+            chomp($version);
+            $pa11y_version = $version;
             print "Pa11y found at $file_path\n" if $debug;
         }
     }
@@ -345,6 +356,7 @@ sub Check_Pa11y_Requirements {
         if ( $file_path =~ /no pa11y/i ) {
             print "Pa11y not in path\n" if $debug;
             print STDERR "Pa11y not installed, Pa11y not available\n";
+            $pa11y_install_error = "Pa11y not installed, Pa11y not available";
             $meets_requirements = 0;
         }
         else {
@@ -416,6 +428,7 @@ sub Record_Result {
     # Print error string to stdout
     #
     Print_Error($context, "$code : $message");
+    return($result_object);
 }
 
 #***********************************************************************
@@ -436,7 +449,7 @@ sub Record_Result {
 sub Pa11y_Check {
     my ($this_url, $language, $profile, $resp, $content) = @_;
 
-    my ($sec, $min, $hour, $time, $cmd, $output);
+    my ($sec, $min, $hour, $time, $cmd, $output, $result_object);
     my (@tqa_results_list, @lines, $error, $eval_output);
     my ($ref, $ref_type, $array_item, $code, $context, $message);
 
@@ -521,9 +534,20 @@ sub Pa11y_Check {
             # Record only 1 runtime error
             #
             if ( ! $pa11y_runtime_reported ) {
-                Record_Result("Pa11y", "",
-                              String_Value("Runtime Error") .
-                              " \"$cmd\"\n" . " \"$output\"");
+                print STDERR "Pa11ly runtime error\n";
+                print STDERR "$cmd\n";
+                print STDERR "$output\n";
+                $result_object = Record_Result("Pa11y", "",
+                                               String_Value("Runtime Error") .
+                                               " \"$cmd\"\n" . " \"$output\"");
+
+                #
+                # Reset the source line value of the testcase error result.
+                # The initial setting may have been truncated while in this
+                # case we want the entire value.
+                #
+                $result_object->source_line(String_Value("Runtime Error") .
+                                            " \"$cmd\"\n" . " \"$output\"");
 
                 #
                 # Suppress further errors
@@ -622,7 +646,8 @@ sub Pa11y_Check {
         print "Could not run pa11y checks\n" if $debug;
         Record_Result("Pa11y", "",
                       String_Value("Runtime Error") . " " .
-                      String_Value("Pa11y not installed"));
+                      String_Value("Pa11y not installed") .
+                      " $pa11y_install_error");
 
         #
         # Suppress further errors
@@ -634,6 +659,31 @@ sub Pa11y_Check {
     # Return results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Pa11y_Version
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the version of the Pa11y software.
+#
+#***********************************************************************
+sub Pa11y_Version {
+    #
+    # Do we have version string?
+    #
+    print "Pa11y_Version\n" if $debug;
+    Check_Pa11y_Requirements();
+    if ( defined($pa11y_version) && ($pa11y_version ne "") ) {
+        return($pa11y_version);
+    }
+    else {
+        return("");
+    }
 }
 
 #***********************************************************************
