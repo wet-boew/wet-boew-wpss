@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 1793 $
+# $Revision: 2167 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2020-04-27 09:31:44 -0400 (Mon, 27 Apr 2020) $
+# $Date: 2021-10-14 16:01:24 -0400 (Thu, 14 Oct 2021) $
 #
 # Description:
 #
@@ -194,6 +194,7 @@ my ($process_pdf, $runtime_error_callback, $enable_generated_markup);
 my ($testcase_profile_groups_label, $testcase_profile_groups_names);
 my ($testcase_profile_groups_values, %report_options_values);
 my ($testcase_profile_groups_config_option, $profile_directory);
+my (%non_ui_configuration_options);
 
 my ($csv_results_fh, $csv_results_file_name, $csv_object);
 my (@csv_results_fields) = ("type", "url", "testcase", "description", "landmark",
@@ -233,6 +234,9 @@ my (%site_configuration_fields) = (
     "logoutinterstitialcount", "",
     "httpproxy", "",
     "process_pdf", "",
+   );
+my (%non_ui_configuration_fields) = (
+    "crawler_page_delay_secs", "",
    );
 
 my ($language) = "eng";
@@ -704,7 +708,7 @@ sub Update_Results_Tab {
     # a carriage return & newline.
     #
     $text =~ s/\n/\r\n/g;
-    eval {$text = encode("iso-8859-1", $text); };
+    eval {$text = encode("iso-8859-1", $text); 1};
     $results_window->ResultTabs->$name->Append($text . "\r\n");
 
     #
@@ -773,6 +777,7 @@ sub Print_TQA_Result_to_CSV {
             return;
         }
         binmode $csv_results_fh, ":utf8";
+        print $csv_results_fh chr(0xFEFF);
         print "Temporary testcase results CSV file $csv_results_file_name\n" if $debug;
         
         #
@@ -1715,6 +1720,8 @@ sub Run_URL_List_Callback {
 #***********************************************************************
 sub GUI_Do_URL_List_Click {
     my ($url_list, %report_options, $name, $tabid);
+    
+    my ($fieldname);
 
     #
     # Get content
@@ -1755,6 +1762,16 @@ sub GUI_Do_URL_List_Click {
         $report_options{"enable_generated_markup"} = $enable_generated_markup;
 
         #
+        # Get any non-ui configuration options
+        #
+        foreach $fieldname (keys %non_ui_configuration_options) {
+            if ( defined($non_ui_configuration_options{$fieldname}) ) {
+                $report_options{$fieldname} = $non_ui_configuration_options{$fieldname};
+               print "Non-UI field $fieldname, value = " . $report_options{$fieldname} . "\n" if $debug;
+            }
+        }
+
+        #
         # Show the results window.
         #
         Results_Window_Tabstrip_Click();
@@ -1771,7 +1788,7 @@ sub GUI_Do_URL_List_Click {
             # the main thread free to respond to GUI events.
             #
             print "Child: Call url_list_callback\n" if $debug;
-            $child_thread = threads->create(\&Run_URL_List_Callback,$url_list,
+            $child_thread = threads->create(\&Run_URL_List_Callback, $url_list,
                                             %report_options);
 
             #
@@ -1925,6 +1942,16 @@ sub Validator_GUI_DoSite_Click {
         $crawl_details{$fieldname} = Get_Field_Value($main_window->ConfigTabs,
                                                      $site_configuration_fields{$fieldname});
         print "Field $fieldname, value = " . $crawl_details{$fieldname} . "\n" if $debug;
+    }
+
+    #
+    # Get any non-ui configuration options
+    #
+    foreach $fieldname (keys %non_ui_configuration_options) {
+        if ( defined($non_ui_configuration_options{$fieldname}) ) {
+            $crawl_details{$fieldname} = $non_ui_configuration_options{$fieldname};
+            print "Non-UI field $fieldname, value = " . $crawl_details{$fieldname} . "\n" if $debug;
+        }
     }
 
     #
@@ -3173,6 +3200,11 @@ sub GUI_Do_Load_URL_List_from_File_Click {
     if ( ! defined($profile_directory) ) {
         $profile_directory = "$program_dir\\profiles";
     }
+    
+    #
+    # Clear any previous non-UI configuration options
+    #
+    %non_ui_configuration_options = ();
 
     #
     # Get name of file to read configuration from
@@ -3263,9 +3295,19 @@ sub GUI_Do_Load_URL_List_from_File_Click {
                     }
                 }
                 #
+                # Is this an configuration option that does not have a UI
+                # control?
+                #
+                elsif ( defined($non_ui_configuration_fields{$field_name}) ) {
+                    #
+                    # Load value into main dialog
+                    #
+                    $non_ui_configuration_options{$field_name} = $value;
+                }
+                #
                 # Have HTTP 401 credentials
                 #
-                 elsif ( $field_name eq "HTTP_401" ) {
+                elsif ( $field_name eq "HTTP_401" ) {
                     ($field_name, $url, $type, $value) = split(/\s+/, $line);
                     print "HTTP 401 credentials for $url, $type, $value\n" if $debug;
                     
@@ -3477,6 +3519,7 @@ sub Add_Config_Fields {
     #
     # Add title to the tab and increment tab count
     #
+    print "Add_Config_Fields\n" if $debug;
     $main_window->ConfigTabs->InsertItem(
         -text   => String_Value("Configuration"),
     );
@@ -3497,6 +3540,7 @@ sub Add_Config_Fields {
     #
     # Add selector for this configuration option
     #
+    print "Add testcase group profile options\n" if $debug;
     if ( defined($testcase_profile_groups_label) ) {
         Add_Report_Option_Testcase_Profile_Group_Selector($main_window->ConfigTabs,
                                        $tabid, $current_pos,
@@ -3519,6 +3563,7 @@ sub Add_Config_Fields {
     #
     # Add selector for each option. Present options in alphabetical order
     #
+    print "Add configuration options\n" if $debug;
     foreach $option_label (sort(keys %report_options)) {
         #
         # Add selector for this configuration option
@@ -3919,7 +3964,12 @@ sub Select_Testcase_Profile_Group {
         #
         # Get the selector name
         #
+        print "Get selector for field \"$name\"\n" if $debug;
         $selector = $report_options_field_names{$name};
+        if ( ! defined($selector) ) {
+            print "No selector for field \"$name\"\n" if $debug;
+            next;
+        }
 
         #
         # Get the valid values for this testcase profile type
@@ -3928,6 +3978,9 @@ sub Select_Testcase_Profile_Group {
         if ( $valid_value ) {
             print "Select testcase profile $name, selector $selector to $value\n" if $debug;
             $main_window->ConfigTabs->$selector->SelectString("$value");
+        }
+        else {
+            print "Invalid value for field \"$name\", value \"$value\"\n" if $debug;
         }
 
         #
@@ -3998,6 +4051,7 @@ sub Add_Report_Option_Testcase_Profile_Group_Selector {
     #
     # Add label for testcase profile groups
     #
+    print "Add_Report_Option_Testcase_Profile_Group_Selector for $option_label\n" if $debug;
     $name = "Label_" . $option_label . $tabid;
     $name =~ s/\s+/_/g;
     $name =~ s/\*/_/g;
@@ -4015,12 +4069,12 @@ sub Add_Report_Option_Testcase_Profile_Group_Selector {
     # when we return selected values.  Since the user defined label can have
     # white space in it, convert spaces into underscores
     #
-    print "Add_Report_Option_Testcase_Profile_Group_Selector\n" if $debug;
     $name = "Combobox_" . $option_label . $tabid;
     $name =~ s/\s+/_/g;
     $name =~ s/\*/_/g;
     $option_combobox_map{$option_label} = $name;
-    
+    print "Add option $name\n" if $debug;
+
     #
     # Get number of options in the list
     #
@@ -4206,6 +4260,11 @@ sub Load_Site_Config {
     }
     
     #
+    # Clear any previous non-UI configuration options
+    #
+    %non_ui_configuration_options = ();
+
+    #
     # Get name of file to read configuration from
     #
     $filename = Win32::GUI::GetOpenFileName(
@@ -4312,6 +4371,16 @@ sub Load_Site_Config {
                     # Update the configuration
                     #
                     Win32::GUI::DoEvents();
+                }
+                #
+                # Is this an configuration option that does not have a UI
+                # control?
+                #
+                elsif ( defined($non_ui_configuration_fields{$field_name}) ) {
+                    #
+                    # Load value into main dialog
+                    #
+                    $non_ui_configuration_options{$field_name} = $value;
                 }
                 #
                 # Have HTTP 401 credentials ?
@@ -5323,7 +5392,7 @@ sub Validator_GUI_Setup {
     #
     # Create results window
     #
-    $results_window = Create_Results_Window;
+    $results_window = Create_Results_Window();
 }
 
 #***********************************************************************
@@ -5407,7 +5476,7 @@ sub Validator_GUI_Set_Results_Save_Callback {
 #
 # Name: Validator_GUI_Start
 #
-# Parameters: none
+# Parameters: args - argument list
 #
 # Description:
 #
@@ -5416,6 +5485,8 @@ sub Validator_GUI_Set_Results_Save_Callback {
 #
 #***********************************************************************
 sub Validator_GUI_Start {
+    my (@args) = @_;
+
     my ($rc);
 
     #
@@ -6170,6 +6241,7 @@ sub Create_Open_Data_Main_Window {
     #
     # Setup dialog menu.
     #
+    print "Create_Open_Data_Main_Window\n" if $debug;
     $main_window_menu = Win32::GUI::MakeMenu(
     "&" . String_Value("File") => "File",
     " > " . String_Value("Load Open Data Config") =>
@@ -6227,6 +6299,27 @@ sub Create_Open_Data_Main_Window {
                                    $xml_output_mode = 0;
                                    $main_window_menu->{TextOutput}->Enabled(0);
                                    $main_window_menu->{XMLOutput}->Enabled(1);
+                                  }
+            },
+            
+    " > " . String_Value("Enable content capture")  =>
+            {
+                 -name => "SaveContentOn",
+                 -onClick => sub {
+                                   if ( $save_content ) {
+                                       #
+                                       # Turn off content saving
+                                       #
+                                       $save_content = 0;
+                                       $main_window_menu->{SaveContentOn}->Change(-text => String_Value("Enable content capture"));
+                                   }
+                                   else {
+                                       #
+                                       # Turn on content saving
+                                       #
+                                       $save_content = 1;
+                                       $main_window_menu->{SaveContentOn}->Change(-text => String_Value("Disable content capture"));
+                                   }
                                   }
             },
 
@@ -6333,6 +6426,7 @@ sub Validator_GUI_Open_Data_Setup {
     #
     # Do we hide the Perl command prompt window ?
     #
+    print "Validator_GUI_Open_Data_Setup\n" if $debug;
     if ( $debug) {
         Win32::GUI::Show($dos_window);
     }
@@ -6368,7 +6462,7 @@ sub Validator_GUI_Open_Data_Setup {
     #
     # Create results window
     #
-    $results_window = Create_Results_Window;
+    $results_window = Create_Results_Window();
 }
 
 #***********************************************************************
