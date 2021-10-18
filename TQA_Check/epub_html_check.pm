@@ -2,9 +2,9 @@
 #
 # Name:   epub_html_check.pm
 #
-# $Revision: 1789 $
+# $Revision: 1855 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/epub_html_check.pm $
-# $Date: 2020-04-27 09:29:10 -0400 (Mon, 27 Apr 2020) $
+# $Date: 2020-09-15 07:06:03 -0400 (Tue, 15 Sep 2020) $
 #
 # Description:
 #
@@ -172,6 +172,7 @@ my %string_table_en = (
     "Content not allowed in page break", "Content not allowed in 'pagebreak'",
     "Duplicate item id",            "Duplicate <item> 'id'",
     "Expecting end tag",            "Expecting end tag",
+    "Fails validation",             "Fails validation",
     "for page break",               "for 'pagebreak'",
     "found",                        "found",
     "Heading level",                "Heading level",
@@ -195,6 +196,7 @@ my %string_table_fr = (
     "Content not allowed in page break", "Contenu non autorisé dans 'pagebreak'",
     "Duplicate item id",            "Doublon <item> 'id' ",
     "Expecting end tag",            "Attendre la balise de fin",
+    "Fails validation",             "Échoue la validation",
     "for page break",               "pour le 'pagebreak'",
     "found",                        "trouvé",
     "Heading level",                "Niveau d'en-tête",
@@ -204,7 +206,7 @@ my %string_table_fr = (
     "is not in order, expecting",   "n'est pas en ordre, s'attendant",
     "is the same as the first section heading level", "est le même que le premier niveau de titre <section>",
     "matching for",                 "correspondant à",
-    "Missing attribute",            "attribut manquant",
+    "Missing attribute",            "Attribut manquant",
     "Missing content in",           "Contenu manquant dans",
     "Missing landmark navigation type", "Type de navigation landmark manquant",
     "or",                           "ou",
@@ -1643,8 +1645,7 @@ sub End_Handler {
     #
     if ( $last_tag ne $current_end_tag ) {
         print "Start/End tags out of order, found end $tagname, expecting $last_tag\n" if $debug;
-        Record_Result("WCAG_2.0-H74", $self->current_line,
-                      $self->current_column, $self->original_string,
+        Record_Result("WCAG_2.0-H74", $line, $column, $text,
                       String_Value("Expecting end tag") . " </$last_tag> " .
                       String_Value("found") . " </$tagname>");
    }
