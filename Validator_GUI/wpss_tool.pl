@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 1776 $
+# $Revision: 2168 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2020-04-07 10:25:08 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2021-10-14 16:02:24 -0400 (Thu, 14 Oct 2021) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -211,7 +211,7 @@ my ($command_line_debug) = 0;
 my ($max_urls_between_sleeps) = 2;
 my ($user_agent_name) = "wpss_test.pl";
 
-my (%report_options, %results_file_suffixes);
+my (%report_options, %results_file_suffixes, @active_results_tabs);
 my ($crawled_urls_tab, $validation_tab, $metadata_tab, $doc_list_tab,
     $acc_tab, $link_tab, $dept_tab, $doc_features_tab, $mobile_tab,
     $clf_tab, $interop_tab, $open_data_tab, $content_tab, $crawllimit);
@@ -373,6 +373,8 @@ my ($links_details_fh);
 my (@testcase_profile_groups, %testcase_profile_group_map);
 my (%testcase_profile_groups_profiles_languages);
 my ($testcase_profile_group_label);
+my (@od_testcase_profile_groups, %od_testcase_profile_group_map);
+my (%od_testcase_profile_groups_profiles_languages);
 
 #
 # Other configuration items.
@@ -2642,6 +2644,37 @@ sub New_Testcase_Profile_Group_Hash_Table {
 
 #***********************************************************************
 #
+# Name: New_OD_Testcase_Profile_Group_Hash_Table
+#
+# Parameters: profile_name - name of profile
+#
+# Description:
+#
+#   This function create a hash tables for testcase profile groups
+# and saves the address in the global test case profile
+# table.
+#
+#***********************************************************************
+sub New_OD_Testcase_Profile_Group_Hash_Table {
+    my ($profile_name) = @_;
+
+    my (%testcases);
+
+    #
+    # Save address of hash tables
+    #
+    push(@od_testcase_profile_groups, $profile_name);
+    $od_testcase_profile_group_map{$profile_name} = \%testcases;
+    $od_testcase_profile_groups_profiles_languages{$profile_name} = $profile_name;
+
+    #
+    # Return addresses
+    #
+    return(\%testcases);
+}
+
+#***********************************************************************
+#
 # Name: Read_Config_File
 #
 # Parameters: path - the path to configuration file
@@ -2823,6 +2856,50 @@ sub Read_Config_File {
                 $maximum_errors_per_url = $fields[1];
             }
         }
+        elsif ( $config_type eq "OD_Testcase_Profile_Group_End" ) {
+            #
+            # End of open data testcase group profile
+            #
+            $inside_testcase_group = 0;
+        }
+        elsif ( $config_type eq "OD_Testcase_Profile_Group_" . $lang ) {
+            #
+            # Start of a open data new testcase profile. Get hash tables to
+            # store attributes
+            #
+            @fields = split(/\s+/, $_, 2);
+            $tc_profile_group_name = $fields[1];
+            ($testcases) =
+                New_OD_Testcase_Profile_Group_Hash_Table($tc_profile_group_name);
+
+            #
+            # Do we have alternate language names for this profile ?
+            #
+            foreach $other_profile_name (@alternate_lang_profiles) {
+                $od_testcase_profile_group_map{$other_profile_name} = $testcases;
+                $od_testcase_profile_groups_profiles_languages{$other_profile_name} = $tc_profile_group_name;
+
+            }
+            $inside_testcase_group = 1;
+        }
+        elsif ( $config_type =~ "OD_Testcase_Profile_Group_" ) {
+            #
+            # Alternate language label for this profile
+            # Match this profile name to the current language profile.
+            # If we don't have the testcase profile data structure yet,
+            # just save the name.
+            #
+            @fields = split(/\s+/, $_, 2);
+            $other_profile_name = $fields[1];
+            if ( defined($testcases) ) {
+                $od_testcase_profile_group_map{$other_profile_name} = $testcases;
+                $od_testcase_profile_groups_profiles_languages{$other_profile_name} = $tc_profile_group_name
+            }
+            else {
+                push(@alternate_lang_profiles, $other_profile_name);
+            }
+            $inside_testcase_group = 1;
+        }
         elsif ( $config_type eq "puppeteer_chrome_min_version" ) {
             #
             # Set puppeteer minimum Chrome version value
@@ -2833,18 +2910,6 @@ sub Read_Config_File {
             }
             else {
                 $crawler_config_vars{"puppeteer_chrome_min_version"} = 0;
-            }
-        }
-        elsif ( $config_type eq "puppeteer_markup_server_port" ) {
-            #
-            # Set puppeteer server port value
-            #
-            if ( @fields > 1 ) {
-                @fields = split(/\s+/, $_, 2);
-                $crawler_config_vars{"puppeteer_markup_server_port"} = $fields[1];
-            }
-            else {
-                $crawler_config_vars{"puppeteer_markup_server_port"} = 0;
             }
         }
         elsif ( $config_type eq "Redirect_Ignore_Pattern" ) {
@@ -3683,7 +3748,7 @@ sub HTTP_Response_Callback {
 
     my ($content, $generated_content, $url_line, $language, $key, $list_ref);
     my ($image_file, $image_file_path, $title, $result_object, %skipped_urls);
-    my ($skipped, $count);
+    my ($skipped, $count, $error_string, $tab);
     my ($supporting_file) = 0;
 
     #
@@ -3767,7 +3832,7 @@ sub HTTP_Response_Callback {
     
     #
     # If this is an HTML document, get the full markup after applying
-    # JavaScript.  Don't do this if we are behind a login.  The PhantomJS
+    # JavaScript.  Don't do this if we are behind a login.  The headless
     # user agent is not logged into the site, so we may not get the generated
     # markup for the logged in page.
     #
@@ -3790,6 +3855,25 @@ sub HTTP_Response_Callback {
         if ( $enable_generated_markup ) {
             $generated_content = Crawler_Get_Generated_Content($resp, $url,
                                                                $image_file_path);
+                                                               
+            #
+            # If the generated content is empty, we may have encountered
+            # an error with the headless user agent
+            #
+            if ( $generated_content eq "" ) {
+                $error_string = Crawler_Error_String();
+                if ( $error_string ne "" ) {
+                    print STDERR "Crawler error $error_string\n";
+                    foreach $tab (@active_results_tabs) {
+                        if ( defined($tab) ) {
+                            Validator_GUI_Update_Results($tab,
+                                                         String_Value("Crawler error") .
+                                                         " $error_string");
+                        }
+                    }
+                }
+                $generated_content = $content;
+            }
         }
         else {
             $generated_content = $content;
@@ -3858,11 +3942,9 @@ sub HTTP_Response_Callback {
         #
         # Validate the content
         #
-        if ( TQA_Check_Need_Validation($tqa_check_profile) ) {
-            Print_Resource_Usage($url, "Perform_Markup_Validation",
-                                 $document_count{$crawled_urls_tab});
-            Perform_Markup_Validation($url, $mime_type, $resp, \$content);
-        }
+        Print_Resource_Usage($url, "Perform_Markup_Validation",
+                             $document_count{$crawled_urls_tab});
+        Perform_Markup_Validation($url, $mime_type, $resp, \$content);
 
         #
         # If the file is HTML content, validate it and perform a link check.
@@ -3938,7 +4020,7 @@ sub HTTP_Response_Callback {
             Print_Resource_Usage($url, "Perform_Mobile_Check",
                                  $document_count{$crawled_urls_tab});
             Perform_Mobile_Check($url, $language, $mime_type, $resp,
-                                 \$generated_content);
+                                 \$content, \$generated_content);
 
             #
             # Perform feature check
@@ -4041,7 +4123,8 @@ sub HTTP_Response_Callback {
             #
             # Perform Mobile check
             #
-            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
+            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content,
+                                 \$generated_content);
         }
 
         #
@@ -4059,7 +4142,8 @@ sub HTTP_Response_Callback {
             #
             # Perform Mobile check
             #
-            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
+            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content,
+                                 \$generated_content);
         }
 
         #
@@ -4125,7 +4209,8 @@ sub HTTP_Response_Callback {
             #
             # Perform Mobile check
             #
-            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
+            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content,
+                                 \$generated_content);
 
             #
             # Save "non-HTML primary format" feature
@@ -4145,7 +4230,8 @@ sub HTTP_Response_Callback {
             #
             # Perform Mobile check
             #
-            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content);
+            Perform_Mobile_Check($url, $language, $mime_type, $resp, \$content,
+                                 \$generated_content);
 
             #
             # Are we saving image file details ?
@@ -4414,7 +4500,7 @@ sub Save_Content_To_File {
                  #
                  # Insert <base after the first tag close
                  #
-                 $lines[1] =~ s/>/>\n<!-- Page content saved by wpss_tool.pl at $datetime_stamp -->\n<!-- The following base tag was inserted by the tool -->\n<base href="$url" \/>\n/;
+                 $lines[1] =~ s/>/><!-- Page content saved by wpss_tool.pl at $datetime_stamp. The following base tag was inserted by the tool --><base href="$url" \/>/;
 
                  #
                  # Print the rest of the content
@@ -4923,7 +5009,7 @@ sub All_Document_Checks {
 sub URL_List_Callback {
     my ($url_list, %report_options) = @_;
 
-    my ($this_url, @urls, $tab);
+    my ($this_url, @urls, $tab, %crawler_options);
     my ($resp_url, $resp, $header, $content_type, $error);
 
     #
@@ -4932,6 +5018,14 @@ sub URL_List_Callback {
     Initialize_Tool_Globals("URL List", %report_options);
     Set_Link_Checker_Ignore_Patterns(@link_ignore_patterns);
     Crawler_Abort_Crawl(0);
+
+    #
+    # Set crawler options
+    #
+    if ( defined($report_options{"crawler_page_delay_secs"}) ) {
+        $crawler_options{"crawler_page_delay_secs"} = $report_options{"crawler_page_delay_secs"};
+    }
+    Set_Crawler_Options(\%crawler_options);
 
     #
     # Report header
@@ -5016,12 +5110,12 @@ sub URL_List_Callback {
         #
         # Add a note to all tabs indicating that analysis was aborted.
         #
-        foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
-                      $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                      $doc_list_tab, $doc_features_tab, $interop_tab) {
-            Validator_GUI_Update_Results($tab,
-                                         String_Value("Analysis Aborted"),
-                                         0);
+        foreach $tab (@active_results_tabs) {
+            if ( defined($tab) ) {
+                Validator_GUI_Update_Results($tab,
+                                             String_Value("Analysis Aborted"),
+                                             0);
+            }
         }
     }
 
@@ -5105,14 +5199,14 @@ sub Runtime_Error_Callback {
     # runtime error.
     #
     $call_stack = show_call_stack();
-    foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
-                  $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                  $doc_list_tab, $doc_features_tab, $interop_tab) {
-        Validator_GUI_Update_Results($tab, "", 0);
-        Validator_GUI_Update_Results($tab,
-                                     String_Value("Runtime Error Analysis Aborted"),
-                                     0);
-        Validator_GUI_Update_Results($tab, $message, 0);
+    foreach $tab (@active_results_tabs) {
+        if ( defined($tab) ) {
+            Validator_GUI_Update_Results($tab, "", 0);
+            Validator_GUI_Update_Results($tab,
+                                         String_Value("Runtime Error Analysis Aborted"),
+                                         0);
+            Validator_GUI_Update_Results($tab, $message, 0);
+        }
     }
 
     #
@@ -5732,15 +5826,13 @@ sub Print_Results_Header {
     my ($site_dir_e, $site_dir_f) = @_;
 
     my ($sec, $min, $hour, $mday, $mon, $year, $date, $tab);
-    my ($site_entries);
+    my ($site_entries, %user_agent_details, $user_agent, $details);
+    my (%tool_versions, $tool, $version);
 
     #
     # Clear any text that may exist in the results tabs
     #
-    foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
-                  $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                  $doc_list_tab, $doc_features_tab, $interop_tab,
-                  $mobile_tab, $open_data_tab, $content_tab) {
+    foreach $tab (@active_results_tabs) {
         if ( defined($tab) ) {
             Validator_GUI_Clear_Results($tab);
             Validator_GUI_Update_Results($tab,
@@ -5802,6 +5894,26 @@ sub Print_Results_Header {
                                String_Value("Document List report header") .
                                      $site_entries);
     }
+    
+    #
+    # Add user agent details.
+    #
+    %user_agent_details = Crawler_User_Agent_Details();
+    if ( scalar(keys(%user_agent_details)) > 0 ) {
+        foreach $tab (@active_results_tabs) {
+            if ( defined($tab) ) {
+                Validator_GUI_Update_Results($tab, "");
+                foreach $user_agent (sort(keys(%user_agent_details))) {
+                    $details = $user_agent_details{$user_agent};
+                    Validator_GUI_Update_Results($tab,
+                                                 String_Value("User agent details") .
+                                                 " $user_agent $details");
+                }
+                Validator_GUI_Update_Results($tab, "");
+            }
+        }
+    }
+
     if ( defined($content_tab) ) {
         Validator_GUI_Update_Results($content_tab,
                                      String_Value("Content report header"));
@@ -5830,9 +5942,22 @@ sub Print_Results_Header {
                                      . " " . $metadata_profile);
     }
     if ( defined($acc_tab) ) {
+        #
+        # Include supporting tool versions
+        #
+        %tool_versions = TQA_Check_Tools_Versions();
+        foreach $tool (sort(keys(%tool_versions))) {
+            $version = $tool_versions{$tool};
+            Validator_GUI_Update_Results($acc_tab,
+                                         String_Value("Supporting tool") .
+                                         " $tool : $version");
+        }
+
+        Validator_GUI_Update_Results($acc_tab, "");
         Validator_GUI_Update_Results($acc_tab,
                                      String_Value("ACC Testcase Profile")
                                      . " " . $tqa_check_profile);
+
     }
     if ( defined($clf_tab) ) {
         Validator_GUI_Update_Results($clf_tab,
@@ -5881,10 +6006,7 @@ sub Print_Results_Header {
     $year += 1900;
     $date = sprintf("%02d:%02d:%02d %4d/%02d/%02d", $hour, $min, $sec, $year,
                     $mon, $mday);
-    foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
-                  $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                  $doc_list_tab, $doc_features_tab, $interop_tab,
-                  $mobile_tab, $open_data_tab, $content_tab) {
+    foreach $tab (@active_results_tabs) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
             Validator_GUI_Start_Analysis($tab, $date,
@@ -6220,10 +6342,7 @@ sub Print_Results_Footer {
     #
     # Print footer on each tab
     #
-    foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
-                  $metadata_tab, $acc_tab, $dept_tab, $doc_features_tab,
-                  $clf_tab, $interop_tab, $mobile_tab, $open_data_tab,
-                  $content_tab, $doc_list_tab) {
+    foreach $tab (@active_results_tabs) {
         if ( defined($tab) ) {
             Validator_GUI_Update_Results($tab, "");
 
@@ -6345,6 +6464,7 @@ sub Check_Page_URL {
     my ($resp_url, $resp, $language, $mime_type, $content, @links);
     my ($header, @tqa_results_list, $output, $base, $generated_content);
     my ($sec, $min, $hour, $mday, $mon, $year, $date, $error);
+    my ($error_string);
 
     #
     # Check for a double trailing //, this means that the page file
@@ -6412,13 +6532,29 @@ sub Check_Page_URL {
         }
 
         #
-        # The above request would have primed the PhantomJS cache, but the
-        # page may not have fully loaded due to timeouts.  Request the mark up
-        # again to be sure we have the full generated markup.
+        # The above request would have primed the headless user agent cache,
+        # but the page may not have fully loaded due to timeouts. Request
+        # the mark up again to be sure we have the full generated markup.
         #
         print "Request generated content a 2nd time\n" if $debug;
         if ( $enable_generated_markup ) {
             $generated_content = Crawler_Get_Generated_Content($resp, $url);
+            
+            #
+            # If the generated content is empty, we may have encountered
+            # an error with the headless user agent
+            #
+            if ( $generated_content eq "" ) {
+                $error_string = Crawler_Error_String();
+                $generated_content = $content;
+            }
+        }
+        else {
+            #
+            # Set generated content to be the same as the non-generated
+            # content.
+            #
+            $generated_content = $content;
         }
 
         #
@@ -6545,6 +6681,7 @@ sub Finish_Content_Saving {
     #
     # Finish off index file for URL to local file mapping.
     #
+    print "Finish_Content_Saving\n" if $debug;
     if ( $shared_save_content ) {
         open(HTML, ">> $shared_save_content_directory/index.html") ||
         die "Error: Failed to open file $shared_save_content_directory/index.html\n";
@@ -7156,6 +7293,9 @@ sub Perform_Site_Crawl {
     else {
         $depth = 0;
     }
+    if ( defined($crawl_details{"crawler_page_delay_secs"}) ) {
+        $crawler_options{"crawler_page_delay_secs"} = $crawl_details{"crawler_page_delay_secs"};
+    }
 
     #
     # Set maximum number of URLs to crawl.
@@ -7211,12 +7351,12 @@ sub Perform_Site_Crawl {
         #
         # Add a note to all tabs indicating that analysis was aborted.
         #
-        foreach $tab ($crawled_urls_tab, $validation_tab, $link_tab,
-                      $metadata_tab, $acc_tab, $clf_tab, $dept_tab,
-                      $doc_list_tab, $doc_features_tab, $interop_tab) {
-            Validator_GUI_Update_Results($tab,
-                                         String_Value("Analysis Aborted"),
-                                         0);
+        foreach $tab (@active_results_tabs) {
+            if ( defined($tab) ) {
+                Validator_GUI_Update_Results($tab,
+                                             String_Value("Analysis Aborted"),
+                                             0);
+            }
         }
     }
 
@@ -8538,6 +8678,7 @@ sub Perform_Feature_Check {
 #             mime_type - mime-type of document
 #             resp - HTTP::Response object
 #             content - content pointer
+#             generated_content - content pointer
 #
 # Description:
 #
@@ -8545,7 +8686,7 @@ sub Perform_Feature_Check {
 #
 #***********************************************************************
 sub Perform_Mobile_Check {
-    my ( $url, $language, $mime_type, $resp, $content) = @_;
+    my ( $url, $language, $mime_type, $resp, $content, $generated_content) = @_;
 
     my ($url_status, @mobile_results_list, $tcid);
     my ($result_object, $status, %local_mobile_error_url_count);
@@ -8580,7 +8721,8 @@ sub Perform_Mobile_Check {
         # Perform mobile optimization checks
         #
         @mobile_results_list = Mobile_Check($url, $language, $mobile_check_profile,
-                                            $mime_type, $resp, $content);
+                                            $mime_type, $resp, $content,
+                                            $generated_content);
 
         #
         # If the document is an HTML document, check links
@@ -9735,6 +9877,7 @@ sub Open_Data_Callback {
     %tqa_error_url_count = ();
     %tqa_error_instance_count = ();
     Crawler_Abort_Crawl(0);
+    $shared_save_content = $report_options{"save_content"};
 
     #
     # Set user agent max size if it has not been specified.
@@ -9743,6 +9886,7 @@ sub Open_Data_Callback {
     if ( ! defined($crawler_config_vars{"user_agent_max_size"}) ) {
         $crawler_config_vars{"user_agent_max_size"} = 1000000000;
     }
+    $crawler_config_vars{"save_content"} = $report_options{"save_content"};
     Crawler_Config(%crawler_config_vars);
     
     #
@@ -10037,6 +10181,16 @@ sub Open_Data_Callback {
                     $content = Crawler_Read_Content_File($resp);
                     
                     #
+                    # Setup content saving option
+                    #
+                    Setup_Content_Saving($shared_save_content, $url);
+
+                    #
+                    # Save content in a local file
+                    #
+                    Save_Content_To_File($url, $mime_type, \$content, "", "");
+
+                    #
                     # Get document language
                     #
                     $language = HTML_Document_Language($url, \$content);
@@ -10118,10 +10272,12 @@ sub Open_Data_Callback {
         #
         # Add a note to all tabs indicating that analysis was aborted.
         #
-        foreach $tab ($crawled_urls_tab, $open_data_tab, $content_tab, $acc_tab) {
-            Validator_GUI_Update_Results($tab,
-                                         String_Value("Analysis Aborted"),
-                                         0);
+        foreach $tab (@active_results_tabs) {
+            if ( defined($tab) ) {
+                Validator_GUI_Update_Results($tab,
+                                             String_Value("Analysis Aborted"),
+                                             0);
+            }
         }
     }
     else {
@@ -10324,6 +10480,10 @@ sub Setup_HTML_Tool_GUI {
     $results_file_suffixes{$doc_list_tab} = "urls";
     $mobile_tab  = String_Value("Mobile");
     $results_file_suffixes{$mobile_tab} = "mob";
+    @active_results_tabs = ($crawled_urls_tab, $validation_tab, $link_tab,
+                            $metadata_tab, $acc_tab, $content_tab, $clf_tab,
+                            $interop_tab, $dept_tab, $doc_features_tab,
+                            $doc_list_tab, $mobile_tab);
 
     #
     # Set results file suffixes and other configuration items
@@ -10382,12 +10542,14 @@ sub Open_Data_Runtime_Error_Callback {
     # Add a note to all tabs indicating that analysis failed due
     # runtime error.
     #
-    foreach $tab ($crawled_urls_tab, $open_data_tab, $content_tab, $acc_tab, $doc_list_tab) {
-        Validator_GUI_Update_Results($tab, "", 0);
-        Validator_GUI_Update_Results($tab,
-                                     String_Value("Runtime Error Analysis Aborted"),
-                                     0);
-        Validator_GUI_Update_Results($tab, $message, 0);
+    foreach $tab (@active_results_tabs) {
+        if ( defined($tab) ) {
+            Validator_GUI_Update_Results($tab, "", 0);
+            Validator_GUI_Update_Results($tab,
+                                         String_Value("Runtime Error Analysis Aborted"),
+                                         0);
+            Validator_GUI_Update_Results($tab, $message, 0);
+        }
     }
 
     #
@@ -10418,6 +10580,7 @@ sub Open_Data_Results_Save_Callback {
     #
     # Copy the open data files details CSV to the results directory.
     #
+    print "Open_Data_Results_Save_Callback, filename = $filename\n" if $debug;
     $save_filename = $filename . "_file_inventory.csv";
     unlink($save_filename);
     print "Copy $shared_file_details_filename, $save_filename\n" if $debug;
@@ -10425,6 +10588,11 @@ sub Open_Data_Results_Save_Callback {
         copy($shared_file_details_filename, $save_filename);
     }
     unlink($shared_file_details_filename);
+    
+    #
+    # Save any saved web page content
+    #
+    Finish_Content_Saving($filename);
 }
 
 #***********************************************************************
@@ -10446,10 +10614,13 @@ sub Setup_Open_Data_Tool_GUI {
     #
     # Get report option labels
     #
+    $testcase_profile_group_label = String_Value("Testcase Profile Groups");
     $open_data_profile_label = String_Value("Open Data Testcase Profile");
     $tqa_profile_label = String_Value("ACC Testcase Profile");
     $markup_validate_profile_label = String_Value("Markup Validation Profile");
     $link_check_profile_label = String_Value("Link Check Profile");
+    $metadata_profile_label = String_Value("Metadata Profile");
+    $dept_check_profile_label = String_Value("Department Check Testcase Profile");
 
     #
     # Set testcase profile options
@@ -10457,22 +10628,32 @@ sub Setup_Open_Data_Tool_GUI {
     %report_options = ($open_data_profile_label, \@open_data_check_profiles,
                        $tqa_profile_label,       \@tqa_check_profiles,
                        $markup_validate_profile_label, \@markup_validate_profiles,
-                       $link_check_profile_label, \@link_check_profiles,);
+                       $link_check_profile_label, \@link_check_profiles,
+                       $metadata_profile_label, \@metadata_profiles,
+                       $dept_check_profile_label, \@dept_check_profiles,
+                       );
 
     #
     # Set labels for testcase profile options.
     #
-    %report_options_labels = ("open_data_profile", $open_data_profile_label,
-                              "tqa_profile", $tqa_profile_label,
+    %report_options_labels = ("dept_profile", $dept_check_profile_label,
+                              "group_profile", $testcase_profile_group_label,
+                              "link_profile", $link_check_profile_label,
                               "markup_validate_profile", $markup_validate_profile_label,
-                              "link_profile", $link_check_profile_label);
+                              "metadata_profile", $metadata_profile_label,
+                              "open_data_profile", $open_data_profile_label,
+                              "tqa_profile", $tqa_profile_label,
+                              );
 
     %report_options_values_languages = (
+                    "group_profile", \%od_testcase_profile_groups_profiles_languages,
                     "open_data_profile", \%open_data_check_profiles_languages,
                     "tqa_profile", \%tqa_check_profiles_languages,
-                    "wa_profile", \%wa_check_profiles_languages,
                     "link_profile", \%link_check_profiles_languages,
-                    "markup_validate_profile", \%markup_validate_profiles_languages);
+                    "markup_validate_profile", \%markup_validate_profiles_languages,
+                    "metadata_profile", \%metadata_profiles_languages,
+                    "dept_profile", \%dept_check_profiles_languages,
+                    );
 
     #
     # Setup the validator GUI configuration options
@@ -10496,13 +10677,28 @@ sub Setup_Open_Data_Tool_GUI {
     $results_file_suffixes{$acc_tab} = "acc";
     $content_tab = String_Value("Content");
     $results_file_suffixes{$content_tab} = "cont";
+    $metadata_tab = String_Value("Metadata");
+    $results_file_suffixes{$metadata_tab} = "meta";
+    $dept_tab = String_Value("Department");
+    $results_file_suffixes{$dept_tab} = "dept";
     $doc_list_tab = String_Value("Document List");
     $results_file_suffixes{$doc_list_tab} = "urls";
+    @active_results_tabs = ($crawled_urls_tab, $open_data_tab, $validation_tab,
+                            $link_tab, $acc_tab, $content_tab, $metadata_tab,
+                            $dept_tab, $doc_list_tab);
 
     #
     # Set results file suffixes
     #
     Validator_GUI_Set_Results_File_Suffixes(%results_file_suffixes);
+
+    #
+    # Setup the validator GUI configuration testcase profile groups
+    #
+    Validator_GUI_Report_Option_Testcase_Groups("group_profile",
+                                                $testcase_profile_group_label,
+                                                \@od_testcase_profile_groups,
+                                                \%od_testcase_profile_group_map);
 
     #
     # Setup the validator GUI for Open Data
@@ -10520,6 +10716,8 @@ sub Setup_Open_Data_Tool_GUI {
     Validator_GUI_Add_Results_Tab($link_tab);
     Validator_GUI_Add_Results_Tab($acc_tab);
     Validator_GUI_Add_Results_Tab($content_tab);
+    Validator_GUI_Add_Results_Tab($metadata_tab);
+    Validator_GUI_Add_Results_Tab($dept_tab);
     Validator_GUI_Add_Results_Tab($doc_list_tab);
 
     #
@@ -10635,7 +10833,7 @@ else {
 #
 # Start the GUI
 #
-eval { Validator_GUI_Start(@ui_args); };
+eval { Validator_GUI_Start(@ui_args); 1 };
 
 #
 # Clean up any temporary files
