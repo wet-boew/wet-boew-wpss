@@ -2,9 +2,9 @@
 #
 # Name:   web_analytics_config.txt
 #
-# $Revision$
-# $URL$
-# $Date$
+# $Revision: 1999 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Web_Analytics/Tools/web_analytics_config.txt $
+# $Date: 2021-03-31 13:55:15 -0400 (Wed, 31 Mar 2021) $
 #
 # Description:
 #   This file contains the configuration parameters for the
@@ -28,7 +28,7 @@ Testcase_URL_Help_File conf/web_analytics_testcase_url.config
 #
 #***********************************************************************
 #
-# Standard on Web Usability
+# Standard on Privacy and Web Analytics
 #
 #***********************************************************************
 #
@@ -40,6 +40,8 @@ Web_Analytics_Check_Profile_fra Web analytique de SCT
 #
 tcid WA_GA
 tcid WA_ID
+tcid WA_MULTIPLE
+
 
 #
 #***********************************************************************
