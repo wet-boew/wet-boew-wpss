@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 1791 $
+# $Revision: 2005 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2020-04-27 09:30:18 -0400 (Mon, 27 Apr 2020) $
+# $Date: 2021-04-13 14:58:53 -0400 (Tue, 13 Apr 2021) $
 #
 # Description:
 #
@@ -194,9 +194,7 @@ my (%testcase_description_en) = (
 # G162: Positioning labels to maximize predictability of relationships
 #       Failures of this technique are reported under technique H44
 #
-# G192: Fully conforming to specifications
-#      Failures of this technique are reported under technique G143
-#
+"WCAG_2.0-G192", "4.1.1 G192: Fully conforming to specifications",
 "WCAG_2.0-G197", "3.2.4 G197: Using labels, names, and text alternatives consistently for content that has the same functionality",
 "WCAG_2.0-H2", "1.1.1 H2: Combining adjacent image and text links for the same resource",
 "WCAG_2.0-H24", "1.1.1, 2.4.4 H24: Providing text alternatives for the area elements of image maps",
@@ -276,87 +274,9 @@ my (%testcase_description_en) = (
 
 #
 # AXE Deque University testcases
-#  https://dequeuniversity.com/rules/axe/3.3
+#  https://dequeuniversity.com/rules/latest
 #
-"AXE-Audio_Caption", "1.2.1 AXE-Audio_Caption: <audio> elements must have a captions <track>",
-"AXE-Blink", "2.2.2 AXE-Blink: <blink> elements are deprecated and must not be used",
-"AXE-Definition_List", "1.3.1 <dl> elements must only directly contain properly-ordered <dt> and <dd> groups, <script>, or <template> elements",
-"AXE-Dlitem", "1.3.1 AXE-Dlitem: <dt> and <dd> elements must be contained by a <dl>",
-"AXE-Html_has_lang", "3.1.1 AXE-Html_has_lang: <html> element must have a lang attribute",
-"AXE-Html_lang_valid", "3.1.1 AXE-Html_lang_valid: <html> element must have a valid value for the lang attribute",
-"AXE-Html_xml_lang_mismatch", "3.1.1 AXE-Html_xml_lang_mismatch: <html> elements with lang and xml:lang must have the same base language",
-"AXE-Listitem", "1.3.1 AXE-Listitem:<li> elements must be contained in a <ul> or <ol>",
-"AXE-Marquee", "2.2.2 AXE-Marquee: <marquee> elements are deprecated and must not be used",
-"AXE-Object_alt", "1.1.1 AXE-Object_alt: <object> elements must have alternate text",
-"AXE-List", "1.3.1 AXE-List: <ul> and <ol> must only directly contain <li>, <script> or <template> elements",
-"AXE-Video_Caption", "1.2.2, 1.2.3 AXE-Video_caption: <video> elements must have a <track> for captions",
-"AXE-Video_Description", "1.2.5 AXE-Video_description: <video> elements must have an audio description <track>",
-"AXE-Accesskeys", "4.1.1 AXE-Accesskeys: accesskey attribute value must be unique",
-"AXE-Area_alt", "1.1.1 AXE-Area_alt: Active <area> elements must have alternate text",
-
-"AXE-Td_headers_attr", "1.3.1 AXE-Td_headers_attr: All cells in a <table> element that use the headers attribute must only refer to other cells of that same <table>",
-
-"AXE-Href_no_hash", "1.1.1, 2.4.4 AXE-Href_no_hash: Anchors must only be used as links with valid URLs or URL fragments",
-
-"AXE-Aria_valid_attr", "4.1.2 AXE-Aria_valid_attr: ARIA attributes must conform to valid names",
-"AXE-Aria_valid_attr_value", "4.1.2 AXE-Aria_valid_attr_value: ARIA attributes must conform to valid values",
-"AXE-Aria_allowed_role", "4.1.2 AXE-Aria_allowed_role: ARIA role must be appropriate for the element",
-"AXE-Aria_roles", "4.1.2 AXE-Aria_roles: ARIA roles used must conform to valid values",
-"AXE-Aria_hidden_focus", "4.1.2 AXE-Aria_hidden_focus: aria-hidden elements do not contain focusable elements",
-"AXE-Aria_hidden_body", "4.1.2 AXE-Aria_hidden_body: aria-hidden=\"true\" must not be present on the document <body>",
-
-"AXE-Landmark_banner_is_top_level", "4.1.2 AXE-Landmark_banner_is_top_level: Banner landmark must not be contained in another landmark",
-"AXE-P_as_heading", "1.3.1 AXE-P_as_heading: Bold, italic text and font-size are not used to style <p> elements as a heading",
-"AXE-Button_name", "4.1.2 AXE-Button_name: Buttons must have discernible text",
-
-"AXE-Aria_required_parent", "1.3.1 AXE-Aria_required_parent: Certain ARIA roles must be contained by particular parent elements",
-"AXE-Aria_required_children", "1.3.1 AXE-Aria_required_children: Certain ARIA roles must contain particular children",
-"AXE-Checkboxgroup", "1.3.1, 3.3.2 AXE-Checkboxgroup: Checkbox inputs with the same name attribute value must be part of a group",
-"AXE-Landmark_complementary_is_top_level", "AXE-Landmark_complementary_is_top_level: Complementary landmarks and/or asides are top level",
-"AXE-Landmark_contentinfo_is_top_level", "4.1.2 AXE-Landmark_contentinfo_is_top_level: Contentinfo landmark must not be contained in another landmark",
-
-"AXE-Document_title", "2.4.2 AXE-Document_title: Documents must contain a title element to aid in navigation",
-"AXE-Role_img_alt", "1.1.1 AXE-Role_img_alt: Elements containing role=\"img\" have an alternative text",
-
-"AXE-Aria_allowed_attr", "4.1.2 AXE-Aria_allowed_attr: Elements must only use allowed ARIA attributes",
-"AXE-Tabindex", "2.4.3 AXE-Tabindex: Elements should not have tabindex greater than zero",
-"AXE-Label", "1.3.1 AXE-Label: Form <input> elements must have labels",
-"AXE-Label_title_only", "3.3.2 AXE-Label_title_only: Form <input> elements should have a visible label",
-
-"AXE-Form_field_multiple_labels", "1.3.1, 3.3.2 AXE-Form_field_multiple_labels: Form fields do not have duplicate labels",
-
-"AXE-Frame_title_unique", "2.4.1, 4.1.2 AXE-Frame_title_unique: Frames must have a unique title attribute",
-"AXE-Frame_title", "2.4.1, 4.1.2 AXE-Frame_title: Frames must have title attribute",
-"AXE-Heading_order", "1.3.1 AXE-Heading_order: Heading levels should only increase by one",
-"AXE-Empty_heading", "2.4.6 AXE-Empty_heading: Headings must not be empty",
-
-"AXE-Duplicate_id", "4.1.1 AXE-Duplicate_id: ID attribute values must be unique",
-"AXE-Input_image_alt", "1.1.1 AXE-Input_image_alt: Image buttons must have alternate text",
-"AXE-Image_alt", "1.1.1 AXE-Image_alt: Images must have alternate text",
-
-"AXE-Input_button_name", "4.1.2 AXE-Input_button_name: Input buttons must have discernible text",
-"AXE-Label_content_name_mismatch", "2.5.3 AXE-Label_content_name_mismatch: Label and name from content mismatch",
-
-"AXE-Valid_lang", "3.1.2 AXE-Valid_lang: lang attribute must have a valid value",
-"AXE-Layout_table", "1.3.1 AXE-Layout_table: Layout tables must not use data table elements",
-
-"AXE-Landmark_main_is_top_level", "1.3.1 AXE-Landmark_main_is_top_level: Main landmark must not be contained in another landmark",
-"AXE-Page_has_heading_one", "1.3.1 AXE-Page_has_heading_one: Page must contain a level-one heading",
-
-"AXE-Landmark_one_main", "1.3.1 AXE-Landmark_one_main: Page must have one main landmark",
-"AXE-Landmark_no_duplicate_banner", "1.3.1 AXE-Landmark_no_duplicate_banner Page must not have more than one banner landmark",
-"AXE-Landmark_no_duplicate_contentinfo", "1.3.1 AXE-Landmark_no_duplicate_contentinfo: Page must not have more than one contentinfo landmark",
-"AXE-Radiogroup", "1.3.1, 3.3.2 AXE-Radiogroup: Radio inputs with the same name attribute value must be part of a group",
-"AXE-Aria_required_attr", "4.1.2 AXE-Aria_required_attr: Required ARIA attributes must be provided",
-
-"AXE-Table_duplicate_name", "1.3.1 AXE-Table_duplicate_name: The <caption> element should not contain the same text as the summary attribute",
-"AXE-Meta_refresh", "2.2.1, 2.2.4, 3.2.5 AXE-Meta_refresh: Timed refresh must not exist",
-
-"AXE-Image_redundant_alt", "1.1.1 AXE-Image_redundant_alt: Text of buttons and links should not be repeated in the image alternative",
-
-"AXE-Aria_roledescription", "4.1.2 AXE-Aria_roledescription: Use aria-roledescription on elements with a semantic role",
-"AXE-Meta_viewport_large", "1.4.4 AXE-Meta_viewport_large: Users should be able to zoom and scale the text up to 500%",
-"AXE-Meta_viewport", "1.4.4 AXE-Meta_viewport: Zooming and scaling must not be disabled",
+"AXE", "AXE: Deque University",
 
 #
 # Pa11y testcases
@@ -364,6 +284,74 @@ my (%testcase_description_en) = (
 #  https://github.com/pa11y/pa11y
 #
 "Pa11y", "Pa11y: Automated accessibility testing pal",
+
+#
+# The ACT Rules Community Group
+#   https://act-rules.github.io/rules/
+#
+#ACT-All_table_headers_have_data
+"ACT-ARIA_required_context_role", "1.3.1 ACT-ARIA_required_context_role: ARIA required context role",
+"ACT-ARIA_required_owned_elements", "1.3.1 ACT-ARIA_required_owned_elements: ARIA required owned elements",
+"ACT-ARIA_state_property_valid_value", "4.1.1 ACT-ARIA_state_property_valid_value: ARIA state or property has valid value",
+"ACT-ARIA_state_property_permitted", "4.1.2 ACT-ARIA_state_property_permitted: ARIA state or property is permitted",
+"ACT-ARIA_attribute_defined", "4.1.1 ACT-ARIA_attribute_defined: aria-* attribute is defined in WAI-ARIA",
+"ACT-Attribute_is_not_duplicate", "4.1.1 ACT-Attribute_is_not_duplicate: Attribute is not duplicated",
+#ACT-Audio_has_text_alternative
+#ACT-Audio_has_transcript
+#ACT-Audio_is_alternative
+"ACT-Audio_video_not_automatic", "1.4.2 ACT-Audio_video_not_automatic: audio or video avoids automatically playing audio",
+#ACT-Audio_video_has_control
+#ACT-Audio_video_less_than_3_seconds
+"ACT-Autocomplete_valid_value", "1.3.5 ACT-Autocomplete_valid_value: autocomplete attribute has valid value",
+"ACT-Button_non_empty_accessible_name", "4.1.2 ACT-Button_non_empty_accessible_name: Button has non-empty accessible name",
+#tcid ACT-Device_motion_changes_from_user_interface
+#tcid ACT-Device_motion_can_be_disabled
+"ACT-Element_decorative_not_exposed", "ACT-Element_decorative_not_exposed: Element marked as decorative is not exposed",
+"ACT-Element_aria_hidden_no_focusable_content", "1.3.1, 4.1.2 ACT-Element_aria_hidden_no_focusable_content: Element with aria-hidden has no focusable content",
+"ACT-Lang_has_valid_language", "3.1.2 ACT-Lang_has_valid_language: Element with lang attribute has valid language tag",
+"ACT-Role_has_required_properties", "4.1.2 ACT-Role_has_required_properties: Element with role attribute has required states and properties",
+#tcid ACT-Error_message_describes_invalid_value
+#tcid ACT-Focusable_no_keyboard_trap
+#tcid ACT-Focusable_no_keyboard_trap_non_std_nav
+#tcid ACT-Focusable_no_keyboard_trap_std_nav
+#tcid ACT-Form_control_label_is_descriptive
+"ACT-Form_field_non_empty_accessible_name", "4.1.2 ACT-Form_field_non_empty_accessible_name: Form field has non-empty accessible name",
+"ACT-Headers_refer_to_same_table", "1.3.1 ACT-Headers_refer_to_same_table: Headers attribute specified on a cell refers to cells in the same table element",
+#tcid ACT-Heading_non_empty_accessible_name
+#tcid ACT-Heading_descriptive
+"ACT-HTML_page_has_lang", "3.1.1 ACT-HTML_page_has_lang: HTML page has lang attribute",
+"ACT-HTML_page_title_non_empty", "2.4.2 ACT-HTML_page_title_non_empty: HTML page has non-empty title",
+"ACT-HTML_page_lang_xml_lang_match", "3.1.1 ACT-HTML_page_lang_xml_lang_match: HTML page lang and xml:lang attributes have matching values",
+"ACT-HTML_page_lang_valid", "3.1.1 ACT-HTML_page_lang_valid: HTML page lang attribute has valid language tag",
+"ACT-HTML_page_lang_matches_content", "3.1.1 ACT-HTML_page_lang_matches_content: HTML page language subtag matches default language",
+"ACT-HTML_page_title_descriptive", "2.4.2 ACT-HTML_page_title_descriptive: HTML page title is descriptive",
+"ACT-id_attribute_value_unique", "4.1.1 ACT-id_attribute_value_unique: id attribute value is unique",
+"ACT-iframe_non_empty_accessible_name", "4.1.2 ACT-iframe_non_empty_accessible_name: iframe element has non-empty accessible name",
+#ACT-iframe_identical_accessible_name
+"ACT-Image_accessible_name_descriptive", "1.1.1 ACT-Image_accessible_name_descriptive: Image accessible name is descriptive",
+"ACT-Image_button_non_empty_accessible_name", "1.1.1 ACT-Image_button_non_empty_accessible_name: Image button has non-empty accessible name",
+"ACT-Image_non_empty_accessible_name", "1.1.1 ACT-Image_non_empty_accessible_name: Image has non-empty accessible name",
+"ACT-Image_not_accessible_is_decorative", "1.1.1 ACT-Image_not_accessible_is_decorative: Image not in the accessibility tree is decorative",
+"ACT-Link_non_empty_accessible_name", "4.1.2, 2.4.4 ACT-Link_non_empty_accessible_name: Link has non-empty accessible name",
+#tcid ACT-Link_context_descriptive
+#tcid ACT-Link_accessible_name_context_same_purpose
+#tcid ACT-Link_identical_accessible_name
+"ACT-Menuitem_non_empty_accessible_name", "4.1.2 ACT-Menuitem_non_empty_accessible_name: Menuitem has non-empty accessible name",
+"ACT-Meta_no_refresh_delay", "2.2.1 ACT-Meta_no_refresh_delay: meta element has no refresh delay",
+"ACT-Meta_viewport_allows_zoom", "1.4.4, 1.4.10 ACT-Meta_viewport_allows_zoom: meta viewport allows for zoom",
+#tcid ACT-Keyboard_printable_characters
+"ACT-Object_non_empty_accessible_name", "1.1.1 ACT-Object_non_empty_accessible_name: Object element rendering non-text content has non-empty accessible name",
+#tcid ACT-Orientation_not_restricted_CSS
+"ACT-Role_valid_value", "4.1.2 ACT-Role_valid_value: role attribute has valid value",
+#tcid ACT-SVG_with_role_non_empty_accessible_name
+#tcid ACT-Scrollable_element_keyboard_accessible
+#tcid ACT-SVG_with_role_non_empty_accessible_name
+#tcid ACT-Table_header_has_cells
+#tcid ACT-Text_changes_can_stop
+#tcid ACT-Text_has_enhanced_contrast
+#tcid ACT-Text_has_minimum_contrast
+"ACT-Video_auditory_has_accessible_alternative", "1.2.2 ACT-Video_auditory_has_accessible_alternative: video element auditory content has accessible alternative",
+"ACT-Video_auditory_has_captions", "1.2.2 ACT-Video_auditory_has_captions: video element auditory content has captions",
 );
 
 my (%testcase_description_fr) = (
@@ -372,6 +360,7 @@ my (%testcase_description_fr) = (
 #  Text taken from http://www.braillenet.org/accessibilite/comprendre-wcag20/CAT20110222/Overview.html
 #   https://www.w3.org/Translations/WCAG20-fr/
 #   https://www.w3.org/Translations/NOTE-UNDERSTANDING-WCAG20-fr/media-equiv-av-only-alt.html
+#   https://www.w3.org/Translations/NOTE-UNDERSTANDING-WCAG20-fr/Overview.html#contents
 #
 "WCAG_2.0-ARIA1", "2.4.2, 2.4.4, 3.3.2 ARIA1: Utilisation de la propriété aria-describedby pour nommer les contrôles de l'interface utilisateur au moyen d'une étiquette descriptive",
 "WCAG_2.0-ARIA2", "3.3.2, 3.3.3 ARIA2: Identifie un champ obligatoire avec la propriété aria-required",
@@ -474,9 +463,7 @@ my (%testcase_description_fr) = (
 # G162: Positioning labels to maximize predictability of relationships
 #       Failures of this technique are reported under technique H44
 #
-# G192: Fully conforming to specifications
-#      Failures of this technique are reported under technique G143
-#
+"WCAG_2.0-G192", "4.1.1 G192: Se conformer entièrement aux spécifications",
 "WCAG_2.0-G197", "3.2.4 G197: Utiliser les étiquettes, les noms et les équivalents textuels de façon cohérente pour des contenus ayant la même fonctionnalité",
 "WCAG_2.0-H2", "1.1.1 H2: Combiner en un même lien une image et un intitulé de lien pour la même ressource",
 "WCAG_2.0-H24", "1.1.1, 2.4.4 H24: Fournir un équivalent textuel pour l'élément area d'une image à zones cliquables",
@@ -556,88 +543,9 @@ my (%testcase_description_fr) = (
 
 #
 # AXE Deque University testcases
-#  https://dequeuniversity.com/rules/axe/3.3
+#  https://dequeuniversity.com/rules/latest
 #
-"AXE-Audio_Caption", "1.2.1 AXE-Audio_Caption: <audio> elements must have a captions <track>",
-"AXE-Blink", "2.2.2 AXE-Blink: <blink> elements are deprecated and must not be used",
-"AXE-Definition_List", "1.3.1 <dl> elements must only directly contain properly-ordered <dt> and <dd> groups, <script>, or <template> elements",
-"AXE-Dlitem", "1.3.1 AXE-Dlitem: <dt> and <dd> elements must be contained by a <dl>",
-"AXE-Html_has_lang", "3.1.1 AXE-Html_has_lang: <html> element must have a lang attribute",
-"AXE-Html_lang_valid", "3.1.1 AXE-Html_lang_valid: <html> element must have a valid value for the lang attribute",
-"AXE-Html_xml_lang_mismatch", "3.1.1 AXE-Html_xml_lang_mismatch: <html> elements with lang and xml:lang must have the same base language",
-"AXE-Listitem", "1.3.1 AXE-Listitem:<li> elements must be contained in a <ul> or <ol>",
-"AXE-Marquee", "2.2.2 AXE-Marquee: <marquee> elements are deprecated and must not be used",
-"AXE-Object_alt", "1.1.1 AXE-Object_alt: <object> elements must have alternate text",
-"AXE-List", "1.3.1 AXE-List: <ul> and <ol> must only directly contain <li>, <script> or <template> elements",
-"AXE-Video_Caption", "1.2.2, 1.2.3 AXE-Video_caption: <video> elements must have a <track> for captions",
-"AXE-Video_Description", "1.2.5 AXE-Video_description: <video> elements must have an audio description <track>",
-"AXE-Accesskeys", "4.1.1 AXE-Accesskeys: accesskey attribute value must be unique",
-"AXE-Area_alt", "1.1.1 AXE-Area_alt: Active <area> elements must have alternate text",
-
-"AXE-Td_headers_attr", "1.3.1 AXE-Td_headers_attr: All cells in a <table> element that use the headers attribute must only refer to other cells of that same <table>",
-
-"AXE-Href_no_hash", "1.1.1, 2.4.4 AXE-Href_no_hash: Anchors must only be used as links with valid URLs or URL fragments",
-
-"AXE-Aria_valid_attr", "4.1.2 AXE-Aria_valid_attr: ARIA attributes must conform to valid names",
-"AXE-Aria_valid_attr_value", "4.1.2 AXE-Aria_valid_attr_value: ARIA attributes must conform to valid values",
-"AXE-Aria_allowed_role", "4.1.2 AXE-Aria_allowed_role: ARIA role must be appropriate for the element",
-"AXE-Aria_roles", "4.1.2 AXE-Aria_roles: ARIA roles used must conform to valid values",
-"AXE-Aria_hidden_focus", "4.1.2 AXE-Aria_hidden_focus: aria-hidden elements do not contain focusable elements",
-"AXE-Aria_hidden_body", "4.1.2 AXE-Aria_hidden_body: aria-hidden=\"true\" must not be present on the document <body>",
-
-"AXE-Landmark_banner_is_top_level", "4.1.2 AXE-Landmark_banner_is_top_level: Banner landmark must not be contained in another landmark",
-"AXE-P_as_heading", "1.3.1 AXE-P_as_heading: Bold, italic text and font-size are not used to style <p> elements as a heading",
-"AXE-Button_name", "4.1.2 AXE-Button_name: Buttons must have discernible text",
-
-"AXE-Aria_required_parent", "1.3.1 AXE-Aria_required_parent: Certain ARIA roles must be contained by particular parent elements",
-"AXE-Aria_required_children", "1.3.1 AXE-Aria_required_children: Certain ARIA roles must contain particular children",
-"AXE-Checkboxgroup", "1.3.1, 3.3.2 AXE-Checkboxgroup: Checkbox inputs with the same name attribute value must be part of a group",
-"AXE-Landmark_complementary_is_top_level", "AXE-Landmark_complementary_is_top_level: Complementary landmarks and/or asides are top level",
-"AXE-Landmark_contentinfo_is_top_level", "4.1.2 AXE-Landmark_contentinfo_is_top_level: Contentinfo landmark must not be contained in another landmark",
-
-"AXE-Document_title", "2.4.2 AXE-Document_title: Documents must contain a title element to aid in navigation",
-"AXE-Role_img_alt", "1.1.1 AXE-Role_img_alt: Elements containing role=\"img\" have an alternative text",
-
-"AXE-Aria_allowed_attr", "4.1.2 AXE-Aria_allowed_attr: Elements must only use allowed ARIA attributes",
-"AXE-Tabindex", "2.4.3 AXE-Tabindex: Elements should not have tabindex greater than zero",
-"AXE-Label", "1.3.1 AXE-Label: Form <input> elements must have labels",
-"AXE-Label_title_only", "3.3.2 AXE-Label_title_only: Form <input> elements should have a visible label",
-
-"AXE-Form_field_multiple_labels", "1.3.1, 3.3.2 AXE-Form_field_multiple_labels: Form fields do not have duplicate labels",
-
-"AXE-Frame_title_unique", "2.4.1, 4.1.2 AXE-Frame_title_unique: Frames must have a unique title attribute",
-"AXE-Frame_title", "2.4.1, 4.1.2 AXE-Frame_title: Frames must have title attribute",
-"AXE-Heading_order", "1.3.1 AXE-Heading_order: Heading levels should only increase by one",
-"AXE-Empty_heading", "2.4.6 AXE-Empty_heading: Headings must not be empty",
-
-"AXE-Duplicate_id", "4.1.1 AXE-Duplicate_id: ID attribute values must be unique",
-"AXE-Input_image_alt", "1.1.1 AXE-Input_image_alt: Image buttons must have alternate text",
-"AXE-Image_alt", "1.1.1 AXE-Image_alt: Images must have alternate text",
-
-"AXE-Input_button_name", "4.1.2 AXE-Input_button_name: Input buttons must have discernible text",
-"AXE-Label_content_name_mismatch", "2.5.3 AXE-Label_content_name_mismatch: Label and name from content mismatch",
-
-"AXE-Valid_lang", "3.1.2 AXE-Valid_lang: lang attribute must have a valid value",
-"AXE-Layout_table", "1.3.1 AXE-Layout_table: Layout tables must not use data table elements",
-
-"AXE-Landmark_main_is_top_level", "1.3.1 AXE-Landmark_main_is_top_level: Main landmark must not be contained in another landmark",
-"AXE-Page_has_heading_one", "1.3.1 AXE-Page_has_heading_one: Page must contain a level-one heading",
-
-"AXE-Landmark_one_main", "1.3.1 AXE-Landmark_one_main: Page must have one main landmark",
-"AXE-Landmark_no_duplicate_banner", "1.3.1 AXE-Landmark_no_duplicate_banner Page must not have more than one banner landmark",
-"AXE-Landmark_no_duplicate_contentinfo", "1.3.1 AXE-Landmark_no_duplicate_contentinfo: Page must not have more than one contentinfo landmark",
-"AXE-Radiogroup", "1.3.1, 3.3.2 AXE-Radiogroup: Radio inputs with the same name attribute value must be part of a group",
-"AXE-Aria_required_attr", "4.1.2 AXE-Aria_required_attr: Required ARIA attributes must be provided",
-
-"AXE-Table_duplicate_name", "1.3.1 AXE-Table_duplicate_name: The <caption> element should not contain the same text as the summary attribute",
-
-"AXE-Meta_refresh", "2.2.1, 2.2.4, 3.2.5 AXE-Meta_refresh: Timed refresh must not exist",
-
-"AXE-Image_redundant_alt", "1.1.1 AXE-Image_redundant_alt: Text of buttons and links should not be repeated in the image alternative",
-
-"AXE-Aria_roledescription", "4.1.2 AXE-Aria_roledescription: Use aria-roledescription on elements with a semantic role",
-"AXE-Meta_viewport_large", "1.4.4 AXE-Meta_viewport_large: Users should be able to zoom and scale the text up to 500%",
-"AXE-Meta_viewport", "1.4.4 AXE-Meta_viewport: Zooming and scaling must not be disabled",
+"AXE", "AXE: Deque University",
 
 #
 # Pa11y testcases
@@ -645,6 +553,75 @@ my (%testcase_description_fr) = (
 #  https://github.com/pa11y/pa11y
 #
 "Pa11y", "Pa11y: Automated accessibility testing pal",
+
+#
+# The ACT Rules Community Group
+#   https://act-rules.github.io/rules/
+#
+#ACT-All_table_headers_have_data
+"ACT-ARIA_required_context_role", "1.3.1 ACT-ARIA_required_context_role: ARIA required context role",
+"ACT-ARIA_required_owned_elements", "1.3.1 ACT-ARIA_required_owned_elements: ARIA required owned elements",
+"ACT-ARIA_state_property_valid_value", "4.1.1 ACT-ARIA_state_property_valid_value: ARIA state or property has valid value",
+"ACT-ARIA_state_property_permitted", "4.1.2 ACT-ARIA_state_property_permitted: ARIA state or property is permitted",
+"ACT-ARIA_attribute_defined", "4.1.1 ACT-ARIA_attribute_defined: aria-* attribute is defined in WAI-ARIA",
+"ACT-Attribute_is_not_duplicate", "4.1.1 ACT-Attribute_is_not_duplicate: Attribute is not duplicated",
+#ACT-Audio_has_text_alternative
+#ACT-Audio_has_transcript
+#ACT-Audio_is_alternative
+"ACT-Audio_video_not_automatic", "1.4.2 ACT-Audio_video_not_automatic: audio or video avoids automatically playing audio",
+#ACT-Audio_video_has_control
+#ACT-Audio_video_less_than_3_seconds
+"ACT-Autocomplete_valid_value", "1.3.5 ACT-Autocomplete_valid_value: autocomplete attribute has valid value",
+"ACT-Button_non_empty_accessible_name", "4.1.2 ACT-Button_non_empty_accessible_name: Button has non-empty accessible name",
+#tcid ACT-Device_motion_changes_from_user_interface
+#tcid ACT-Device_motion_can_be_disabled
+"ACT-Element_decorative_not_exposed", "ACT-Element_decorative_not_exposed: Element marked as decorative is not exposed",
+"ACT-Element_aria_hidden_no_focusable_content", "1.3.1, 4.1.2 ACT-Element_aria_hidden_no_focusable_content: Element with aria-hidden has no focusable content",
+"ACT-Lang_has_valid_language", "3.1.2 ACT-Lang_has_valid_language: Element with lang attribute has valid language tag",
+"ACT-Role_has_required_properties", "4.1.2 ACT-Role_has_required_properties: Element with role attribute has required states and properties",
+#tcid ACT-Error_message_describes_invalid_value
+#tcid ACT-Focusable_no_keyboard_trap
+#tcid ACT-Focusable_no_keyboard_trap_non_std_nav
+#tcid ACT-Focusable_no_keyboard_trap_std_nav
+#tcid ACT-Form_control_label_is_descriptive
+#tcid ACT-Form_field_non_empty_accessible_name
+"ACT-Form_field_non_empty_accessible_name", "4.1.2 ACT-Form_field_non_empty_accessible_name: Form field has non-empty accessible name",
+"ACT-Headers_refer_to_same_table", "1.3.1 ACT-Headers_refer_to_same_table: Headers attribute specified on a cell refers to cells in the same table element",
+#tcid ACT-Heading_non_empty_accessible_name
+#tcid ACT-Heading_descriptive
+"ACT-HTML_page_has_lang", "3.1.1 ACT-HTML_page_has_lang: HTML page has lang attribute",
+"ACT-HTML_page_title_non_empty", "2.4.2 ACT-HTML_page_title_non_empty: HTML page has non-empty title",
+"ACT-HTML_page_lang_xml_lang_match", "3.1.1 ACT-HTML_page_lang_xml_lang_match: HTML page lang and xml:lang attributes have matching values",
+"ACT-HTML_page_lang_valid", "3.1.1 ACT-HTML_page_lang_valid: HTML page lang attribute has valid language tag",
+"ACT-HTML_page_lang_matches_content", "3.1.1 ACT-HTML_page_lang_matches_content: HTML page language subtag matches default language",
+"ACT-HTML_page_title_descriptive", "2.4.2 ACT-HTML_page_title_descriptive: HTML page title is descriptive",
+"ACT-id_attribute_value_unique", "4.1.1 ACT-id_attribute_value_unique: id attribute value is unique",
+"ACT-iframe_non_empty_accessible_name", "4.1.2 ACT-iframe_non_empty_accessible_name: iframe element has non-empty accessible name",
+#ACT-iframe_identical_accessible_name
+"ACT-Image_accessible_name_descriptive", "1.1.1 ACT-Image_accessible_name_descriptive: Image accessible name is descriptive",
+"ACT-Image_button_non_empty_accessible_name", "1.1.1 ACT-Image_button_non_empty_accessible_name: Image button has non-empty accessible name",
+"ACT-Image_non_empty_accessible_name", "1.1.1 ACT-Image_non_empty_accessible_name: Image has non-empty accessible name",
+"ACT-Image_not_accessible_is_decorative", "1.1.1 ACT-Image_not_accessible_is_decorative: Image not in the accessibility tree is decorative",
+"ACT-Link_non_empty_accessible_name", "4.1.2, 2.4.4 ACT-Link_non_empty_accessible_name: Link has non-empty accessible name",
+#tcid ACT-Link_context_descriptive
+#tcid ACT-Link_accessible_name_context_same_purpose
+#tcid ACT-Link_identical_accessible_name
+"ACT-Menuitem_non_empty_accessible_name", "4.1.2 ACT-Menuitem_non_empty_accessible_name: Menuitem has non-empty accessible name",
+"ACT-Meta_no_refresh_delay", "2.2.1 ACT-Meta_no_refresh_delay: meta element has no refresh delay",
+"ACT-Meta_viewport_allows_zoom", "1.4.4, 1.4.10 ACT-Meta_viewport_allows_zoom: meta viewport allows for zoom",
+#tcid ACT-Keyboard_printable_characters
+"ACT-Object_non_empty_accessible_name", "1.1.1 ACT-Object_non_empty_accessible_name: Object element rendering non-text content has non-empty accessible name",
+#tcid ACT-Orientation_not_restricted_CSS
+"ACT-Role_valid_value", "4.1.2 ACT-Role_valid_value: role attribute has valid value",
+#tcid ACT-SVG_with_role_non_empty_accessible_name
+#tcid ACT-Scrollable_element_keyboard_accessible
+#tcid ACT-SVG_with_role_non_empty_accessible_name
+#tcid ACT-Table_header_has_cells
+#tcid ACT-Text_changes_can_stop
+#tcid ACT-Text_has_enhanced_contrast
+#tcid ACT-Text_has_minimum_contrast
+"ACT-Video_auditory_has_accessible_alternative", "1.2.2 ACT-Video_auditory_has_accessible_alternative: video element auditory content has accessible alternative",
+"ACT-Video_auditory_has_captions", "1.2.2 ACT-Video_auditory_has_captions: video element auditory content has captions",
 );
 
 #
@@ -714,6 +691,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-G145", "1.4.3",
 "WCAG_2.0-G152", "2.2.2",
 "WCAG_2.0-G158", "1.2.1",
+"WCAG_2.0-G192", "4.1.1",
 "WCAG_2.0-G197", "3.2.4",
 "WCAG_2.0-H2", "1.1.1",
 "WCAG_2.0-H24", "1.1.1, 2.4.4",
@@ -758,6 +736,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-SCR20", "2.1.1",
 "WCAG_2.0-SCR21", "1.3.1",
 "WCAG_2.0-Guideline41", "4.1",
+
 #
 # EPUB Accessibility Techniques 1.0
 #
@@ -778,89 +757,51 @@ my (%testcase_groups_table) = (
 "EPUB-TITLES-002", "1.3.1",
 
 #
-# AXE 3.2 Deque University testcases
-#  https://dequeuniversity.com/rules/axe/3.2
+# The ACT Rules Community Group
+#   https://act-rules.github.io/rules/
 #
-"AXE-Audio_Caption", "1.2.1",
-"AXE-Blink", "2.2.2",
-"AXE-Definition_List", "1.3.1",
-"AXE-Dlitem", "1.3.1",
-"AXE-Html_has_lang", "3.1.1",
-"AXE-Html_lang_valid", "3.1.1",
-"AXE-Html_xml_lang_mismatch", "3.1.1",
-"AXE-Listitem", "1.3.1",
-"AXE-Marquee", "2.2.2",
-"AXE-Object_alt", "1.1.1",
-"AXE-List", "1.3.1",
-"AXE-Video_Caption", "1.2.2, 1.2.3",
-"AXE-Video_Description", "1.2.5",
-"AXE-Accesskeys", "4.1.1",
-"AXE-Area_alt", "1.1.1",
+"ACT-ARIA_required_context_role", "1.3.1",
+"ACT-ARIA_required_owned_elements", "1.3.1",
+"ACT-ARIA_state_property_valid_value", "4.1.1",
+"ACT-ARIA_state_property_permitted", "4.1.2",
+"ACT-ARIA_attribute_defined", "4.1.1",
+"ACT-Attribute_is_not_duplicate", "4.1.1",
 
-"AXE-Td_headers_attr", "1.3.1",
+"ACT-Audio_video_not_automatic", "1.4.2",
 
-"AXE-Href_no_hash", "1.1.1, 2.4.4",
+"ACT-Autocomplete_valid_value", "1.3.5",
+"ACT-Button_non_empty_accessible_name", "4.1.2",
 
-"AXE-Aria_valid_attr", "4.1.2",
-"AXE-Aria_valid_attr_value", "4.1.2",
-"AXE-Aria_allowed_role", "4.1.2",
-"AXE-Aria_roles", "4.1.2",
-"AXE-Aria_hidden_focus", "4.1.2",
-"AXE-Aria_hidden_body", "4.1.2",
+"ACT-Element_aria_hidden_no_focusable_content", "1.3.1, 4.1.2",
+"ACT-Lang_has_valid_language", "3.1.2",
+"ACT-Role_has_required_properties", "4.1.2",
 
-"AXE-Landmark_banner_is_top_level", "4.1.2",
-"AXE-P_as_heading", "1.3.1",
-"AXE-Button_name", "4.1.2",
+"ACT-Form_field_non_empty_accessible_name", "4.1.2",
+"ACT-Headers_refer_to_same_table", "1.3.1",
 
-"AXE-Aria_required_parent", "1.3.1",
-"AXE-Aria_required_children", "1.3.1",
-"AXE-Checkboxgroup", "1.3.1, 3.3.2",
-"AXE-Landmark_complementary_is_top_level", "4.1.2",
-"AXE-Landmark_contentinfo_is_top_level", "4.1.2",
+"ACT-HTML_page_has_lang", "3.1.1",
+"ACT-HTML_page_title_non_empty", "2.4.2",
+"ACT-HTML_page_lang_xml_lang_match", "3.1.1",
+"ACT-HTML_page_lang_valid", "3.1.1",
+"ACT-HTML_page_lang_matches_content", "3.1.1",
+"ACT-HTML_page_title_descriptive", "2.4.2",
+"ACT-id_attribute_value_unique", "4.1.1",
+"ACT-iframe_non_empty_accessible_name", "4.1.2",
+"ACT-Image_accessible_name_descriptive", "1.1.1",
+"ACT-Image_button_non_empty_accessible_name", "1.1.1",
+"ACT-Image_non_empty_accessible_name", "1.1.1",
+"ACT-Image_not_accessible_is_decorative", "1.1.1",
+"ACT-Link_non_empty_accessible_name", "4.1.2, 2.4.4",
+"ACT-Menuitem_non_empty_accessible_name", "4.1.2",
+"ACT-Meta_no_refresh_delay", "2.2.1",
+"ACT-Meta_viewport_allows_zoom", "1.4.4, 1.4.10",
 
-"AXE-Document_title", "2.4.2",
-"AXE-Role_img_alt", "1.1.1",
+"ACT-Object_non_empty_accessible_name", "1.1.1",
 
-"AXE-Aria_allowed_attr", "4.1.2",
-"AXE-Tabindex", "2.4.3",
-"AXE-Label", "1.3.1, 3.3.2",
-"AXE-Label_title_only", "3.3.2",
+"ACT-Role_valid_value", "4.1.2",
 
-"AXE-Form_field_multiple_labels", "3.3.2",
-
-"AXE-Frame_title_unique", "2.4.1, 4.1.2",
-"AXE-Frame_title", "2.4.1, 4.1.2",
-"AXE-Heading_order", "1.3.1",
-"AXE-Empty_heading", "2.4.6",
-
-"AXE-Duplicate_id", "4.1.1",
-"AXE-Input_image_alt", "1.1.1",
-"AXE-Image_alt", "1.1.1",
-
-"AXE-Input_button_name", "4.1.2",
-"AXE-Label_content_name_mismatch", "2.5.3",
-
-"AXE-Valid_lang", "3.1.2",
-"AXE-Layout_table", "1.3.1",
-
-"AXE-Landmark_main_is_top_level", "1.3.1",
-"AXE-Page_has_heading_one", "1.3.1",
-
-"AXE-Landmark_one_main", "1.3.1",
-"AXE-Landmark_no_duplicate_banner", "1.3.1",
-"AXE-Landmark_no_duplicate_contentinfo", "1.3.1",
-"AXE-Radiogroup", "1.3.1, 3.3.2",
-"AXE-Aria_required_attr", "4.1.2",
-
-"AXE-Table_duplicate_name", "1.3.1",
-
-"AXE-Meta_refresh", "2.2.1, 2.2.4, 3.2.5",
-
-"AXE-Image_redundant_alt", "1.1.1",
-
-"AXE-Aria_roledescription", "4.1.2",
-"AXE-Meta_viewport_large", "1.4.4",
-"AXE-Meta_viewport", "1.4.4",
+"ACT-Video_auditory_has_accessible_alternative", "1.2.2",
+"ACT-Video_auditory_has_captions", "1.2.2",
 );
 
 #
@@ -1437,7 +1378,7 @@ sub TQA_Testcase_Read_URL_Help_File {
             if ( $lang =~ /eng/i ) {
                 $testcase_url_en{$tcid} = $url;
                 $reverse_testcase_description_en{$url} = $tcid;
-            }
+                            }
             #
             # Do we have a French URL ?
             #
@@ -1451,6 +1392,19 @@ sub TQA_Testcase_Read_URL_Help_File {
         }
         else {
             print "Line does not contain 3 fields, ignored: \"$_\"\n" if $debug;
+        }
+    }
+    
+    #
+    # Chec for possible missing French help URLs. Not all testcases
+    # have French descriptions (e.g. ACT rules), in this case use the
+    # English URLs.
+    #
+    foreach $tcid (keys(%testcase_url_en)) {
+        if ( ! defined($testcase_url_fr{$tcid}) ) {
+            $url = $testcase_url_en{$tcid};
+            $testcase_url_fr{$tcid} = $url;
+            $reverse_testcase_description_fr{$url} = $tcid;
         }
     }
     
