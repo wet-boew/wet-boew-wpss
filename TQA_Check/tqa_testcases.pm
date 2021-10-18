@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 2005 $
+# $Revision: 2170 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2021-04-13 14:58:53 -0400 (Tue, 13 Apr 2021) $
+# $Date: 2021-10-18 11:24:43 -0400 (Mon, 18 Oct 2021) $
 #
 # Description:
 #
@@ -54,6 +54,11 @@
 package tqa_testcases;
 
 use strict;
+
+#
+# Use WPSS_Tool program modules
+#
+use tqa_deque_axe;
 
 #***********************************************************************
 #
@@ -1053,6 +1058,11 @@ sub TQA_Testcase_Debug {
     # Copy debug value to global variable
     #
     $debug = $this_debug;
+    
+    #
+    # Set debug flag in supporting modules
+    #
+    Deque_AXE_Debug($debug);
 }
 
 #**********************************************************************
@@ -1267,6 +1277,8 @@ sub TQA_Testcase_Impact {
 #**********************************************************************
 sub TQA_Testcase_URL {
     my ($key) = @_;
+    
+    my ($url);
 
     #
     # Do we have a string table entry for this key ?
@@ -1277,7 +1289,7 @@ sub TQA_Testcase_URL {
         # return value
         #
         print "value = " . $$url_table{$key} . "\n" if $debug;
-        return ($$url_table{$key});
+        $url = $$url_table{$key};
     }
     #
     # Was the testcase description provided rather than the testcase
@@ -1289,15 +1301,21 @@ sub TQA_Testcase_URL {
         #
         $key = $$reverse_testcase_description_table{$key};
         print "value = " . $$url_table{$key} . "\n" if $debug;
-        return ($$url_table{$key});
+        $url = $$url_table{$key};
     }
     else {
         #
-        # No string table entry, either we are missing a string or
-        # we have a typo in the key name.
+        # Check for a supporting tool testcase URL
         #
-        return;
+        print "Check supporting tools for help URL\n" if $debug;
+        $url = Deque_AXE_Testcase_URL($key);
     }
+    
+    #
+    # Return the help url
+    #
+    print "Help url for $key is $url\n" if $debug;
+    return($url);
 }
 
 #**********************************************************************
