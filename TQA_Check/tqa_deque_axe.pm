@@ -2,9 +2,9 @@
 #
 # Name:   tqa_deque_axe.pm
 #
-# $Revision: 2148 $
+# $Revision: 2171 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_deque_axe.pm $
-# $Date: 2021-09-21 11:08:46 -0400 (Tue, 21 Sep 2021) $
+# $Date: 2021-10-18 11:25:38 -0400 (Mon, 18 Oct 2021) $
 #
 # Description:
 #
@@ -18,6 +18,7 @@
 #     Set_Deque_AXE_Test_Profile
 #     Deque_AXE_Check
 #     Deque_AXE_Version
+#     Deque_AXE_Testcase_URL
 #
 # Terms and Conditions of Use
 #
@@ -84,6 +85,7 @@ BEGIN {
                   Set_Deque_AXE_Test_Profile
                   Deque_AXE_Check
                   Deque_AXE_Version
+                  Deque_AXE_Testcase_URL
                   );
     $VERSION = "1.0";
 }
@@ -102,7 +104,7 @@ my ($axe_runtime_reported) = 0;
 my ($default_windows_chrome_path);
 
 my ($deque_axe_installed, $deque_axe_version, $deaque_axe_install_error);
-my ($chromedriver_path);
+my ($chromedriver_path, %help_urls);
 my ($chromedriver_argument) = "";
 if ( $have_threads ) {
     share(\$deque_axe_installed);
@@ -110,8 +112,8 @@ if ( $have_threads ) {
     share(\$deaque_axe_install_error);
     share(\$chromedriver_path);
     share(\$chromedriver_argument);
+    share(\%help_urls);
 }
-
 
 #
 # String table for error strings.
@@ -533,7 +535,7 @@ sub Record_Result {
     # Create result object and save details.
     # There is no line number of column number available.
     #
-    $result_object = tqa_result_object->new("AXE", 1, "$id: $help",
+    $result_object = tqa_result_object->new("$id", 1, "$id: $help",
                                             -1, -1, $context,
                                             $description, $current_url);
     push (@$results_list_addr, $result_object);
@@ -666,6 +668,7 @@ sub Deque_AXE_Check {
         # Get the stferr output as a string
         #
         open(FH, "axe_stderr.txt");
+        binmode FH;
         $runtime_error_string = "";
         while ( $line = <FH> ) {
             print STDERR "$line\n";
@@ -687,8 +690,9 @@ sub Deque_AXE_Check {
                 $result_object = Record_Result("AXE", "",
                                       String_Value("ChromeDriver version error") .
                                       " \"$cmd\"\n" . " \"$output\"");
-                print STDERR "Error running axe: $output\n";
-
+                print STDERR "Error running axe: $cmd\n";
+                print STDERR "Output = $output\n";
+                
                 #
                 # Reset the source line value of the testcase error result.
                 # The initial setting may have been truncated while in this
@@ -719,7 +723,8 @@ sub Deque_AXE_Check {
                 $result_object = Record_Result("AXE", "",
                                       String_Value("Runtime Error") .
                                       " \"$cmd\"\n" . " \"$output\"");
-                print STDERR "Error running axe: $output\n";
+                print STDERR "Error running axe: $cmd\n";
+                print STDERR "Output = $output\n";
 
                 #
                 # Reset the source line value of the testcase error result.
@@ -759,6 +764,8 @@ sub Deque_AXE_Check {
                     Record_Result("AXE", "",
                                   String_Value("Runtime Error") .
                                   " $eval_output");
+                    print STDERR "Error running axe: $cmd\n";
+                    print STDERR "Output = $output\n";
 
                     #
                     # Suppress further errors
@@ -780,6 +787,8 @@ sub Deque_AXE_Check {
                                       String_Value("Runtime Error") .
                                       " Expected ARRAY type for top level of axe output, found $ref_type\n$output");
                         $axe_runtime_reported = 1;
+                        print STDERR "Error running axe: $cmd\n";
+                        print STDERR "Output = $output\n";
                     }
                 }
             }
@@ -804,6 +813,8 @@ sub Deque_AXE_Check {
                                       String_Value("Runtime Error") .
                                       " Expected HASH type for top level array element of axe output, found $ref_type\n$output");
                         $axe_runtime_reported = 1;
+                        print STDERR "Error running axe: $cmd\n";
+                        print STDERR "Output = $output\n";
                     }
                 }
                 #
@@ -820,6 +831,8 @@ sub Deque_AXE_Check {
                                       String_Value("Runtime Error") .
                                       " Missing violations field in top level array element\n$output");
                         $axe_runtime_reported = 1;
+                        print STDERR "Error running axe: $cmd\n";
+                        print STDERR "Output = $output\n";
                     }
                 }
             }
@@ -843,6 +856,8 @@ sub Deque_AXE_Check {
                                       String_Value("Runtime Error") .
                                       " Expected ARRAY type for violations of axe output, found $ref_type\n$output");
                         $axe_runtime_reported = 1;
+                        print STDERR "Error running axe: $cmd\n";
+                        print STDERR "Output = $output\n";
                     }
                 }
             }
@@ -977,6 +992,13 @@ sub Deque_AXE_Check {
                                             print "No target item in node object\n" if $debug;
                                             $target = "";
                                         }
+                                        
+                                        #
+                                        # Save help URL for this testcase identifier
+                                        #
+                                        if ( $help_url ne "" ) {
+                                            $help_urls{$id} = $help_url;
+                                        }
 
                                         #
                                         # Record error
@@ -1001,6 +1023,8 @@ sub Deque_AXE_Check {
                                           String_Value("Runtime Error") .
                                           " Expected HASH type for violations item of axe output, found $ref_type\n$output");
                             $axe_runtime_reported = 1;
+                            print STDERR "Error running axe: $cmd\n";
+                            print STDERR "Output = $output\n";
                         }
                     }
                 }
@@ -1018,7 +1042,8 @@ sub Deque_AXE_Check {
                 $result_object = Record_Result("AXE", "",
                                    String_Value("Runtime Error") .
                                    " Expected 'violations' field in axe command output, found\n\"$output\"");
-                print STDERR "Error running axe: $output\n";
+                print STDERR "Error running axe: $cmd\n";
+                print STDERR "Output = $output\n";
                 open(FH, "axe_stderr.txt");
                 $runtime_error_string = "";
                 while ( $line = <FH> ) {
@@ -1095,6 +1120,44 @@ sub Deque_AXE_Version {
         return("");
     }
 }
+
+#**********************************************************************
+#
+# Name: Deque_AXE_Testcase_URL
+#
+# Parameters: key - testcase id
+#
+# Description:
+#
+#   This function returns the help URL for the testcase.
+#
+#**********************************************************************
+sub Deque_AXE_Testcase_URL {
+    my ($key) = @_;
+    
+    my ($url);
+
+    #
+    # We may have a testcase id: description value. Remove anything after
+    # the colon
+    #
+    $key =~ s/:.*$//g;
+
+    #
+    # Do we have a help URL for this testcase identifier?
+    #
+    print "Deque_AXE_Testcase_URL, key = $key\n" if $debug;
+    if ( defined($help_urls{$key}) ) {
+        $url = $help_urls{$key};
+        print "Found help url = $url\n" if $debug;
+    }
+    
+    #
+    # Return URL
+    #
+    return($url);
+}
+
 
 #***********************************************************************
 #
