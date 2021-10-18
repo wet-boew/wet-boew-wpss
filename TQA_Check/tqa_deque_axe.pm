@@ -593,6 +593,8 @@ sub Deque_AXE_Check {
     my ($ref, $ref_type, $array_item, $id, $description, $html, $tags);
     my ($help, $violations_array, $violations_item, $tags_array);
     my ($help_url, $nodes, $node, $impact, $line, $result_object);
+    my ($failureSummary, $node_any, $message, $target, $target_list);
+    my ($first_node);
     my ($error_found) = 0;
 
     #
@@ -861,6 +863,12 @@ sub Deque_AXE_Check {
                         #
                         # Get testcase details
                         #
+                        if ( defined($$violations_item{"description"}) ) {
+                            $description = $$violations_item{"description"};
+                        }
+                        else {
+                            $id = "AXE-Unknown";
+                        }
                         if ( defined($$violations_item{"id"}) ) {
                             $id = $$violations_item{"id"};
                             $id = "AXE-" . ucfirst($id);
@@ -935,14 +943,49 @@ sub Deque_AXE_Check {
                                         else {
                                             $html = "";
                                         }
+                                        if ( defined($$node{"any"}) ) {
+                                            $node_any = $$node{"any"};
+                                            $first_node = shift(@$node_any);
+                                            if ( defined($first_node) && defined($$first_node{"message"}) ) {
+                                                $message = $$first_node{"message"};
+                                            }
+                                            else {
+                                                $message = "";
+                                            }
+                                        }
+                                        else {
+                                            $message = "";
+                                        }
+
+                                        #
+                                        # Get the target array and make a
+                                        # string of all the values
+                                        #
+                                        if ( defined($$node{"target"}) ) {
+                                            $target_list = $$node{"target"};
+                                            $ref_type = ref $target_list;
+                                            if ( $ref_type eq "ARRAY" ) {
+                                                print "Found " . scalar(@$target_list) . " tags\n" if $debug;
+                                                $target = join(",", @$target_list);
+                                            }
+                                            else {
+                                                print "target item is not an array\n" if $debug;
+                                                $target = "";
+                                            }
+                                        }
+                                        else {
+                                            print "No target item in node object\n" if $debug;
+                                            $target = "";
+                                        }
 
                                         #
                                         # Record error
                                         #
-                                        print "Record result, id = $id, description = $description\n" if $debug;
-                                        Record_Result($id, $help, $html,
-                                                      $description, $help_url,
-                                                      $impact, $tags);
+                                        print "Record result, id = $id, message = $message\n" if $debug;
+                                        $result_object = Record_Result($id, $help, $html,
+                                                                       $message, $help_url,
+                                                                       $impact, $tags);
+                                        $result_object->xpath($target);
                                     }
                                 }
                             }
