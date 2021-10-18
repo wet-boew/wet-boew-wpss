@@ -2,9 +2,9 @@
 #
 # Name:   tqa_deque_axe.pm
 #
-# $Revision: 1759 $
+# $Revision: 2148 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_deque_axe.pm $
-# $Date: 2020-03-21 15:23:12 -0400 (Sat, 21 Mar 2020) $
+# $Date: 2021-09-21 11:08:46 -0400 (Tue, 21 Sep 2021) $
 #
 # Description:
 #
@@ -17,6 +17,7 @@
 #     Set_Deque_AXE_Testcase_Data
 #     Set_Deque_AXE_Test_Profile
 #     Deque_AXE_Check
+#     Deque_AXE_Version
 #
 # Terms and Conditions of Use
 #
@@ -82,6 +83,7 @@ BEGIN {
                   Set_Deque_AXE_Testcase_Data
                   Set_Deque_AXE_Test_Profile
                   Deque_AXE_Check
+                  Deque_AXE_Version
                   );
     $VERSION = "1.0";
 }
@@ -99,9 +101,15 @@ my ($debug) = 0;
 my ($axe_runtime_reported) = 0;
 my ($default_windows_chrome_path);
 
-my ($deque_axe_installed);
+my ($deque_axe_installed, $deque_axe_version, $deaque_axe_install_error);
+my ($chromedriver_path);
+my ($chromedriver_argument) = "";
 if ( $have_threads ) {
     share(\$deque_axe_installed);
+    share(\$deque_axe_version);
+    share(\$deaque_axe_install_error);
+    share(\$chromedriver_path);
+    share(\$chromedriver_argument);
 }
 
 
@@ -109,12 +117,12 @@ if ( $have_threads ) {
 # String table for error strings.
 #
 my %string_table_en = (
-    "Deque Axe not installed",       "Deque Axe not installed",
+    "ChromeDriver version error",    "ChromeDriver version error",
     "Runtime Error",                 "Runtime Error",
 );
 
 my %string_table_fr = (
-    "Deque Axe not installed",       "Deque Axe pas installé",
+    "ChromeDriver version error",    "Erreur de version de ChromeDriver",
     "Runtime Error",                 "Erreur D'Exécution",
 );
 
@@ -322,7 +330,7 @@ sub Set_Deque_AXE_Test_Profile {
 #
 #***********************************************************************
 sub Check_Deque_Axe_Requirements {
-    my ($file_path, $chrome_path);
+    my ($file_path, $chrome_path, $version);
     my ($meets_requirements) = 1;
 
     #
@@ -347,12 +355,42 @@ sub Check_Deque_Axe_Requirements {
         if ( $file_path =~ /Could not find/i ) {
             print "axe not in path\n" if $debug;
             print STDERR "Deque Axe not installed, axe not available\n";
+            $deaque_axe_install_error = "Deque Axe not installed, axe not available";
             $meets_requirements = 0;
         }
         else {
-            print "axe found at $file_path\n" if $debug;
+            #
+            # Get axe version
+            #
+            $version = `axe --version 2>&1`;
+            chomp($version);
+            $deque_axe_version = $version;
+            print "axe version $version found at $file_path\n" if $debug;
         }
         
+        #
+        # Get path to chromedriver
+        #
+        if ( $meets_requirements ) {
+            print "Check for chromedriver.cmd program\n" if $debug;
+            $chromedriver_path = `where chromedriver.cmd 2>&1`;
+            if ( $chromedriver_path =~ /Could not find/i ) {
+                print "axe not in path\n" if $debug;
+                print STDERR "ChromeDriver not installed, axe not available\n";
+                $deaque_axe_install_error = "ChromeDriver not installed, axe not available";
+                $meets_requirements = 0;
+            }
+            else {
+                #
+                # Get path to chromedriver, strip the trailing newline from
+                # the 'where' output
+                #
+                chomp($chromedriver_path);
+                print "Chromedriver found at $chromedriver_path\n" if $debug;
+                $chromedriver_argument = "--chromedriver-path \"$chromedriver_path\"";
+            }
+        }
+
         #
         # Get path to node
         #
@@ -362,6 +400,7 @@ sub Check_Deque_Axe_Requirements {
             if ( $file_path =~ /Could not find/i ) {
                 print "Node not in path\n" if $debug;
                 print STDERR "Node not installed, headless chrome not available\n";
+                $deaque_axe_install_error = "Node not installed, headless chrome not available";
                 $meets_requirements = 0;
             }
             else {
@@ -401,6 +440,7 @@ sub Check_Deque_Axe_Requirements {
                 #
                 print "Chrome executable not found\n" if $debug;
                 print STDERR "Chrome not installed, headless chrome not available\n";
+                $deaque_axe_install_error = "Chrome not installed, headless chrome not available";
                 $meets_requirements = 0;
             }
         }
@@ -416,16 +456,24 @@ sub Check_Deque_Axe_Requirements {
         if ( $file_path =~ /no axe/i ) {
             print "axe not in path\n" if $debug;
             print STDERR "Deque Axe not installed, axe not available\n";
+            $deaque_axe_install_error = "Deque Axe not installed, axe not available";
             $meets_requirements = 0;
         }
         else {
-            print "axe found at $file_path\n" if $debug;
+            #
+            # Get axe version
+            #
+            $version = `axe --version 2>&1`;
+            chomp($version);
+            $deque_axe_version = $version;
+            print "axe version $version found at $file_path\n" if $debug;
         }
 
         #
         # Not Windows.
         #
         print STDERR "Not Windows, headless chrome not available\n";
+        $deaque_axe_install_error = "Not Windows, headless chrome not available";
         $meets_requirements = 0;
     }
 
@@ -515,6 +563,11 @@ sub Record_Result {
     # Print error string to stdout
     #
     Print_Error($context, "$id : $help");
+    
+    #
+    # Return the testcase result object
+    #
+    return($result_object);
 }
 
 #***********************************************************************
@@ -535,11 +588,11 @@ sub Record_Result {
 sub Deque_AXE_Check {
     my ($this_url, $language, $profile, $resp, $content) = @_;
 
-    my ($sec, $min, $hour, $time, $cmd, $output);
+    my ($sec, $min, $hour, $time, $cmd, $output, $runtime_error_string);
     my (@tqa_results_list, @lines, $error, $eval_output);
     my ($ref, $ref_type, $array_item, $id, $description, $html, $tags);
     my ($help, $violations_array, $violations_item, $tags_array);
-    my ($help_url, $nodes, $node, $impact);
+    my ($help_url, $nodes, $node, $impact, $line, $result_object);
     my ($error_found) = 0;
 
     #
@@ -598,7 +651,8 @@ sub Deque_AXE_Check {
         ($sec, $min, $hour) = (localtime)[0,1,2];
         $time = sprintf("%02d:%02d:%02d", $hour, $min, $sec);
         print "axe started at $time\n" if $debug;
-        $cmd = "axe \"$this_url\" --stdout";
+        unlink("axe_stderr.txt");
+        $cmd = "axe \"$this_url\" $chromedriver_argument --stdout 2> axe_stderr.txt";
         print "$cmd\n" if $debug;
         $output = `$cmd`;
         ($sec, $min, $hour) = (localtime)[0,1,2];
@@ -607,21 +661,72 @@ sub Deque_AXE_Check {
         print "axe output = $output\n" if $debug;
         
         #
-        # Did we encounter a runtime error? This
-        # can happen if headless chrome is not installed.
+        # Get the stferr output as a string
         #
-        if ( $output =~ /^Error: /im ) {
-            print "Error running axe: $output\n" if $debug;
-            $error_found - 1;
-            
+        open(FH, "axe_stderr.txt");
+        $runtime_error_string = "";
+        while ( $line = <FH> ) {
+            print STDERR "$line\n";
+            $runtime_error_string .= "$line";
+        }
+        close(FH);
+
+        #
+        # Check for possible ChromeDriver version error
+        #
+        if (  $runtime_error_string =~ /This version of ChromeDriver only supports/im ) {
+            print "ChromeDriver version error: $runtime_error_string\n" if $debug;
+
             #
             # Record only 1 runtime error
             #
             $error_found = 1;
             if ( ! $axe_runtime_reported ) {
-                Record_Result("AXE", "",
-                              String_Value("Runtime Error") .
-                              " \"$cmd\"\n" . " \"$output\"");
+                $result_object = Record_Result("AXE", "",
+                                      String_Value("ChromeDriver version error") .
+                                      " \"$cmd\"\n" . " \"$output\"");
+                print STDERR "Error running axe: $output\n";
+
+                #
+                # Reset the source line value of the testcase error result.
+                # The initial setting may have been truncated while in this
+                # case we want the entire value.
+                #
+                $result_object->source_line(String_Value("ChromeDriver version error") .
+                                            " \"$cmd\"\n" . " \"$output\"\n" .
+                                            "STDERR: $runtime_error_string\n");
+
+                #
+                # Suppress further errors
+                #
+                $axe_runtime_reported = 1;
+            }
+        }
+        #
+        # Did we encounter a runtime error? This
+        # can happen if headless chrome is not installed.
+        #
+        elsif ( ($output =~ /^Error: /im) || ($output =~ /throw error;/im)  ) {
+            print "Error running axe: $output\n" if $debug;
+
+            #
+            # Record only 1 runtime error
+            #
+            $error_found = 1;
+            if ( ! $axe_runtime_reported ) {
+                $result_object = Record_Result("AXE", "",
+                                      String_Value("Runtime Error") .
+                                      " \"$cmd\"\n" . " \"$output\"");
+                print STDERR "Error running axe: $output\n";
+
+                #
+                # Reset the source line value of the testcase error result.
+                # The initial setting may have been truncated while in this
+                # case we want the entire value.
+                #
+                $result_object->source_line(String_Value("Runtime Error") .
+                                            " \"$cmd\"\n" . " \"$output\"\n" .
+                                            "STDERR: $runtime_error_string\n");
 
                 #
                 # Suppress further errors
@@ -867,16 +972,38 @@ sub Deque_AXE_Check {
             #
             print "No axe output or does not contain violations string\n" if $debug;
             if ( ! $axe_runtime_reported ) {
-                Record_Result("AXE", "",
-                              String_Value("Runtime Error") .
-                              " Expected 'violations' field in axe command output, found\n$output");
+                $result_object = Record_Result("AXE", "",
+                                   String_Value("Runtime Error") .
+                                   " Expected 'violations' field in axe command output, found\n\"$output\"");
+                print STDERR "Error running axe: $output\n";
+                open(FH, "axe_stderr.txt");
+                $runtime_error_string = "";
+                while ( $line = <FH> ) {
+                    print STDERR "$line\n";
+                    $runtime_error_string .= "$line";
+                }
+                close(FH);
 
+                #
+                # Reset the source line value of the testcase error result.
+                # The initial setting may have been truncated while in this
+                # case we want the entire value.
+                #
+                $result_object->source_line(String_Value("Runtime Error") .
+                                   " Expected 'violations' field in axe command output, found\n\"$output\"\n" .
+                                   "STDERR: $runtime_error_string\n");
+                                            
                 #
                 # Suppress further errors
                 #
                 $axe_runtime_reported = 1;
             }
         }
+        
+        #
+        # Remove stderr output
+        #
+        unlink("axe_stderr.txt");
     }
     #
     # Axe not available, cannot run checks.  Report error on
@@ -886,7 +1013,7 @@ sub Deque_AXE_Check {
         print "Could not run axe checks\n" if $debug;
         Record_Result("AXE", "",
                       String_Value("Runtime Error") . " " .
-                      String_Value("Deque Axe not installed"));
+                      "Deque Axe: $deaque_axe_install_error");
 
         #
         # Suppress further errors
@@ -898,6 +1025,32 @@ sub Deque_AXE_Check {
     # Return results
     #
     return(@tqa_results_list);
+}
+
+
+#***********************************************************************
+#
+# Name: Deque_AXE_Version
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function returns the version of the Deque Axe software.
+#
+#***********************************************************************
+sub Deque_AXE_Version {
+    #
+    # Do we have version string?
+    #
+    print "Deque_AXE_Version\n" if $debug;
+    Check_Deque_Axe_Requirements();
+    if ( defined($deque_axe_version) && ($deque_axe_version ne "") ) {
+        return($deque_axe_version);
+    }
+    else {
+        return("");
+    }
 }
 
 #***********************************************************************
