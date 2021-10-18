@@ -408,19 +408,28 @@ sub XML_Validate_Xerces {
         # An error trying to run the tool
         #
         print "Error running xerces XML validation\n" if $debug;
-        print STDERR "Error running xerces XML validation\n";
-        print STDERR "  $xerces_validate_cmnd \"$xml_filename\" 2>\&1\n";
-        print STDERR "$output\n";
 
         #
         # Report runtime error only once
         #
         if ( ! $runtime_error_reported ) {
+            print STDERR "Error running xerces XML validation\n";
+            print STDERR "  $xerces_validate_cmnd \"$xml_filename\" 2>\&1\n";
+            print STDERR "$output\n";
             $result_object = tqa_result_object->new($tcid, 1, $tc_desc,
                                                     -1, -1, "",
                                                     String_Value("Runtime Error") .
               " \"$xerces_validate_cmnd \"$xml_filename\"\"\n" .
                                                     " \"$output\"", $this_url);
+
+            #
+            # Reset the source line value of the testcase error result.
+            # The initial setting may have been truncated while in this
+            # case we want the entire value.
+            #
+            $result_object->source_line(String_Value("Runtime Error") .
+                                        " \"$xerces_validate_cmnd \"$xml_filename\"\"\n" .
+                                        " \"$output\"");
             $runtime_error_reported = 1;
         }
     }
