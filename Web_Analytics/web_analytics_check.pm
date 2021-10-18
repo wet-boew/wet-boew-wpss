@@ -112,6 +112,8 @@ my ($check_fail)       = 1;
 my %string_table_en = (
     "Found Google Analytics",    "Found Google Analytics",
     "Missing Google Analytics IP anonymization", "Missing Google Analytics IP anonymization",
+    "Multiple Web Analytics found on page", "Multiple Web Analytics found on page",
+    "Web Analytics not found on page", "Web Analytics not found on page",
     );
 
 #
@@ -120,6 +122,8 @@ my %string_table_en = (
 my %string_table_fr = (
     "Found Google Analytics",    "Trouvé des analytiques de Google",
     "Missing Google Analytics IP anonymization", "Manquantes Google Analytics anonymisation IP",
+    "Multiple Web Analytics found on page", "Plusieurs analyses Web trouvées sur la page",
+    "Web Analytics not found on page", "Web Analytics introuvable sur la page",
     );
 
 #
@@ -146,13 +150,15 @@ my ($url_table) = \%testcase_url_en;
 # String tables for testcase ID to testcase descriptions
 #
 my (%testcase_description_en) = (
-"WA_GA",       "WA_GA: Google Analytics",
-"WA_ID",       "WA_ID: Web Analytics De-Identification",
+    "WA_GA",       "WA_GA: Google Analytics",
+    "WA_ID",       "WA_ID: Web Analytics De-Identification",
+    "WA_MULTIPLE", "WA_MULTIPLE: Multiple Web Analytic",
 );
 
 my (%testcase_description_fr) = (
-"WA_GA",       "WA_GA: Analytiques de Google",
-"WA_ID",       "WA_ID: Web Analytique Anonymisation des renseignements",
+    "WA_GA",       "WA_GA: Analytiques de Google",
+    "WA_ID",       "WA_ID: Web Analytique Anonymisation des renseignements",
+    "WA_MULTIPLE", "WA_MULTIPLE: Plusieurs analyses Web",
 );
 
 #
@@ -434,168 +440,6 @@ sub String_Value {
 sub Set_Web_Analytics_Check_Testcase_Data {
     my ($profile, $testcase, $data) = @_;
 
-    my ($type, $value, @markers, $object, $array, $hash);
-    my ($field1, $field2);
-
-    #
-    # Do we have a testcase data object for this profile ?
-    #
-    if ( defined($testcase_data_objects{$profile}) ) {
-        $object = $testcase_data_objects{$profile};
-    }
-    else {
-        #
-        # No testcase data object, create one
-        #
-        $object = testcase_data_object->new;
-        $testcase_data_objects{$profile} = $object;
-    }
-    
-    #
-    # Do we have TP_PW_TEMPLATE testcase specific data ?
-    #
-    if ( $testcase eq "TP_PW_TEMPLATE" ) {
-        #
-        # Get the template data type
-        #
-        ($type, $value) = split(/\s+/, $data, 2);
-
-        #
-        # Do we have a template directory ?
-        #
-        if ( ($type eq "DIRECTORY") && defined($value) ) {
-            if ( ! ($object->has_field("template_directory")) ) {
-                $object->add_field("template_directory", "scalar");
-                $object->set_scalar_field("template_directory", $value);
-            }
-        }
-        #
-        # Do we have template markers ?
-        #
-        elsif ( ($type eq "MARKERS") && defined($value) ) {
-            @markers = split(/\s+/, $value);
-            if ( ! ($object->has_field("required_template_markers")) ) {
-                $object->add_field("required_template_markers", "hash");
-            }
-            $hash = $object->get_field("required_template_markers");
-            
-            #
-            # Save marker values
-            #
-            foreach $value (@markers) {
-                $$hash{$value} = 0;
-            }
-        }
-        #
-        # Do we have the template repository ?
-        #
-        elsif ( ($type eq "REPOSITORY") && defined($value) ) {
-            if ( ! ($object->has_field("template_repository")) ) {
-                $object->add_field("template_repository", "scalar");
-                $object->set_scalar_field("template_repository", $value);
-            }
-        }
-        #
-        # Do we have a trusted domain ? one that we do not
-        # have to perform a checksum on template files ?
-        #
-        elsif ( ($type eq "TRUSTED") && defined($value) ) {
-            if ( ! ($object->has_field("trusted_template_domains")) ) {
-                $object->add_field("trusted_template_domains", "hash");
-            }
-            $hash = $object->get_field("trusted_template_domains");
-
-            #
-            # Save trusted domain value
-            #
-            $$hash{$value} = 1;
-        }
-    }
-    #
-    # Do we have TP_PW_SITE testcase specific data?
-    #
-    elsif ( $testcase eq "TP_PW_SITE" ) {
-        #
-        # Get the site includes data type
-        #
-        ($type, $value) = split(/\s+/, $data, 2);
-
-        #
-        # Do we have a site includes directory ?
-        #
-        if ( ($type eq "DIRECTORY") && defined($value) ) {
-            if ( ! ($object->has_field("site_inc_directory")) ) {
-                $object->add_field("site_inc_directory", "scalar");
-                $object->set_scalar_field("site_inc_directory", $value);
-            }
-        }
-        #
-        # Do we have the site includes repository ?
-        #
-        elsif ( ($type eq "REPOSITORY") && defined($value) ) {
-            if ( ! ($object->has_field("site_inc_repository")) ) {
-                $object->add_field("site_inc_repository", "scalar");
-                $object->set_scalar_field("site_inc_repository", $value);
-            }
-        }
-        #
-        # Do we have a trusted domain ? one that we do not
-        # have to perform a check of site includes.
-        #
-        elsif ( ($type eq "TRUSTED") && defined($value) ) {
-            if ( ! ($object->has_field("trusted_site_inc_domains")) ) {
-                $object->add_field("trusted_site_inc_domains", "hash");
-            }
-            $hash = $object->get_field("trusted_site_inc_domains");
-
-            #
-            # Save trusted domain value
-            #
-            $$hash{$value} = 1;
-
-        }
-    }
-    #
-    # Do we have TP_PW_SRCH testcase specific data?
-    #
-    elsif ( $testcase eq "TP_PW_SRCH" ) {
-        #
-        # Get the search testcase data type
-        #
-        ($type, $value) = split(/\s+/, $data, 2);
-
-        #
-        # Save the possible action value
-        #
-        if ( ($type eq "ACTION") && defined($value) ) {
-            if ( ! ($object->has_field("valid_search_actions")) ) {
-                $object->add_field("valid_search_actions", "array");
-            }
-            $array = $object->get_field("valid_search_actions");
-            push(@$array, $value);
-        }
-        #
-        # Save possible input values
-        #
-        elsif ( ($type eq "INPUT") && defined($value) ) {
-            #
-            # Split the value portion into name & value
-            #
-            ($field1, $field2) = split(/\s+/, $value, 2);
-
-            #
-            # Do we have name & portion ?
-            #
-            if ( defined($field2) && ($field2 ne "") ) {
-                if ( ! ($object->has_field("expected_search_inputs")) ) {
-                    $object->add_field("expected_search_inputs", "hash");
-                }
-
-                $hash = $object->get_field("expected_search_inputs");
-                $$hash{$field1} = $field2;
-            }
-        }
-    }
 }
 
 #***********************************************************************
@@ -624,14 +468,6 @@ sub Set_Web_Analytics_Check_Test_Profile {
     print "Set_Web_Analytics_Check_Test_Profile, profile = $profile\n" if $debug;
     %local_clf_checks = %$clf_checks;
     $tcid_profile_map{$profile} = \%local_clf_checks;
-    
-    #
-    # Create a testcase data object for this profile if we don't have one
-    #
-    if ( ! defined($testcase_data_objects{$profile}) ) {
-        $object = testcase_data_object->new;
-        $testcase_data_objects{$profile} = $object;
-    }
 }
 
 #**********************************************************************
@@ -726,7 +562,7 @@ sub Print_Error {
 #
 # Name: Record_Result
 #
-# Parameters: testcase - testcase identifier
+# Parameters: testcase - list of testcase identifiers
 #             line - line number
 #             column - column number
 #             text - text from tag
@@ -738,9 +574,21 @@ sub Print_Error {
 #
 #***********************************************************************
 sub Record_Result {
-    my ( $testcase, $line, $column, $text, $error_string ) = @_;
+    my ($testcase_list, $line, $column, $text, $error_string) = @_;
 
-    my ($result_object);
+    my ($result_object, $testcase, $id);
+
+    #
+    # Check for a possible list of testcase identifiers.  The first
+    # identifier that is part of the current profile is the one that
+    # the error will be reported against.
+    #
+    foreach $id (split(/,/, $testcase_list)) {
+        if ( defined($$current_profile{$id}) ) {
+            $testcase = $id;
+            last;
+        }
+    }
 
     #
     # Is this testcase included in the profile
@@ -764,25 +612,29 @@ sub Record_Result {
 
 #***********************************************************************
 #
-# Name: Check_JavaScript_Web_Analytics
+# Name: Check_Web_Analytics_Markers
 #
-# Parameters: content - content pointer
+# Parameters: html_content - HTML content pointer
+#             javascript_content - JavaScript content pointer
 #
 # Description:
 #
-#   This function checks the JavaScript content for possible web analytics
-# code.
+#   This function checks the HTML and JavaScript content for
+# possible web analytics code.
 #
 #***********************************************************************
 sub Check_JavaScript_Web_Analytics {
-    my ($content) = @_;
+    my ($html_content, $javascript_content) = @_;
+    
+    my ($analytics_type_count) = 0;
+    my ($analytics_types) = "";
 
     #
-    # Check for possible google analytics code
+    # Check for possible google analytics code in JavaScript
     #
-    if ( ($$content =~ /_gaq\.push\s*\(/i) ||
-         ($$content =~ /_trackPageview/i) ||
-         ($$content =~ /ga\s*\(\s*'send',\s*'pageview'\s*/i) ) {
+    if ( ($$javascript_content =~ /_gaq\.push\s*\(/i) ||
+         ($$javascript_content =~ /_trackPageview/i) ||
+         ($$javascript_content =~ /ga\s*\(\s*'send',\s*'pageview'\s*/i) ) {
 
          #
          # Found google analytics
@@ -793,7 +645,7 @@ sub Check_JavaScript_Web_Analytics {
         #
         # Is there code to anonymize the IP address ?
         #
-        if ( ! ( $$content =~ /anonymizeIp/i ) ) {
+        if ( ! ( $$javascript_content =~ /anonymizeIp/i ) ) {
             Record_Result("WA_ID", -1, -1, "",
                           String_Value("Missing Google Analytics IP anonymization"));
         }
@@ -804,29 +656,60 @@ sub Check_JavaScript_Web_Analytics {
         print "Found Google Analytics code\n" if $debug;
         $analytics_type = "Google";
         $found_web_analytics = 1;
+        $analytics_type_count++;
+        $analytics_types .= "$analytics_type ";
     }
+    
     #
-    # Look for Piwik analytics code
+    # Look for Piwik analytics code in the JavaScript
     #
-    elsif ( ($$content =~ /\.trackPageView\s*\(/i) ||
-            ($$content =~ /\['trackPageView'\]/i) ) {
+    if ( ($$javascript_content =~ /\.trackPageView\s*\(/i) ||
+         ($$javascript_content =~ /\['trackPageView'\]/i) ) {
         #
         # Set flag to indicate we found Piwik Analytics code
         #
         print "Found Piwik Analytics code\n" if $debug;
         $analytics_type = "Piwik";
         $found_web_analytics = 1;
+        $analytics_type_count++;
+        $analytics_types .= "$analytics_type ";
     }
+    
     #
-    # Look for Urchin analytics code
+    # Look for Adobe analytics code in JavaScript
     #
-    elsif ( $$content =~ /urchinTracker\s*\(/i ) {
+    if ( $$javascript_content =~ /_satellite\.pageBottom\s*\(\s*\)\s*;/i ) {
+        #
+        # Set flag to indicate we found Adobe Analytics code
+        #
+        print "Found Adobe Analytics code\n" if $debug;
+        $analytics_type = "Adobe";
+        $found_web_analytics = 1;
+        $analytics_type_count++;
+        $analytics_types .= "$analytics_type ";
+    }
+    
+    #
+    # Look for Urchin analytics code in the JavaScript
+    #
+    if ( $$javascript_content =~ /urchinTracker\s*\(/i ) {
         #
         # Set flag to indicate we found Urchin Analytics code
         #
         print "Found Urchin Analytics code\n" if $debug;
         $analytics_type = "Urchin";
         $found_web_analytics = 1;
+        $analytics_type_count++;
+        $analytics_types .= "$analytics_type ";
+    }
+
+    #
+    # Do we have multiple analytics types?
+    #
+    if ( $analytics_type_count > 1 ) {
+         Record_Result("WA_MULTIPLE", -1, -1, "",
+                       String_Value("Multiple Web Analytics found on page") .
+                       " $analytics_types");
     }
 }
 
@@ -851,6 +734,7 @@ sub Web_Analytics_Check {
 
     my (@tqa_results_list, $tcid, $do_tests, $javascript_content);
     my ($result_object);
+    my ($empty_string) = "";
 
     #
     # Initialize the test case pass/fail table.
@@ -910,7 +794,7 @@ sub Web_Analytics_Check {
             #
             # Check for Web Analytics
             #
-            Check_JavaScript_Web_Analytics(\$javascript_content);
+            Check_JavaScript_Web_Analytics($content, \$javascript_content);
         }
         #
         # Is this JavaScript code ?
@@ -920,7 +804,7 @@ sub Web_Analytics_Check {
             #
             # Check for Web Analytics
             #
-            Check_JavaScript_Web_Analytics($content);
+            Check_JavaScript_Web_Analytics(\$empty_string, $content);
         }
     }
     else {
