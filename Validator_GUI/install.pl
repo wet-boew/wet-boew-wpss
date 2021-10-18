@@ -3,9 +3,9 @@
 #
 # Name:   install.pl
 #
-# $Revision: 1774 $
+# $Revision: 2145 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/install.pl $
-# $Date: 2020-04-07 10:22:38 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2021-09-21 09:00:53 -0400 (Tue, 21 Sep 2021) $
 #
 # Synopsis: install.pl [ uninstall ] [ -no_pause ]
 #
@@ -46,6 +46,7 @@
 #***********************************************************************
 
 use strict;
+use lib ".";
 use File::Basename;
 use File::Copy;
 use File::Path qw(make_path remove_tree);
