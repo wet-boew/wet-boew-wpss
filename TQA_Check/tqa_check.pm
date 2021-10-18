@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 1769 $
+# $Revision: 2149 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2020-04-07 10:11:30 -0400 (Tue, 07 Apr 2020) $
+# $Date: 2021-09-21 11:09:23 -0400 (Tue, 21 Sep 2021) $
 #
 # Description:
 #
@@ -27,6 +27,7 @@
 #     TQA_Check_Set_Exemption_Markers
 #     TQA_Check_Exempt
 #     TQA_Check_Need_Validation
+#     TQA_Check_Tools_Versions
 #
 # Terms and Conditions of Use
 # 
@@ -83,6 +84,8 @@ use marc_check;
 use metadata;
 use metadata_result_object;
 use pdf_check;
+use tqa_deque_axe;
+use tqa_pa11y;
 use tqa_result_object;
 use tqa_testcases;
 use url_check;
@@ -113,6 +116,7 @@ BEGIN {
                   TQA_Check_Set_Exemption_Markers
                   TQA_Check_Exempt
                   TQA_Check_Need_Validation
+                  TQA_Check_Tools_Versions
                   );
     $VERSION = "1.0";
 }
@@ -1026,7 +1030,7 @@ sub Check_Link_Anchor_Alt_Title_Check {
     my ($link, $string1, $string2, %g197_reported);
     my ($lang, $anchor, $title, $alt, $link_url, $referer_url);
     my ($url_link_object_table, $previous_link, $different);
-    my ($difference, $line_no, $column_no, $link_type);
+    my ($difference, $line_no, $column_no, $link_type, %attr);
     my ($url_lang_link_object_table, %lang_url_link_object_table);
     my ($in_list, $list_heading, $ignored_link_text, $ignore_link);
 
@@ -1054,6 +1058,7 @@ sub Check_Link_Anchor_Alt_Title_Check {
             $list_heading = $link->list_heading;
             $current_landmark = $link->landmark();
             $landmark_marker = $link->landmark_marker();
+            %attr = $link->attr();
             print "Check link anchor = \"$anchor\", lang = $lang, alt = \"$alt\" url = $link_url at $line_no:$column_no\n" if $debug;
 
             #
@@ -1094,6 +1099,16 @@ sub Check_Link_Anchor_Alt_Title_Check {
             #
             if ( ($link_type eq "img") && $link->in_anchor ) {
                 print "Skip image inside anchor\n" if $debug;
+                next;
+            }
+            
+            #
+            # Does this link have a tabindex attribute that hides it from
+            # the accessible tree?
+            #
+            if ( defined($attr{"tabindex"}) &&
+                 ($attr{"tabindex"} == -1) ) {
+                print "Skip link with tabindex=\"-1\"\n" if $debug;
                 next;
             }
 
@@ -2758,6 +2773,43 @@ sub TQA_Check_Need_Validation {
     # Return flag indicating whether or not validation is required
     #
     return($need_validation);
+}
+
+#***********************************************************************
+#
+# Name: TQA_Check_Tools_Versions
+#
+# Parameters: none
+#
+# Description:
+#
+#   This function gets the version of supporting tools.
+#
+#***********************************************************************
+sub TQA_Check_Tools_Versions {
+
+    my (%tool_versions, $version);
+    
+    #
+    # Check Deque Axe
+    #
+    $version = Deque_AXE_Version();
+    if ( $version ne "" ) {
+        $tool_versions{"Deque Axe"} =  $version;
+    }
+    
+    #
+    # Check Pa11y
+    #
+    $version = Pa11y_Version();
+    if ( $version ne "" ) {
+        $tool_versions{"Pa11y"} =  $version;
+    }
+    
+    #
+    # Return version information
+    #
+    return(%tool_versions);
 }
 
 #***********************************************************************
