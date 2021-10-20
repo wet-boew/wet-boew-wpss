@@ -2785,6 +2785,16 @@ sub Read_Open_Data_File {
                 $report_options{$label} = $value;
                 print "Report options type $label, value = $value\n" if $debug;
             }
+            
+            #
+            # Is this a group profile option ?
+            #
+            if ( $field_name eq $testcase_profile_groups_config_option ) {
+                #
+                # Update all the other testcase profile options
+                #
+                Select_Testcase_Profile_Group($value, \%report_options);
+            }
         }
         #
         # Data file URL ?
