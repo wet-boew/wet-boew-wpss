@@ -2,9 +2,9 @@
 #
 # Name: open_data_dictionary_object.pm
 #
-# $Revision: 1572 $
+# $Revision: 1886 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_dictionary_object.pm $
-# $Date: 2019-10-29 09:43:43 -0400 (Tue, 29 Oct 2019) $
+# $Date: 2020-12-16 11:33:14 -0500 (Wed, 16 Dec 2020) $
 #
 # Description:
 #
@@ -28,6 +28,7 @@
 #      data value pairs with this heading.
 #    type - get/set the type value
 #    term - get/set term value
+#    term_lang - get/set term language value
 #
 # Terms and Conditions of Use
 # 
@@ -146,6 +147,7 @@ sub new {
     $self->{"regex"} = "";
     $self->{"related_resource"} = "";
     $self->{"term"} = "";
+    $self->{"term_lang"} = "";
     $self->{"type"} = "";
     
     #
@@ -354,35 +356,6 @@ sub set_consistent_data_heading {
 
 #********************************************************
 #
-# Name: type
-#
-# Parameters: self - class reference
-#             value - value (optional)
-#
-# Description:
-#
-#   This function either sets or returns the type
-# attribute of the data dictionary object. If a value is supplied,
-# it is saved in the object. If no value is supplied,
-# the current value is returned.
-#
-#********************************************************
-sub type {
-    my ($self, $value) = @_;
-
-    #
-    # Was a type value supplied ?
-    #
-    if ( defined($value) ) {
-        $self->{"type"} = $value;
-    }
-    else {
-        return($self->{"type"});
-    }
-}
-
-#********************************************************
-#
 # Name: term
 #
 # Parameters: self - class reference
@@ -407,6 +380,64 @@ sub term {
     }
     else {
         return($self->{"term"});
+    }
+}
+
+#********************************************************
+#
+# Name: term_lang
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the term_lang
+# attribute of the data dictionary object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub term_lang {
+    my ($self, $value) = @_;
+
+    #
+    # Was a value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"term_lang"} = $value;
+    }
+    else {
+        return($self->{"term_lang"});
+    }
+}
+
+#********************************************************
+#
+# Name: type
+#
+# Parameters: self - class reference
+#             value - value (optional)
+#
+# Description:
+#
+#   This function either sets or returns the type
+# attribute of the data dictionary object. If a value is supplied,
+# it is saved in the object. If no value is supplied,
+# the current value is returned.
+#
+#********************************************************
+sub type {
+    my ($self, $value) = @_;
+
+    #
+    # Was a type value supplied ?
+    #
+    if ( defined($value) ) {
+        $self->{"type"} = $value;
+    }
+    else {
+        return($self->{"type"});
     }
 }
 
