@@ -2,9 +2,9 @@
 #
 # Name:   crawler_puppeteer.pm
 #
-# $Revision: 2138 $
+# $Revision: 2193 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler_puppeteer.pm $
-# $Date: 2021-09-21 08:55:19 -0400 (Tue, 21 Sep 2021) $
+# $Date: 2021-10-29 11:04:59 -0400 (Fri, 29 Oct 2021) $
 #
 # Description:
 #
@@ -502,7 +502,7 @@ sub Check_Puppeteer_Requirements {
         ($js_fh, $js_filename) =
            tempfile("WPSS_TOOL_CP_XXXXXXXXXX",
                     SUFFIX => '.js',
-                    DIR => '.');
+                    TMPDIR => 1);
         if ( ! defined($js_fh) ) {
             print STDERR "Error: Failed to create temporary file in Check_Puppeteer_Requirements\n";
             return(0);
@@ -525,7 +525,7 @@ console.log('Version: ' + version);
         ($bat_fh, $bat_filename) =
            tempfile("WPSS_TOOL_CP_XXXXXXXXXX",
                     SUFFIX => '.bat',
-                    DIR => '.');
+                    TMPDIR => 1);
         if ( ! defined($bat_fh) ) {
             print STDERR "Error: Failed to create temporary file in Check_Puppeteer_Requirements\n";
             unlink($js_filename);
