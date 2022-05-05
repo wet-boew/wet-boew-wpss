@@ -1042,6 +1042,13 @@ sub DC_Subject_Content_Check {
     #
     foreach $term (@terms) {
         #
+        # Ignore empty terms
+        #
+        if ( $term =~ /^\s*$/ ) {
+            next;
+        }
+        
+        #
         # Eliminate whitespace and convert to lowercase
         #
         $term =~ s/^\s+//g;
@@ -1051,7 +1058,6 @@ sub DC_Subject_Content_Check {
         $orig_term = $term;
         $utf8_term = decode_entities($term);
         $term = encode_entities($term);
-
         
         #
         # Convert windows right single quote character (’) into a regular
