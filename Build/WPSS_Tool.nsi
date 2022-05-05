@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Web and Open Data Validator"
-!define PRODUCT_VERSION "6.13.1"
+!define PRODUCT_VERSION "6.14.0"
 !define PRODUCT_PUBLISHER "TPSGC-PWGSC"
 !define PRODUCT_WEB_SITE "https://github.com/wet-boew/wet-boew-wpss"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${PRODUCT_NAME}"
