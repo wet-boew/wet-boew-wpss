@@ -1,0 +1,1635 @@
+#
+# Version history of Versions.txt
+#
+# $Revision: 2261 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Documents/Versions.txt $
+# $Date: 2022-01-05 12:38:55 -0500 (Wed, 05 Jan 2022) $
+#
+# Version number = <Major release>.<Minor release>.<Bug fix>
+#
+6.14.0 -
+  Web
+    - Check the chromedriver version against the chrome version when
+      using the Deque AXE tool
+    - Ignore blank terms in dc.subject
+
+
+  Open Data
+
+
+6.13.1 - Dec. 13, 2021
+  Web
+    - Ensure npm folder is in search path for supporting programs
+
+
+  Open Data
+    - Don't report missing charset="utf-8" for JSON files in a
+      ZIP archive - TP_PW_OD_DATA
+    - Check for https protocol for dataset URLs - TP_PW_OD_URL
+
+
+6.13.0 - Nov. 16, 2021
+  Web
+    - Don't use exclusive list for label types that require label, only
+      list exceptions - WCAG_2.0-H44
+    - Check for nested tables in thead, tfoot or th - WCAG_2.0-SC1.3.1
+    - Check for data cells in tables - WCAG_2.0-H51
+    - Check if multiple interface controls (input, button) have the
+      same aria-labelledby reference - WCAG_2.0-ARIA16
+    - Don't report error on focusable tags with tabindex = -1 if
+      they nested in aria-hidden="true" - WCAG_2.0-SC4.1.2
+    - Add option in configuration file to delay between fetches of pages
+      from web sites to reduce the load on the web server.
+    - Update list of valid rel attribute values for HTML5 - WCAG_2.0-H88
+    - Update CSS validator to version cssval-20190320
+    - Add testcase profile and checks for ACT rule set
+      https://act-rules.github.io/rules/
+    - Add runtime error messages to STDERR for supporting tools.
+    - Update HTML5 validator to version 20.6.30 - HTML_VALIDATION
+    - Check ChromeDriver version error with headless chrome.
+    - Update Core Subject Thesaurus to December 11, 2020 version - DC Subject
+    - Update the set of valid rel attribute values for tags.
+    - Search for free port to use for markup server task.
+    - Don't report error for allowed JavaScript in head (e.g. analytics)
+      in mobile checks - JS_BOTTOM
+    - Suppress reporting of invalid schema types and properties. The schema
+      definition file is out of date - SWI_E_RDFA
+    - Don't check supporting file version numbers for template consistency
+      as there is no single version for all supporting files - SWU_TEMPLATE
+    - Add user agent version/installation details to output tabs.
+    - Add supporting tools (e.g. pa11y) versions to accessibility tab.
+    - Create new testcase group profiles for PSPC Internet, GC Intranet
+      and Intranet.
+    - Check for analytics markers in the HTML markup using patterns
+      rather than just looking for links.
+
+
+  Open Data
+    - Add runtime error messages to STDERR for supporting tools.
+    - Check that the language appropriate label is used for headings with
+      multiple language specific labels - OD_DATA
+    - Check that heading order matches in language variants of
+      data files - OD_DATA
+    - Do language variant checks only if one of the primary languages
+      (English or French) are found.
+    - Add testcase identifier TBS_QRS for TBS Quality Rating System checks.
+    - Use csvlint program to check CSV files - TBS_QRS
+    - Add testcase profile for TBS Quality Rating System checks
+    - Add user agent version/installation details to output tabs.
+    - Add supporting tools (e.g. pa11y) versions to accessibility tab.
+    - Report missing JSON schema under testcase id TP_PW_OD_VAL.
+    - Add testcase group profiles option.
+
+
+6.12.0 - Apr. 30, 2020
+  Web
+    - Upgrade Win32::GUI package to version 1.14
+    - Allow installation on latest Perl version (5.30) as well as
+      64 bit installations. Minimum Perl version 5.26.1 for Windows.
+    - Eliminate support for ActiveState Perl as Win32::GUI PPM will not
+      install on the latest community releases.
+    - Use axe-cli to check Deque AXE testcases - AXE.
+    - Allow div tag to be a child tag of a dl tag - WCAG_2.0-SC1.3.1
+    - Defer some configuration and initialization until needed.
+      This speeds up loading and starting of the program.
+    - Check for whitespace in URL strings.
+    - Report the list of URLs that are skipped during a crawl (e.g. duplicate
+      content).
+    - Add WCAG level A or AA to testcase results.
+    - Add tag Xpath to testcase results.
+
+  Open Data
+    - Upgrade Win32::GUI package to version 1.14
+    - Allow installation on latest Perl version (5.30) as well as
+      64 bit installations. Minimum Perl version 5.26.1 for Windows.
+    - Allow spaces in file path for file: URLs.
+    - Add optional field to data dictionary specification to allow the
+      specification of consistency of value between pairs of data columns
+      across data rows - TP_PW_OD_CONT_CONSISTENCY
+    - Check JSON arrays for possible data dictionary terms, not just
+      JSON objects.
+    - Convert accented characters to unaccented when checking for consistent
+      values in CSV fields - TP_PW_OD_CONT_CONSISTENCY
+    - Abort JSON schema validation if there are too many errors. This
+      avoids the appearance of hanging when validating large JSON files
+      that contain lots of validation errors - OD_VAL
+    - Check for possible scientific notation (e.g. 1.3e-005) in CSV
+      cell values - TP_PW_OD_CONT
+    - Check for possible URLs in CSV cell values - TP_PW_OD_CONT
+    - Check for newline, linefeed or return characters in CSV column
+      headings - TP_PW_OD_DATA
+    - Defer some configuration and initialization until needed.
+      This speeds up loading and starting of the program.
+    - If a data dictionary heading has language specific labels, check
+      that all required languages are found - TP_PW_OD_DD
+    - Check some Open Government registry metata values (e.g. date
+      released, data modified, update frequency) - OD_REG
+    - Report multi-column data inconsistencies under a new testcase
+      identifier - TP_PW_OD_CONT_COL_CONSISTENCY
+    - Check the Flesch Kincaid reading level of the English dataset
+      description in the JSON dataset object - OD_REG
+
+6.11.0 - Sept. 17, 2019
+  Web
+    - Update HTML5 validator to version 18.11.5 - HTML_VALIDATION
+    - Check that ARIA properties have valid values - WCAG_2.0-SC4.1.2
+    - If there are multiple role values, use first non-abstract role.
+    - Check that role values are valid - WCAG_2.0-SC4.1.2
+    - Check for focusable content inside aria-hidden tags - WCAG_2.0-SC4.1.2
+    - Don't report missing content for tags that have a presentation
+      role - WCAG_2.0-G115
+    - Use chrome as headless user agent if the browser and required
+      node/puppeteer installation is available.  Use PhantomJS as fallback.
+    - If a <video> is inside a <figure>, the <figcaption> can be used for the
+      video captions text - WCAG_2.0-G87
+    - Report missing captions or descriptions track for <audio> tags
+      under technique WCAG_2.0-G158 rather than G87.
+    - Check that li, dt and dd tags appear in lists - WCAG_2.0-H88
+    - Check for link text that is just punctuation - WCAG_2.0-H30
+    - Check for nested interactive tags - WCAG_2.0-SC2.4.3
+    - Check for valid role and tag combinations - WCAG_2.0-SC4.1.2
+    - Update to epubcheck 4.2.1 - EPUB_VALIDATION
+    - Check for text alternative on images with
+      role="presentation" - WCAG_2.0-F39
+    - Add testcases, checks and accessibility profile for Deque AXE rules.
+      https://dequeuniversity.com/rules/axe/3.3
+    - Add testcases, checks and accessibility profile for Pa11y
+      accessibility tool. https://github.com/pa11y/pa11y
+
+
+  Open Data
+    - Don't check file suffix and mime-type for resources marked as
+      "Other" in the dataset description JSON object - OD_URL
+    - Check that minimum and maximum values match in numeric and date
+      columns for language variants of data files - OD_DATA
+    - Use first value in column as possible header label if no
+      data dictionary is specified - OD_DATA
+    - Check that heading descriptions are not the same as the heading
+      label - TP_PW_OD_DD
+    - Check that descriptions are different for each language - TP_PW_OD_DD
+    - Record XML data file tags that match data dictionary terms as
+      being equivalent to CSV column/Data dictionary headings.
+    - Ignore directory paths when determining if data files are language
+      variants of the same data.
+    - Don't check value inconsistencies for columns that have data patterns
+      that would report errors - TP_PW_OD_CONT
+    - Check for duplicate resource URLs in dataset description
+      JSON - TP_PW_OD_DATA
+    - Update Xerces2 XML parser to version 2.12.0.
+    - Report duplicate data rows or columns under testcase id
+      TP_PW_OD_CONT_DUP so it can be filtered
+    - Report inconsistent data values under testcase id
+      TP_PW_OD_CONT_CONSISTENCY so it can be filtered
+    - Check for inconsistent capitalization for short (fewer than 100
+      characters) text cells - TP_PW_OD_CONT_CONSISTENCY
+
+
+6.10.0 - Jan. 24, 2019
+  Web
+    - Update HTML5 validator to version 18.8.29 - HTML_VALIDATION
+    - Skip check of property attribute in meta tags - SWI_E_RDFA
+    - Check for illegal ancestor tag for main landmark - WCAG_2.0-SC1.3.1
+    - Changes and additional JAR files for Open JDK version 11 support.
+    - Update to epubcheck 4.1.0 - EPUB_VALIDATION
+  
+  Open Data
+    - Include headings from data dictionary in file inventory CSV.
+    - Remove punctuation only after letters (i.e. not in numbers) to
+      reduce false errors - TP_PW_OD_CONT
+    - Check for at least 1 comma in the first line of CSV file - OD_VAL
+    - Check for possible tab separator rather than comma separator in
+      CSV files - OD_VAL
+    - Include floating point (e.g. 0.00) as zero/blank values when
+      checking for duplicate columns - TP_PW_OD_CONT
+    - Report possible currency values in CSV fields (leading or
+      trailing $ sign) - TP_PW_OD_CONT
+    - Report thousands separator in numeric values in CSV
+      fields (comma or space separator) - TP_PW_OD_CONT
+    - Report MARC validation errors as content errors rather than
+      Open Data errors - TP_PW_OD_CONT
+    - Validate very large XML files (> 100Mb) with a command line
+      validator.  Perl validation may fail due to a limitation
+      in the XML::Parser module - OD_VAL
+    - Check that ZIP file is properly received before attempting
+      to read it.
+    - Check for very large text cells (> 32767 characters) in
+      CSV files. These may be truncated by spreadsheet tools
+      (e.g. Excel) - TP_PW_OD_CONT
+    
+
+6.9.0 - Oct. 4, 2018
+  Web
+    - Check heading levels are in proper nested order in EPUB
+      files - EPUB_TITLE_002
+    - Check that there is only 1 top level heading in a <section>
+      in EPUB files - EPUB_TITLE_002
+    - Check for list of tables in navigation if there are tables in
+      EPUB content documents - EPUB-ACCESS-002
+    - Check for no redirect URL after login form submission.
+    - Include ARIA landmarks in error messages reported for HTML pages to
+      help detect page template issues.
+    - Set the hash bang line in Perl and Python scripts in case of
+      non-standard installs.
+    - Check that a tag with a role is contained by a tag with the
+      required context role - WCAG_2.0-H88.
+    - Check that tags that have WAI-ARIA attributes are contained in
+      tags that have an appropriate role value - WCAG_2.0-H88.
+    - Don't report errors for emphasised text inside headings - WCAG_2.0-F2
+    - Validate MARC files using the Metadata-qa-marc validator - WCAG_2.0-G134
+    - Add testcase group profile for PWGSC WET 4.0 Intranet.
+    - Check for required context roles if a tag has an explicit
+      or implicit WAI-ARIA role - WCAG_2.0-SC4.1.2.
+    - Report error for any occurance of tabindex greater than 0. In most
+      cases this will lead to a reading order failure - WCAG_2.0-F44
+
+  Open Data
+    - Check for identical values for all cells in a column - TP_PW_OD_CONT
+    - Display content errors in content tab.
+    - Check for leading or trailing whitespace in CSV fields - TP_PW_OD_CONT
+    - Check for whitespace inside of heading labels - TP_PW_OD_CONT
+    - Check that the number of columns match for all data
+      files in a dataset - TP_PW_OD_CONT
+    - Check that date (YYYY-MM-DD) columns match for language variants
+      of data files - OD_DATA
+    - Check text columns for consistency in spacing, punctuation and
+      pluralization of values - TP_PW_OD_CONT
+    - Allow for MARC data files.
+    - Report duplicate CSV rows under testcase identifier TP_PW_OD_CONT
+    - Report duplicate JSON-CSV arrays under testcase identifier TP_PW_OD_CONT
+    - Accept application/csv as a mime type for CSV files.
+
+
+6.8.1 - Feb 22, 2018
+  Web
+    - Instruct PhantomJS to ignore SSL errors (e.g. unsigned certificates).
+    - Add HTTP 401 authentication handling in PhantomJS
+    - Improve HTTP 401 authentication, add credentials every time there
+      is an access denied response.
+    - Defer site entry page checks for sites with a login until after
+      the login is complete.
+
+  Open Data
+
+
+6.8.0 - Feb 5, 2018
+  Web
+    - Add "WPSS_Tool" to user agent string for PhantomJS.
+    - Limit size of link check cache by content size as well as number of
+      links to control memory usage.
+    - Update HTML5 validator to version 17.11.1.
+    - Generate a link details CSV file for all links in web pages.
+    - Add checks for EPUB Accessibility Techniques version 1.0
+      http://www.idpf.org/epub/a11y/techniques/techniques.html
+    - Add configuration item to limit the number of errors to report for
+      a single URL.
+
+  Open Data
+    - Check for blank column heading - TP_PW_OD_DATA
+    - Use JSON::PP, the pure Perl backend to JSON.pm.
+      In Strawberry Perl 5.22 and later on Windows, the JSON::XS module
+      fails to decode a JSON string in a multi-threaded program.
+    - Include all non-blank lines in list item - OD_DATA
+    - Add configuration item to limit the number of errors to report for
+      a single URL.
+    
+  
+6.7.0 - Nov 7, 2017
+  Web
+    - Stop redirecting if a URL redirects back to itself.
+    - Allow input to be nested in label - WCAG_2.0-F68
+
+  Open Data
+    - Clarify error message if header row is not found - TP_PW_OD_DATA
+    - Ensure file: protocol URLs have 3 slash characters after the colon.
+    - Check for python 2.7.0 or later at install time.
+    - Don't report row count mismatch errors for language variants of
+      CSV files, report mismatches in the number of non-blank cells in
+      columns - OD_DATA
+    - Check data dictionary labels and CSV column headings for
+      leading or trailing whitespace - TP_PW_OD_DATA
+    - Check for UTF-8 BOM in JSON data files - TP_PW_OD_DATA
+    - Check for duplicate data files - OD_DATA
+    - Strip named anchors from URL when checking <data_type> URL
+      in data dictionary to avoid possible multiple retrievals of
+      the data dictionary file.
+    - Set the user agent string for the non-robots user agent.
+    - Add "WPSS_Tool" to user agent string for Java tools.
+  
+  
+6.6.0 - Aug 30, 2017
+  Web
+    - Check for multiple <main> tags or tags with role="main"
+      - WCAG_2.0-SC1.3.1
+    - Fix bug in PDF file checker which can cause it to hang.
+      
+  Open Data
+    - Don't analyze content to determine encoding of data files, only use
+      the charset HTTP::Response header or the presence of a UTF-8 BOM - OD_ENC
+    - If there is no data dictionary, don't report errors with JSON-CSV
+      field names - TP_PW_OD_DATA
+    - Remove leading and trailing whitespace from JSON field names before
+      checking data dictionary - TP_PW_OD_DATA
+    - Correct bug with CSV row field count check - OD_DATA
+    - Update csv-validator to version 1.2-RC2
+    - Update jsonschema to version 2.6.0
+    - To allow for offline installations, add Python module vcversioner
+      version 2.16 (used by jsonschema).
+    - Improve exception handling for headings and lists in
+      CSV data cells - OD_DATA
+      
+      
+6.5.0 - July 18, 2017
+  Web
+    - Check the mime-type of image links and favicon to ensure that it
+      is an image mime-type - BAD_IMAGE_MIME_TYPE
+    - Correct bug in URL parsing in PhantomJS user agent that caused
+      some URLs to be truncated when sent to web servers.
+    - Correct merging of links from original, modified and
+      generated HTML markup.
+    - Update HTML5 validator to version 17.7.0.
+    - Check for invalid separator for dc.subject terms - Metadata
+    - Check for 64 bit Perl installation.  The Win32::GUI module will
+      not install on a 64 bit Perl installation.
+    
+  
+  Open Data
+    - Check for missing module when running JSON schema validator - OD_VAL
+    - Check for CSV version for each JSON-CSV data file - TP_PW_OD_DATA
+    - Check that language variations of JSON-CSV data files have the same
+      number of rows and same fields - OD_DATA
+    - Check that CSV and JSON-CSV data files have the same number of
+      data rows - OD_DATA
+    - Check that each item in the JSON-CSV data array have the same
+      number and fields and same field names - OD_DATA
+    - Check that CSV column types and JSON-CSV data item field types
+      match in JSON-CSV and CSV variants of data files - OD_DATA
+    - Check that numeric CSV column sums and numeric JSON-CSV data
+      field values match in JSON-CSV and CSV variants of
+      data files - OD_DATA
+    - Check that all data items match for JSON-CSV and CSV variants
+      of data files - OD_DATA
+  
+6.4.0 - May 4, 2017
+  Web
+    - Don't exit PhantomJS when there is a Javascript error, this can cause
+      error dialogs to appear on Windows systems, which stalls the program.
+    - Update EPUB validator to version 4.0.2.
+    - Additional EPUB file checks (container.xml, OPF file) - WCAG_2.0-G134
+
+  Open Data
+    - Check for only whitespace as first line of a multi-line field in a
+      CSV data file - OD_DATA
+    - Add link checking for supporting documentation HTML files.
+    - Check for UTF-8 encoding of resource files of type text, HTML and XML
+      only - OD_ENC
+    - Allow for multiple schema specifications in JSON data - OD_VAL
+    - Check CSV text fields for possible WCAG 2.0 plain text technique
+      accessibility errors (e.g. lists in cells) - OD_DATA
+    - Check that there is the same number of language specific data files
+      in a dataset - OD_URL
+    - Check that if there are language specific data files, that all
+      required languages (e.g. English, French) are found - TP_PW_OD_DATA
+    - Check that CSV column content types (e.g. numeric, text) match
+      for all language variations of a data file - OD_DATA
+    - Check that the sum of numeric CSV column values match for all
+      language variations of a data file - OD_DATA
+    - Check that the number of non-blank cells of CSV columns match
+      for all language variations of a data file - OD_DATA
+    - Check for $schemaExtension field for the specification of schema
+      extensions that the JSON data file must comply to. - OD_VAL
+    - Check for BOM (Byte Order Mark) or HTTP::Response charset to
+      specify UTF-8 encoding for JSON files - OD_ENC
+    - Check that data array items in JSON-CSV files contain the same
+      number of fields  - OD_DATA
+    - Check that there are no duplicate data array items in JSON-CSV
+      files - OD_DATA
+    - Check for a CSV file for each JSON-CSV file and that the number
+      of data array items matches the CSV data row count - OD_DATA
+
+
+6.3.0 - Jan 20, 2017
+  Web
+    - Create unique, temporary cache directory and cookie file for
+      the crawler module to allow multiple instances of the tool
+      to run on the same workstation.
+    - Update HTML 5 validator to June 29, 2016 version.  This version
+      requires a Java 8 environment.
+    - Set appropriate Java stack size depending on 32 or 64 bit Windows
+      system.
+  
+  Open Data
+    - Check for required fields in JSON dataset description file - OD_VAL
+    - Check for required data dictionary and data files in JSON
+      dataset description - TP_PW_OD_DATA
+    - Change testcase identifiers to be more readable.
+    - If a JSON file contains a $schema specification, validate the contents
+      against the schema using the jsonschema validator - OD_VAL
+    - Use configuration values for patterns for detecting data dictionary
+      files, supporting files and alternate format data files - OD_URL
+    - Skip open data checks for alternate format data files (e.g. Excel)
+    - Report broken or malformed URLs for dataset files - OD_URL
+    - Include file checksum in inventory CSV file.
+  
+  
+6.2.0 - Nov 17, 2016
+  Web
+    - Prefix all temporary file names with WPSS_TOOL_ for easy deletion.
+    - Update Core Subject Thesaurus to July 4, 2016 version - DC Subject
+    - Move supporting programs to a bin folder from the top level folder.
+    - Add a PhantomJS markup server program to remain active for an analysis
+      run and save the delays in starting PhantomJS for each page retrieved.
+    - Change tool name to "Web and Open Data Validator" to better describe
+      the purpose of the tool.
+    - When merging link details from original markup and generated markup,
+      use line/column information from the generated markup.
+    - Change program folder and program names in Windows start menu. Folder
+      is "Web and Open Data Validator", tools are "Web Tool" and
+      "Open Data Tool".
+
+  Open Data
+    - Check for duplicate rows in CSV file - OD_CSV_1
+    - Check for duplicate columns in CSV file - OD_CSV_1
+    - Remove API specific testcase identifiers
+    - If an XML data file contains a schema specification using the
+      xsi:schemaLocation or xsi:noNamespaceSchemaLocation attribute,
+      validate the XML against the schema - OD_3
+    - Use custom CSV file parser to avoid potential error in Text::CSV
+      module and quoted fields with greater than 32K characters.
+    - Check for BOM (Byte Order Mark) in all text files - OD_TP_PW_BOM
+    - If an XML data file contains a DOCTYPE declaration, validate
+      the XML against the DOCTYPE - OD_3
+    - Replace the xsd-validator tool with the Xerces tool to validate
+      XML against schema or a DOCTYPE.
+    - Check for a DOCTYPE or schema specification in XML files - OD_3
+    - Validate XML content against data patterns specified in the
+      data dictionary - OD_XML_1
+    - Update JSON open data description URL handling due to changes in
+      the open.canada.ca site.
+    - Generate a dataset inventory CSV file containing details of the
+      dataset files (URL, size, mime-type, etc).
+    - Check the alternate language versions of CSV datafiles contain the
+      same number of columns - OD_CSV_1
+
+6.1.0 - Aug. 19, 2016
+  WPSS_Tool
+    - Don't check alt text for images inside of anchor tags as the same image
+      may be used with different alt text for different purposes (e.g. a
+      calendar image to open a widget in a form) - WCAG_2.0-G197
+    - Check for inputs of type email in login forms.
+    - Allow for extra links in skip links section.  Generated markup
+      includes 1 extra link - SWU_TEMPLATE
+    - Report duplicate label id failures as WCAG 2.0 F77 (F17 has been
+      removed from WCAG).
+    - Add configuration items to set the size of the URL list and direct
+      HTML input buffer sizes.
+    - Check for PWGSC web analytics code (i.e. piwik) on pages - TP_PW_ANALYTICS
+    - Check <meta name="viewport" for possible text resize
+      restrictions - WCAG_2.0-SC1.4.4
+    - Generate a summary results CSV file similar to the summary at the bottom
+      of the text results.
+    - Treat tables with role="presentation" as layout tables. Check for
+      summary, caption or headers in layout tables.
+    - Report the use of white space to control formatting only once for
+      a given string - WCAG_2.0-F32
+    - Use the definition term <dt> as possible introduction text for
+      a list - WCAG_2.0-G115
+    - Report a runtime error if any external tool fails to run.
+    - Skip checking of id attribute values for <script> tags.
+    
+  
+  Open Data
+    - Check for duplicate column headers in CSV files - TP_PW_OD_CSV_1
+    - Check for duplicate data dictionary definitions - OD_TXT_1
+    - If an XML file contains a schema specification using the
+      xsi:schemaLocation attribute, validate the XML against the schema.
+    - Perform XML schema validation using the xsd-validator tool.
+    - Parse and extract data dictionary details (headings, definitions, etc.)
+      from PWGSC formatted XML data dictionaries.
+    - Perform CSV data validation using the csv-validator tool.
+  
+  
+6.0.0 - Mar 7, 2016
+  WPSS_Tool
+    - Use PhantomJS to get web page markup after initial JavaScript is
+      run on the page. Use generated source for most checks. Mark up validation
+      will be run on the original (not generated) source.
+    - Use LWP::RobotUA::Cached module to implement a disk cache to store
+      local copies of documents retrieved.
+    - Use a connection cache to maintain connections to web servers between
+      document requests to improve performance.
+    - Accept aria-label, aria-labelledby or title attribute as well as alt
+      attribute for text alternatives for images - WCAG_2.0-F65
+    - Generate a snapshot image of web pages when content saving is enabled.
+    - Remove check for role="presentation" since generated mark-up from WET
+      pages contains a large number of these attributes, leading to false
+      failures - WCAG_2.0-F92
+    - Validate EPUB files with the epubcheck tool.
+    - Ignore text in <style> tags, is not part of the page content - SWU.
+    - When extracting links from web pages, if link is within a list,
+      use list introduction text as part of the anchor text.
+    - Accept <title>/dc.title matches if the dc.title is a substring of
+      the <title> - TITLE_DC_TITLE_MISMATCH
+    - Add SSL_verify_mode setting to crawler to ignore SSL
+      certificate host name verification.
+    - Skip consistent labelling checks for on page anchors - WCAG_2.0-G197
+    - Allow for nested forms in HTML.
+    - Include up to 3 lines of source context in HTML error messages.
+    - Avoid duplicate WCAG_2.0-F30 error messages for the same image tag.
+    - Check for xlink attribute in anchor tags - WCAG_2.0-G115
+    - Include help URL for testcases in CSV results file.
+    - Speed up PWGSC template file checking by checking only critical files.
+    - Get link details from generated content in addition to the original
+      content.
+    - Handle the defer attribute on <script> tags - Mobile
+    - Don't report errors for <script> tags that are part of the
+      generated content - Mobile
+
+
+  Open Data
+    - Report URL access problems in the crawl tab if open data URLs cannot
+      be accessed or are malformed.
+    - Include help URL for testcases in CSV results file.
+    
+
+5.2.1 - Dec 21, 2015
+  WPSS_Tool
+    - Change default user agent string to prevent the PWGSC firewall from
+      blocking access to Internet pages.
+
+
+5.2.0 - Nov 20, 2015
+  WPSS_Tool
+    - If a link has a non JavaScript onclick attribute, use that as
+      the href value.
+    - Reset heading levels inside section tags - TP_PW_H.
+    - Update HTML5 validator to version 15.6.29.
+    - Check if the captions file mime type matches the data type attribute
+      of the track tag - WCAG_2.0-F8
+    - Mobile optimization: Check for no content in supporting files - NUM_HTTP
+    - Mobile optimization: Check for no styles in CSS stylesheet file - NUM_HTTP
+    - When checking dc.subject values, allow values with either windows
+      right single quote or regular single quote - Metadata Content
+    - Don't report baseline technologies error if frames are used in HTML 5 -
+      TP_PW_TECH
+    - Add testcase group profile for Canada.ca sites using the PWGSC developed
+      WET 4.0 template package.
+    - Check for and remove any BOM from TTML files before validation.
+
+
+  Open Data
+    - Decode data dictionary files if they are UTF-8 encoded to fix bug
+      with CSV headers that have accented characters - OD_CSV_1
+    - Do case sensitive checks for dictionary terms and CSV headers - OD_CSV_1
+
+       
+5.1.1 - Nov 5, 2015
+  WPSS_Tool
+    - If no arguments are provided in command line mode, prompt the user for
+      an action (crawl, URL list) and a profile file name.
+
+           
+5.1.0 - Aug 18, 2015
+  WPSS_Tool
+    - Don't include <script> content when analysing actual page
+      content - SWU_E2.2.6
+    - Add results tab and checks for mobile optimization based on YAHOO
+      best practices.  https://developer.yahoo.com/performance/rules.html
+    - Move supporting programs to a bin folder from the top level folder.
+    - Additional firewall blocked link pattern.
+    - Update GC Core Subject Thesaurus to March 26th, 2015 version.
+    - Correct handling of dcterms.subject and the core subject thesaurus.
+    - Limit error message in CSV to 10K characters to avoid Excel limitation.
+    - Remove WCAG 2.0 SCR21 technique from WCAG 2.0 profile as it results
+      in a large number of false errors.
+    - Add testcase profile for markup validation.  Default profile will
+      validate web pagse only (e.g. HTML) and exclude supporting files
+      (e.g. CSS, JavaScript).
+    - Check for inconsistent charset values in HTTP::Headers and
+      meta tags in HTML pages - SWI_C.
+    - Don't report errors for input outside of a form.  JavaScript may
+      provide the behaviour - WCAG_2.0-F43
+    - Check for possible formid attribute on inputs to associate an
+      input that is outside of a form back to a form - WCAG_2.0-F43
+    - Check for captions for <audio> tags - WCAG_2.0-G87
+    - Include ARIA attributes when constructing labels - WCAG_2.0-H44.
+    - Add firewall check URL to allow the program to authenticate to the
+      PWGSC firewall before analysing sites or pages.
+
+
+  Open Data
+    - Allow for and validate JSON data files.
+    - Run web accessibility checks (WCAG 2.0) on HTML URLs.
+    
+
+5.0.1 - Apr 30, 2015
+  WPSS_Tool
+    - Quote path to supporting files in HTML5 validator. Paths with
+      spaces may cause problems.
+    - Check for non decorative image specifications first
+      when reading configuration file.
+
+
+5.0.0 - Apr 2, 2015
+  WPSS_Tool
+    - Add selector for testcase profile groups to set profiles for all
+      checks.
+    - Change names of testcase profiles to be more descriptive.
+    - Don't report error if there are <frame>/<iframe> tags on a page
+      that doesn't have any anchor links - WCAG_2.0-G125
+    - Don't report bold or emphasised text immediately after a heading
+      as a pseudo-heading, it may be supporting text - WCAG_2.0-F2
+    - Create testcase profiles for WET 4.0 GC Intranet, WET 4.0 Internet
+      and Canada.ca
+    - Create text extraction modules for specific XML file formats.
+    - Check anchor values only for GC Navigation links, skip href
+      value checks - SWU_E2.2.5
+    - Generate CSV version of testcase results.
+    - Don't check for title or alt attribute for inputs of type image.
+    - Don't report firewall blocked link in default link check profile.
+    - Add archived flag and mime-type value to page inventory CSV.
+      
+    
+  Open Data
+    - Check for supporting files in dataset and don't process
+      them as data files.
+    - Proper handling of UTF-8 text dictionary files.
+    - Include location information for XML content errors (line, column).
+    - Check for a match in the number of rows of language instances
+      of CSV files - OD_CSV_1
+    - Save dataset content in local files rather than HTTP::Response
+      object to avoid "out of memory" errors for very large dataset files.
+    - Generate CSV version of testcase results.
+    - Check that the mime-type and file suffix do not contradict each other.
+    
+  
+4.8.0 - Jan 6, 2015
+  WPSS_Tool
+    - Add crawl depth option to limit the depth of a crawl.
+    - Check if image alt is the same as the src URL or the image file
+      name (with or without suffix) - WCAG_2.0-F30
+    - Check for missing, invalid or broken src in <track> tags - WCAG_2.0-F8
+    - Check for missing captions and descriptions tracks in <video>
+      tag - WCAG_2.0-G87
+    - Add Nu Markup Checker for HTML5 validation - WCAG_2.0-G134
+    - Add W3C TTML validaton for ttml/xml validation - WCAG_2.0-G134
+    - Check for duplicate attributes in XML content - WCAG_2.0-F77
+    - Only report error for <hr /> that preceeds a <h1> heading
+      not any other heading - WCAG_2.0-F43
+    
+    
+  Open Data Tool
+  
+
+4.7.0 - Nov. 7, 2014
+  WPSS_Tool
+    - Reduce the memory requirements to avoid "Out of memory" errors.
+    - If no DOC type line is found in HTML markup, don't run
+      markup validator.
+    - Change CSS checks from checking the entire CSS content to
+      checking styles in actual use.
+    - Check for ARIA attributes as possible labels.
+    - Don't extract links from PDF documents.
+    - Clean up temporary files when program exist.
+    - Check for @media diectives in CSS. When checking styles for
+      accessibility, only check styles with no media or media = screen.
+    - Check for aria-label attribute in additional tags (e.g. in fieldset).
+    - Don't report WCAG_2.0-H33 error for empty title attribute in link.
+    - Check for empty <thead> and <tfoot> tags - WCAG_2.0-G115.
+
+
+  Open Data Tool
+    - Check for and validate PWGSC XML data dictionary format - TP_PW_OD_XML_1
+
+
+4.6.1 - Sept 23, 2014
+  WPSS_Tool
+    - Correct bug in details tag handling.
+
+
+4.6.0 - July 24, 2014
+  WPSS_Tool
+    - Update GoC core subject thesaurus to November 2013 (latest) version.
+    - Reduce the memory requirements to avoid "Out of memory" errors.
+    - Package tool for DTP workstation.
+
+
+  Open Data Tool
+    - Reduce the memory requirements to avoid "Out of memory" errors.
+
+
+4.5.0 - July 3, 2014
+  WPSS_Tool
+  - Don't report WCAG_2.0-ARIA12 error for tags that have role="heading"
+    if it also has an aria-level attribute greater than 6.
+  - Include external style sheets when performing style based checks
+    (e.g. hidden labels, pseudo headings).
+  - Check for details tag that only includes a summary - WCAG_2.0-G115
+  - Check for tags other than area, img & input that contain an alt
+    attribute and that load an image via CSS - WCAG_2.0-F3
+  - Check for styling and markup used to move content off screen for
+    some WCAG errors (e.g. H44 - visible labels).
+  - Generate page inventory containing page details (URL, title, H1,
+    breadcrumb, etc).
+  - Update anchor text and href values for GC Web Usability theme to 
+    match Canada.ca domain - SWU.
+  - Include last heading in labels and legends to distinguish similar
+    labels - WCAG_2.0-H44 and WCAG_2.0-H71.
+
+  Open Data Tool
+
+
+4.4.0 - May 28, 2014
+  WPSS_Tool
+  - Accept compressed (e.g. gzip) HTTP content from web servers.
+  - Create temporary files in user's temp folder rather than the program
+    folder to avoid possible permissions problems.
+  - Skip markup validation if it not required for accessibility testing.
+  - Don't include table cell or script  content when checking for whitespace 
+    spacing in content.
+  - Check for <input> or <select> tags outside of a <form> - WCAG_2.0-F43
+  - Check for styling and markup used to hide content and suppress
+    some WCAG errors (e.g. missing frame title) if it is hidden.
+  - Check so see if form labels are hidden - WCAG_2.0-H44.
+  - Check for aria-label or aria-labelledby in tag with role = group or
+    role = radiogroup - WCAG_2.0-ARIA17
+  - Check for aria-label or aria-labelledby in tag with role = alertdialog
+    - WCAG_2.0-ARIA18.
+  - Check for role="presentation" on tags that convey information or
+    relationships - WCAG_2.0-F92
+  - Support for WET 4.0 based Web usability pages.
+  - Report error if Google analytics is found.  Previously this was reported
+    as information only, however since google analytics is not acceptable
+    after June 30, 2014, an error is now reported.
+
+  Open Data Tool
+  - Create temporary files in user's temp folder rather than the program
+    folder to avoid possible permissions problems.
+  - Accept compressed (e.g. gzip) HTTP content from web servers.
+  - Handle resource type "api" in JSON description.
+
+
+4.3.0 - Apr 10, 2014
+  WPSS_Tool
+  - Check for alt text that contains only whitespace for decorative images
+    - WCAG_2.0-F39
+  - Check aria-label, aria-labelledby, aria-describedby attributes in
+    decorative images - WCAG_2.0-F39
+  - Check role attributes in decorative images - WCAG_2.0-F38
+  - Check for label appearing before radio button or checkbox inputs
+    - WCAG_2.0-H44
+  - Check HTML data attributes for document section markers (WET 4.0).
+  - Accept file: URLs in the list of URLs to analyse.
+  - Add checks for WAI-ARIA techniques - WCAG_2.0.
+    ARIA1, ARIA2, ARIA6, ARIA7, ARIA8, ARIA9, ARIA10, ARIA12,
+    ARIA13, ARIA15, ARIA16
+  - Don't add whitespace around content from tags that do not act
+    as word boundaries (e.g. <sub>) - WCAG_2.0-F32
+
+
+  Open Data Tool
+  - Accept a dataset description URL (JSON format from data.gc.ca) to 
+    specify a dataset's files.
+  - Do case insensitive checks on dictionary terms.
+  - Use the format specified in the JSON dataset description to help
+    determine the URL content format (e.g. csv, xml).
+
+
+4.2.0 - Feb 24, 2014
+  WPSS_Tool
+  - Correct bug with tracking nested RDFa HTML data types.
+  - Correct bug in formatting error messages in XML mode, some messages were
+    not included in the output.
+  - Check for styled text (e.g. bold) that looks like a heading in div 
+    tags - WCAG_2.0-F2.
+  - Don't report emphasised labels as possible pseudo headings - WCAG_2.0-F2.
+  - Check for text that is styled with CSS to look like a heading - WCAG_2.0-F2.
+  - Extract src attribute from <iframe> tags as links.
+  - Extract data attribute from <object> tags as links.
+  - If 2 links to the same URL have different link or title text, accept
+    string if one is a substring of the other - WCAG_2.0-G197
+  - Report error if we are unable to determine the language of text
+    because the top 2 languages are too close - WCAG_2.0-H57.
+  - Create new link check profile to check for common errors, this new 
+    profile is the default profile.
+  - Add new values for some GC Navigation links (e.g. canada.ca) - SWU
+  - Bring results window to the top when an analysis is started.
+
+
+  Open Data Tool
+  - Set the default for the maximum document size to 100 Mb to avoid 
+    truncating large data files.
+  - Report missing fields from header row - TP_PW_OD_CSV_1
+  - Handle ZIP archived data set files. Extract, analyse and report on each
+    file in the archive.
+
+
+4.1.0 - Jan 13, 2014
+  WPSS_Tool
+  - Add checks for Web Analytics (reported in CLF tab), specifically
+    not anonymizing IP addresses in Google analytics - WA_ID.
+  - Report URLs that use Web Analytics (google, piwik) in HTML features tab.
+  - Don't report error if there is a onclick or onkeypress attribute on a tag
+    if there is a focusable item inside a block tag - WCAG_2.0-F42
+  - Add checks for HTML Data for Web Interoperability.  Check for RDFa
+    syntax and schema.org vocabulary - SWI_E.
+  - Record URLs that have HTML Data in the HTML features report.
+  - Add <button> tag to list of tags that are allowed event 
+    handlers - WCAG_2.0-F42.
+  - Report WCAG_2.0-G131 for missing label and legend content.
+  - Check for content after the body tag and before the skip links - SWU_2.2.6.
+  - Check for missing content in <option> tag - WCAG_2.0-G115.
+  - Check for styled text (e.g. bold) that looks like a heading - WCAG_2.0-F2.
+  - Check for missing table headers at the end of the table. This allows for
+    header id definitions to come after a reference - WCAG_2.0-H43.
+  - Check for missing headers id values of headers that reference
+    <th> headers (indirect headers) - WCAG_2.0-H43.
+  - Don't try to get absolute URL from relative URLs in direct HTML
+    input mode. This generated false WCAG_2.0-G197 errors.
+
+
+  Open Data Tool
+  - Add fields to GUI to enter open data API URLs.
+  - Add checks for open data API URLs (JSON, XML).
+  - Add PWGSC open data checks (CSV header row).
+  - Change testcase identifiers to include technology type (e.g. txt, csv).
+
+
+4.0.1 - Nov 27, 2013
+  - Decode HTML entities before checking the length of titles and headings to
+    eliminate the length of the HTML code from the actual text length.
+  - Increase heading/title size limit to 500 characters to reduce the
+    number of false errors. - WCAG_2.0-H42.
+  - Allow for title attribute to act as a label for textarea - WCAG_2.0-H65.
+  - Allow for duplicate labels if they are in separate tables within
+    a form - WCAG_2.0-H65.
+
+
+4.0.0 - Nov 21, 2013
+  - Add open data checking tool (open_data_check.pl and desktop shortcut)
+    to check open dataset files (dictionary, data, resources).
+  - Add testcases to check Open Data files (TXT & XML dictionaries, 
+    CSV & XML data files).
+  - Do case insensitive checks on titles to find matching HTML and PDF
+    versions of a document.
+  - Allow for testcase profile specific data items for CLF testcases.
+  - Additional install time log messages to help diagnose installation
+    issues.
+  - Allow for binary data in CSV files (e.g. new-line in the cell content).
+  - Report Interoperability failure for web feeds that do not parse
+    properly - SWI_B.
+  - Check for table headers that reference undefined headers or headers
+    outside the current table - WCAG_2.0-H43.
+  - Check for all language markers to determine if a page is archived or not
+    (handles the case where wrong language message is used).
+  - Encode text that is written to results tabs, this eliminates garbled
+    French characters.
+  - Check that python version is not 3.0 or greater (feed validator does
+    not work in python 3).
+  - Report unknown mime-type documents as non-HTML primary format.
+  - Proper handling of implicit closing of HTML5 p tags - WCAG_2.0-F70.
+  - Accept enter key in URL list tab to move to the next input line.
+  - Additional French archived web page notice.
+  - Check for very long (> 200 characters) title and heading text - 
+    WCAG_2.0-H42, WCAG_2.0-H25
+  - If an <img> is inside a <figure>, the <figcaption> can be used for the
+    image alt text.
+  - Correct bug where some link objects are lost when parsing HTML content
+    after removing IE8 conditional code.
+  - Don't report zoom failure for fix size fonts as current browsers can
+    handle this - WCAG_2.0-G142
+
+
+3.11.0 - Sept 5, 2013
+  - Additional mime-type values for web feeds.
+  - Perform some accessibility checks for CSV files, ensure they are
+    well formed - WCAG_2.0-G134.
+  - Remove support for ActiveState Perl 5.10, only support 5.14.
+  - Remove all WCAG 1.0 checkpoints.
+  - Report non-HTML primary format documents (e.g. PDF) in features tab
+  - Remove conditional code from WET web pages before extracting links
+    to ensure IE 8 and older CSS and JavaScript links are found.
+  - Update help URLs for Standard on Web Usability checkpoints.
+  - Check for mismatches in opening links in new windows for GC and 
+    Site navigation, in pages using the Standard on Web Usability template.
+  - Report soft 404 errors in link check. A soft 404 is a page that looks
+    like a 404 error page but has a 200 code.
+  - Check language of content then language of URL when checking cross
+    language links.  The URL language may be inconsistent with the actual
+    content language.
+  - Remove any "../" paths from the front of a URL 
+    (i.e. http://domain/../dir/file.html becomes http://domain/dir/file.html).
+  - Create small upgrade install package that does not include Perl or Python.
+  - Support Strawberry Perl 5.18.
+  - Check for the use of the application template outside of a login.
+  - Change in French archive markers (remove trailing e).
+  - Improve link status cache to avoid multiple retrievals of the same
+    URL.
+
+
+3.10.0 - June 17, 2013
+  - Include any 'value' attribute content as part of the text between tags
+    (similar to alt text).
+  - Remove advisory techniques from WCAG_2.0 testcase profiles.
+  - Check for duplicate headings in document sections (e.g. navigation,
+    main content) rather than across the entire HTML page.
+  - If a site analysis is stopped/aborted, generate results summary on the
+    URLs that have been processed.
+  - Add feature report item for Web feeds.
+  - Check that all supporting file references come from the same subdirectory
+    (e.g. /boew-wet/wet3.0 vs. /boew-wet/wet3.1).
+  - Check that all site include file references come from the same subdirectory
+    (e.g. /site/wet3.0 vs. /site/wet3.1).
+
+
+3.9.1 - May 22, 2013
+  - Execute only specific SWU testcases if a file is marked as archived.
+  - Add departmental testcase profile for PWGSC developed sites that
+    do not have the PWGSC site banner (e.g. gazette.gc.ca).
+  - Remove check for duplicate dates in news feed entries.
+  - Convert 2 character language codes to 3 character codes when analysing
+    web feeds.
+  - Add HTML feature for URLs archived before Oct 2011. These URLs are exempt
+    from the Standard on Web Accessibility.
+  - Check skip links only on pages that either require them or have them.
+  - Remove trailing / from URI values in web feeds before comparisons.
+  - Convert ISO 639 terminology language codes to a bibliographic codes.
+  - Don't check language of spans for which there is no language map.
+
+
+3.9.0 - April 25, 2013
+  - Check that <uri> values match in web <feed> and <entry> - SWI_B.
+  - Perform link checking on links within web feeds.
+  - Perform some WCAG 2.0 checks on web feeds (WCAG_2.0-SC3.1.1,
+    WCAG_2.0-F25).
+  - Add tests for the PWGSC search form in the site banner.
+  - Check site title values in splash pages.
+
+
+3.8.0 - March 12, 2013
+  - Update list of domains to ignore for 'rel="external"' checking
+  - Additional testcases added to departmental checks.
+  - Check for the use of rel="external" on links that are not to
+    external sites.
+  - If we have no document subsection and are outside the <head>, assign
+    links to the BODY subsection.
+  - Check that the main CSS & JavaScript come from the same WET release.
+  - Update French content for PDF techniques.
+  - Remove check for requiring rel="external" for links to external sites.
+    Changes in the HTML5 specification no longer require this.
+  - Additional interoperability checks of web feed attributes
+    (e.g. title, dates, URLs).
+
+
+3.7.1 - January 17, 2013
+  - Don't require that Home & Contact Us are the only links on a server
+    message page, only check that they are present.
+  - Convert any lang or xml:lang attributes to lowercase before checking them -
+    github issue #4.
+  - Check for consistent site title across all pages - SWU_E2.2.5
+  - Check for consistent subsite title, if present, across all
+    pages - SWU_E2.2.5
+  - Include mime-type in error related to favicon - SWU_E2.1
+  - When checking URLs allow for an optional trailing '/' character
+    (i.e. travel.gc.ca = travel.gc.ca/)
+  - Handle links forbidden by robots in link checking.
+  - Ignore links with specific link text when checking for consistent
+    identification - WCAG_2.0-G197.
+  - Extract link details in direct HTML input mode.
+
+
+3.7.0 - Dec 12, 2012
+  - Check for labels on hidden inputs - WCAG_2.0-H44.
+  - Additional HTML tags that don't have an end tag.
+  - Add possible values for the 'rel' attribute as defined in
+    http://microformats.org/wiki/existing-rel-values
+  - Move all departmental and content checks to a department results
+    tab.  The CLF tab contains only checkpoints related to either CLF 2.0
+    or the Standard on Web Usability.
+  - Record the title of archived documents so PDF alternates can be recognized.
+  - Check for empty heading or missing list when generating heading report.
+  - Call "Save Results" function when ending analysis in CLI mode.
+  - New href values for GC Navigation links (travel.gc.ca, voyage.gc.ca).
+  - Don't treat a redirect from www.domain.com to domain.com (or vice versa)
+    as a redirect link.
+  - Load and save configuration settings along with site/URL information.
+  - Allow HTTP 401 credentials to be loaded from the site configuration profile.
+  - Correct bug in extracting from CSS code that could cause it to hang when
+    dealing with very large pages.
+
+
+3.6.1 - Oct 31, 2012
+  - fix bug in PDF checker when run on non-Windows systems.
+
+
+3.6.0 - Oct 29, 2012
+  - fix bug in extracting links, an image may be incorrectly associated 
+    to a link.
+  - Clear all document sections (not just CONTENT) when parsing a block of
+    HTML code.
+  - Check for anchor tag that has no id, href or name attribute (being used
+    for decoration) - WCAG_2.5-G115.
+  - Remove all whitespace and encode entities before comparing link text.
+  - Use the eAccessibility PDF checker program to test PDF documents for
+    a number of accessibility issues, PDF1, PDF2, PDF6, PDF12.
+    (http://accessibility.egovmon.no/en/pdfcheck/)
+  - Perform checks on links for interoperability. Check that the 
+    rel attribute is present for <link> tags and the value is valid.
+    For links to documents on other domains, check the site title value,
+    if it is different from the current site, check for a rel="external"
+    attribute.
+  - Check that documents with different mime-type and the same title
+    are linked with rel="alternate"
+  - Report PDF features (e.g. form, table) in features tab.
+  - Don't report href mismatch of links if the anchor text is the same and the
+    herf values are from the development and production instances of the
+    same site - WCAG_2.0-H30.
+  - Add list of domains not to check for rel="external" - SWI_D
+  - Update GOC Core Subject Thesaurus to Sept 20, 2012 version.
+  - Check if URL is listed as an alternate format, if so skip accessibility
+    testing.
+  - Force all HTTP GET operations to ignore cached documents to ensure
+    we get the latest version.
+
+
+3.5.0 - Sept 28, 2012
+  - Remove non ASCII characters inside an eval{} statement to prevent
+    thread exit if the content is malformed.
+  - Ensure only 1 instance of a subsection name appears in each section
+  - Initialize tag count data structure when extracting content from
+    HTML content.
+  - Don't let tag count fall below zero (e.g. if 2 close tags appear where
+    only 1 is expected)
+  - Report missing table header content under WCAG_2.0-H51
+  - Add support for Perl 5.14.  Include Perl 5.14 in installer.
+  - Remove some debug statements to reduce debug output.
+  - Allow for a list of possible href values for navigation links.
+  - Check version of /site include files package.
+  - When checking accessibility of PDF documents, check for a HTML document
+    with the same title.  If one is found, do not check accessibility of the
+    PDF (assume it is an alternative format).
+  - Handle optional lang attribute in <meta> tag.
+  - Check for specific web page template markers to ensure the proper
+    template version (WET 3.0 vs 2.3) is being used.
+  - Check for links within list items <li> and include the heading text
+    that precedes it.
+
+
+3.4.2 - Aug 7, 2012
+  - Change NSIS script to use wildcard (*.*) value for file names rather than
+    listing each file individually.
+  - Add browser option to show pages been analysed in an IE window.
+  - Set default port to 443 for https when setting credentials for server
+    based 401 handling.
+  - Report error in "Archived on the Web" if required metadata is missing.
+  - Check web page content for language if the URL does not specify a
+    language.
+  - Update Interoperability testcase labels and URLs with those from the
+    published standard.
+  - Make Standard on Web Usability testcase profiles for CLF & Metadata as the
+    default profiles.
+  - Check HTML content for <meta charset for UTF-8 content.
+
+
+3.4.1 - July 17, 2012
+  - Changes to installer to work with non standard installations.
+  - Create desktop and Start menu short cuts for the tool.
+
+
+3.4.0 - July 17, 2012
+  - Don't perform unneeded checks on pages that are "Archived on the Web".
+  - Check for IPV4 addresses (IP address rather than domain name) in 
+    links.
+  - Add a link check profile so the user can select the level of link
+    checking.
+  - Report error if the duplicate legend values appear in a form - WCAG_2.0-H71
+  - Report error if the duplicate title values on select tags appear
+    in a form - WCAG_2.0-H65
+  - Handle ftp:// URLs, parse out URL components.
+  - Correct bug in Java classpath for Linux systems.
+  - Remove any !important qualifier from CSS property values before checking.
+  - Convert entities in footer links before checking for expected text.
+  - Add WET 3.0 web page section markers.
+  - Check for hreflang before lang attribute to determine a link's language.
+  - Check that links to archived documents are properly labelled.
+  - Report error if a link appears within a <label> - WCAG_2.0-H44.
+  - Validate web feeds (RSS & ATOM).
+  - Report HTML features found in content area only. This avoids reporting
+    <form> for all new usability pages (search form).
+  - Report empty title values in links - WCAG_2.0-H33
+  - Treat any page containing the Archive content notice text as archived
+    on the web.
+  - Check for dc.title and dcterms.title archive markers.
+  - Report missing metadata tags and missing/invalid content as separate
+    testcases.
+  - Allow for nested <fieldset> tags.
+  - Include <legend> text in <label> values when looking for duplicate labels.
+  - Check a file containing valid template versions to see if the site's
+    template version is valid.  Allows for more than 1 valid template version.
+  - Create installer package for WPSS Tool that takes care of installing
+    the tool, checking for Perl and checking for Python.
+
+
+3.3.2 - June 4, 2012
+  - Report error if duplicate labels value appear in a form - WCAG_2.0-H44
+  - Check for redirect failures when we cannot parse a domain from the
+    redirect URL.
+  - When parsing a URL, allow for a domain without a trailing slash 
+    or file path.
+
+
+3.3.1 - May 30, 2012
+  - Accept encoded (e.g. gzip-ed) content. Decode before processing content.
+  - Add tool version number to results tabs.
+  - Allow multi character language codes for XHTML & HTML5.
+  - Skip template checksum check for file: URLs
+  - Report 'error' for first HTML5 URL that is validated.  The error states
+    there is no HTML5 validator available.
+
+
+3.3.0 - May 23, 2012
+  - Skip template checksum check for 'trusted' template installations.
+  - Set link check ignore patterns for URL list.
+  - Correct bug in parsing URLs from a server redirect.
+
+
+3.2.0 - May 18, 2012
+  - Check that the archive content notice matches the expected notice.
+  - Check language specific archive notices and labels.
+  - Check for properly formatted lang attributes (2 character codes) -
+    WCAG_2.0-H88
+  - Update list of deprecated tags and attributes for HTML 5.
+  - Ignore link check results for twitter.com, it is currently blocked
+    by the firewall and fills the link check results for pages using the
+    new GC Theme templates.
+
+
+3.1.0 - May 8, 2012
+  - Accept file: as a valid URL in the URL list tab. Read content
+    from a file rather than a web site.
+  - Check for image links in breadcrumb list.
+  - Add Standard on Web Interoperability checking.
+  - Check for Apache SSI error message on web pages.
+  - Check for atom web feed version for all non-atom web feed instances.
+  - Don't include TQA errors if a URL is archived on the web.
+  - Correct heading label for Archived on the Web.
+  - Update user documentation.
+  - Suppress checking of links in navigation sections for consistent
+    labeling (G197).
+
+
+3.0.0 - Apr 12, 2012
+  - Check for <meta charset="utf-8"> as a way to specify UTF-8 content.
+  - Add CLF profile for Standard on Web Usability.
+  - Add content section markers for GC Web Usability templates.
+  - Add check for a title attribute on a decorative image - WCAG_2.0-H67.
+  - Don't record validation errors for supporting files (CSS, JavaScript) as
+    WCAG_2.0-G134 failures.
+  - Add checkpoints for Standard on Web Usability (SWU).
+  - Changes to Metadata checking to accommodate HTML 5.
+  - Don't report missing button in form if there are no writable inputs -
+    WCAG_2.0-H32.
+  - Allow for . in URL path name.
+  - Add testcase for Archived on the Web document markers.
+  - Create new Metadata profile for Standard on web Usability.
+  - Add results summary table to the bottom of the Link and Metadata tabs.
+  - Allow for the HTML 5 "search" input type.
+
+
+2.11.0 - Feb 15, 2012
+  - Ignore Location field in HTTP header if code is 200.
+  - Limit source line field length in link object instances.
+  - Check length of source line in TQA result object before taking substring.
+  - Set maximum number of decorative and non-decorative images to cache.
+  - Change CSS validator to use css-validator JAR from W3C. 
+  - Change to CSS 3 as default language to validate against.
+  - Check for HTML 5 deprecated tags and attributes.
+  - Exclude text in <table>s when determining content language.
+  - Change code for decoding UTF-8 to convert special characters rather
+    then strip them out.
+
+
+2.10.0 - Dec 29, 2011
+  - Check for <hr> used in decorative context - WCAG_2.0-F43.
+  - Check for empty <th> - WCAG_2.0-H43.
+  - Strip non ASCII characters before UTF-8 decoding.
+  - Correct errors in cache handling. Cache size was not being set properly.
+  - Add note in validation error message to view details in validation
+    report.
+  - Check if we are inside a table before recording <td> attributes.
+  - Add note in CLF link violations error message to view details in
+    link report.
+  - Look for heading text in list item if list item is a new list.
+  - Check HTML language type (XHTML, HTML 5) before validating.
+    Skip validation of HTML 5 as we do not have a validator for it.
+  - Don't perform checks if they were not requested (e.g. link check).
+  - Add ability to turn on/off debugging while the program is running.
+  - Check URL after GET to see if we are rewritten away from the site
+    being crawled.
+  - Update Core Subject Thesaurus file to Dec 8, 2011 version.
+  - When checking WCAG_2.0-SCR20, report errors if we find mouse
+    event handlers and no keyboard handler. Don't report errors for
+    missing mouse event handlers.
+  - Skip colour contrast check on hr classes.
+
+
+2.9.3 - Dec 2, 2011
+  - Add language values to support Translation Bureau sites
+    (Spanish, Italian, Dutch,...).
+
+
+2.9.2 - Dec 1, 2011
+  - Record documents that are TQA Exempt in the HTML Features list as
+    alternative format.
+  - Include a count of the number of URLs with an HTML Feature in the
+    report.
+  - Cache Metadata and Link information for quicker access.
+  - Look for text between start/end tags for some tags (e.g. cite) - 
+    WCAG_2.0-G115
+  - Fix bug when checking if longdesc attribute is a valid URL.
+  - If the user agent maximum document size is set to 0, don't include
+    setting in User Agent. This eliminates the Range: field in the
+    HTTP header.
+  - Check that tags that require content actually have content
+    between the start & end tags (e.g. <strong>)
+  - Handle the <acronym> and <abbr> tags, ensure there is content
+    and a title.
+  - Check for items in lists and for empty list items - WCAG_2.0-H40.
+
+
+2.9.1 - Nov 17, 2011
+  - Report multiple instances of tags where only 1 instance is allowed.
+  - Clean up <input> label handing. Report WCAG_2.0-F68 for missing labels.
+  - Report decorative and non-decorative image errors as WCAG_2.0-F39.
+  - Ignore PDF file properties of files that cannot be analysed (e.g. 
+    file format too old).
+  - Don't report duplicate, adjacent links as errors unless one of them
+    contains an image - WCAG_2.0-H2.
+  - Use multiple techniques to extract PDF properties in accessibility check.
+  - Report file name as title as an error for PDF files - WCAG_2.2-F25.
+  - Allow PDF files to be exempt from accessibility checks if we
+    find an HTML equivalent.
+  - Ignore any qualifiers on CSS font-size attributes (e.g. !important).
+
+
+2.9.0 - Nov 3, 2011
+  - Eliminate duplication of PDF property values.
+  - Remove digits from text block before checking if there is enough text
+    for language catagorization.
+  - Don't return from content section checking if a tag does not have
+    section markers. The tag may have to be recorded because it matches
+    a tag that started a section and we have to find the proper
+    closing tag to end the section.
+  - Report any documents that have a dcterms.issued date after 2011-09-30.
+  - Look for "archived on the web" markers and don't analyse those
+    documents.
+  - Check for unclosed tags - WCAG_2.0-F70.
+  - When processing redirect (302 code) if the redirected URI does
+    not include a domain or directory path, use ones from the previous
+    GET call.
+  - Bug in parsing out site directory from URL containing a file path
+    with no file suffix.
+  - Bug in handling redirects in login if a relative URI is given.
+  - Check documents for TQA Check exemption (i.e. archived and
+    published before Oct 01, 2011).
+
+
+2.8.7 - Oct 19, 2011
+  - Include User Guide documents in install package.
+
+
+2.8.6 - Oct 18, 2011
+  - Check for <fieldset> outside of a <form> - WCAG_2.0-F43.
+  - Check for JavaScript to remove focus when focus is received - WCAG_2.0_F55.
+  - WAAT Tool version tooltip matches version number.
+  - Increase text area for entering URL list and direct input HTML.
+
+
+2.8.5 - Oct 17, 2011
+  - Corrections to JAB install to work with Windows 7.
+  - Check for the use of white space to control spacing within
+    a word - WCAG_2.0-F32.
+
+
+2.8.5 - Oct 14, 2011
+  - Check for language change using any tag, not just <span> tag.
+  - Convert 2 character codes to 3 character codes in text extraction.
+  - Strip leading and trailing white space from anchor before comparison.
+  - Remove newline and <return> from anchor before comparison.
+  - Add missing http:// to proxy setting.
+  - Remove desktop WAAT icon when uninstalling.
+  - Check for perl by trying to run it rather than search registry.
+  - Add waat_cli tool.
+  - Check for null alt for image where image is only content of a link
+    WCAG_2.0_F89.
+  - Add a WAAT tool version file for it's version number.
+  - Updated WAAT.jar file to address accessibility issues with user interface.
+
+
+2.8.4 - Oct 6, 2011
+  - Replace &nbsp; with space character in extracted text before 
+    checking for non-whitespace text (e.g. in labels).
+  - Add routine to handle and clean text inside HTML start/end tags.
+  - Record <param> tag values and associate them with the containing
+    <object> tag.
+  - Acessibility fixes for WAAT UI.
+
+
+2.8.3 - Sept 27, 2011
+  - Remove compliance score from output.  Replace it with a fault count and
+    density.
+  - Changes to XML format to use attributes for some data rather than tags.
+  - Report duplicate anchor names under WCAG_2.0-F77 rather than
+    WCAG_2.0-H30
+  - If a page uses mouse only event handlers, report failure under
+    WCAG_2.0-F54 only, don't also report is under WCAG_2.0-SCR20.
+  - Limit source line in error messages to 200 characters.
+  - Translate messages in WAAT installer.
+  - Add Access Bridge API to WAAT installer.
+
+
+2.8.2 - Sept 21, 2011
+  - Sept 20th version of WAAT.jar.
+  - Allow user to enter URLs without a protocol
+    (e.g. www.domain.com becomes http://www.domain.com).
+  - Print error message for malformed URLs when reading crawl file
+    in CLI mode.
+
+
+2.8.1 - Sept 19, 2011
+  - Print error to stdout if entry pages are rewritten.
+  - Print error message if URLs are malformed.
+  - Install WAAT_Tool in WAAT_Tool folder (instead of WPSS_Tool).
+  - Translate installation messages to French.
+
+
+2.8.0 - Sept 12, 2011
+  - Look for multiple <h1> tags in content sections - TBS_P3_R2.4
+  - Add License.txt file containing copyright and license information.
+  - Look for title attribute in <input> tag within a fieldset.
+
+
+2.7.0 - Sept 6, 2011
+  - Replace technique WCAG_2.0-G4 with WCAG_2.0-F16 for <marquee> tag.
+  - Strip off any dialect portion from language values in HTML tags before
+    comparing them (e.g. en-US)
+  - Allow ; (semi-colon) as a URL query string delimiter.
+  - Include <domain>/cgi-bin/<directory> as valid site URLs.
+  - Allow for multiple addresses in mailto: and check that anchor text
+    matches at least 1 of the addresses.
+  - Check for decorative and non-decorative images - WCAG_2.0-F3,
+    WCAG_2.0-F39
+  - Decode any entities in anchor text before comparing strings.
+  - Extract links in inline CSS within HTML code.
+  - Create module to format results in XML format.
+  - Don't check for labels that are defined but not used.
+  - Look for specific phrases (e.g. image) as invalid alt text - WCAG_2.0-F30.
+  - Add UI interface routines for format specific report components
+    (e.g. results, score).
+  - Create TQA profile for TBS WCAG 2.0 quick test
+  - Don't report an error for an <input> without a label if it is within
+    a <fieldset> - WCAG_2.0-H44.
+  - Calculate per page and per run compliance score for accessibility.
+  - Check for invalid <title> values (e.g. Untitled) - WCAG_2.0-F25.
+  - When checking for "Top of Page" link, look for a link that matches
+    part of the text (e.g. a link where image has alt text).
+
+
+2.6.0 - Jun 16, 2011
+  - Change label of TQA tab to ACC for Accessibility.
+  - Add CLF tab for CLF checkpoints.
+  - Add CLF 2.0 checkpoints for proactive disclosure, common menu bar
+    and footer - TBS_P3_R5, TBS_P3_R10, TBS_P3_R13.
+  - Check language of spans against the lang attribute value - WCAG_2.0-H58.
+  - Check for mouse only event handlers - WCAG_2.0-F54.
+  - Check HTML tag start/end order - WCAG_2.0-H74.
+  - Check values of date metadata items to see that they are consistent
+    (e.g. date issued is not after date modified).
+  - Move heading order check from WCAG (G141) to CLF (TBS P3 R2.4).
+
+
+2.5.3 - Jun 7, 2011
+  - Correct bug in processing lang attributes while extracting text from
+    HTML.  Tags that don't have an end tag should not append lang values
+    to the language stack.
+
+
+2.5.2 - Jun 6, 2011
+  - Handle Spanish & Portuguese languages in Metadata Check and Link Check.
+
+
+2.5.1 - Jun 2, 2011
+  - Set maximum size that will be retrieved by the user agent to avoid
+    program size growth.
+  - Ignore domain www.barreau.qc.ca in link checking.
+
+
+2.5.0 - May 19, 2011
+  - Report empty headings (<h1></h1>) under G130 rather than H42.
+  - Recognize document sections (e.g. navigation, content, ...) based on
+    CSS classes and/or HTML comments.
+  - Report documents that use the tabindex attribute.
+  - Add configuration option to ignore robots.txt directives.
+  - Add check of relative order of site navigation - WCAG 2.0 F66.
+  - Add check for Proactive Disclosure link - TBS P3 R10.
+  - Extend testcase to check for consistent labelling of links (anchor,
+    title, alt) in the navigation section across all documents.
+  - Check <html> lang attribute against content language - WCAG 2.0 H57.
+
+
+2.4.0 - Apr 26, 2011
+  - Add report of headings found within HTML documents.
+  - Add testcase to check for consistent labelling of links (anchor,
+    title, alt) in the content area of a single document - WCAG 2.0 G197.
+  - Add testcase to check for the presence of headings in the content area -
+    WCAG 2.0 G141.
+  - Add testcase to check for the presence of links - WCAG 2.0 G152.
+  - Add testcase to check for the presence of a <fieldset> if there are
+    multiple radio or checkbox inputs with the same name value - WCAG 2.0 H71.
+  - Enable check for fixed point fonts in CSS - WCAG 2.0 G142.
+  - Add option to skip URLs for validation or TQA_Check based on patterns.
+
+
+2.3.1 - Apr 5, 2011
+  - Fix bug with the handling of malformed URLs.
+  - Fix bug with double encoding of source lines for TQA Check while in CGI
+    mode.
+  - Handle hreflang attribute on links.
+  - Change label on PDF checkpoints to match new WCAG 2.0 numbering.
+  - Don't do link check on links that don't look like URLs (e.g. links
+    containing JavaScript).
+
+
+2.3.0 - Mar 29, 2011
+  - Add report of all images, their language, alt text and title. Report
+    lists URLs that comaint the image.
+  - Set Alt Text Plus 2.0 (WCAG 2.0) as the default TQA Check profile.
+
+
+2.2.0 - Mar 22, 2011
+  - Add checkpoint for Link Targets (TBS).
+  - Remove any new-line from charset value.
+  - If URL is redirected/rewritten, use new URL in link status checks.
+  - Don't report line & column numbers if none are available.
+  - Add testcases for PDF documents.
+  - Add results summary and URL for testcase discriptions at bottom of
+    result tabs.
+  - Remove Date Checked from URLs in results tabs to make it easier to
+    cut/paste them into a browser.
+  - Correct bug with reporting unused labels if they are used for <select>
+    tags.
+  - Correct bug with reporting all named anchors as broken if there is 
+    1 broken named anchor in a document.
+
+
+2.1.4 - Mar 2, 2011
+  - Fix bug with French language output.  Some output remained in English.
+  - Set all 'markup valid' flags to valid before setting individual flags
+    (avoid left over values).
+
+
+2.1.3 - Feb 25, 2011
+  - Fix bug in detecting anchors in URL query.  Anchor may appear anywhere in
+    query (e.g. #anchor or ?lang="eng"#anchor).
+  - Change implementation of TQA Check to use a list of objects rather
+    than parallel arrays.
+
+
+2.1.2 - Feb 09, 2011
+  - Fix bug in parsing language suffix from URL.
+
+
+2.1.1 - Feb 09, 2011
+  - Add cache for URL anchor information.
+  - Fix bug with not always passing content to Extract_Anchors routine.
+  - Ensure only a single user agent is used, have the link checker module
+    use the crawler user agent.
+
+
+2.1.0 - Jan 17, 2011
+  - Use compressed core subject thesaurus file to speed up loading.
+  - Fix bug with destroying and recreating user agent in crawler.
+  - Add command line mode to tool.
+  - Check that named anchor exist in linked documents
+  - Add WCAG 1.0 (7.1) checkpoint to check animated GIF images.
+  - Report WCAG 1.0 page refresh (7.4) sperately from redirects (7.5)
+  - Add testcases for color contrast analysis in CSS styles.
+  - Add testcase to check CLF 2.0 baseline technologies.
+  - Report links that open new windows via the target attribute.
+  - Report Flash file references seperately from other multimedia.
+  - Correctly ignore hidden inputs.
+  - Additional WCAG 2.0 checkpoints or common failures.
+  - Fix bugs in determining URL language (e.g. mixed case).
+  - Move CONTENT_URL_LANGUAGE warnings into a separate testcase.
+
+
+2.0.0 - Oct 25, 2010
+  - First official release with WCAG 2.0 checkpoints.
+  
+  - Extract and check links in PDF and CSS files.
+  - Report documents that link to multimedia and non-HTML documents in
+    HTML Features tab.
+  - Extract and validate inline CSS within HTML documents.
+  - Include all supporting CSS and JavaScript files as part of the site,
+    even if they do not sit within the site directory structure.
+  - Use link lang attribute and/or span tags to determine the language of
+    a link (and whether or not it is a cross language link).
+  - Check for deprecated attributes in HTML tags.
+  - Add WCAG 1.0 checkpoints for corresponding WCAG 2.0 checkpoints.
+
+
+1.12.0 - Sept 17, 2010
+  - Add flickering image detection.
+  - Add report header & footer in direct input mode.
+  - Add WCAG 2.0 checkpoints
+
+
+1.11.0 - Aug 6, 2010
+  - Update GOC Core Subject Thesaurus files.
+  - Add code to handle proxy server.
+  - Add WCAG 2.0 checkpoints
+  - Parse CSS files for URLs and WCAG issues.
+  - Check for event handlers and report them in HTML Features report.
+
+
+1.10.0 - Jun 9, 2010
+  - Add counter before URL in results tab.
+  - Add summery of documents checked and errors at bottom of results tabs.
+  - Add duplicate heading content check.
+
+
+1.9.2 - Jun 3, 2010
+  - Add Help menu with program version
+  - French translations for messages from various tools.
+  - Update GOC Core Subject Thesaurus files.
+
+
+1.9.1 - Apr 14, 2010
+  - Update GOC Core Subject Thesaurus files.
+
+
+1.9.0 - Apr 8, 2010
+  - Add unique document title check.
+  - Add HTML <title> & dc.title equality check.
+  - Allow for interstitial pages after login as well as the login being
+    on another domain.
+
+
+1.8.0 - Mar 18, 2010
+  - Add feature to save HTML, text, PDF documents from site to results
+  - Update Core Subject Thesaurus content.
+  - Report invalid content values from dc.subject metadata.
+
+
+1.7.0 - Mar 9, 2010
+  - Add JavaScript checking
+  - Fix list of deprecated tags in TQA check.
+
+
+1.6.0 - Feb 22, 2010
+  - Add content check of dc.subject metadata item.  Content must be from
+    Core Subject Thesaurus.
+
+
+1.5.0 - Feb 11, 2010
+  - Add content checking to tool.
+  - Add PDF file properties checking.
+
+
+1.4.2 - Jan 27, 2010
+  - Handle sites with entry pages behind server protection.
+  - Check entry pages and login pages before crawl.
+
+
+1.4.1 - Jan 6, 2010
+  - Add Metadata scheme attribute checking.
+
+
+1.4.0 - Dec 14, 2009
+  - Add robots.txt validation to tool.
+
+
+1.3.0 - Dec 8, 2009
+  - Add CSS validation to tool.
+
+
+1.2.0 - Oct 22, 2009
+  - Add tab to enter a list of URLs to process.
+
+
+1.1.2 - Oct 13, 2009
+  - Bug fixes.
+
+
+1.1.1 - Sept 2, 2009
+  - Fix bug with detecting possible rewritten/redirected URL from web server.
+
+
+1.1.0 - Aug 18, 2009
+  - Text catagorization of HTML web documents in Link Check to test for
+    Cross Language links.
+  - Add ability to limit the number of URLs returned from crawler.
+
+
+1.0.0 - Jul 16, 2009 
+  - First major release 
+
