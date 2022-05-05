@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 2146 $
+# $Revision: 2277 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/html_check.pm $
-# $Date: 2021-09-21 11:05:44 -0400 (Tue, 21 Sep 2021) $
+# $Date: 2022-01-24 14:54:26 -0500 (Mon, 24 Jan 2022) $
 #
 # Description:
 #
@@ -919,6 +919,12 @@ my (%implicit_aria_role_conditions) = (
     "a",                "attr:href:link",
     "area",             "attr:href:link",
     "button",           "attrvalue:type:menu:button",
+    "h1",               "attr:aria-label:heading",
+    "h2",               "attr:aria-label:heading",
+    "h3",               "attr:aria-label:heading",
+    "h4",               "attr:aria-label:heading",
+    "h5",               "attr:aria-label:heading",
+    "h6",               "attr:aria-label:heading",
     "input",            "attrvalue:type:button:button " .
                         "attrvalue:type:checkbox:checkbox " .
                         "attrvalue:type:email:textbox " .
@@ -2731,6 +2737,7 @@ sub Get_Text_Handler_Tag_Content {
 #
 # Parameters: self - reference to a HTML::Parse object
 #             tag - current tag
+#             this_tag_hidden - flag to tell if tag content is hidden
 #
 # Description:
 #
@@ -2738,14 +2745,14 @@ sub Get_Text_Handler_Tag_Content {
 #
 #***********************************************************************
 sub Destroy_Text_Handler {
-    my ($self, $tag) = @_;
+    my ($self, $tag, $this_tag_hidden) = @_;
     
     my ($current_tag_text, $current_all_text, $current_text);
 
     #
     # Destroy text handler
     #
-    print "Destroy_Text_Handler for tag $tag\n" if $debug;
+    print "Destroy_Text_Handler for tag $tag, is hidden = $this_tag_hidden\n" if $debug;
     
     #
     # Do we have a text handler ?
@@ -2836,6 +2843,13 @@ sub Destroy_Text_Handler {
             #
             elsif ( ($tag eq "a") && ($current_text_handler_tag eq "label") ) {
                 print "Not adding <a> text to <label> text handler\n" if $debug;
+                $current_tag_text = "";
+            }
+            #
+            # Don't add text to parent if this tag is hidden
+            #
+            elsif ( $this_tag_hidden ) {
+                print "Not adding text from hidden tag\n" if $debug;
                 $current_tag_text = "";
             }
             #
@@ -15902,7 +15916,7 @@ sub Check_Interactive_Parent {
         $parent_tag = $interactive_tag->tag();
         print "Found interactive parent tag $parent_tag\n" if $debug;
         if ( ! defined($acceptable_parent_interactive_tag{$parent_tag}) ) {
-            Record_Result("WCAG_2.0-SC2.4.3", $line, $column, $text,
+            Record_Result("WCAG_2.0-SC2.4.3,ACT-Children_not_focusable", $line, $column, $text,
                           String_Value("Interactive tag has an interactive parent tag") .
                           " <$parent_tag> " .
                           String_Value("found at") . $interactive_tag->line_no() .
@@ -17963,9 +17977,10 @@ sub Get_Accessible_Name {
         $accessible_name = $aria_label;
     }
     #
-    # Is the tag presentational (i.e. role="presentation" or role="none")
+    # Is the tag presentational (i.e. role="presentation" or role="none").
+    # If it contains an aria-label, this overrides the role.
     #
-    elsif ( ($role eq "presentation") || ($role eq "none") ) {
+    elsif ( (($role eq "presentation") || ($role eq "none")) && (! defined($aria_label)) ) {
         print "Presentational tag\n" if $debug;
     }
     #
@@ -18190,6 +18205,18 @@ sub Get_Accessible_Name {
         #
         elsif ( $current_tag_object->attr_value("title") ne "" ) {
             $accessible_name = $current_tag_object->attr_value("title");
+        }
+    }
+    #
+    # Is this a heading?
+    #
+    elsif ( $role eq "heading" ) {
+        #
+        # Do we have heading content?
+        #
+        if ( scalar(@text_handler_all_text) > 0 ) {
+            $accessible_name = join("", @text_handler_all_text);
+            $accessible_name =~ s/^\s+//g;
         }
     }
     #
@@ -18480,6 +18507,12 @@ sub Check_Accessible_Name {
             $tcid = "ACT-Link_non_empty_accessible_name";
         }
         #
+        # Is this a heading?
+        #
+        elsif ( $role eq "heading" ){
+            $tcid = "ACT-Heading_non_empty_accessible_name";
+        }
+        #
         # Is this a menuitem?
         #
         elsif ( $role eq "menuitem" ){
@@ -18503,7 +18536,7 @@ sub Check_Accessible_Name {
     }
     else {
         #
-        # Non blank accesible name, is the tag not in the accessible tree?
+        # Non blank accessible name, is the tag not in the accessible tree?
         #
         # Is this an image?
         #
@@ -18597,7 +18630,7 @@ sub End_Handler {
 
     my (%attr_hash) = @attr;
     my (@anchor_text_list, $n, $tag_text, $last_start_tag);
-    my ($last_item, $tag_item);
+    my ($last_item, $tag_item, $this_close_tag_hidden);
     
     #
     # Save current end tag name
@@ -19025,6 +19058,16 @@ sub End_Handler {
     # Check for required children roles for this tag
     #
     Check_Required_Children_Roles($self, $tagname, $line, $column, $text);
+    
+    #
+    # Determine if the content of this tag is hidden or not
+    #
+    if ( (! $tag_is_visible) || $tag_is_hidden || $tag_is_aria_hidden ) {
+        $this_close_tag_hidden = 1;
+    }
+    else {
+        $this_close_tag_hidden = 0;
+    }
 
     #
     # Restore global tag visibility and hidden status values.
@@ -19076,7 +19119,7 @@ sub End_Handler {
     # Destroy the text handler that was used to save the text
     # portion of this tag.
     #
-    Destroy_Text_Handler($self, $tagname);
+    Destroy_Text_Handler($self, $tagname, $this_close_tag_hidden);
 }
 
 #***********************************************************************
