@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 2155 $
+# $Revision: 2249 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_json.pm $
-# $Date: 2021-10-01 14:00:07 -0400 (Fri, 01 Oct 2021) $
+# $Date: 2021-12-08 14:59:52 -0500 (Wed, 08 Dec 2021) $
 #
 # Description:
 #
@@ -681,6 +681,15 @@ sub Check_UTF8_BOM {
     #
     if ( $have_bom && defined($data_file_object) ) {
         $data_file_object->encoding("UTF-8");
+    }
+    
+    #
+    # If the file is part of a ZIP archive, assume it is UTF-8 as
+    # we can't verify it from the HTTP::Response object.
+    #
+    if ( $this_url =~ /\.zip:.+$/i ) {
+        $data_file_object->encoding("UTF-8");
+        print "File part of ZIP archive, assume UTF-8 encoding\n" if $debug;
     }
 
     #
