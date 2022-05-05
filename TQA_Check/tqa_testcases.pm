@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 2170 $
+# $Revision: 2277 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2021-10-18 11:24:43 -0400 (Mon, 18 Oct 2021) $
+# $Date: 2022-01-24 14:54:26 -0500 (Mon, 24 Jan 2022) $
 #
 # Description:
 #
@@ -294,7 +294,6 @@ my (%testcase_description_en) = (
 # The ACT Rules Community Group
 #   https://act-rules.github.io/rules/
 #
-#ACT-All_table_headers_have_data
 "ACT-ARIA_required_context_role", "1.3.1 ACT-ARIA_required_context_role: ARIA required context role",
 "ACT-ARIA_required_owned_elements", "1.3.1 ACT-ARIA_required_owned_elements: ARIA required owned elements",
 "ACT-ARIA_state_property_valid_value", "4.1.1 ACT-ARIA_state_property_valid_value: ARIA state or property has valid value",
@@ -314,6 +313,7 @@ my (%testcase_description_en) = (
 "ACT-Element_decorative_not_exposed", "ACT-Element_decorative_not_exposed: Element marked as decorative is not exposed",
 "ACT-Element_aria_hidden_no_focusable_content", "1.3.1, 4.1.2 ACT-Element_aria_hidden_no_focusable_content: Element with aria-hidden has no focusable content",
 "ACT-Lang_has_valid_language", "3.1.2 ACT-Lang_has_valid_language: Element with lang attribute has valid language tag",
+"ACT-Children_not_focusable", "1.3.1, 4.1.2 ACT-Children_not_focusable: Element with presentational children has no focusable content",
 "ACT-Role_has_required_properties", "4.1.2 ACT-Role_has_required_properties: Element with role attribute has required states and properties",
 #tcid ACT-Error_message_describes_invalid_value
 #tcid ACT-Focusable_no_keyboard_trap
@@ -322,7 +322,7 @@ my (%testcase_description_en) = (
 #tcid ACT-Form_control_label_is_descriptive
 "ACT-Form_field_non_empty_accessible_name", "4.1.2 ACT-Form_field_non_empty_accessible_name: Form field has non-empty accessible name",
 "ACT-Headers_refer_to_same_table", "1.3.1 ACT-Headers_refer_to_same_table: Headers attribute specified on a cell refers to cells in the same table element",
-#tcid ACT-Heading_non_empty_accessible_name
+"ACT-Heading_non_empty_accessible_name", "1.3.1 ACT-Heading_non_empty_accessible_name: Heading has non-empty accessible name",
 #tcid ACT-Heading_descriptive
 "ACT-HTML_page_has_lang", "3.1.1 ACT-HTML_page_has_lang: HTML page has lang attribute",
 "ACT-HTML_page_title_non_empty", "2.4.2 ACT-HTML_page_title_non_empty: HTML page has non-empty title",
@@ -348,7 +348,6 @@ my (%testcase_description_en) = (
 "ACT-Object_non_empty_accessible_name", "1.1.1 ACT-Object_non_empty_accessible_name: Object element rendering non-text content has non-empty accessible name",
 #tcid ACT-Orientation_not_restricted_CSS
 "ACT-Role_valid_value", "4.1.2 ACT-Role_valid_value: role attribute has valid value",
-#tcid ACT-SVG_with_role_non_empty_accessible_name
 #tcid ACT-Scrollable_element_keyboard_accessible
 #tcid ACT-SVG_with_role_non_empty_accessible_name
 #tcid ACT-Table_header_has_cells
@@ -563,7 +562,6 @@ my (%testcase_description_fr) = (
 # The ACT Rules Community Group
 #   https://act-rules.github.io/rules/
 #
-#ACT-All_table_headers_have_data
 "ACT-ARIA_required_context_role", "1.3.1 ACT-ARIA_required_context_role: ARIA required context role",
 "ACT-ARIA_required_owned_elements", "1.3.1 ACT-ARIA_required_owned_elements: ARIA required owned elements",
 "ACT-ARIA_state_property_valid_value", "4.1.1 ACT-ARIA_state_property_valid_value: ARIA state or property has valid value",
@@ -583,6 +581,7 @@ my (%testcase_description_fr) = (
 "ACT-Element_decorative_not_exposed", "ACT-Element_decorative_not_exposed: Element marked as decorative is not exposed",
 "ACT-Element_aria_hidden_no_focusable_content", "1.3.1, 4.1.2 ACT-Element_aria_hidden_no_focusable_content: Element with aria-hidden has no focusable content",
 "ACT-Lang_has_valid_language", "3.1.2 ACT-Lang_has_valid_language: Element with lang attribute has valid language tag",
+"ACT-Children_not_focusable", "1.3.1, 4.1.2 ACT-Children_not_focusable: Element with presentational children has no focusable content",
 "ACT-Role_has_required_properties", "4.1.2 ACT-Role_has_required_properties: Element with role attribute has required states and properties",
 #tcid ACT-Error_message_describes_invalid_value
 #tcid ACT-Focusable_no_keyboard_trap
@@ -592,7 +591,7 @@ my (%testcase_description_fr) = (
 #tcid ACT-Form_field_non_empty_accessible_name
 "ACT-Form_field_non_empty_accessible_name", "4.1.2 ACT-Form_field_non_empty_accessible_name: Form field has non-empty accessible name",
 "ACT-Headers_refer_to_same_table", "1.3.1 ACT-Headers_refer_to_same_table: Headers attribute specified on a cell refers to cells in the same table element",
-#tcid ACT-Heading_non_empty_accessible_name
+"ACT-Heading_non_empty_accessible_name", "1.3.1 ACT-Heading_non_empty_accessible_name: Heading has non-empty accessible name",
 #tcid ACT-Heading_descriptive
 "ACT-HTML_page_has_lang", "3.1.1 ACT-HTML_page_has_lang: HTML page has lang attribute",
 "ACT-HTML_page_title_non_empty", "2.4.2 ACT-HTML_page_title_non_empty: HTML page has non-empty title",
@@ -618,7 +617,6 @@ my (%testcase_description_fr) = (
 "ACT-Object_non_empty_accessible_name", "1.1.1 ACT-Object_non_empty_accessible_name: Object element rendering non-text content has non-empty accessible name",
 #tcid ACT-Orientation_not_restricted_CSS
 "ACT-Role_valid_value", "4.1.2 ACT-Role_valid_value: role attribute has valid value",
-#tcid ACT-SVG_with_role_non_empty_accessible_name
 #tcid ACT-Scrollable_element_keyboard_accessible
 #tcid ACT-SVG_with_role_non_empty_accessible_name
 #tcid ACT-Table_header_has_cells
@@ -779,10 +777,12 @@ my (%testcase_groups_table) = (
 
 "ACT-Element_aria_hidden_no_focusable_content", "1.3.1, 4.1.2",
 "ACT-Lang_has_valid_language", "3.1.2",
+"ACT-Children_not_focusable", "1.3.1, 4.1.2",
 "ACT-Role_has_required_properties", "4.1.2",
 
 "ACT-Form_field_non_empty_accessible_name", "4.1.2",
 "ACT-Headers_refer_to_same_table", "1.3.1",
+"ACT-Heading_non_empty_accessible_name", "1.3.1",
 
 "ACT-HTML_page_has_lang", "3.1.1",
 "ACT-HTML_page_title_non_empty", "2.4.2",
