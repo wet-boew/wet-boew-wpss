@@ -2,9 +2,9 @@
 #
 # Name:   tqa_deque_axe.pm
 #
-# $Revision: 2171 $
+# $Revision: 2319 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_deque_axe.pm $
-# $Date: 2021-10-18 11:25:38 -0400 (Mon, 18 Oct 2021) $
+# $Date: 2022-05-03 13:05:00 -0400 (Tue, 03 May 2022) $
 #
 # Description:
 #
@@ -96,7 +96,7 @@ BEGIN {
 #
 #***********************************************************************
 
-my (@paths, $this_path, $program_dir, $program_name, $paths);
+my (@paths, $this_path, $program_dir, $program_name, $paths, $userprofile);
 my (%tqa_check_profile_map, $current_tqa_check_profile);
 my ($current_url, $results_list_addr, %testcase_data);
 my ($debug) = 0;
@@ -104,7 +104,8 @@ my ($axe_runtime_reported) = 0;
 my ($default_windows_chrome_path);
 
 my ($deque_axe_installed, $deque_axe_version, $deaque_axe_install_error);
-my ($chromedriver_path, %help_urls);
+my ($chromedriver_path, $chromedriver_version, $chrome_version, %help_urls);
+my ($chromedriver_major_version, $chrome_major_version);
 my ($chromedriver_argument) = "";
 if ( $have_threads ) {
     share(\$deque_axe_installed);
@@ -112,6 +113,10 @@ if ( $have_threads ) {
     share(\$deaque_axe_install_error);
     share(\$chromedriver_path);
     share(\$chromedriver_argument);
+    share(\$chromedriver_version);
+    share(\$chromedriver_major_version);
+    share(\$chrome_version);
+    share(\$chrome_major_version);
     share(\%help_urls);
 }
 
@@ -332,7 +337,8 @@ sub Set_Deque_AXE_Test_Profile {
 #
 #***********************************************************************
 sub Check_Deque_Axe_Requirements {
-    my ($file_path, $chrome_path, $version);
+    my ($file_path, $chrome_path, $version, $output, $line);
+    my ($version_str);
     my ($meets_requirements) = 1;
 
     #
@@ -377,7 +383,7 @@ sub Check_Deque_Axe_Requirements {
             print "Check for chromedriver.cmd program\n" if $debug;
             $chromedriver_path = `where chromedriver.cmd 2>&1`;
             if ( $chromedriver_path =~ /Could not find/i ) {
-                print "axe not in path\n" if $debug;
+                print "chromedriver not in path\n" if $debug;
                 print STDERR "ChromeDriver not installed, axe not available\n";
                 $deaque_axe_install_error = "ChromeDriver not installed, axe not available";
                 $meets_requirements = 0;
@@ -390,6 +396,20 @@ sub Check_Deque_Axe_Requirements {
                 chomp($chromedriver_path);
                 print "Chromedriver found at $chromedriver_path\n" if $debug;
                 $chromedriver_argument = "--chromedriver-path \"$chromedriver_path\"";
+                
+                #
+                # Get the Chromedriver version
+                #
+                $output = `npm list chromedriver -g 2>&1`;
+                $chromedriver_version = "";
+                foreach $line (split(/[\n\r]/, $output)) {
+                    if ( $line =~ /chromedriver/ ) {
+                        $line =~ s/^.*@//g;
+                        $chromedriver_version = $line;
+                        ($chromedriver_major_version) = split(/\./, $chromedriver_version, 1);
+                        last;
+                    }
+                }
             }
         }
 
@@ -431,10 +451,17 @@ sub Check_Deque_Axe_Requirements {
             }
 
             #
-            # Did we get a path?
+            # Did we get a path? If so get the Chrome version
             #
             if ( defined($chrome_path) && (-f $chrome_path) ) {
                 print "Chrome executable found at $chrome_path\n" if $debug;
+                $chrome_path =~ s/\\/\\\\/g;
+                print "Check Chrome version from\nwmic datafile where name=\"$chrome_path\" get Version /value\n" if $debug;
+                $version_str = `wmic datafile where name=\"$chrome_path\" get Version /value`;
+                ($version) = $version_str =~ /^[\s\n\r]*version=([\d\.]+).*$/mio;
+                print "Chrome version = $version from $version_str\n" if $debug;
+                $chrome_version = "$version";
+                ($chrome_major_version) = split(/\./, $chrome_version, 1);
             }
             else {
                 #
@@ -596,7 +623,7 @@ sub Deque_AXE_Check {
     my ($help, $violations_array, $violations_item, $tags_array);
     my ($help_url, $nodes, $node, $impact, $line, $result_object);
     my ($failureSummary, $node_any, $message, $target, $target_list);
-    my ($first_node);
+    my ($first_node, $message);
     my ($error_found) = 0;
 
     #
@@ -665,7 +692,7 @@ sub Deque_AXE_Check {
         print "axe output = $output\n" if $debug;
         
         #
-        # Get the stferr output as a string
+        # Get the stderr output as a string
         #
         open(FH, "axe_stderr.txt");
         binmode FH;
@@ -687,9 +714,10 @@ sub Deque_AXE_Check {
             #
             $error_found = 1;
             if ( ! $axe_runtime_reported ) {
-                $result_object = Record_Result("AXE", "",
-                                      String_Value("ChromeDriver version error") .
-                                      " \"$cmd\"\n" . " \"$output\"");
+                $message =  String_Value("ChromeDriver version error") .
+                            " \"$cmd\"\n" . " \"$output\"" .
+                            "STDERR: $runtime_error_string\n";
+                $result_object = Record_Result("AXE", "", $message);
                 print STDERR "Error running axe: $cmd\n";
                 print STDERR "Output = $output\n";
                 
@@ -698,9 +726,7 @@ sub Deque_AXE_Check {
                 # The initial setting may have been truncated while in this
                 # case we want the entire value.
                 #
-                $result_object->source_line(String_Value("ChromeDriver version error") .
-                                            " \"$cmd\"\n" . " \"$output\"\n" .
-                                            "STDERR: $runtime_error_string\n");
+                $result_object->source_line($message);
 
                 #
                 # Suppress further errors
@@ -712,7 +738,9 @@ sub Deque_AXE_Check {
         # Did we encounter a runtime error? This
         # can happen if headless chrome is not installed.
         #
-        elsif ( ($output =~ /^Error: /im) || ($output =~ /throw error;/im)  ) {
+        elsif ( ($output =~ /^Error: /im) ||
+                ($output =~ /throw error;/im) ||
+                ($runtime_error_string =~ /An error occurred while testing this page/im) ) {
             print "Error running axe: $output\n" if $debug;
 
             #
@@ -720,9 +748,26 @@ sub Deque_AXE_Check {
             #
             $error_found = 1;
             if ( ! $axe_runtime_reported ) {
-                $result_object = Record_Result("AXE", "",
-                                      String_Value("Runtime Error") .
-                                      " \"$cmd\"\n" . " \"$output\"");
+                #
+                # Is there a difference in major version numbers between chrome
+                # and chromedriver? This is likely to be the cause of the error
+                #
+                if ( $chrome_major_version != $chromedriver_major_version ) {
+                    $message =  String_Value("ChromeDriver version error") .
+                                " Chrome: $chrome_version, Chromedriver: $chromedriver_version\n" .
+                                " \"$cmd\"\n" . " \"$output\"" .
+                                "STDERR: $runtime_error_string\n";
+                }
+                else {
+                    $message = String_Value("Runtime Error") .
+                                      " \"$cmd\"\n" . " \"$output\"\n" .
+                                      "Chrome: $chrome_version, Chromedriver: $chromedriver_version";
+                }
+                
+                #
+                # Create testcase result object
+                #
+                $result_object = Record_Result("AXE", "", $message);
                 print STDERR "Error running axe: $cmd\n";
                 print STDERR "Output = $output\n";
 
@@ -731,9 +776,7 @@ sub Deque_AXE_Check {
                 # The initial setting may have been truncated while in this
                 # case we want the entire value.
                 #
-                $result_object->source_line(String_Value("Runtime Error") .
-                                            " \"$cmd\"\n" . " \"$output\"\n" .
-                                            "STDERR: $runtime_error_string\n");
+                $result_object->source_line($message);
 
                 #
                 # Suppress further errors
@@ -1114,7 +1157,7 @@ sub Deque_AXE_Version {
     print "Deque_AXE_Version\n" if $debug;
     Check_Deque_Axe_Requirements();
     if ( defined($deque_axe_version) && ($deque_axe_version ne "") ) {
-        return($deque_axe_version);
+        return("$deque_axe_version, Chrome: $chrome_version, Chromedriver: $chromedriver_version");
     }
     else {
         return("");
@@ -1187,6 +1230,19 @@ if ( $program_dir eq "." ) {
             last;
         }
     }
+}
+
+#
+# Make sure npm modules are in the path
+#
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $paths = $ENV{"PATH"};
+    $userprofile = $ENV{"USERPROFILE"};
+    $paths .= ";$userprofile/AppData/Roaming/npm";
+    $ENV{"PATH"} = $paths;
 }
 
 #
