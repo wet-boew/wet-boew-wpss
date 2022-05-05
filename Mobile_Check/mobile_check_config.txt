@@ -1,0 +1,274 @@
+#***********************************************************************
+#
+# Name:   mobile_check_config.txt
+#
+# $Revision: 2038 $
+# $URL: svn://10.36.148.185/WPSS_Tool/Mobile_Check/Tools/mobile_check_config.txt $
+# $Date: 2021-05-12 10:22:25 -0400 (Wed, 12 May 2021) $
+#
+# Description:
+#   This file contains the configuration parameters for the
+# mobile check package. The parameters appear as name/value pairs
+# with the name at the beginning of the line.  The value cannot 
+# contain and white space characters (space or tab).
+#
+# Comment (lines starting with #) and blank lines are ignored.
+#
+#***********************************************************************
+
+#
+#***********************************************************************
+#
+# Testcase/help URL file name
+#
+#***********************************************************************
+#
+Testcase_URL_Help_File conf/mobile_testcase_url.config
+
+#
+#***********************************************************************
+#
+# Test testcase profile
+#
+#***********************************************************************
+#
+#Mobile_Check_Profile_eng Test
+#Mobile_Check_Profile_fra Test
+
+#
+# Testcase id
+#
+#tcid TEST
+
+#
+#***********************************************************************
+#
+# Errors based on Yahoo best practices
+#    https://developer.yahoo.com/performance/rules.html
+#
+#***********************************************************************
+#
+Mobile_Check_Profile_eng Errors
+Mobile_Check_Profile_fra Erreurs
+
+#
+# Testcase id
+#
+tcid COOKIE_FREE
+tcid COOKIE_SIZE
+tcid CSS_LINK
+tcid CSS_TOP
+tcid DNS_LOOKUPS
+tcid EMPTY_SRC
+tcid ETAGS
+#tcid EXPIRES
+tcid EXTERNAL
+#tcid FAVICON
+#tcid GZIP
+tcid IFRAMES
+tcid JS_BOTTOM
+tcid JS_DUPES
+tcid MINIFY
+tcid NO_404
+tcid NO_SCALE
+tcid NUM_HTTP
+tcid OPT_IMAGES
+#tcid REDIRECTS
+
+#
+#***********************************************************************
+#
+# Testcase specific data settings
+#
+#***********************************************************************
+#
+
+#
+# Maximum number of hostnames for supporting files
+#
+testcase_data DNS_LOOKUPS 4
+
+#
+# Maximum number of characters allowed for inline CSS and JavaScript
+# in HTML web pages
+#
+testcase_data EXTERNAL MAX_CSS  500
+testcase_data EXTERNAL MAX_JS  2000
+
+#
+# Maximum size of favicon image in bytes
+# Size set to 6Kb, which is larger than the current WET 4.0 favicon.ico image
+#
+testcase_data FAVICON 6144
+
+#
+# Maximum number of iframes on a page
+#
+testcase_data IFRAMES 1
+
+#
+# Allowed scripts in head serction (e.g. analytics)
+#
+testcase_data JS_BOTTOM assets.adobedtm.com
+
+#
+# Maximum percentage of comments and whitespace in CSS and JavaScript
+#
+testcase_data MINIFY COMMENT    10
+testcase_data MINIFY WHITESPACE  5
+
+#
+# Minimum size (pixels) of image height and width to skip check for optimization
+# Maximum percentage size reduction before reporting errors
+#
+testcase_data NO_SCALE MIN_HEIGHT    100
+testcase_data NO_SCALE MIN_WIDTH     100
+testcase_data NO_SCALE MAX_REDUCTION  10
+
+#
+# Maximum number of CSS, JavaScript and image files expected on a page
+#
+testcase_data NUM_HTTP MAX_CSS     5
+testcase_data NUM_HTTP MAX_JS     10
+testcase_data NUM_HTTP MAX_IMAGE  12
+
+#
+# Minimum size (bytes) of images to skip check for optimization
+# Minimum percentage size reduction before reporting errors
+#
+testcase_data OPT_IMAGES MIN_SIZE    1000
+testcase_data OPT_IMAGES MIN_PERCENT   10
+
+#
+# URL values to ignore for redirects
+#
+testcase_data REDIRECTS URL language.pl
+testcase_data REDIRECTS URL www.flickr.com
+
+#
+# Link text values to ignore for redirects (e.g. language switch)
+#
+testcase_data REDIRECTS TEXT English
+testcase_data REDIRECTS TEXT Français
+
+#
+#***********************************************************************
+#
+# Common checks based on Yahoo best practices
+#    https://developer.yahoo.com/performance/rules.html
+#
+#***********************************************************************
+#
+Mobile_Check_Profile_eng Common
+Mobile_Check_Profile_fra Commun
+
+#
+# Testcase id
+#
+tcid COOKIE_FREE
+tcid COOKIE_SIZE
+tcid CSS_LINK
+tcid CSS_TOP
+tcid DNS_LOOKUPS
+tcid EMPTY_SRC
+tcid ETAGS
+tcid EXPIRES
+tcid EXTERNAL
+tcid FAVICON
+tcid GZIP
+tcid IFRAMES
+tcid JS_BOTTOM
+tcid JS_DUPES
+tcid MINIFY
+tcid NO_404
+tcid NO_SCALE
+tcid NUM_HTTP
+tcid OPT_IMAGES
+tcid REDIRECTS
+
+#
+#***********************************************************************
+#
+# Testcase specific data settings
+#
+#***********************************************************************
+#
+
+#
+# Maximum number of hostnames for supporting files
+#
+testcase_data DNS_LOOKUPS 4
+
+#
+# Maximum number of characters allowed for inline CSS and JavaScript
+# in HTML web pages
+#
+testcase_data EXTERNAL MAX_CSS  500
+testcase_data EXTERNAL MAX_JS  2000
+
+#
+# Maximum size of favicon image in bytes
+# Size set to 6Kb, which is larger than the current WET 4.0 favicon.ico image
+#
+testcase_data FAVICON 6144
+
+#
+# Maximum number of iframes on a page
+#
+testcase_data IFRAMES 1
+
+#
+# Allowed scripts in head serction (e.g. analytics)
+#
+testcase_data JS_BOTTOM assets.adobedtm.com
+
+#
+# Maximum percentage of comments and whitespace in CSS and JavaScript
+#
+testcase_data MINIFY COMMENT    10
+testcase_data MINIFY WHITESPACE  5
+
+#
+# Minimum size (pixels) of image height and width to skip check for optimization
+# Maximum percentage size reduction before reporting errors
+#
+testcase_data NO_SCALE MIN_HEIGHT    100
+testcase_data NO_SCALE MIN_WIDTH     100
+testcase_data NO_SCALE MAX_REDUCTION  10
+
+#
+# Maximum number of CSS, JavaScript and image files expected on a page
+#
+testcase_data NUM_HTTP MAX_CSS     5
+testcase_data NUM_HTTP MAX_JS     10
+testcase_data NUM_HTTP MAX_IMAGE  12
+
+#
+# Minimum size (bytes) of images to skip check for optimization
+# Minimum percentage size reduction before reporting errors
+#
+testcase_data OPT_IMAGES MIN_SIZE    1000
+testcase_data OPT_IMAGES MIN_PERCENT   10
+
+#
+# URL values to ignore for redirects
+#
+testcase_data REDIRECTS URL language.pl
+testcase_data REDIRECTS URL www.flickr.com
+
+#
+# Link text values to ignore for redirects (e.g. language switch)
+#
+testcase_data REDIRECTS TEXT English
+testcase_data REDIRECTS TEXT Français
+
+#
+#***********************************************************************
+#
+# Empty testcase Profile
+#
+#***********************************************************************
+#
+Mobile_Check_Profile_eng None
+Mobile_Check_Profile_fra Aucun
+
