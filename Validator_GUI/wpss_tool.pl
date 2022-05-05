@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 2168 $
+# $Revision: 2285 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2021-10-14 16:02:24 -0400 (Thu, 14 Oct 2021) $
+# $Date: 2022-02-03 09:52:22 -0500 (Thu, 03 Feb 2022) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -5827,7 +5827,7 @@ sub Print_Results_Header {
 
     my ($sec, $min, $hour, $mday, $mon, $year, $date, $tab);
     my ($site_entries, %user_agent_details, $user_agent, $details);
-    my (%tool_versions, $tool, $version);
+    my (%tool_versions, $tool, $tool_version);
 
     #
     # Clear any text that may exist in the results tabs
@@ -5947,10 +5947,10 @@ sub Print_Results_Header {
         #
         %tool_versions = TQA_Check_Tools_Versions();
         foreach $tool (sort(keys(%tool_versions))) {
-            $version = $tool_versions{$tool};
+            $tool_version = $tool_versions{$tool};
             Validator_GUI_Update_Results($acc_tab,
                                          String_Value("Supporting tool") .
-                                         " $tool : $version");
+                                         " $tool : $tool_version");
         }
 
         Validator_GUI_Update_Results($acc_tab, "");
@@ -10235,6 +10235,16 @@ sub Open_Data_Callback {
                     print $files_details_fh "$data_file_type,\"$t\",\"$mime_type\",\"$checksum\",$size,,,,\r\n";
                 }
                 else {
+                    #
+                    # Setup content saving option
+                    #
+                    Setup_Content_Saving($shared_save_content, $url);
+
+                    #
+                    # Save content in a local file
+                    #
+                    Save_Content_To_File($url, $mime_type, \$content, "", "");
+
                     #
                     # Perform Open Data checks.
                     #
