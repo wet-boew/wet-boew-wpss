@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 2022 $
+# $Revision: 2248 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_check.pm $
-# $Date: 2021-05-04 08:28:17 -0400 (Tue, 04 May 2021) $
+# $Date: 2021-12-08 14:58:56 -0500 (Wed, 08 Dec 2021) $
 #
 # Description:
 #
@@ -236,6 +236,7 @@ my %string_table_en = (
     "expected at column",              "expected at column",
     "exceeds maximum",                 "exceeds maximum",
     "expecting",                       " expecting ",
+    "Expecting https URL protocol, found http", "Expecting https URL protocol, found http",
     "Error in reading ZIP, status =",  "Error in reading ZIP, status =",
     "Fails validation",                "Fails validation",
     "Flesch-Kincaid score for English description", "Flesch-Kincaid score for English description",
@@ -308,6 +309,7 @@ my %string_table_fr = (
     "exceeds maximum",                 "dépasse le maximum",
     "expected at column",              "attendu à la colonne",
     "expecting",                       " expectant ",
+    "Expecting https URL protocol, found http", "En attente du protocole d'URL https, trouvé http",
     "Error in reading ZIP, status =",  "Erreur de lecture fichier ZIP, status =",
     "Fails validation",                "Échoue la validation",
     "Flesch-Kincaid score for English description", "Score Flesch-Kincaid pour la description en anglais",
@@ -914,6 +916,39 @@ sub Check_Content_Encoding {
 
 #***********************************************************************
 #
+# Name: Check_URL_Protocol
+#
+# Parameters: url - open data file URL
+#
+# Description:
+#
+#   This function checks the protocol of the URL.
+#
+#***********************************************************************
+sub Check_URL_Protocol {
+    my ($url) = @_;
+    
+    my ($protocol, $domain, $file_path, $query, $new_url);
+    
+    #
+    # Get the URL components.
+    #
+    print "Check_URL_Protocol for $url\n" if $debug;
+    ($protocol, $domain, $file_path, $query, $new_url) =
+            URL_Check_Parse_URL($url);
+
+    #
+    # Check for http rather than https
+    #
+    if ( defined($protocol) && ($protocol =~ /^http:/) ) {
+        Record_Result("TP_PW_OD_URL", 0, -1, "",
+                      String_Value("Expecting https URL protocol, found http"));
+    }
+
+}
+
+#***********************************************************************
+#
 # Name: Check_Encoding
 #
 # Parameters: resp - HTTP response object
@@ -984,6 +1019,11 @@ sub Check_Dictionary_URL {
         #
         $mime_type = "";
     }
+    
+    #
+    # Check the protocol for the URL
+    #
+    Check_URL_Protocol($url);
 
     #
     # Check for UTF-8 encoding
@@ -1083,6 +1123,11 @@ sub Check_Resource_URL {
     }
 
     #
+    # Check the protocol for the URL
+    #
+    Check_URL_Protocol($url);
+
+    #
     # Check for UTF-8 encoding
     #
     if ( ($mime_type =~ /text\/html/) ||
@@ -1154,6 +1199,11 @@ sub Check_Data_File_URL {
         $mime_type = "";
     }
     
+    #
+    # Check the protocol for the URL
+    #
+    Check_URL_Protocol($url);
+
     #
     # Get the language of the URL
     #
