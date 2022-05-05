@@ -2,9 +2,9 @@
 #
 # Name: tqa_wai_aria.pm
 #
-# $Revision: 1856 $
+# $Revision: 2277 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_wai_aria.pm $
-# $Date: 2020-09-15 07:07:00 -0400 (Tue, 15 Sep 2020) $
+# $Date: 2022-01-24 14:54:26 -0500 (Mon, 24 Jan 2022) $
 #
 # Description:
 #
@@ -413,6 +413,12 @@ my (%implicit_aria_role_conditions) = (
     "a",                "attr:href:link",
     "area",             "attr:href:link",
     "button",           "attrvalue:type:menu:button",
+    "h1",               "attr:aria-label:heading",
+    "h2",               "attr:aria-label:heading",
+    "h3",               "attr:aria-label:heading",
+    "h4",               "attr:aria-label:heading",
+    "h5",               "attr:aria-label:heading",
+    "h6",               "attr:aria-label:heading",
     "input",            "attrvalue:type:button:button " .
                         "attrvalue:type:checkbox:checkbox " .
                         "attrvalue:type:email:textbox " .
