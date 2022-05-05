@@ -2,9 +2,9 @@
 #
 # Name:   open_data_testcases.pm
 #
-# $Revision: 2156 $
+# $Revision: 2250 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_testcases.pm $
-# $Date: 2021-10-01 14:01:19 -0400 (Fri, 01 Oct 2021) $
+# $Date: 2021-12-08 15:00:18 -0500 (Wed, 08 Dec 2021) $
 #
 # Description:
 #
@@ -133,6 +133,7 @@ my (%testcase_description_en) = (
 "TP_PW_OD_CONT_DUP",         "TP_PW_OD_CONT: Duplicate content",
 "TP_PW_OD_DATA",             "TP_PW_OD_DATA: PWGSC Data Quality",
 "TP_PW_OD_DD",               "TP_PW_OD_DD: Data Dictionary",
+"TP_PW_OD_URL",              "TP_PW_OD_URL: Open Data URL",
 "TP_PW_OD_VAL",              "TP_PW_OD_VAL: Validation",
 );
 
@@ -172,6 +173,7 @@ my (%testcase_description_fr) = (
 "TP_PW_OD_CONT_DUP",         "TP_PW_OD_CONT: Contenu en double",
 "TP_PW_OD_DATA",             "TP_PW_OD_DATA: Qualité des données de TPSGC",
 "TP_PW_OD_DD",               "TP_PW_OD_DD: XML Dictionnaire",
+"TP_PW_OD_URL",              "TP_PW_OD_URL: URL des Données Ouvertes",
 "TP_PW_OD_VAL",              "TP_PW_OD_VAL: Validation",
 );
 
