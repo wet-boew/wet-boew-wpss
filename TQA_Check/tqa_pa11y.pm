@@ -2,9 +2,9 @@
 #
 # Name:   tqa_pa11y.pm
 #
-# $Revision: 2147 $
+# $Revision: 2251 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_pa11y.pm $
-# $Date: 2021-09-21 11:06:59 -0400 (Tue, 21 Sep 2021) $
+# $Date: 2021-12-08 15:01:17 -0500 (Wed, 08 Dec 2021) $
 #
 # Description:
 #
@@ -94,7 +94,7 @@ BEGIN {
 #
 #***********************************************************************
 
-my (@paths, $this_path, $program_dir, $program_name, $paths);
+my (@paths, $this_path, $program_dir, $program_name, $paths, $userprofile);
 my (%tqa_check_profile_map, $current_tqa_check_profile);
 my ($current_url, $results_list_addr, %testcase_data);
 my ($debug) = 0;
@@ -714,6 +714,19 @@ if ( $program_dir eq "." ) {
             last;
         }
     }
+}
+
+#
+# Make sure npm modules are in the path
+#
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $paths = $ENV{"PATH"};
+    $userprofile = $ENV{"USERPROFILE"};
+    $paths .= ";$userprofile/AppData/Roaming/npm";
+    $ENV{"PATH"} = $paths;
 }
 
 #
