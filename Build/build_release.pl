@@ -693,8 +693,8 @@ for $file (@files) {
 }
 copy("WPSS Validation Tool Fra.doc", "$dest/documents/User_Guide-fra.doc") ||
     die "Failed to copy WPSS Validation Tool Fra.doc to $dest/documents/User_Guide-fra.doc\n";
-copy("Release_Notes.txt.txt", "$dest/documents/Release_Notes.txt") ||
-    die "Failed to copy Release_Notes.txt.txt to $dest/documents/Release_Notes.txt\n";
+copy("Release_Notes.txt", "$dest/documents/Release_Notes.txt") ||
+    die "Failed to copy Release_Notes.txt to $dest/documents/Release_Notes.txt\n";
 chdir("$src");
 @files = ("License-en.txt", "Licence-fr.txt");
 for $file (@files) {
