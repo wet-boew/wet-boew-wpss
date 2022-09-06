@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 2167 $
+# $Revision: 2385 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2021-10-14 16:01:24 -0400 (Thu, 14 Oct 2021) $
+# $Date: 2022-09-01 10:05:18 -0400 (Thu, 01 Sep 2022) $
 #
 # Description:
 #
@@ -870,7 +870,7 @@ sub Validator_GUI_Print_TQA_Result {
         #
         # Print page number, if there is one
         #
-        elsif ( $result_object->page_no > 0 ) {
+        elsif ( ($result_object->page_no() ne "") && ($result_object->page_no() > 0) ) {
             $output_line = sprintf(String_Value("4 spaces") .
                                    String_Value("Page") .
                                    "%3d ", $result_object->page_no);
