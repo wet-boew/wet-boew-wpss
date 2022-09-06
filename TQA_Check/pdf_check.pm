@@ -96,7 +96,8 @@ my ($debug) = 0;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my ($results_list_addr, $current_url, $pdf_checker_cmnd);
 my (%pdf_check_profile_map, $current_testcase_profile, %testcase_data);
-my (%pdf_features, %feature_profile_map);
+my (%pdf_features, %feature_profile_map, $python_version, $is_windows);
+my ($python_runtime_reported) = 0;
 
 #
 # Status values
@@ -108,33 +109,35 @@ my ($pdf_check_fail)       = 1;
 # String table for error strings.
 #
 my %string_table_en = (
-    "No tags in document",                "No tags in document",
-    "No Title property in document",      "No 'Title' property in document",
-    "No Language property in document",   "No 'Language' property in document",
-    "Missing text in",                    "Missing text in ",
     "Invalid title",                      "Invalid title",
     "Invalid title text value",           "Invalid title text value",
-    "No bookmarks in document",           "No bookmarks in document",
-    "Missing /Lang entry in document catalog", "Missing /Lang entry in document catalog",
-    "No name for form field",             "No 'name' for form field",
     "Missing Alt text in image",          "Missing 'Alt' text in image",
+    "Missing /Lang entry in document catalog", "Missing /Lang entry in document catalog",
+    "Missing text in",                    "Missing text in ",
+    "No bookmarks in document",           "No bookmarks in document",
+    "No Language property in document",   "No 'Language' property in document",
+    "No name for form field",             "No 'name' for form field",
     "No table headers found",             "No table headers found",
+    "No tags in document",                "No tags in document",
+    "No Title property in document",      "No 'Title' property in document",
     "Page",                               "Page",
+    "Runtime Error",                      "Runtime Error",
     );
 
 my %string_table_fr = (
-    "No tags in document",                "Pas de tags dans le document",
-    "No Title property in document",      "Aucune propriété 'Title' dans le document",
-    "No Language property in document",   "Aucune propriété 'Language' dans le document",
-    "Missing text in",                    "Manquantes du texte dans ",
     "Invalid title",                      "Titre invalide",
     "Invalid title text value",           "Valeur de texte titre est invalide",
-    "No bookmarks in document",           "fr_No bookmarks in document",
-    "Missing /Lang entry in document catalog", "Manquant d'entrée /Lang dans le catalogue de document",
-    "No name for form field",             "Pas de nom pour champ de formulaire",
     "Missing Alt text in image",          "Texte 'Alt' manquantes dans l'image",
+    "Missing /Lang entry in document catalog", "Manquant d'entrée /Lang dans le catalogue de document",
+    "Missing text in",                    "Manquantes du texte dans ",
+    "No bookmarks in document",           "fr_No bookmarks in document",
+    "No Language property in document",   "Aucune propriété 'Language' dans le document",
+    "No name for form field",             "Pas de nom pour champ de formulaire",
     "No table headers found",             "Aucune d'en-tête de tableau retrouvée",
+    "No tags in document",                "Pas de tags dans le document",
+    "No Title property in document",      "Aucune propriété 'Title' dans le document",
     "Page",                               "Page",
+    "Runtime Error",                      "Erreur D'Exécution",
     );
 
 #
@@ -304,6 +307,105 @@ sub String_Value {
         #
         return ("*** No string for $key ***");
     }
+}
+
+#***********************************************************************
+#
+# Name: Check_Python_Version
+#
+# Parameters: None
+#
+# Description:
+#
+#   This function checks the version of Python installed.  The PDF check
+# tool only runs in Python 2.
+#
+#***********************************************************************
+sub Check_Python_Version {
+
+    my ($python_file, $filename, $python_output, $output, $major, $minor);
+    my ($linux_python);
+
+    #
+    # Have we already determined the Python version?
+    #
+    if ( ! defined($python_version) ) {
+        #
+        # Get python command.
+        #
+        if ( ! $is_windows ) {
+            #
+            # Check for python executable
+            #
+            $output = `which python 2>&1`;
+            if ( $output =~ /no python in/i ) {
+                #
+                # No python, check for python3
+                #
+                $output = `which python3 2>&1`;
+                if ( $output =~ /no python3 in/i ) {
+                    print STDERR "Could not find python or python3\n";
+                    $python_version = "Not installed";
+                    return($python_version);
+                }
+                else {
+                    $linux_python = "python3";
+                }
+            }
+            else {
+                #
+                # Have python executable
+                #
+                $linux_python = "python";
+            }
+        }
+
+        #
+        # Write temporary program to get the python version
+        #
+        print "Check_Python_Version\n" if $debug;
+        ($python_file, $filename) = tempfile("WPSS_TOOL_PDF_CHECK_XXXXXXXXXX",
+                                             SUFFIX => '.py',
+                                             TMPDIR => 1);
+        print $python_file "import sys\n";
+        print $python_file "print(sys.version_info)\n";
+        print $python_file "print('Version: major:'+str(sys.version_info[0])+' minor:'+str(sys.version_info[1]))\n";
+        close($python_file);
+
+        #
+        # Run the program
+        #
+        if ( $is_windows ) {
+            $python_output = `$filename 2>\&1`;
+        }
+        else {
+            $python_output = `$linux_python $filename 2>\&1`;
+        }
+        unlink($filename);
+
+        #
+        # Get major and minor release numbers
+        #
+        print "Version check output $python_output\n" if $debug;
+        ($major) = $python_output =~ /major:\s*(\d).*/im;
+        ($minor) = $python_output =~ /minor:\s*(\d).*/im;
+
+        #
+        # Check version
+        #
+        if ( defined($major) && defined($minor) ) {
+            $python_version = "$major.$minor";
+        }
+        else {
+            $python_version = "Unknown";
+        }
+        print "Found python version $python_version\n" if $debug;
+    }
+
+    #
+    # Return the python version string
+    #
+    return($python_version);
 }
 
 #***********************************************************************
@@ -570,8 +672,41 @@ sub Run_pdfchecker {
     my ($is_protected, %image_alt_map, %image_actualtext_map, $title);
     my ($output, $line, $filler, $page_count, $page_number, $fh);
     my ($location, $sublocation, $value, $pdf_file, $num_tables);
+    my ($version);
     my $is_protected = 0;
 
+    #
+    # Check the version of Python, the PDF check tool only runs in
+    # Python 2.
+    #
+    $version = Check_Python_Version();
+    if ( ($version > 2.0) && ($version < 3.0) ) {
+        #
+        # Valid python version
+        #
+        print "Valid python version for PDF check\n" if $debug;
+    }
+    else {
+        #
+        # Runtime error, no valid Python version
+        #
+        if ( ! $python_runtime_reported ) {
+            #
+            # Create testcase result object
+            #
+            Record_Result("WCAG_2.0-PDF1", "", "",
+                          String_Value("Runtime Error") .
+                          " Invalid python version ($version) for PDF check");
+            print STDERR "Runtime error, Invalid python version ($version) for PDF check\n";
+
+            #
+            # Suppress further errors
+            #
+            $python_runtime_reported = 1;
+        }
+        return();
+    }
+    
     #
     # Create a temporary file for the PDF content.
     #
@@ -1042,11 +1177,13 @@ if ( $^O =~ /MSWin32/ ) {
     # Windows.
     #
     $pdf_checker_cmnd = "bin\\pdfchecker\\pdfchecker.py";
+    $is_windows = 1;
 } else {
     #
     # Not Windows.
     #
     $pdf_checker_cmnd = "python \"$program_dir/bin/pdfchecker/pdfchecker.py\" 2>\&1";
+    $is_windows = 0;
 }
 
 #
