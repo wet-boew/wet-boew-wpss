@@ -2,9 +2,9 @@
 #
 # Name:   crawler_phantomjs.pm
 #
-# $Revision: 2105 $
+# $Revision: 2365 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler_phantomjs.pm $
-# $Date: 2021-08-20 10:11:33 -0400 (Fri, 20 Aug 2021) $
+# $Date: 2022-06-29 09:45:25 -0400 (Wed, 29 Jun 2022) $
 #
 # Description:
 #
@@ -91,7 +91,8 @@ my ($phantomjs_server_cmnd, $phantomjs_server_arg);
 my ($debug) = 0;
 my ($use_markup_server) = 0;
 my ($markup_server_running) = 0;
-my ($markup_server_port) = "8000";
+my ($markup_server_port_start) = "8000";
+my ($markup_server_port) = $markup_server_port_start;
 my ($retry_page) = 0;
 
 #********************************************************
@@ -193,7 +194,7 @@ sub Crawler_Phantomjs_Config {
         # Check for known configuration variables
         #
         if ( $key eq "markup_server_port" ) {
-            $markup_server_port = $value;
+            $markup_server_port_start = $value;
         }
         elsif ( $key eq "use_markup_server" ) {
             $use_markup_server = $value;
@@ -279,7 +280,7 @@ sub Crawler_Phantomjs_Start_Markup_Server {
     #
     # Check to see if port number is available
     #
-    $port = $markup_server_port;
+    $port = $markup_server_port_start;
     $port_found = 0;
     while ( ! $port_found ) {
         #
@@ -301,18 +302,23 @@ sub Crawler_Phantomjs_Start_Markup_Server {
             #
             $socket->close();
             $port_found = 1;
+            
+            #
+            # Save the port number to be used in page requests
+            #
+            $markup_server_port = $port;
         }
         else {
             #
             # Could not connect to socket, increment port number.
             # Try a maximum of 10 times.
             #
-            if ( ($port - $markup_server_port) < 10 ) {
+            if ( ($port - $markup_server_port_start) < 10 ) {
                 $port++;
             }
             else {
-                print "Failed to find a free port starting at $markup_server_port\n" if $debug;
-                print STDERR "Failed to find a free port for puppeteer starting at $markup_server_port\n";
+                print "Failed to find a free port starting at $markup_server_port_start\n" if $debug;
+                print STDERR "Failed to find a free port for puppeteer starting at $markup_server_port_start\n";
                 $markup_server_running = 0;
                 return(0);
             }
