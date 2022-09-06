@@ -50,6 +50,7 @@ package feed_validate;
 
 use strict;
 use File::Basename;
+use File::Temp qw/ tempfile tempdir /;
 use XML::Parser;
 
 #
@@ -82,7 +83,7 @@ BEGIN {
 #***********************************************************************
 
 my (@paths, $this_path, $program_dir, $program_name, $paths, $validate_cmnd);
-my ($feed_type, $in_feed);
+my ($feed_type, $in_feed, $python_version, $is_windows);
 my ($runtime_error_reported) = 0;
 
 my ($debug) = 0;
@@ -192,6 +193,105 @@ sub String_Value {
 
 #***********************************************************************
 #
+# Name: Check_Python_Version
+#
+# Parameters: None
+#
+# Description:
+#
+#   This function checks the version of Python installed.  The Web Feed
+# Validator tool only runs in Python 2.
+#
+#***********************************************************************
+sub Check_Python_Version {
+
+    my ($python_file, $filename, $python_output, $output, $major, $minor);
+    my ($linux_python);
+
+    #
+    # Have we already determined the Python version?
+    #
+    if ( ! defined($python_version) ) {
+        #
+        # Get python command.
+        #
+        if ( ! $is_windows ) {
+            #
+            # Check for python executable
+            #
+            $output = `which python 2>&1`;
+            if ( $output =~ /no python in/i ) {
+                #
+                # No python, check for python3
+                #
+                $output = `which python3 2>&1`;
+                if ( $output =~ /no python3 in/i ) {
+                    print STDERR "Could not find python or python3\n";
+                    $python_version = "Not installed";
+                    return($python_version);
+                }
+                else {
+                    $linux_python = "python3";
+                }
+            }
+            else {
+                #
+                # Have python executable
+                #
+                $linux_python = "python";
+            }
+        }
+
+        #
+        # Write temporary program to get the python version
+        #
+        print "Check_Python_Version\n" if $debug;
+        ($python_file, $filename) = tempfile("WPSS_TOOL_FEED_VALIDATE_XXXXXXXXXX",
+                                             SUFFIX => '.py',
+                                             TMPDIR => 1);
+        print $python_file "import sys\n";
+        print $python_file "print(sys.version_info)\n";
+        print $python_file "print('Version: major:'+str(sys.version_info[0])+' minor:'+str(sys.version_info[1]))\n";
+        close($python_file);
+
+        #
+        # Run the program
+        #
+        if ( $is_windows ) {
+            $python_output = `$filename 2>\&1`;
+        }
+        else {
+            $python_output = `$linux_python $filename 2>\&1`;
+        }
+        unlink($filename);
+
+        #
+        # Get major and minor release numbers
+        #
+        print "Version check output $python_output\n" if $debug;
+        ($major) = $python_output =~ /major:\s*(\d).*/im;
+        ($minor) = $python_output =~ /minor:\s*(\d).*/im;
+
+        #
+        # Check version
+        #
+        if ( defined($major) && defined($minor) ) {
+            $python_version = "$major.$minor";
+        }
+        else {
+            $python_version = "Unknown";
+        }
+        print "Found python version $python_version\n" if $debug;
+    }
+
+    #
+    # Return the python version string
+    #
+    return($python_version);
+}
+
+#***********************************************************************
+#
 # Name: Run_Web_Feed_Validator
 #
 # Parameters: this_url - a URL
@@ -206,8 +306,43 @@ sub Run_Web_Feed_Validator {
     my ($this_url) = @_;
 
     my ($status) = $VALID_FEED;
-    my ($validator_output, $line, $result_object, @results_list);
+    my ($validator_output, $line, $result_object, @results_list, $version);
 
+    #
+    # Check the version of Python, the PDF check tool only runs in
+    # Python 2.
+    #
+    $version = Check_Python_Version();
+    if ( ($version > 2.0) && ($version < 3.0) ) {
+        #
+        # Valid python version
+        #
+        print "Valid python version for Web Feed Validator\n" if $debug;
+    }
+    else {
+        #
+        # Runtime error, no valid Python version
+        #
+        if ( ! $runtime_error_reported ) {
+            #
+            # Create testcase result object
+            #
+            $result_object = tqa_result_object->new("XML_VALIDATION",
+                                                    1, "XML_VALIDATION",
+                                                    -1, -1, "",
+                                                    String_Value("Runtime Error") .
+                                                    " Invalid python version ($version) for Web Feed Validator",
+                                                    $this_url);
+            push (@results_list, $result_object);
+            print STDERR "Runtime error, Invalid python version ($version) for Web Feed Validator\n";
+
+            #
+            # Suppress further errors
+            #
+            $runtime_error_reported = 1;
+        }
+        return(@results_list);
+    }
     #
     # Run the validator on the supplied URL
     #
@@ -489,11 +624,13 @@ if ( $^O =~ /MSWin32/ ) {
     # Windows.
     #
     $validate_cmnd = ".\\bin\\feedvalidator.py";
+    $is_windows = 1;
 } else {
     #
     # Not Windows.
     #
     $validate_cmnd = "$program_dir/bin/feedvalidator.py";
+    $is_windows = 0;
 }
 
 #
