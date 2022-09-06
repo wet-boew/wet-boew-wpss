@@ -2,9 +2,9 @@
 #
 # Name:   interop_html_check.pm
 #
-# $Revision: 2040 $
+# $Revision: 2368 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Interop_Check/Tools/interop_html_check.pm $
-# $Date: 2021-05-12 10:27:03 -0400 (Wed, 12 May 2021) $
+# $Date: 2022-06-29 09:48:25 -0400 (Wed, 29 Jun 2022) $
 #
 # Description:
 #
@@ -880,6 +880,7 @@ sub Check_Vocab_Attribute {
         # Is the vocabulary one of the expected values ?
         #
         $vocab = $attr{"vocab"};
+        $vocab =~ s/^http[s]?:\/+//g;
         if (  $vocab =~ /^\s*$/ ) {
             #
             # Missing vocabulary
