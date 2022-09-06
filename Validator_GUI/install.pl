@@ -72,6 +72,7 @@ my ($default_perl_path) = "/usr/bin/perl";
 my ($win32_gui) = "Win32-GUI-1.14";
 my ($PERL_MIN_MAJOR_NUMBER) = 5;
 my ($PERL_MIN_MINOR_NUMBER) = 26;
+my ($linux_python) = "python";
 
 #
 # String table for UI strings.
@@ -432,7 +433,7 @@ sub Install_Setuptools_Python_Module {
         $python_output = `.\\setup.py build 2>\&1`;
     }
     else {
-        $python_output = `python setup.py build 2>\&1`;
+        $python_output = `$linux_python setup.py build 2>\&1`;
     }
 
     #
@@ -461,7 +462,7 @@ sub Install_Setuptools_Python_Module {
         $python_output = `.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
     }
     else {
-        $python_output = `python setup.py install --root \"$program_dir/python\" 2>\&1`;
+        $python_output = `$linux_python setup.py install --root \"$program_dir/python\" 2>\&1`;
     }
 
     #
@@ -488,13 +489,13 @@ sub Install_Setuptools_Python_Module {
     unlink("test$$.py");
     open(PYTHON, ">test$$.py");
     print PYTHON "from setuptools import setup\n";
-    print PYTHON "print 'pass'\n";
+    print PYTHON "print('pass')\n";
     close(PYTHON);
     if ( $is_windows ) {
         $python_output = `.\\test$$.py 2>\&1`;
     }
     else {
-        $python_output = `python test$$.py 2>\&1`;
+        $python_output = `$linux_python test$$.py 2>\&1`;
     }
     unlink("test$$.py");
 
@@ -547,7 +548,7 @@ sub Install_Functools32_Python_Module {
         $python_output = `.\\setup.py build 2>\&1`;
     }
     else {
-        $python_output = `python setup.py build 2>\&1`;
+        $python_output = `$linux_python setup.py build 2>\&1`;
     }
 
     #
@@ -576,7 +577,7 @@ sub Install_Functools32_Python_Module {
         $python_output = `.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
     }
     else {
-        $python_output = `python setup.py install --root \"$program_dir/python\" 2>\&1`;
+        $python_output = `$linux_python setup.py install --root \"$program_dir/python\" 2>\&1`;
     }
 
     #
@@ -630,7 +631,7 @@ sub Install_Vcversioner_Python_Module {
         $python_output = `.\\setup.py build 2>\&1`;
     }
     else {
-        $python_output = `python setup.py build 2>\&1`;
+        $python_output = `$linux_python setup.py build 2>\&1`;
     }
 
     #
@@ -659,7 +660,7 @@ sub Install_Vcversioner_Python_Module {
         $python_output = `.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
     }
     else {
-        $python_output = `python setup.py install --root \"$program_dir/python\" 2>\&1`;
+        $python_output = `$linux_python setup.py install --root \"$program_dir/python\" 2>\&1`;
     }
 
     #
@@ -717,7 +718,7 @@ sub Install_Jsonschema_Python_Module {
         $python_output = `.\\setup.py build 2>\&1`;
     }
     else {
-        $python_output = `python setup.py build 2>\&1`;
+        $python_output = `$linux_python setup.py build 2>\&1`;
     }
 
     #
@@ -757,7 +758,7 @@ sub Install_Jsonschema_Python_Module {
         $python_output = `.\\setup.py install --root \"$program_dir\\python\" 2>\&1`;
     }
     else {
-        $python_output = `python setup.py install --root \"$program_dir/python\" 2>\&1`;
+        $python_output = `$linux_python setup.py install --root \"$program_dir/python\" 2>\&1`;
     }
 
     #
@@ -789,13 +790,13 @@ sub Install_Jsonschema_Python_Module {
     unlink("test$$.py");
     open(PYTHON, ">test$$.py");
     print PYTHON "import jsonschema\n";
-    print PYTHON "print 'pass'\n";
+    print PYTHON "print('pass')\n";
     close(PYTHON);
     if ( $is_windows ) {
         $python_output = `.\\test$$.py 2>\&1`;
     }
     else {
-        $python_output = `python test$$.py 2>\&1`;
+        $python_output = `$linux_python test$$.py 2>\&1`;
     }
     unlink("test$$.py");
 
@@ -845,13 +846,13 @@ sub Check_Python_Modules {
     open(PYTHON, ">test$$.py");
     print PYTHON "\n";
     print PYTHON "from setuptools import setup\n";
-    print PYTHON "print 'pass'\n";
+    print PYTHON "print('pass')\n";
     close(PYTHON);
     if ( $is_windows ) {
         $python_output = `.\\test$$.py 2>\&1`;
     }
     else {
-        $python_output = `python test$$.py 2>\&1`;
+        $python_output = `$linux_python test$$.py 2>\&1`;
     }
     unlink("test$$.py");
 
@@ -876,13 +877,13 @@ sub Check_Python_Modules {
     unlink("test$$.py");
     open(PYTHON, ">test$$.py");
     print PYTHON "import jsonschema\n";
-    print PYTHON "print 'pass'\n";
+    print PYTHON "print('pass')\n";
     close(PYTHON);
     if ( $is_windows ) {
         $python_output = `.\\test$$.py 2>\&1`;
     }
     else {
-        $python_output = `python test$$.py 2>\&1`;
+        $python_output = `$linux_python test$$.py 2>\&1`;
     }
     unlink("test$$.py");
 
@@ -1095,88 +1096,154 @@ sub Set_Python_Hash_Bang {
 #**********************************************************************
 sub Check_Python {
 
-    my ($assoc_output, $python_output, $major, $minor);
+    my ($assoc_output, $python_output, $major, $minor, $python_found);
 
     #
     # Check file type association for .py files.
     #
     Write_To_Log("Check python installation");
-    print "Test python installation\n";
+    print "Check for Python installation\n";
+    $python_found = 0;
     if ( $is_windows ) {
-        $assoc_output = `assoc .py`;
+        $assoc_output = `assoc .py  2>&1`;
+        if ( $assoc_output =~ /\.py=/i ) {
+            Write_To_Log("Found python .py association");
+            $python_found = 1;
+        }
+        else {
+            #
+            # See if python is in the path
+            #
+            $assoc_output = `where python.exe 2>&1`;
+            
+            if ( $assoc_output =~ /Could not find files/i ) {
+                Write_To_Log("Could not find python.exe in path");
+            }
+            else {
+                Write_To_Log("Found python.exe in path");
+                $python_found = 1;
+            }
+        }
     }
     else {
-        $assoc_output = ".py=";
+        #
+        # Check for python3 executable
+        #
+        $assoc_output = `which python3 2>&1`;
+        if ( $assoc_output =~ /no python3 in/i ) {
+            #
+            # No python3, check for python (probably version 2)
+            #
+            $assoc_output = `which python 2>&1`;
+            if ( $assoc_output =~ /no python in/i ) {
+                Write_To_Log("Python not found");
+                print "\n*****\n";
+                print "Could not find python or python3\n";
+                print "\n*****\n";
+                Write_To_Log("Failed install.pl");
+                Exit_With_Pause(1);
+            }
+            else {
+                $python_found = 1;
+                $linux_python = "python";
+                Write_To_Log("Found python executable");
+            }
+        }
+        else {
+            #
+            # Have python3 executable
+            #
+            $python_found = 1;
+            $linux_python = "python3";
+            Write_To_Log("Found python3 executable");
+        }
     }
 
     #
-    # Do we have an association for .py files ?
+    # Do we have python?
     #
-    if ( $assoc_output =~ /\.py=/i ) {
+    if ( $python_found ) {
         #
-        # Check python version.
+        # Get python version.
         #
         Write_To_Log("Check python version");
         chdir($program_dir);
         unlink("test$$.py");
         open(PYTHON, ">test$$.py");
         print PYTHON "import sys\n";
-        print PYTHON "if sys.version_info<(2,7,0):\n";
-        print PYTHON "   print 'fail, version less than 2.7.0'\n";
-        print PYTHON "else:\n";
-        print PYTHON "   print 'pass version greater than 2.7.0'\n";
-        print PYTHON "if sys.version_info<(3,0,0):\n";
-        print PYTHON "   print 'pass version less than 3.0.0'\n";
-        print PYTHON "else:\n";
-        print PYTHON "   print 'fail, version greater than 3.0.0'\n";
-        print PYTHON "print sys.version_info\n";
-        print PYTHON "print 'Version: major:',sys.version_info[0],' minor:',sys.version_info[1]\n";
+        print PYTHON "print(sys.version_info)\n";
+        print PYTHON "print('Version: major:'+str(sys.version_info[0])+' minor:'+str(sys.version_info[1]))\n";
         close(PYTHON);
         if ( $is_windows ) {
             $python_output = `.\\test$$.py 2>\&1`;
         }
         else {
-            $python_output = `python test$$.py 2>\&1`;
+            $python_output = `$linux_python test$$.py 2>\&1`;
         }
         unlink("test$$.py");
-
-        #
-        # Is the python version too old ? or too new ?
-        #
-        Write_To_Log("Python test output $python_output");
-        if ( ($python_output =~ /fail/i) ||
-             ( ! ($python_output =~ /pass/i) ) ) {
-            Write_To_Log("Invalid Python version found");
-            print "\n*****\n";
-            print "Invalid Python version found, must be greater than 2.7.0, less than 3.0.0\n";
-            print "\n*****\n";
-            Write_To_Log("Failed install.pl");
-            Exit_With_Pause(1);
-        }
 
         #
         # Get major and minor release numbers
         #
         ($major) = $python_output =~ /major:\s*(\d).*/im;
         ($minor) = $python_output =~ /minor:\s*(\d).*/im;
+        
+        #
+        # Do we have a version number?
+        #
         if ( (! defined($major)) || (! defined($minor)) ) {
             Write_To_Log("Could not determine python version major and minor numbers");
             print "\n*****\n";
             print "Could not determine python version major and minor numbers\n";
+            print "$python_output = \"$python_output\"\n";
             print "\n*****\n";
             Write_To_Log("Failed install.pl");
             Exit_With_Pause(1);
-
+        }
+        #
+        # Check for version 2
+        #
+        elsif ( $major == 2 ) {
+            #
+            # Is the minor version new enough
+            #
+            if ( $minor < 7 ) {
+                Write_To_Log("Invalid Python version found $major.$minor");
+                print "\n*****\n";
+                print "Invalid Python version found, must be greater than 2.7.0\n";
+                print "Found version $major.$minor\n";
+                print "\n*****\n";
+                Write_To_Log("Failed install.pl");
+                Exit_With_Pause(1);
+            }
+        }
+        #
+        # Check for version 3
+        #
+        elsif ( $major != 3 ) {
+            Write_To_Log("Invalid Python version found $major.$minor");
+            print "\n*****\n";
+            print "Invalid Python version found, must be greater than 2.7.0 or 3.0\n";
+            print "Found version $major.$minor\n";
+            print "\n*****\n";
+            Write_To_Log("Failed install.pl");
+            Exit_With_Pause(1);
         }
         Write_To_Log("Python version major = $major, minor = $minor");
     }
     else {
         #
-        # Install Python
+        # Python not found.
         #
-        Write_To_Log("The installer can not find Python on this computer");
-        Write_To_Log("  assoc .py");
-        Write_To_Log("  $assoc_output");
+        Write_To_Log("Python not found on this computer");
+        if ( $is_windows ) {
+            Write_To_Log("  assoc .py");
+            Write_To_Log("  $assoc_output");
+        }
+        else {
+            Write_To_Log("  which python;which python3");
+            Write_To_Log("  $assoc_output");
+        }
         Write_To_Log("Failed install.pl");
         print "\n*****\n";
         print "The installer can not find Python on this computer\n";
@@ -1191,13 +1258,13 @@ sub Check_Python {
     open(PYTHON, ">test$$.py");
     print PYTHON "import os\n";
     print PYTHON "import sys\n";
-    print PYTHON "print os.path.dirname(sys.executable)\n";
+    print PYTHON "print(os.path.dirname(sys.executable))\n";
     close(PYTHON);
     if ( $is_windows ) {
         $python_output = `.\\test$$.py 2>\&1`;
     }
     else {
-        $python_output = `python test$$.py 2>\&1`;
+        $python_output = `$linux_python test$$.py 2>\&1`;
     }
     unlink("test$$.py");
     Write_To_Log("Python installation path");
