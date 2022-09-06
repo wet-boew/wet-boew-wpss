@@ -2,9 +2,9 @@
 //
 // Name: puppeteer_markup_server.js
 //
-// $Revision: 2106 $
+// $Revision: 2379 $
 // $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/puppeteer_markup_server.js $
-// $Date: 2021-08-20 10:12:45 -0400 (Fri, 20 Aug 2021) $
+// $Date: 2022-08-31 13:55:52 -0400 (Wed, 31 Aug 2022) $
 //
 // Synopsis: node puppeteer_markup_server.js <port> <chrome_path>
 //                                           <user_data_directory> -debug
@@ -58,11 +58,13 @@ var url = require('url');
 const puppeteer = require('puppeteer-core');
 var fs = require('fs');
 var debug = 0;
-var arg, port, arg_count, t, page, server, browser;
-var wsendpoint, html, user_data_directory, chrome_path;
+var arg, port, arg_count, t, page, server;
+var html, user_data_directory, chrome_path;
 var idle_timeout = 50000,
     idle_timer,
     received_request = 0;
+var wsendpoint = null;
+var browser = null;
 
 
 // ************************************************************
@@ -85,7 +87,7 @@ function Idle_Exit() {
         clearTimeout(idle_timer);
 
         // Close any browser
-        if (browser != undefined) {
+        if (browser != null) {
             console.log('Close browser');
             (async () => {
                 await browser.close();
@@ -178,6 +180,7 @@ server = http.createServer(function(req, res) {
     var username = "";
     var password = "";
     var page_image_file_name = "";
+    var data = "";
 
     //
     // Print out request URL string
@@ -206,7 +209,15 @@ server = http.createServer(function(req, res) {
         // we want to get.
         //
         if ( pathname === '/EXIT' ) {
-            get_url = "";
+            console.log('Exit server at ' + t.toLocaleTimeString());
+
+            //
+            // Close the browser
+            //
+            if (browser != null) {
+                browser.close();
+            }
+            process.exit();
         }
         else {
             if (!qdata.url) {
@@ -268,7 +279,7 @@ server = http.createServer(function(req, res) {
                 //
                 // Do we already have a chrome instance?
                 //
-                if (wsendpoint != undefined) {
+                if (wsendpoint != null) {
                     //
                     // Reconnect to existing chrome instance
                     //
@@ -278,9 +289,9 @@ server = http.createServer(function(req, res) {
                         ignoreHTTPSErrors: true
                     });
 
-                    if (browser == undefined) {
+                    if (browser === null) {
                         console.log('Failed to reconnect to chrome browser');
-                        program.exit(1);
+                        process.exit(1);
                     } else {
                         if (debug === 1) console.log('Chrome reconnected');
                     }
@@ -302,9 +313,9 @@ server = http.createServer(function(req, res) {
                     //
                     // Did chrome start?
                     //
-                    if (browser == undefined) {
+                    if (browser === null) {
                         console.log('Failed to start chrome browser');
-                        program.exit(1);
+                        process.exit(1);
                     } else {
                         if (debug === 1) console.log('Chrome launched');
                     }
@@ -326,7 +337,7 @@ server = http.createServer(function(req, res) {
                     //
                     // Close the browser
                     //
-                    if (browser != undefined) {
+                    if (browser != null) {
                         await browser.close();
                     }
                     process.exit();
@@ -452,10 +463,17 @@ server = http.createServer(function(req, res) {
                 //
                 if (page_image) {
                     if (debug === 1) console.log('Generate page snapshot');
-                    await page.screenshot({
-                        path: page_image_file_name,
-                        type: 'jpeg',
-                        fullPage: true
+                    data = await page.screenshot({type: 'jpeg',
+                                                  encoding: 'base64',
+                                                  fullPage: true
+                                                });
+
+                    //
+                    // Write the screenshot to a file.
+                    //
+                    await fs.writeFile(page_image_file_name, Buffer.from(data, "base64"), function (err) {
+                        if (err) throw err;
+                        if (debug === 1) console.log('Page snapshot saved in ' + page_image_file_name);
                     });
                 }
 
@@ -480,18 +498,25 @@ server = http.createServer(function(req, res) {
                     t = new Date();
                     console.log('After sending response ' + get_url + ' at ' + t.toLocaleTimeString());
                 }
+                return;
            } catch(err) {
                 // Error trying to get page from browser.
                 // Return error message
                 console.log('Error trying to get ' + get_url);
                 console.log(err.message);
-                res.writeHead(500, {
+                res.writeHead(200, {
                     'Content-Type': 'text/plain; charset=UTF-8'
                 });
                 res.write('===== PAGE ERROR BEGINS =====\n');
                 res.write(err.message + '\n');
                 res.write('===== PAGE ERROR ENDS =====\n');
                 res.end(); //end the response
+                console.log('Closing browser');
+                await browser.close();
+                wsendpoint = null;
+                browser = null;
+                console.log('Browser closed');
+                process.exit(1);
             }
         })();
     } else {
@@ -510,6 +535,7 @@ server = http.createServer(function(req, res) {
 //
 // Start server and listen on port
 //
+if (debug === 1) console.log('Start puppeteer markup server on port ' + port);
 server.listen(port);
 
 //
