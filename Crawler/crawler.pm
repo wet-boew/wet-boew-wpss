@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 2124 $
+# $Revision: 2377 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler.pm $
-# $Date: 2021-09-03 15:22:37 -0400 (Fri, 03 Sep 2021) $
+# $Date: 2022-08-31 13:52:24 -0400 (Wed, 31 Aug 2022) $
 #
 # Description:
 #
@@ -163,8 +163,9 @@ my ($login_domain_e, $login_domain_f, $accepted_content_encodings);
 my (%domain_prod_dev_map, %domain_dev_prod_map, $RobotUA_cache_dir);
 my ($login_interstitial_count, $logout_interstitial_count, $user_agent_hostname);
 my ($charset, $lwp_user_agent, $content_length, $phantomjs_cookie_file);
-my (%skipped_urls);
+my (%skipped_urls, $global_user_agent_check_url);
 my ($headless_user_agent_error_string) = "";
+my ($default_user_agent_check_url) = "https://www.google.com/";
 
 #
 # Shared variables for use between treads
@@ -386,7 +387,7 @@ sub Crawler_Get_User_Agent {
     # Do we have a user agent ?
     #
     if ( ! defined($user_agent) ) {
-        Create_User_Agents();
+        Create_User_Agents($global_user_agent_check_url);
     }
 
     #
@@ -1137,7 +1138,7 @@ sub Crawler_Read_Content_File {
 #
 # Name: Create_User_Agents
 #
-# Parameters: none
+# Parameters: user_agent_check_url - URL to check user agents
 #
 # Description:
 #
@@ -1147,6 +1148,7 @@ sub Crawler_Read_Content_File {
 #
 #***********************************************************************
 sub Create_User_Agents {
+    my ($user_agent_check_url) = @_;
 
     #
     # Local variables
@@ -1242,7 +1244,7 @@ sub Create_User_Agents {
     #
     # Try and start the puppeteer headless user agent
     #
-    if ( Crawler_Puppeteer_Start_Markup_Server() ) {
+    if ( Crawler_Puppeteer_Start_Markup_Server($user_agent_check_url) ) {
         $use_puppeteer_user_agent = 1;
         $use_phantomjs_user_agent = 0;
         print "Crawler_Puppeteer_Start_Markup_Server returned true\n" if $debug;
@@ -1258,7 +1260,7 @@ sub Create_User_Agents {
         # Clear PhantomJS disk cache and cookie jar
         #
         Crawler_Phantomjs_Clear_Cache($phantomjs_cookie_file);
-        $use_phantomjs_user_agent = 1;
+        $use_phantomjs_user_agent = Crawler_Phantomjs_Start_Markup_Server($phantomjs_cookie_file);
         print "Crawler_Phantomjs_Start_Markup_Server returned true\n" if $debug;
     }
 }
@@ -1282,7 +1284,7 @@ sub Crawler_Set_Proxy {
     # Do we have a  user agent ?
     #
     if ( ! defined($user_agent) ) {
-        Create_User_Agents();
+        Create_User_Agents($global_user_agent_check_url);
     }
 
     #
@@ -1535,7 +1537,8 @@ sub Set_Site_URL_Patterns {
 #
 # Name: Initialize_Crawler_Variables
 #
-# Parameters: none
+# Parameters: site_dir_e - English site URL
+#             site_dir_f - French site URL
 #
 # Description:
 #
@@ -1552,7 +1555,7 @@ sub Initialize_Crawler_Variables {
     # Create user agent
     #
     if ( ! defined($user_agent) ) {
-        Create_User_Agents();
+        Create_User_Agents($global_user_agent_check_url);
     }
 
     #
@@ -1746,7 +1749,7 @@ sub Crawler_Get_HTTP_Response {
     # Do we have a user agent ?
     #
     if ( ! defined($user_agent) ) {
-        Create_User_Agents();
+        Create_User_Agents($global_user_agent_check_url);
     }
 
     #
@@ -3681,14 +3684,15 @@ sub Content_Checksum {
 #
 # Name: Set_Crawler_Options
 #
-# Parameters: crawler_options - hash table of options
+# Parameters: user_agent_check_url - URL to test user agent
+#             crawler_options - hash table of options
 #
 # Description:
 #   This function sets a number of crawler options.
 #
 #***********************************************************************
 sub Set_Crawler_Options {
-    my ($crawler_options) = @_;
+    my ($user_agent_check_url, $crawler_options) = @_;
 
     #
     # Check for maximum crawl depth
@@ -3714,6 +3718,14 @@ sub Set_Crawler_Options {
     else {
         $max_urls_to_return = 0;
     }
+    
+    #
+    # Do we have user agent check URL value?
+    #
+    if ( ! defined($user_agent_check_url) || ($user_agent_check_url eq "") ) {
+        $user_agent_check_url = $default_user_agent_check_url;
+    }
+    $global_user_agent_check_url = $user_agent_check_url;
 
     #
     # Check for delay between page GETs
@@ -3727,7 +3739,7 @@ sub Set_Crawler_Options {
         #
         # Have to recreate user agents with this configuration setting
         #
-        Create_User_Agents();
+        Create_User_Agents($global_user_agent_check_url);
     }
 }
 
