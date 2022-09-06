@@ -2,9 +2,9 @@
 #
 # Name:   tqa_deque_axe.pm
 #
-# $Revision: 2319 $
+# $Revision: 2387 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_deque_axe.pm $
-# $Date: 2022-05-03 13:05:00 -0400 (Tue, 03 May 2022) $
+# $Date: 2022-09-06 08:51:58 -0400 (Tue, 06 Sep 2022) $
 #
 # Description:
 #
@@ -266,20 +266,27 @@ sub String_Value {
 sub Set_Deque_AXE_Testcase_Data {
     my ($testcase, $data) = @_;
 
-    my ($type, $value);
+    my ($type, $value, $line);
 
     #
     # Is this data for the default location of Chrome on Windows
     # platforms?
     #
     if ( $testcase eq "AXE" ) {
-        ($type, $value) = split(/\s/, $data, 2);
+        foreach $line (split(/\n/, $data)) {
+            ($type, $value) = split(/\s+/, $line, 2);
 
-        #
-        # Is this the default chrome path?
-        #
-        if ( defined($value) && ($type eq "default_windows_chrome_path") ) {
-            $default_windows_chrome_path = $value;
+            #
+            # Is this the default chrome path?
+            #
+            if ( defined($value) && ($type eq "default_windows_chrome_path") ) {
+                if ( defined($default_windows_chrome_path) ) {
+                    $default_windows_chrome_path .= "\n$value";
+                }
+                else {
+                    $default_windows_chrome_path = $value;
+                }
+            }
         }
     }
     else {
@@ -384,7 +391,7 @@ sub Check_Deque_Axe_Requirements {
             $chromedriver_path = `where chromedriver.cmd 2>&1`;
             if ( $chromedriver_path =~ /Could not find/i ) {
                 print "chromedriver not in path\n" if $debug;
-                print STDERR "ChromeDriver not installed, axe not available\n";
+                print STDERR "tqa_deque_axe: ChromeDriver not installed, axe not available\n";
                 $deaque_axe_install_error = "ChromeDriver not installed, axe not available";
                 $meets_requirements = 0;
             }
@@ -421,8 +428,8 @@ sub Check_Deque_Axe_Requirements {
             $file_path = `where node 2>&1`;
             if ( $file_path =~ /Could not find/i ) {
                 print "Node not in path\n" if $debug;
-                print STDERR "Node not installed, headless chrome not available\n";
-                $deaque_axe_install_error = "Node not installed, headless chrome not available";
+                print STDERR "tqa_deque_axe: Node not installed, headless chrome not available\n";
+                $deaque_axe_install_error = "Node not installed, axe not available";
                 $meets_requirements = 0;
             }
             else {
@@ -441,8 +448,17 @@ sub Check_Deque_Axe_Requirements {
             if ( $chrome_path =~ /Could not find/i ) {
                 print "Chrome not in path, use default\n" if $debug;
                 if ( defined($default_windows_chrome_path) ) {
-                    print "Default chrome path = $default_windows_chrome_path\n" if $debug;
-                    $chrome_path = $default_windows_chrome_path;
+                    #
+                    # Check each path for an instance of Chrome
+                    #
+                    print "Default chrome paths = $default_windows_chrome_path\n" if $debug;
+                    foreach $file_path (split(/\n/, $default_windows_chrome_path)) {
+                        if ( -f $file_path ) {
+                            $chrome_path = $file_path;
+                            print "Chrome found at path = $file_path\n" if $debug;
+                            last;
+                        }
+                    }
                 }
                 else {
                     print "No default chrome path\n" if $debug;
@@ -468,8 +484,8 @@ sub Check_Deque_Axe_Requirements {
                 # No chrome executable
                 #
                 print "Chrome executable not found\n" if $debug;
-                print STDERR "Chrome not installed, headless chrome not available\n";
-                $deaque_axe_install_error = "Chrome not installed, headless chrome not available";
+                print STDERR "tqa_deque_axe: Chrome not installed, headless chrome not available\n";
+                $deaque_axe_install_error = "Chrome not installed, axe not available";
                 $meets_requirements = 0;
             }
         }
@@ -501,8 +517,8 @@ sub Check_Deque_Axe_Requirements {
         #
         # Not Windows.
         #
-        print STDERR "Not Windows, headless chrome not available\n";
-        $deaque_axe_install_error = "Not Windows, headless chrome not available";
+        print STDERR "tqa_deque_axe: Not Windows, headless chrome not available\n";
+        $deaque_axe_install_error = "Not Windows, axe not available";
         $meets_requirements = 0;
     }
 
