@@ -3,9 +3,9 @@
 #
 # Name:   json_schema_validator.py
 #
-# $Revision: 1600 $
+# $Revision: 2388 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/json_schema_validator.py $
-# $Date: 2019-11-25 13:45:44 -0500 (Mon, 25 Nov 2019) $
+# $Date: 2022-09-06 09:25:44 -0400 (Tue, 06 Sep 2022) $
 #
 # Synopsis: json_schema_validator.py <schema> <data> [ <max errors> ]
 #
@@ -63,13 +63,13 @@ if len(sys.argv) < 3:
     #
     # Missing command line arguments
     #
-    print 'Error, missing command line arguments'
-    print 'Usage: json_schema_validator.py <schema> <data> [ <max errors> ]'
-    print ''
-    print ' Where: <schema> is the path to the JSON schema file'
-    print '        <data> is the path to the JSON data file'
-    print '        <max errors> an optional parameter to indicate the maximum number'
-    print '        of errors to report. The default is to report all errors.'
+    print('Error, missing command line arguments')
+    print('Usage: json_schema_validator.py <schema> <data> [ <max errors> ]')
+    print('')
+    print(' Where: <schema> is the path to the JSON schema file')
+    print('        <data> is the path to the JSON data file')
+    print('        <max errors> an optional parameter to indicate the maximum number')
+    print('        of errors to report. The default is to report all errors.')
     quit()
     
 #
@@ -116,45 +116,45 @@ for e in v.iter_errors(json_data):
     # Do we have a maximum number of errors we want to report?
     #
     if max_errors > 0 and error_no == max_errors:
-        print 'Too many errors detected, aborting validator'
+        print('Too many errors detected, aborting validator')
         sys.exit(1)
     
     #
     # Error message
     #
     error_no += 1
-    print 'Validation Error #',error_no,': ',
-    print e.message
-    print '===================================================================='
+    print('Validation Error #',error_no,': ')
+    print(e.message)
+    print('====================================================================')
 
     #
     # The path in the schema to the item
     #
-    print 'Schema path: ',
+    print('Schema path: ')
     l = list(e.schema_path)[:-1]
     sep = ""
     for i in l:
-        print "%s \"%s\"" % (sep,i),
+        print("%s \"%s\"" % (sep,i))
         sep = ","
-    print
+    print()
     
     #
     # Schema item details
     #
-    print 'Schema: ',
+    print('Schema: ')
     json_string = json.dumps(e.schema, indent=4)
-    print json_string[:1000]
+    print(json_string[:1000])
     
     #
     # The path in the JSON data file to the error
     #
-    print 'JSON data path: ',
+    print('JSON data path: ')
     l = e.path
     sep = ""
     for i in l:
-        print "%s \"%s\"" % (sep,i),
+        print("%s \"%s\"" % (sep,i))
         sep = ","
-    print
+    print()
     
     #
     # The context for the data items, the container
@@ -164,20 +164,21 @@ for e in v.iter_errors(json_data):
     lvalue = value
     llvalue = lvalue
     for i in l:
-        print "%s \"%s\"" % (sep,i),
+        print("%s \"%s\"" % (sep,i))
         sep = ","
         llvalue = lvalue
         lvalue = value
         value = value[i]
     print
     json_string = json.dumps(llvalue, indent=4)
-    print 'JSON content: '
-    print json_string[:1000]
-    print
+    print('JSON content: ')
+    print(json_string[:1000])
+    print()
 
 #
 # Did we get any errors?
 #
 if error_no == 0:
-    print 'Validation Passed'
+    print('Validation Passed')
+
 
