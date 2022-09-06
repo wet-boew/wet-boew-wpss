@@ -2773,10 +2773,12 @@ sub Read_Config_File {
             #
             if ( @fields > 1 ) {
                 @fields = split(/\s+/, $_, 2);
-                $crawler_config_vars{"default_windows_chrome_path"} = $fields[1];
-            }
-            else {
-                $crawler_config_vars{"default_windows_chrome_path"} = 0;
+                if ( defined($crawler_config_vars{"default_windows_chrome_path"}) ) {
+                    $crawler_config_vars{"default_windows_chrome_path"} .= "\n" . $fields[1];
+                }
+                else {
+                    $crawler_config_vars{"default_windows_chrome_path"} = $fields[1];
+                }
             }
         }
         elsif ( $config_type eq "Domain_Alias" ) {
@@ -5025,7 +5027,7 @@ sub URL_List_Callback {
     if ( defined($report_options{"crawler_page_delay_secs"}) ) {
         $crawler_options{"crawler_page_delay_secs"} = $report_options{"crawler_page_delay_secs"};
     }
-    Set_Crawler_Options(\%crawler_options);
+    Set_Crawler_Options($firewall_check_url, \%crawler_options);
 
     #
     # Report header
@@ -6627,7 +6629,7 @@ sub Setup_Content_Saving {
     # Are we saving content ? if so create a temporary directory
     #
     if ( $shared_save_content ) {
-        $shared_save_content_directory = tempdir();
+        $shared_save_content_directory = tempdir("WPSS_TOOL_Content_Dir_XXXXXXXXXX", TMPDIR => 1);
 
         #
         # Create index file for URL to local file mapping.
@@ -9859,7 +9861,7 @@ sub Open_Data_Callback {
     my ($data_file_type, $item, $format, $url, $tab, @results, $filename);
     my ($language, $mime_type, $error, $t, $size, $checksum, $sha);
     my ($sec, $min, $hour, $mday, $mon, $year, $date, @data_url_list);
-    my ($durl);
+    my ($durl, $generated_content, $error_string);
 
     #
     # Initialize tool global variables
@@ -10085,6 +10087,20 @@ sub Open_Data_Callback {
             print "Dataset URL type $data_file_type, url list = " .
                   $$dataset_urls{"$data_file_type"} . "\n" if $debug;
             @url_list = split(/\n+/, $$dataset_urls{"$data_file_type"});
+            
+            #
+            # If the data file type is RESOURCE, set the crawler to
+            # save content in the HTTP::Response object rather than in
+            # a file.  There are problems in some versions of Strawberry Perl
+            # when saving SVG URLs in a file.
+            #
+            if ( $data_file_type eq "RESOURCE" ) {
+                $crawler_config_vars{"content_file"} = 0;
+            }
+            else {
+                $crawler_config_vars{"content_file"} = 1;
+            }
+            Crawler_Config(%crawler_config_vars);
 
             #
             # Process each URL in the list
@@ -10119,11 +10135,11 @@ sub Open_Data_Callback {
                 }
 
                 #
-                # Get the open data file
+                # Get the open data file content
                 #
                 print "Process open data url $url\n" if $debug;
                 ($resp_url, $resp) = Crawler_Get_HTTP_Response($url, "");
-                
+
                 #
                 # Did we get the page ?
                 #
@@ -10176,9 +10192,47 @@ sub Open_Data_Callback {
                 #
                 if ( $mime_type =~ /text\/html/ ) {
                     #
-                    # Get the content from the content file
+                    # Get the content from the content file or the response
+                    # object
                     #
-                    $content = Crawler_Read_Content_File($resp);
+                    if ( $crawler_config_vars{"content_file"} == 1 ) {
+                        $content = Crawler_Read_Content_File($resp);
+                    }
+                    else {
+                        #
+                        # Get content from HTTP::Response object.
+                        #
+                        $content = Crawler_Decode_Content($resp);
+
+                        #
+                        # Get generated markup (after JavaScript is loaded and run)
+                        #
+                        if ( $enable_generated_markup ) {
+                            print "Get generated content for web page\n" if $debug;
+                            $generated_content = Crawler_Get_Generated_Content($resp, $url);
+
+                            #
+                            # If the generated content is empty, we may have encountered
+                            # an error with the headless user agent
+                            #
+                            if ( $generated_content eq "" ) {
+                                $error_string = Crawler_Error_String();
+                                if ( $error_string ne "" ) {
+                                    print STDERR "Crawler error $error_string\n";
+                                    foreach $tab (@active_results_tabs) {
+                                        if ( defined($tab) ) {
+                                            Validator_GUI_Update_Results($tab,
+                                                                         String_Value("Crawler error") .
+                                                                         " $error_string");
+                                        }
+                                    }
+                                }
+                            }
+                            else {
+                                $content = $generated_content;
+                            }
+                        }
+                     }
                     
                     #
                     # Setup content saving option
@@ -10217,17 +10271,27 @@ sub Open_Data_Callback {
                     #
                     # Get file details
                     #
-                    $filename = $resp->header("WPSS-Content-File");
-                    $size = -s $filename;
-                    $t = $url;
-                    $t =~ s/"/""/g;
+                    if ( $crawler_config_vars{"content_file"} == 1 ) {
+                        $filename = $resp->header("WPSS-Content-File");
+                        $size = -s $filename;
+                        $t = $url;
+                        $t =~ s/"/""/g;
 
-                    #
-                    # Compute SHA-1 checksum for this file
-                    #
-                    $sha = Digest::SHA->new("SHA-1");
-                    $sha->addfile($filename);
-                    $checksum = $sha->hexdigest;
+                        #
+                        # Compute SHA-1 checksum for this file
+                        #
+                        $sha = Digest::SHA->new("SHA-1");
+                        $sha->addfile($filename);
+                        $checksum = $sha->hexdigest;
+                    }
+                    else {
+                        #
+                        # Compute SHA-1 checksum for this content
+                        #
+                        $sha = Digest::SHA->new("SHA-1");
+                        $sha->add(pack("U*", $content));
+                        $checksum = $sha->hexdigest;
+                    }
 
                     #
                     # Add file details to CSV
@@ -10274,6 +10338,13 @@ sub Open_Data_Callback {
             }
         }
     }
+
+    #
+    # Reset crawler to save content to a file (may have been set
+    # off in the above loop if resource files were analyzed
+    #
+    $crawler_config_vars{"content_file"} = 1;
+    Crawler_Config(%crawler_config_vars);
 
     #
     # Was the crawl aborted ?
