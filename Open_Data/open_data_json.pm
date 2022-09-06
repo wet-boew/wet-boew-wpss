@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 2249 $
+# $Revision: 2380 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_json.pm $
-# $Date: 2021-12-08 14:59:52 -0500 (Wed, 08 Dec 2021) $
+# $Date: 2022-08-31 14:01:30 -0400 (Wed, 31 Aug 2022) $
 #
 # Description:
 #
@@ -113,19 +113,21 @@ my ($debug) = 0;
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%testcase_data, $results_list_addr, $dictionary_ptr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
-my ($filename, $python_file, $python_output, $tag_count);
+my ($filename, $python_file, $python_output, $tag_count, $is_windows);
 my (@content_results_list, $last_json_headings_list, $current_url_base);
 my ($pythonpath_set) = 0;
 
 #
 # Variables shared between threads
 #
-my ($json_schema_validator, $python_path, $separator);
+my ($json_schema_validator, $python_path, $separator, $linux_python);
 if ( $have_threads ) {
     share(\$json_schema_validator);
     share(\$python_path);
     share(\$separator);
+    share(\$linux_python);
 }
+$linux_python = "python";
 
 #
 # Data file object attribute names (use the same names as used for
@@ -357,13 +359,42 @@ sub Set_Open_Data_JSON_Test_Profile {
 #***********************************************************************
 sub Get_JSON_Schema_Command_Line {
 
-    my ($python_file, $filename, $python_output);
+    my ($python_file, $filename, $python_output, $output, $major, $minor);
 
     #
     # Have we already determined the Python installation path and the JSON
     # schema validator command line?
     #
     if ( ! defined($json_schema_validator) ) {
+        #
+        # Get python command.
+        #
+        if ( ! $is_windows ) {
+            #
+            # Check for python3 executable
+            #
+            $output = `which python3 2>&1`;
+            if ( $output =~ /no python3 in/i ) {
+                #
+                # No python3, check for python (probably version 2)
+                #
+                $output = `which python 2>&1`;
+                if ( $output =~ /no python in/i ) {
+                    print STDERR "Could not find python or python3\n";
+                    exit(1);
+                }
+                else {
+                    $linux_python = "python";
+                }
+            }
+            else {
+                #
+                # Have python3 executable
+                #
+                $linux_python = "python3";
+            }
+        }
+
         #
         # Write temporary program to get the directory
         # path that python is installed in.
@@ -380,7 +411,7 @@ sub Get_JSON_Schema_Command_Line {
         #
         # Generate JSON schema validator command line
         #
-        if ( $^O =~ /MSWin32/ ) {
+        if ( $is_windows ) {
             #
             # Windows.
             #
@@ -392,13 +423,31 @@ sub Get_JSON_Schema_Command_Line {
             $json_schema_validator = ".\\bin\\json_schema_validator.py";
         } else {
             #
-            # Not Windows.
+            # Not Windows, get python version
+            #
+            print "Get python version\n" if $debug;
+            unlink($filename);
+            ($python_file, $filename) = tempfile("WPSS_TOOL_OD_JSON_XXXXXXXXXX",
+                                                 SUFFIX => '.py',
+                                                 TMPDIR => 1);
+            print $python_file "import os\n";
+            print $python_file "import sys\n";
+            print PYTHON "print('Version: major:'+str(sys.version_info[0])+' minor:'+str(sys.version_info[1]))\n";
+            close($python_file);
+            $python_output = `$linux_python test$$.py 2>\&1`;
+
+            #
+            # Get major and minor release numbers
+            #
+            ($major) = $python_output =~ /major:\s*(\d).*/im;
+            ($minor) = $python_output =~ /minor:\s*(\d).*/im;
+
+            #
+            # Set validator path
             #
             $separator = ":";
-            $python_output = `python $filename 2>\&1`;
-            chop($python_output);
-            $python_path = "$program_dir/python/usr/local/lib/python2.7/site-packages";
-            $json_schema_validator = "python bin/json_schema_validator.py";
+            $python_path = "$program_dir/python/usr/local/lib/python$major.$minor/site-packages";
+            $json_schema_validator = "$linux_python bin/json_schema_validator.py";
         }
 
         #
@@ -1977,6 +2026,21 @@ if ( $program_dir eq "." ) {
             last;
         }
     }
+}
+
+#
+# Is this a Windows or Unix platform
+#
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $is_windows = 1;
+} else {
+    #
+    # Not Windows (should be Linux).
+    #
+    $is_windows = 0;
 }
 
 #
