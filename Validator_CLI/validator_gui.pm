@@ -613,7 +613,7 @@ sub Validator_GUI_Print_TQA_Result {
         #
         # Print page, if there is one
         #
-        elsif ( $result_object->page_no > 0 ) {
+        elsif ( ($result_object->page_no() ne "") && ($result_object->page_no() > 0) ) {
             $output_line = sprintf(String_Value("4 spaces") .
                                    String_Value("Page") .
                                    "%3d", $result_object->page_no);
