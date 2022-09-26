@@ -2,9 +2,9 @@
 #
 # Name:   marc_validate.pm
 #
-# $Revision: 1851 $
+# $Revision: 2392 $
 # $URL: svn://10.36.148.185/WPSS_Tool/MARC_Validate/Tools/marc_validate.pm $
-# $Date: 2020-09-15 07:02:11 -0400 (Tue, 15 Sep 2020) $
+# $Date: 2022-09-26 08:09:47 -0400 (Mon, 26 Sep 2022) $
 #
 # Description:
 #
@@ -366,8 +366,8 @@ if ( $program_dir eq "." ) {
 # Set validator command and options
 #
 $validate_cmnd = "java " .
-                 "-cp $program_dir/lib/metadata-qa-marc-0.2-dependencies.jar;" .
-                 "$program_dir/lib/metadata-qa-marc-0.2.jar " .
+                 "-cp lib/metadata-qa-marc-0.2-dependencies.jar;" .
+                 "lib/metadata-qa-marc-0.2.jar " .
                  "de.gwdg.metadataqa.marc.cli.Validator -nolog -f stdout";
 
 #
