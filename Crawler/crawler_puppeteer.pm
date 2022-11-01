@@ -102,17 +102,16 @@ my ($debug) = 0;
 my ($markup_server_port_start) = "8000";
 my ($markup_server_port) = $markup_server_port_start;
 my ($retry_page) = 0;
-my ($default_windows_chrome_path);
-my ($chrome_install_error_reported) = 0;
+my ($default_windows_chrome_path, $userprofile);
 my ($user_agent_name) = "Mozilla/5.0 (Windows NT 6.1; Trident/7.0; rv:11.0) WPSS_Tool";
 my ($default_user_agent_check_url) = "https://www.google.com/";
 
-my ($headless_chrome_installed, $chrome_path, $chrome_install_error);
+my ($headless_chrome_installed, $chrome_path, $puppeteer_install_error);
 my ($user_agent_software_versions);
 if ( $have_threads ) {
     share(\$headless_chrome_installed);
     share(\$chrome_path);
-    share(\$chrome_install_error);
+    share(\$puppeteer_install_error);
     share(\$user_agent_software_versions);
 }
 
@@ -370,8 +369,8 @@ sub Crawler_Puppeteer_Stop_Markup_Server {
 #***********************************************************************
 sub Check_Puppeteer_Requirements {
     my ($file_path, $version, $major, $minor, $version_str);
-    my ($js_fh, $js_filename, $node_output, $line);
-    my ($bat_fh, $bat_filename);
+    my ($js_fh, $js_filename, $node_output, $line, $output);
+    my ($bat_fh, $bat_filename, $chromedriver_path);
     my ($meets_requirements) = 1;
 
     #
@@ -391,7 +390,7 @@ sub Check_Puppeteer_Requirements {
         print "No puppeteer configuration paramters supplied\n" if $debug;
         print STDERR "crawler_puppeteer: No puppeteer configuration paramters supplied\n";
         $meets_requirements = 0;
-        $chrome_install_error = String_Value("No puppeteer configuration paramters supplied");
+        $puppeteer_install_error = String_Value("No puppeteer configuration paramters supplied");
         return($meets_requirements);
     }
 
@@ -454,7 +453,7 @@ sub Check_Puppeteer_Requirements {
             print "Chrome executable not found\n" if $debug;
             print STDERR "crawler_puppeteer: Chrome not installed, headless chrome not available\n";
             $meets_requirements = 0;
-            $chrome_install_error = String_Value("Chrome not installed, headless chrome not available");
+            $puppeteer_install_error = String_Value("Chrome not installed, headless chrome not available");
         }
         
         #
@@ -466,7 +465,7 @@ sub Check_Puppeteer_Requirements {
             print "Node not in path\n" if $debug;
             print STDERR "crawler_puppeteer: Node not installed, headless chrome not available\n";
             $meets_requirements = 0;
-            $chrome_install_error = String_Value("Node not installed, headless chrome not available");
+            $puppeteer_install_error = String_Value("Node not installed, headless chrome not available");
         }
         else {
             print "Node found at $file_path\n" if $debug;
@@ -481,6 +480,7 @@ sub Check_Puppeteer_Requirements {
         #
         print STDERR "crawler_puppeteer: Not Windows, headless chrome not available\n";
         $meets_requirements = 0;
+        $puppeteer_install_error = String_Value("Chrome not installed, headless chrome not available");
     }
     
     #
@@ -500,7 +500,7 @@ sub Check_Puppeteer_Requirements {
             #
             print "Chrome version below minimum or no minimum value set\n" if $debug;
             print STDERR "crawler_puppeteer: Headless Chrome version below minimum or no version found\n";
-            $chrome_install_error = String_Value("Chrome version below minimum value");
+            $puppeteer_install_error = String_Value("Chrome version below minimum value");
             $meets_requirements = 0;
         }
     }
@@ -562,7 +562,7 @@ node \"$js_filename\"
         if ( $node_output =~ /Cannot find module/im ) {
             print "Puppeteer-core module not installed, output = $node_output\n" if $debug;
             print STDERR "crawler_puppeteer: Node/Puppeteer-core module not installed, headless chrome not available\n";
-            $chrome_install_error = String_Value("Puppeteer-core module not installed");
+            $puppeteer_install_error = String_Value("Puppeteer-core module not installed");
             $meets_requirements = 0;
         }
         else {
@@ -580,6 +580,29 @@ node \"$js_filename\"
         unlink($bat_filename);
     }
     
+    #
+    # Get chromedriver version
+    #
+    if ( $meets_requirements ) {
+        print "Get chromedriver version\n" if $debug;
+        $output = `npm list chromedriver -g 2>&1`;
+        $version = "";
+        foreach $line (split(/[\n\r]/, $output)) {
+            if ( $line =~ /^\|/ ) {
+                #
+                # Skip chromedrive from nested module
+                #
+                next;
+            }
+            elsif ( $line =~ /chromedriver/ ) {
+                print "Found chromedriver version $line\n" if $debug;
+                $line =~ s/^.*@//g;
+                $version = $line;
+                $user_agent_software_versions .= ", Chromedriver = $version";
+                last;
+            }
+        }
+    }
     #
     # Return requirements indicator
     #
@@ -1104,8 +1127,8 @@ sub Crawler_Puppeteer_User_Agent_Details {
     # Do we have an installation error string?
     #
     print "Crawler_Puppeteer_User_Agent_Details\n" if $debug;
-    if ( defined($chrome_install_error) && ($chrome_install_error ne "") ) {
-        return($chrome_install_error);
+    if ( defined($puppeteer_install_error) && ($puppeteer_install_error ne "") ) {
+        return($puppeteer_install_error);
     }
     else {
         return($user_agent_software_versions);
@@ -1169,6 +1192,19 @@ if ( $^O =~ /MSWin32/ ) {
 #
 unlink("puppeteer_stdout.txt");
 unlink("puppeteer_stderr.txt");
+
+#
+# Make sure npm modules are in the path
+#
+if ( $^O =~ /MSWin32/ ) {
+    #
+    # Windows.
+    #
+    $paths = $ENV{"PATH"};
+    $userprofile = $ENV{"USERPROFILE"};
+    $paths .= ";$userprofile/AppData/Roaming/npm";
+    $ENV{"PATH"} = $paths;
+}
 
 #
 # Return true to indicate we loaded successfully
