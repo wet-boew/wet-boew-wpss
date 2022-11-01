@@ -384,43 +384,6 @@ sub Check_Deque_Axe_Requirements {
         }
         
         #
-        # Get path to chromedriver
-        #
-        if ( $meets_requirements ) {
-            print "Check for chromedriver.cmd program\n" if $debug;
-            $chromedriver_path = `where chromedriver.cmd 2>&1`;
-            if ( $chromedriver_path =~ /Could not find/i ) {
-                print "chromedriver not in path\n" if $debug;
-                print STDERR "tqa_deque_axe: ChromeDriver not installed, axe not available\n";
-                $deaque_axe_install_error = "ChromeDriver not installed, axe not available";
-                $meets_requirements = 0;
-            }
-            else {
-                #
-                # Get path to chromedriver, strip the trailing newline from
-                # the 'where' output
-                #
-                chomp($chromedriver_path);
-                print "Chromedriver found at $chromedriver_path\n" if $debug;
-                $chromedriver_argument = "--chromedriver-path \"$chromedriver_path\"";
-                
-                #
-                # Get the Chromedriver version
-                #
-                $output = `npm list chromedriver -g 2>&1`;
-                $chromedriver_version = "";
-                foreach $line (split(/[\n\r]/, $output)) {
-                    if ( $line =~ /chromedriver/ ) {
-                        $line =~ s/^.*@//g;
-                        $chromedriver_version = $line;
-                        ($chromedriver_major_version) = split(/\./, $chromedriver_version, 1);
-                        last;
-                    }
-                }
-            }
-        }
-
-        #
         # Get path to node
         #
         if ( $meets_requirements ) {
@@ -434,6 +397,9 @@ sub Check_Deque_Axe_Requirements {
             }
             else {
                 print "Node found at $file_path\n" if $debug;
+                $version = `node -v`;
+                chomp($version);
+                $deque_axe_version .= ", Node = $version";
             }
         }
 
@@ -452,6 +418,7 @@ sub Check_Deque_Axe_Requirements {
                     # Check each path for an instance of Chrome
                     #
                     print "Default chrome paths = $default_windows_chrome_path\n" if $debug;
+                    undef $chrome_path;
                     foreach $file_path (split(/\n/, $default_windows_chrome_path)) {
                         if ( -f $file_path ) {
                             $chrome_path = $file_path;
@@ -470,7 +437,6 @@ sub Check_Deque_Axe_Requirements {
             # Did we get a path? If so get the Chrome version
             #
             if ( defined($chrome_path) && (-f $chrome_path) ) {
-                print "Chrome executable found at $chrome_path\n" if $debug;
                 $chrome_path =~ s/\\/\\\\/g;
                 print "Check Chrome version from\nwmic datafile where name=\"$chrome_path\" get Version /value\n" if $debug;
                 $version_str = `wmic datafile where name=\"$chrome_path\" get Version /value`;
@@ -478,6 +444,7 @@ sub Check_Deque_Axe_Requirements {
                 print "Chrome version = $version from $version_str\n" if $debug;
                 $chrome_version = "$version";
                 ($chrome_major_version) = split(/\./, $chrome_version, 1);
+                $deque_axe_version .= ", Chrome = $chrome_major_version";
             }
             else {
                 #
@@ -487,6 +454,62 @@ sub Check_Deque_Axe_Requirements {
                 print STDERR "tqa_deque_axe: Chrome not installed, headless chrome not available\n";
                 $deaque_axe_install_error = "Chrome not installed, axe not available";
                 $meets_requirements = 0;
+            }
+        }
+
+        #
+        # Get path to chromedriver
+        #
+        if ( $meets_requirements ) {
+            print "Check for chromedriver.exe program\n" if $debug;
+            $chromedriver_path = `where chromedriver.exe 2>&1`;
+            if ( $chromedriver_path =~ /Could not find/i ) {
+                print "chromedriver not in path\n" if $debug;
+                print STDERR "tqa_deque_axe: ChromeDriver not installed, axe not available\n";
+                $deaque_axe_install_error = "ChromeDriver not installed, axe not available";
+                $deque_axe_version .= ", ChromeDriver not installed, axe not available";
+                $meets_requirements = 0;
+            }
+            else {
+                #
+                # Get path to chromedriver, strip the trailing newline from
+                # the 'where' output
+                #
+                chomp($chromedriver_path);
+                print "Chromedriver found at $chromedriver_path\n" if $debug;
+                $chromedriver_argument = "--chromedriver-path \"$chromedriver_path\"";
+
+                #
+                # Get the Chromedriver version
+                #
+                $output = `npm list chromedriver -g 2>&1`;
+                $chromedriver_version = "";
+                foreach $line (split(/[\n\r]/, $output)) {
+                    if ( $line =~ /^\|/ ) {
+                        #
+                        # Skip chromedrive from nested module
+                        #
+                        next;
+                    }
+                    elsif ( $line =~ /chromedriver/ ) {
+                        $line =~ s/^.*@//g;
+                        $chromedriver_version = $line;
+                        ($chromedriver_major_version) = split(/\./, $chromedriver_version, 1);
+                        last;
+                    }
+                }
+                $deque_axe_version .= ", Chromedriver = $chromedriver_version";
+
+                #
+                # Does the Chrome driver major version match the Chrome browser
+                # major version number?
+                #
+                if ( $chromedriver_major_version != $chrome_major_version ) {
+                    print "Chromedriver version ($chromedriver_major_version) incompatible with Chrome version ($chrome_major_version)\n" if $debug;
+                    print STDERR "tqa_deque_axe: Chromedriver version ($chromedriver_major_version) incompatible with Chrome version ($chrome_major_version)\n";
+                    $meets_requirements = 0;
+                    $deaque_axe_install_error = "Chromedriver version ($chromedriver_major_version) incompatible with Chrome version ($chrome_major_version), axe not available";
+                }
             }
         }
     }
@@ -525,6 +548,9 @@ sub Check_Deque_Axe_Requirements {
     #
     # Return requirements indicator
     #
+    if ( $meets_requirements ) {
+        print "Deque Axe version: $deque_axe_version\n" if $debug;
+    }
     $deque_axe_installed = $meets_requirements;
     return($meets_requirements);
 }
@@ -1173,7 +1199,10 @@ sub Deque_AXE_Version {
     print "Deque_AXE_Version\n" if $debug;
     Check_Deque_Axe_Requirements();
     if ( defined($deque_axe_version) && ($deque_axe_version ne "") ) {
-        return("$deque_axe_version, Chrome: $chrome_version, Chromedriver: $chromedriver_version");
+        return($deque_axe_version);
+    }
+    elsif ( defined($deaque_axe_install_error) && ($deaque_axe_install_error ne "") ) {
+        return($deaque_axe_install_error);
     }
     else {
         return("");
@@ -1257,7 +1286,8 @@ if ( $^O =~ /MSWin32/ ) {
     #
     $paths = $ENV{"PATH"};
     $userprofile = $ENV{"USERPROFILE"};
-    $paths .= ";$userprofile/AppData/Roaming/npm";
+    $paths .= ";$userprofile/AppData/Roaming/npm/node_modules/chromedriver/lib/chromedriver" .
+              ";$userprofile/AppData/Roaming/npm";
     $ENV{"PATH"} = $paths;
 }
 
