@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 2277 $
+# $Revision: 2412 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/html_check.pm $
-# $Date: 2022-01-24 14:54:26 -0500 (Mon, 24 Jan 2022) $
+# $Date: 2022-10-26 12:54:03 -0400 (Wed, 26 Oct 2022) $
 #
 # Description:
 #
@@ -2849,8 +2849,8 @@ sub Destroy_Text_Handler {
             # Don't add text to parent if this tag is hidden
             #
             elsif ( $this_tag_hidden ) {
-                print "Not adding text from hidden tag\n" if $debug;
-                $current_tag_text = "";
+                print "Adding text from hidden tag\n" if $debug;
+                $current_all_text .= " $current_text";
             }
             #
             # Append text to parent tag's text
