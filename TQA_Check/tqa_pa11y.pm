@@ -681,6 +681,9 @@ sub Pa11y_Version {
     if ( defined($pa11y_version) && ($pa11y_version ne "") ) {
         return($pa11y_version);
     }
+    elsif ( defined($pa11y_install_error) && ($pa11y_install_error ne "") ) {
+        return($pa11y_install_error);
+    }
     else {
         return("");
     }
