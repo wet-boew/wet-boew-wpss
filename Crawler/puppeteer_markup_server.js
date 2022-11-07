@@ -2,9 +2,9 @@
 //
 // Name: puppeteer_markup_server.js
 //
-// $Revision: 2379 $
+// $Revision: 2418 $
 // $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/puppeteer_markup_server.js $
-// $Date: 2022-08-31 13:55:52 -0400 (Wed, 31 Aug 2022) $
+// $Date: 2022-11-07 08:04:17 -0500 (Mon, 07 Nov 2022) $
 //
 // Synopsis: node puppeteer_markup_server.js <port> <chrome_path>
 //                                           <user_data_directory> -debug
@@ -508,7 +508,7 @@ server = http.createServer(function(req, res) {
                     'Content-Type': 'text/plain; charset=UTF-8'
                 });
                 res.write('===== PAGE ERROR BEGINS =====\n');
-                res.write(err.message + '\n');
+                res.write(get_url + '\n' + err.message + '\n');
                 res.write('===== PAGE ERROR ENDS =====\n');
                 res.end(); //end the response
                 console.log('Closing browser');
