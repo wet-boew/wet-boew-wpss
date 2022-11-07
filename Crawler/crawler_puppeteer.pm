@@ -2,9 +2,9 @@
 #
 # Name:   crawler_puppeteer.pm
 #
-# $Revision: 2378 $
+# $Revision: 2417 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler_puppeteer.pm $
-# $Date: 2022-08-31 13:53:57 -0400 (Wed, 31 Aug 2022) $
+# $Date: 2022-11-07 07:51:18 -0500 (Mon, 07 Nov 2022) $
 #
 # Description:
 #
@@ -928,7 +928,7 @@ sub Server_Page_Markup {
                 }
             }
             print "Found page error marker\n" if $debug;
-            $generated_markup{"error"} = $content;
+            $generated_markup{"error"} = "Chrome/Puppeteer:\n$content";
             print "Error with puppeteer/headless browser output\n" if $debug;
             print STDERR "crawler_puppeteer: Error Server_Page_Markup\n";
             print STDERR "Response successful, page error marker found\n";
@@ -990,7 +990,7 @@ sub Server_Page_Markup {
                 }
             }
             print "Found page error marker\n" if $debug;
-            $generated_markup{"error"} = $content;
+            $generated_markup{"error"} = "Chrome/Puppeteer:\n$content";;
             print "Error with puppeteer/headless browser output\n" if $debug;
             print STDERR "crawler_puppeteer: Error Server_Page_Markup\n";
             print STDERR "Response not successful, page error marker found\n";
