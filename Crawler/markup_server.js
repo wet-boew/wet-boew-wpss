@@ -2,9 +2,9 @@
 //
 // Name: markup_server.js
 //
-// $Revision: 1412 $
-// $URL: svn://10.36.148.185/Crawler/Tools/markup_server.js $
-// $Date: 2019-07-30 11:56:11 -0400 (Tue, 30 Jul 2019) $
+// $Revision: 2428 $
+// $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/markup_server.js $
+// $Date: 2022-11-15 11:45:57 -0500 (Tue, 15 Nov 2022) $
 //
 // Synopsis: phantomjs markup_server.js <port> -debug
 //
@@ -67,7 +67,7 @@ var resourceWait = 500,
     page_image_file_name,
     username, password;
 var port, server, service, url, buffer;
-var page_status, page_content;
+var page_status, page_content, page_error;
 var element_text, child_element;
 var get_computed_styles = 1;
 var idle_timeout = 50000,
@@ -77,6 +77,9 @@ var idle_timeout = 50000,
 
 // Set user agent string
 page.settings.userAgent = 'Mozilla/5.0 (Windows NT 6.1; Trident/7.0; rv:11.0) PhantomJS 2.0 WPSS_Tool';
+
+// Set timeout for resources
+page.settings.resourceTimeout = 3000;
 
 // ************************************************************
 //
@@ -330,6 +333,40 @@ page.onResourceError = function(resourceError) {
         // Error loading main page, set page status to fail
         console.out('Error loading main page');
         page_status = "fail";
+        page_error = 'Timeout loading page URL:' + resourceError.url + '\n' +
+                     'Error code: ' + resourceError.errorCode + '. Description: ' + resourceError.errorString;
+    }
+};
+
+// ************************************************************
+//
+// Name: page.onResourceTimeout
+//
+// Parameters: resourceError - metadata object for error details
+//
+// Description:
+//
+//    This handler is called when there is a timeout loading a
+// resource (e.g. main page, CSS, JavaScript).
+//
+// ************************************************************
+page.onResourceTimeout = function(resourceError) {
+
+    // Print error message
+    if (debug === 1) {
+        t = new Date();
+        console.out('Timeout loading resource # ' + count + ' id: ' + resourceError.id + ' URL:' + resourceError.url);
+        console.out('Error code: ' + resourceError.errorCode + '. Description: ' + resourceError.errorString);
+        console.out('at ' + t.toLocaleTimeString());
+    }
+
+    // Is the resource the URL of the main page ?
+    if (url === resourceError.url) {
+        // Error loading main page, set page status to fail
+        console.out('Error loading main page');
+        page_status = "fail";
+        page_error = 'Timeout loading page URL:' + resourceError.url + '\n' +
+                     'Error code: ' + resourceError.errorCode + '. Description: ' + resourceError.errorString;
     }
 };
 
@@ -597,12 +634,14 @@ service = server.listen(port, function(request, response) {
     }
     page.onConsoleMessage = function(msg) {
         console.log(msg);
-    }
+    };
 
     // Open the URL provided in the url paramter of the request
     page_status = "success";
+    page_error = "";
     rendering_done = 0;
     page.open(url, function(status) {
+        var styles_list;
         // Set a timeout to allow for JavaScript to run.
         // The timeout is adjusted as resources (e.g. CSS, JavaScript)
         // files are loaded by the page.
@@ -617,9 +656,9 @@ service = server.listen(port, function(request, response) {
                     t = new Date();
                     console.out('Get computed styles at ' + t.toLocaleTimeString());
                 }
-                var output = page.evaluate(function() {
-                    var style_attributes, output, elements, el, i, j, k, l, len;
-                    var propertyName, ref1, ref2, rule, ruleList, rules, style;
+                styles_list = page.evaluate(function() {
+                    var style_attributes, output, elements, el, i, j, len;
+                    var propertyName, style;
                     var pl;
                     output = {
                         url: location,
@@ -663,7 +702,7 @@ service = server.listen(port, function(request, response) {
                         }
 
                         // Remove leading whitespace
-                        element_text = someText = element_text.replace(/[\r|\n|\s]*$/, "");
+                        element_text = element_text.replace(/[\r|\n|\s]*$/, "");
 
                         // Get the computed styles for this element
                         style = window.getComputedStyle(el, null);
@@ -736,7 +775,7 @@ service = server.listen(port, function(request, response) {
                     response.write('===== COMPUTED STYLES BEGINS =====\n');
 
                     // Print the computed style information as a JSON string
-                    response.write(JSON.stringify(output, null, 4));
+                    //response.write(JSON.stringify(output, null, 4));
                     response.write('\n');
 
                     // Print marker for the end of the HTML mark-up
@@ -749,15 +788,9 @@ service = server.listen(port, function(request, response) {
 
                 // Create response page to indicate we did not find the
                 // requested URL
-                response.write('<html>');
-                response.write('<head>');
-                response.write('<title>404 Not Found</title>');
-                response.write('</head>');
-                response.write('<body>');
-                response.write('<p>URL not found ' + url + '</p>');
-                response.write('</body>');
-                response.write('</html>');
-                response.statusCode = 404;
+                response.write('===== PAGE ERROR BEGINS =====\n');
+                response.write(page_error + '\n');
+                response.write('===== PAGE ERROR ENDS =====\n');
             }
 
             // Close the response to send it back to the caller

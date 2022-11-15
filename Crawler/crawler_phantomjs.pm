@@ -2,9 +2,9 @@
 #
 # Name:   crawler_phantomjs.pm
 #
-# $Revision: 2365 $
+# $Revision: 2427 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler_phantomjs.pm $
-# $Date: 2022-06-29 09:45:25 -0400 (Wed, 29 Jun 2022) $
+# $Date: 2022-11-15 11:31:34 -0500 (Tue, 15 Nov 2022) $
 #
 # Description:
 #
@@ -375,7 +375,7 @@ sub Crawler_Phantomjs_Start_Markup_Server {
 sub Single_Page_Markup {
     my ($this_url, $cookie_file, $image_file, $user, $password) = @_;
 
-    my ($content, $output, $line, $load_time, $markup);
+    my ($content, $output, $line, $load_time, $markup, $error);
     my ($sec, $min, $hour, $date, $image_param, %generated_markup);
 
     #
@@ -430,9 +430,44 @@ sub Single_Page_Markup {
                 $content .= $line . "\n";
             }
         }
+        
+        #
+        # Save page markup
+        #
         print "Found page markup and load time $load_time\n" if $debug;
         $content = decode("utf8", $content, Encode::FB_HTMLCREF);
         $generated_markup{"generated_content"} = $content;
+    }
+    #
+    # Check for error message from the markup server
+    #
+    elsif ( $output =~ /===== PAGE ERROR ENDS =====/ ) {
+        print "Found error end marker\n" if $debug;
+        $error = 0;
+        foreach $line (split(/\n/, $output)) {
+            if ( $line =~ /===== PAGE ERROR BEGINS =====/ ) {
+                #
+                # Start of error message
+                #
+                $error = 1;
+            }
+            elsif ( $line =~ /===== PAGE ERROR ENDS =====/ ) {
+                #
+                # End of error message
+                #
+                $error = 0;
+            }
+            elsif ( $error ) {
+                $content .= $line . "\n";
+            }
+        }
+        print "Found page error marker\n" if $debug;
+        $generated_markup{"error"} = "Phantomjs:\n$content";
+        print "Error with Phantomjs/headless browser output\n" if $debug;
+        print STDERR "crawler_phantomjs: Error Single_Page_Markup\n";
+        print STDERR "Response successful, page error marker found\n";
+        print STDERR "  get($this_url)\n";
+        print STDERR "$output\n";
     }
     else {
         #
@@ -473,7 +508,7 @@ sub Server_Page_Markup {
 
     my ($content, $output, $line, $load_time, $markup);
     my ($sec, $min, $hour, $time, $image_param, %generated_markup);
-    my ($user_agent, $resp, $url, $req, $authen_param);
+    my ($user_agent, $resp, $url, $req, $authen_param, $error);
     my ($markup_ptr) = \%generated_markup;
 
     #
@@ -567,6 +602,43 @@ sub Server_Page_Markup {
             print "Found page markup and load time $load_time\n" if $debug;
             #$content = decode("utf8", $content, Encode::FB_HTMLCREF);
             $generated_markup{"generated_content"} = $content;
+        }
+        #
+        # Check for error message from the markup server
+        #
+        elsif ( $output =~ /===== PAGE ERROR ENDS =====/ ) {
+            print "Found error end marker\n" if $debug;
+            $error = 0;
+            foreach $line (split(/\n/, $output)) {
+                if ( $line =~ /===== PAGE ERROR BEGINS =====/ ) {
+                    #
+                    # Start of error message
+                    #
+                    $error = 1;
+                }
+                elsif ( $line =~ /===== PAGE ERROR ENDS =====/ ) {
+                    #
+                    # End of error message
+                    #
+                    $error = 0;
+                }
+                elsif ( $error ) {
+                    $content .= $line . "\n";
+                }
+            }
+            print "Found page error marker\n" if $debug;
+            $generated_markup{"error"} = "Phantomjs:\n$content";
+            print "Error with Phantomjs/headless browser $output\n" if $debug;
+            print STDERR "crawler_phantomjs: Error Server_Page_Markup\n";
+            print STDERR "Response successful, page error marker found\n";
+            print STDERR "  get($this_url)\n";
+            print STDERR "$output\n";
+
+            #
+            # Try stopping and restarting the markup server
+            #
+            print "Attempting a restart of the crawler_phantomjs server\n" if $debug;
+            Crawler_Phantomjs_Start_Markup_Server($cookie_file);
         }
         else {
             #
