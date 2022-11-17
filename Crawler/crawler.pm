@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 2377 $
+# $Revision: 2429 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler.pm $
-# $Date: 2022-08-31 13:52:24 -0400 (Wed, 31 Aug 2022) $
+# $Date: 2022-11-16 12:35:48 -0500 (Wed, 16 Nov 2022) $
 #
 # Description:
 #
@@ -4225,7 +4225,7 @@ sub Crawler_Remove_Temporary_Files {
     #
     # Clear and remove any cache content for PhantomJS
     #
-    Crawler_Phantomjs_Clear_Cache();
+    Crawler_Phantomjs_Clear_Cache($phantomjs_cookie_file);
 
     #
     # Remove any RobotsUA cache
