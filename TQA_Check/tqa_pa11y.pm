@@ -2,9 +2,9 @@
 #
 # Name:   tqa_pa11y.pm
 #
-# $Revision: 2251 $
+# $Revision: 2440 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_pa11y.pm $
-# $Date: 2021-12-08 15:01:17 -0500 (Wed, 08 Dec 2021) $
+# $Date: 2022-12-15 10:33:02 -0500 (Thu, 15 Dec 2022) $
 #
 # Description:
 #
@@ -342,7 +342,7 @@ sub Check_Pa11y_Requirements {
             $version = `pa11y --version 2>&1`;
             chomp($version);
             $pa11y_version = $version;
-            print "Pa11y found at $file_path\n" if $debug;
+            print "Pa11y $version found\n" if $debug;
         }
     }
     else {
