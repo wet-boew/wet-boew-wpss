@@ -2,13 +2,14 @@
 #
 # Name:   build_release.pl
 #
-# $Revision: 2318 $
+# $Revision: 2443 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/build_release.pl $
-# $Date: 2022-05-02 14:55:45 -0400 (Mon, 02 May 2022) $
+# $Date: 2022-12-16 13:40:48 -0500 (Fri, 16 Dec 2022) $
 #
-# Synopsis: build_release.pl [ Linux ]
+# Synopsis: build_release.pl [ Windows | Linux ]
 #
-#   where: Linux - create Linux release (default is Windows)
+#   where: Windows - create Windows release (default)
+#          Linux - create Linux release
 #
 # This script is for building a release of the tool from the github
 # repository.
@@ -655,7 +656,8 @@ for $file (@files) {
 }
 copy("validator_gui.pm", "$dest/lib/GUI/validator_gui.pm") ||
     die "Failed to copy validator_gui.pm to $dest/lib/GUI/validator_gui.pm\n";
-@files = qw(install.pl open_data_tool.pl uninstall.pl version.txt wpss_tool.pl
+@files = qw(install.pl install_deque_axe.pl install_pa11y.pl install_puppeteer.pl
+            open_data_tool.pl uninstall.pl version.txt wpss_tool.pl
             wpss_tool_en.pl wpss_tool_fr.pl
             Win32-GUI-1.14.zip Win32_IE.zip);
 for $file (@files) {
