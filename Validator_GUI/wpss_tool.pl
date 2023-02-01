@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 2285 $
+# $Revision: 2455 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2022-02-03 09:52:22 -0500 (Thu, 03 Feb 2022) $
+# $Date: 2023-01-31 09:24:53 -0500 (Tue, 31 Jan 2023) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -10148,7 +10148,9 @@ sub Open_Data_Callback {
                     #
                     # Get the uncompressed response content
                     #
-                    Crawler_Uncompress_Content_File($resp);
+                    if ( $crawler_config_vars{"content_file"} == 1 ) {
+                        Crawler_Uncompress_Content_File($resp);
+                    }
 
                     #
                     # Print URL
