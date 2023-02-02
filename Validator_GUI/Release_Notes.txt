@@ -1,32 +1,55 @@
 #
 # Version history of Versions.txt
 #
-# $Revision: 2261 $
+# $Revision: 2462 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Documents/Versions.txt $
-# $Date: 2022-01-05 12:38:55 -0500 (Wed, 05 Jan 2022) $
+# $Date: 2023-02-02 15:02:58 -0500 (Thu, 02 Feb 2023) $
 #
 # Version number = <Major release>.<Minor release>.<Bug fix>
 #
-6.14.0 -
+6.14.0 - Feb. 2, 2023
   Web
     - Check the chromedriver version against the chrome version when
       using the Deque AXE tool
-    - Ignore blank terms in dc.subject
+    - Ignore blank terms in dc.subject metadata
+    - Support both Python 2 and 3 for supporting tools
+    - Report runtime error if a supporting tool requires Python 2 if
+      Python 3 is installed
+    - Ignore http vs https protocol for vocab - SWI_E HTML_DATA_VOCAB
+    - Check headless browser by getting a URL to verify operation
+    - Include hidden text in parent tag to avoid false failures.
+    - Include user agent type in error messages.
+    - Return error message if PhantomJS fails to get the web
+      page (e.g. timeout). Don't just report a 404 error.
+    - Add installation scripts for optional software (puppeteer,
+      pa11y, Deque axe)
 
 
   Open Data
+    - Support both Python 2 and 3 for supporting tools
+    - Report runtime error if a supporting tool requires Python 2 if
+      Python 3 is installed
+    - Check headless browser by getting a URL to verify operation.
+    - Include user agent type in error messages.
+    - Add installation scripts for optional software (puppeteer,
+      pa11y, Deque axe)
+    - Update csvlint to version 0.3.0
 
 
 6.13.1 - Dec. 13, 2021
   Web
     - Ensure npm folder is in search path for supporting programs
-
+    - Allow for multiple default locations for Chrome browser (32 & 64 bit)
+    - Support both Python 2 and 3 for supporting tools
+    - Report runtime error if a supporting tool requires Python 2 if
+      Python 3 is installed
 
   Open Data
     - Don't report missing charset="utf-8" for JSON files in a
       ZIP archive - TP_PW_OD_DATA
     - Check for https protocol for dataset URLs - TP_PW_OD_URL
-
+    - Support both Python 2 and 3 for supporting tools
+    
 
 6.13.0 - Nov. 16, 2021
   Web
