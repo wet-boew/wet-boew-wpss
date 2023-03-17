@@ -86,7 +86,7 @@ The WPSS_Tool has been tested on the following platforms
 - Windows 10 (64 bit), Strawberry Perl 5.32 (64 bit), Python 3.10.0
 
 The WPSS Tool installer is available as a release in this repository
-- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.14.0/WPSS_Tool.exe
+- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.14/WPSS_Tool.exe
 
 #### Chrome Headless User agent (recommended)
 The Chrome headless user agent and supporting files can be installed using the install_puppeteer.pl script in the WPSS_Tool folder.
@@ -120,7 +120,7 @@ The WPSS_Tool has been tested on the following platforms
 The Linux version has not been tested with headless chrome, pa11y or Deque AXE.
 
 The WPSS Tool installer is available as a release in this repository
-- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.14.0/WPSS_Tool_Linux.zip
+- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.14/WPSS_Tool_Linux.zip
 
 Installation steps
 - Unzip the package; 'unzip WPSS_Tool_Linux.zip'
