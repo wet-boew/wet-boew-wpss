@@ -1,11 +1,11 @@
-#!/usr/bin/python
+#!/home/irwink/local/bin/python
 #***********************************************************************
 #
 # Name:   feedvalidator.py
 #
-# $Revision: 1629 $
+# $Revision: 2527 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Feed_Validate/Tools/feedvalidator.py $
-# $Date: 2019-12-10 11:36:03 -0500 (Tue, 10 Dec 2019) $
+# $Date: 2023-05-09 09:47:43 -0400 (Tue, 09 May 2023) $
 #
 # Synopsis: feedvalidator.py <url>
 #
@@ -50,7 +50,7 @@
 """$Id$"""
 
 __author__ = "Sam Ruby <http://intertwingly.net/> and Mark Pilgrim <http://diveintomark.org/>"
-__version__ = "$Revision: 1629 $"
+__version__ = "$Revision: 2527 $"
 __copyright__ = "Copyright (c) 2002 Sam Ruby and Mark Pilgrim"
 
 import feedvalidator
@@ -59,6 +59,7 @@ import os
 import urllib
 import urllib2
 import urlparse
+import ssl
 
 if __name__ == '__main__':
   # arg 1 is URL to validate
@@ -72,10 +73,11 @@ if __name__ == '__main__':
 
   curdir = os.path.abspath(os.path.dirname(sys.argv[0]))
   basedir = urlparse.urljoin('file:' + curdir, ".")
+  context = ssl._create_unverified_context()
 
   try:
     if link.startswith(basedir):
-      events = feedvalidator.validateStream(urllib.urlopen(link), firstOccurrenceOnly=1,base=link.replace(basedir,"http://www.feedvalidator.org/"))['loggedEvents']
+      events = feedvalidator.validateStream(urllib.urlopen(link, context=context), firstOccurrenceOnly=1,base=link.replace(basedir,"http://www.feedvalidator.org/"))['loggedEvents']
     else:
       events = feedvalidator.validateURL(link, firstOccurrenceOnly=1)['loggedEvents']
   except feedvalidator.logging.ValidationFailure, vf:
