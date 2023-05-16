@@ -2,9 +2,9 @@
 #
 # Name:   open_data_check.pm
 #
-# $Revision: 2248 $
+# $Revision: 2504 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_check.pm $
-# $Date: 2021-12-08 14:58:56 -0500 (Wed, 08 Dec 2021) $
+# $Date: 2023-04-19 10:08:45 -0400 (Wed, 19 Apr 2023) $
 #
 # Description:
 #
@@ -16,9 +16,11 @@
 #     Set_Open_Data_Check_Debug
 #     Set_Open_Data_Check_Testcase_Data
 #     Set_Open_Data_Check_Test_Profile
+#     Set_Open_Data_Check_ACC_Test_Profile
 #     Open_Data_Check_Testcase_URL
 #     Open_Data_Check_Read_URL_Help_File
 #     Open_Data_Check
+#     Open_Data_Check_Accessibility_Results
 #     Open_Data_Check_Content
 #     Open_Data_Check_Zip_Content
 #     Open_Data_Check_Read_JSON_Description
@@ -98,9 +100,11 @@ BEGIN {
                   Set_Open_Data_Check_Debug
                   Set_Open_Data_Check_Testcase_Data
                   Set_Open_Data_Check_Test_Profile
+                  Set_Open_Data_Check_ACC_Test_Profile
                   Open_Data_Check_Testcase_URL
                   Open_Data_Check_Read_URL_Help_File
                   Open_Data_Check
+                  Open_Data_Check_Accessibility_Results
                   Open_Data_Check_Content
                   Open_Data_Check_Zip_Content
                   Open_Data_Check_Read_JSON_Description
@@ -126,6 +130,7 @@ my (@supporting_doc_url, %expected_row_count, %first_url_count);
 my (@content_results_list, $today_date_object);
 my (@data_dictionary_file_name, @alternate_data_file_name);
 my (@data_file_required_lang, %data_file_objects);
+my ($accessibility_testcase_profile);
 
 my ($max_error_message_string) = 2048;
 my ($max_unzipped_file_size) = 0;
@@ -649,7 +654,7 @@ sub Set_Open_Data_Check_Testcase_Data {
 #
 #***********************************************************************
 sub Set_Open_Data_Check_Test_Profile {
-    my ($profile, $open_data_checks ) = @_;
+    my ($profile, $open_data_checks) = @_;
 
     my (%local_open_data_checks);
     my ($key, $value);
@@ -670,6 +675,33 @@ sub Set_Open_Data_Check_Test_Profile {
     Set_Open_Data_MARC_Test_Profile($profile, $open_data_checks);
     Set_Open_Data_TXT_Test_Profile($profile, $open_data_checks);
     Set_Open_Data_XML_Test_Profile($profile, $open_data_checks);
+}
+
+#***********************************************************************
+#
+# Name: Set_Open_Data_Check_ACC_Test_Profile
+#
+# Parameters: profile - accessibility check test profile
+#
+# Description:
+#
+#   This function sets the accessibility testcase profile (e.g. WCAG 2.0).
+#
+#***********************************************************************
+sub Set_Open_Data_Check_ACC_Test_Profile {
+    my ($profile) = @_;
+
+    #
+    # Save accessibility testcase profile name
+    #
+    print "Set_Open_Data_Check_ACC_Test_Profile, profile = $profile\n" if $debug;
+    $accessibility_testcase_profile = $profile;
+
+    #
+    # Set testcase profile in supporting modules
+    #
+    Set_Open_Data_CSV_ACC_Test_Profile($profile);
+    Set_Open_Data_JSON_ACC_Test_Profile($profile);
 }
 
 #***********************************************************************
@@ -1401,6 +1433,7 @@ sub Check_Format_and_Mime_Type_File_Suffix {
     # Get file suffix, if there is one
     #
     $suffix = $url;
+    $suffix =~ s/^.*\///g;
     $suffix =~ s/^.*\.//g;
 
     #
@@ -1888,6 +1921,88 @@ sub Open_Data_Check {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Check_Accessibility_Results
+#
+# Parameters: url - open data file URL
+#             format - optional content format
+#             resp - HTTP::Response object
+#             filename - file containing content
+#
+# Description:
+#
+#   This function returns the accessibility error list from the previously
+# checked URL (via a call to Open_Data_Check).
+#
+#***********************************************************************
+sub Open_Data_Check_Accessibility_Results {
+    my ($url, $format, $resp, $filename) = @_;
+
+    my (@accessibility_results_list, $header, $mime_type);
+
+    #
+    # Get results from accessibility checks
+    #
+    print "Open_Data_Check_Accessibility_Results for $url\n" if $debug;
+
+    #
+    # Does this URL match the last processed URL?
+    #
+    @accessibility_results_list = ();
+    if ( $url eq $current_url ) {
+        #
+        # Get the URL mime-type
+        #
+        if ( defined($resp) &&  $resp->is_success ) {
+            $header = $resp->headers;
+            $mime_type = $header->content_type;
+        }
+        elsif ( ! $resp->is_success ) {
+            #
+            # Don't have a valid dataset URL
+            #
+            return(@accessibility_results_list);
+        }
+        else {
+            #
+            # Unknown mime-type
+            #
+            $mime_type = "";
+        }
+
+        #
+        # Is this a CSV file ?
+        #
+        if ( ($mime_type =~ /text\/x-comma-separated-values/) ||
+             ($mime_type =~ /application\/csv/) ||
+             ($mime_type =~ /text\/csv/) ||
+             ($format =~ /^csv$/i) ||
+             ($url =~ /\.csv$/i) ) {
+            #
+            # Get results from CSV checks
+            #
+            @accessibility_results_list = Open_Data_Check_CSV_Accessibility_Results($url);
+        }
+        #
+        # Is this a JSON file ?
+        #
+        elsif ( ($mime_type =~ /application\/json/i) ||
+                ($format =~ /^json$/i) ||
+                ($url =~ /\.json$/i) ) {
+            #
+            # Get results from JSON checks
+            #
+            @accessibility_results_list = Open_Data_Check_JSON_Accessibility_Results($url);
+        }
+    }
+
+    #
+    # Return the list of errors
+    #
+    return (@accessibility_results_list);
 }
 
 #***********************************************************************
@@ -3465,6 +3580,7 @@ sub Check_CSV_Data_File_Rows_Columns {
         print "Checking English URL $eng_url\n" if $debug;
         $lang_item_addr = $url_lang_map{$eng_url};
         $lang_count = @$lang_item_addr;
+        $current_url = $eng_url;
 
         #
         # Check all language variants to see if the
