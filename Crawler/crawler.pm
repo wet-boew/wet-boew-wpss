@@ -2,9 +2,9 @@
 #
 # Name: crawler.pm
 #
-# $Revision: 2429 $
+# $Revision: 2463 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Crawler/Tools/crawler.pm $
-# $Date: 2022-11-16 12:35:48 -0500 (Wed, 16 Nov 2022) $
+# $Date: 2023-02-03 14:25:30 -0500 (Fri, 03 Feb 2023) $
 #
 # Description:
 #
@@ -3819,7 +3819,7 @@ sub Crawl_Site {
     # Set crawler options
     #
     print "Crawl_site\n" if $debug;
-    Set_Crawler_Options($crawler_options);
+    Set_Crawler_Options("", $crawler_options);
 
     #
     # Initialize lists to empty lists
