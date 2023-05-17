@@ -2,9 +2,9 @@
 #
 # Name: validator_gui.pm
 #
-# $Revision: 2385 $
+# $Revision: 2518 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/validator_gui.pm $
-# $Date: 2022-09-01 10:05:18 -0400 (Thu, 01 Sep 2022) $
+# $Date: 2023-05-02 15:17:38 -0400 (Tue, 02 May 2023) $
 #
 # Description:
 #
@@ -1075,6 +1075,12 @@ sub Validator_GUI_Print_Scan_Fault_Count {
     #
     # Do we want XML output ?
     #
+    if ( ! defined($faults) ) {
+        $faults = 0;
+    }
+    if ( ! defined($faults_per_page) ) {
+        $faults_per_page = 0;
+    }
     print "Validator_GUI_Print_Scan_Fault_Count tab = $tab_label\n" if $debug;
     if ( $xml_output_mode ) {
         $output_line = Validator_XML_Scan_Fault_Count($faults, $faults_per_page);

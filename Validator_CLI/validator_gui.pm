@@ -907,6 +907,12 @@ sub Validator_GUI_Print_Scan_Fault_Count {
     #
     # Do we want XML output ?
     #
+    if ( ! defined($faults) ) {
+        $faults = 0;
+    }
+    if ( ! defined($faults_per_page) ) {
+        $faults_per_page = 0;
+    }
     print "Validator_GUI_Print_Scan_Fault_Count tab = $tab_label\n" if $debug;
     if ( $xml_output_mode ) {
         $output_line = Validator_XML_Scan_Fault_Count($faults, $faults_per_page);
