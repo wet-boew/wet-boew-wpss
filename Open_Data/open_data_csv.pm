@@ -2,9 +2,9 @@
 #
 # Name:   open_data_csv.pm
 #
-# $Revision: 2063 $
+# $Revision: 2530 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_csv.pm $
-# $Date: 2021-06-10 09:35:01 -0400 (Thu, 10 Jun 2021) $
+# $Date: 2023-05-10 14:06:58 -0400 (Wed, 10 May 2023) $
 #
 # Description:
 #
@@ -16,7 +16,9 @@
 #     Set_Open_Data_CSV_Debug
 #     Set_Open_Data_CSV_Testcase_Data
 #     Set_Open_Data_CSV_Test_Profile
+#     Set_Open_Data_CSV_ACC_Test_Profile
 #     Open_Data_CSV_Check_Data
+#     Open_Data_Check_CSV_Accessibility_Results
 #     Open_Data_CSV_Check_Get_Headings_List
 #     Open_Data_CSV_Check_Get_Row_Column_Counts
 #     Open_Data_CSV_Check_Get_Column_Object_List
@@ -73,7 +75,9 @@ use csv_parser;
 use language_map;
 use open_data_testcases;
 use open_data_json;
+use text_check;
 use tqa_result_object;
+use tqa_testcases;
 use url_check;
 
 #***********************************************************************
@@ -90,7 +94,9 @@ BEGIN {
                   Set_Open_Data_CSV_Debug
                   Set_Open_Data_CSV_Testcase_Data
                   Set_Open_Data_CSV_Test_Profile
+                  Set_Open_Data_CSV_ACC_Test_Profile
                   Open_Data_CSV_Check_Data
+                  Open_Data_Check_CSV_Accessibility_Results
                   Open_Data_CSV_Check_Get_Headings_List
                   Open_Data_CSV_Check_Get_Row_Column_Counts
                   Open_Data_CSV_Check_Get_Column_Object_List
@@ -110,10 +116,10 @@ my ($debug) = 0;
 my (%testcase_data, $results_list_addr, @content_results_list);
 my (@paths, $this_path, $program_dir, $program_name, $paths);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
-my ($csv_validator, $last_csv_headings_list);
+my ($csv_validator, $last_csv_headings_list, @accessibility_results_list);
 my ($leading_trailing_whitespace_count, $dollar_symbol_found);
 my ($thousands_separator_found, $thousands_separator_count);
-my ($dollar_symbol_count, $csvlint_cmnd);
+my ($dollar_symbol_count, $csvlint_cmnd, $accessibility_testcase_profile);
 my ($csvlint_runtime_error_reported) = 0;
 
 my ($max_error_message_string)= 2048;
@@ -195,6 +201,7 @@ my %string_table_en = (
     "Found an unordered list item in an ordered list", "Found an unordered list item in an ordered list",
     "Found at",                      "Found at",
     "Found at row",                  "Found at row",
+    "Graphics character table found", "Graphics character table found",
     "have identical content",        "have identical content",
     "Heading must be a single line", "Heading must be a single line",
     "Inconsistent data type in column", "Inconsistent data type in column",
@@ -206,7 +213,7 @@ my %string_table_en = (
     "instances of leading or trailing whitespace characters in field values", "instances of leading or trailing whitespace characters in field values",
     "instances of thousands separator values", "instances of thousands separator values",
     "Invalid URL found",             "Invalid URL found",
-    "Leading or trailing whitespace characters in field value", "Leading or trailing whitespace characters in field value",
+    "Leading whitespace characters in field value", "Leading whitespace characters in field value",
     "Leading or trailing whitespace characters in heading", "Leading or trailing whitespace characters in heading",
     "List item prefix character found for list of 1 item", "List item prefix character found for list of 1 item",
     "List item value",               "List item value",
@@ -228,8 +235,10 @@ my %string_table_en = (
     "Scientific notation value found", "Scientific notation value found",
     "Thousands separator value found", "Thousands separator value found",
     "Total of",                      "Total of",
+    "Trailing whitespace characters in field value", "Trailing whitespace characters in field value",
     "value",                         "value",
     "values of type",                "values of type",
+    "Whitespace aligned table found", "Whitespace aligned table found",
     );
 
 my %string_table_fr = (
@@ -261,6 +270,7 @@ my %string_table_fr = (
     "Found an unordered list item in an ordered list", "Trouver un élément de liste non ordonnée dans une liste ordonnée",
     "Found at",                      "Trouvé à",
     "Found at row",                  "Trouvé à la rangée",
+    "Graphics character table found", "Table de caractères graphiques trouvée",
     "have identical content",        "avoir un contenu identique",
     "Heading must be a single line", "Le titre doit être une seule ligne",
     "Inconsistent data type in column", "Type de données incohérent dans la colonne",
@@ -273,7 +283,7 @@ my %string_table_fr = (
     "instances of thousands separator values", "instances de milliers séparateurs",
     "Invalid URL found",             "URL invalide trouvée",
     "Leading or trailing whitespace characters in field value", "Caractères d'espacement avant ou arrière dans la valeur du champ",
-    "Leading or trailing whitespace characters in heading", "Caractères blancs avancés ou arrivant dans le titre",
+    "Leading whitespace characters in heading", "Caractères blancs avancés dans le titre",
     "List item value",               "Valeur de l'élément de liste",
     "List item prefix character found for list of 1 item", "Caractère de préfixe d'élément de liste trouvé pour la liste de 1 élément",
     "Long numeric value may be truncated", "La valeur numérique longue peut être tronquée",
@@ -294,8 +304,10 @@ my %string_table_fr = (
     "Scientific notation value found", "Valeur de notation scientifique trouvée",
     "Thousands separator value found", "Valeur de séparateur en milliers trouvée",
     "Total of",                      "Total de",
+    "Trailing whitespace characters in heading", "Caractères blancs arrivant dans le titre",
     "value",                         "valeur",
     "values of type",                "valeurs de type",
+    "Whitespace aligned table found", "Tableau aligné avec des espaces trouvés",
     );
 
 #
@@ -327,6 +339,7 @@ sub Set_Open_Data_CSV_Debug {
     #
     CSV_Parser_Debug($debug);
     Set_CSV_Column_Object_Debug($debug);
+    Set_Text_Check_Debug($this_debug);
 }
 
 #**********************************************************************
@@ -356,6 +369,7 @@ sub Set_Open_Data_CSV_Language {
         #
         $string_table = \%string_table_en;
     }
+    Set_Text_Check_Language($language);
 }
 
 #**********************************************************************
@@ -430,6 +444,7 @@ sub Set_Open_Data_CSV_Testcase_Data {
         #
         $testcase_data{$testcase} = $data;
     }
+    Set_Text_Check_Testcase_Data($testcase, $data);
 }
 
 #***********************************************************************
@@ -457,6 +472,28 @@ sub Set_Open_Data_CSV_Test_Profile {
     print "Set_Open_Data_CSV_Test_Profile, profile = $profile\n" if $debug;
     %local_testcase_names = %$testcase_names;
     $open_data_profile_map{$profile} = \%local_testcase_names;
+    Set_Text_Check_Test_Profile($profile, $testcase_names);
+}
+
+#***********************************************************************
+#
+# Name: Set_Open_Data_CSV_ACC_Test_Profile
+#
+# Parameters: profile - accessibility check test profile
+#
+# Description:
+#
+#   This function sets the accessibility testcase profile (e.g. WCAG 2.0).
+#
+#***********************************************************************
+sub Set_Open_Data_CSV_ACC_Test_Profile {
+    my ($profile) = @_;
+
+    #
+    # Save accessibility testcase profile name
+    #
+    print "Set_Open_Data_CSV_ACC_Test_Profile, profile = $profile\n" if $debug;
+    $accessibility_testcase_profile = $profile;
 }
 
 #***********************************************************************
@@ -480,6 +517,7 @@ sub Initialize_Test_Results {
     $current_open_data_profile = $open_data_profile_map{$profile};
     $results_list_addr = $local_results_list_addr;
     @content_results_list = ();
+    @accessibility_results_list = ();
     $leading_trailing_whitespace_count = 0;
     $dollar_symbol_found = 0;
     $dollar_symbol_count = 0;
@@ -1164,10 +1202,7 @@ sub Check_List_Length {
 sub Check_Multi_Line_Field {
     my ($line, $line_no, $field, $field_number, @lines) = @_;
 
-    my ($single_line, $i, $in_list, $list_item_prefix, $list_item_count);
-    my ($item_prefix, $blank_line_count, $in_list_item, $list_item);
-    my ($last_list_item, $list_type, $in_paragraph, $last_line);
-    my ($expect_heading, $item_label, $last_item_label);
+    my ($single_line, @results_list, $result_object, $tcid);
 
     #
     # Is the first line an empty line, or consist of
@@ -1186,420 +1221,25 @@ sub Check_Multi_Line_Field {
             Record_Result("OD_DATA", $line_no, $field_number, $line,
                           String_Value("Empty line as first line of multi-line field") .
                           " #$field_number \"$field\"");
-            return;
         }
     }
     
     #
-    # Does the text appear to be a list ?
+    # Perform accessibility checks on the cell content (e.g. headings, lists,
+    # paragraphs, tables)
     #
-    $in_list = 0;
-    $in_list_item = 0;
-    $list_item_prefix = "";
-    $list_item_count = 0;
-    $blank_line_count = 0;
-    $list_item = "";
-    $last_list_item = "";
-    $list_type = "";
-    $in_paragraph = 0;
-    $expect_heading = 0;
-    for ($i = 0; $i < @lines; $i++) {
-        #
-        # Get this line from the multi-line field value
-        $single_line = $lines[$i];
-        print "Line # $i \"$single_line\"\n" if $debug;
-        
-        #
-        # Is this a blank line?
-        #
-        if ( $single_line =~ /^\s*$/ ) {
-            #
-            # Increment blank line count.  Clear in list item and in
-            # paragraph flags.
-            #
-            $blank_line_count++;
-            $in_list_item = 0;
-            $in_paragraph = 0;
-            print "Blank line count $blank_line_count\n" if $debug;
-            
-            #
-            # Were we expecting a heading? and was the previous line
-            # non-blank? If so we have found our heading.
-            #
-            if ( $expect_heading && ($last_line ne "") ) {
-                print "End of heading\n" if $debug;
-                $expect_heading = 0;
-            }
-            #
-            # If the blank line count is 2, we should expect a heading
-            #
-            elsif ( $blank_line_count == 2 ) {
-                $expect_heading = 1;
-                $in_list = 0;
-                $list_type = "";
-                $list_item_count = 0;
-                $item_prefix = "";
-                print "Expect a heading, end of any open list\n" if $debug;
-            }
-            
-            #
-            # Clear the last line of text
-            #
-            $last_line = "";
-            next;
+    @results_list = Text_Check($current_url, "", $accessibility_testcase_profile,
+                               \$field, $line_no, $field_number);
+
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@results_list) {
+        $tcid = $result_object->testcase();
+        if ( defined(TQA_Testcase_URL($tcid)) ) {
+            $result_object->help_url(TQA_Testcase_URL($tcid));
         }
-        #
-        # If we are in a list item, appeand this text to the list item
-        #
-        elsif ( $in_list_item ) {
-            $list_item .= "\n$single_line";
-            next;
-        }
-        #
-        # Is this an unordered list item? (i.e. starts with a dash,
-        # asterisk or bullet).
-        #
-        elsif ( $single_line =~ /^\s*([\-\*])\s+[^\s]+.*$/ ) {
-            #
-            # Get the list item label value
-            #
-            ($item_label) = $single_line =~ /^\s*([^\.\)]+)[\.\)]\s+.*$/io;
-
-            #
-            # Are we expecing a heading (previous 2 lines were blank)
-            #
-            if ( $expect_heading ) {
-                print "Expecting a heading, found a list\n" if $debug;
-                Record_Result("OD_DATA", $line_no, $field_number, $line,
-                              String_Value("Expected a heading after 2 blank lines") .
-                              " " . String_Value("at line number") .
-                              " " . ($i + 1) . ". " .
-                              String_Value("found") . " \"$single_line\"");
-
-                #
-                # Clear heading flag and go to next line
-                #
-                $expect_heading = 0;
-            }
-            
-            #
-            # Found an unordered list item, do we already have a list? and
-            # is it ordered?
-            #
-            print "Found unordered list item\n" if $debug;
-            if ( ($list_type ne "") && ($list_type eq "ordered") ) {
-                print "Found an unordered list item in an ordered list\n" if $debug;
-                Record_Result("OD_DATA", $line_no, $field_number, $line,
-                              String_Value("Found an unordered list item in an ordered list") .
-                              " " . String_Value("at line number") .
-                              " " . ($i + 1) . ". " .
-                              String_Value("List item value") . " \"$single_line\"");
-                next;
-            }
-            elsif ( $list_type eq "" ) {
-                $list_type = "unordered";
-            }
-            
-            #
-            # Get the list item prefix character
-            #
-            ($item_prefix) = $single_line =~ /^\s*([\-\*])\s+[^\s]+.*$/io;
-            
-            #
-            # Are we already inside a list? If so there should be
-            # one blank line between list items
-            #
-            if ( $in_list ) {
-                if ( $blank_line_count == 0 ) {
-                    print "No blank line between list items\n" if $debug;
-                    Record_Result("OD_DATA", $line_no, $field_number, $line,
-                                  String_Value("No blank line between list items") .
-                                  " " . String_Value("at line number") .
-                                  " " . ($i + 1) . ". " .
-                                  String_Value("List item value") . " \"$single_line\"");
-                }
-                elsif ( $blank_line_count == 2 ) {
-                    #
-                    # Only check if blank line count is 2.  If it is more than
-                    # 2, we would report an error for each blank line.
-                    #
-                    print "Have $blank_line_count blank lines between list items\n" if $debug;
-                    Record_Result("OD_DATA", $line_no, $field_number, $line,
-                                  String_Value("More than 1 blank line between list items") .
-                                  " " . String_Value("at line number") .
-                                  " " . ($i + 1) . ". " .
-                                  String_Value("List item value") . " \"$single_line\"");
-                }
-            }
-
-            #
-            # We are in a list and list item.  Increment list item count and
-            # reset blank line count.
-            #
-            $in_list = 1;
-            $list_item_count++;
-            $blank_line_count = 0;
-            $in_list_item = 1;
-            
-            #
-            # Set the last item content
-            #
-            if ( $list_item_count == 1 ) {
-                $last_list_item = "";
-            }
-            else {
-                $last_list_item = $list_item;
-            }
-        }
-        #
-        # Is this an ordered list item? (i.e. starts with a number,
-        # letter or roman numeral).
-        #
-        # Note: The roman numberal list test is limited to I to XXXIX
-        #       (1 to 39 items) to make the pattern easier.
-        #
-        elsif ( ($single_line =~ /^\s*(\d+[\.\)])\s+[^\s]+.*$/) ||
-                ($single_line =~ /^\s*([A-Z][\.\)])\s+[^\s]+.*$/i) ||
-                ($single_line =~ /^\s*([ivx]+[\.\)])\s+[^\s]+.*$/i) ) {
-            #
-            # Get the list item label value
-            #
-            ($item_label) = $single_line =~ /^\s*([^\.\)]+)[\.\)]\s+.*$/io;
-            
-            #
-            # If this is a new list, get the expected label type
-            #
-            if ( $list_item_count == 0 ) {
-                #
-                # Get the list item prefix characters. Try numbered list first
-                #
-                $item_prefix = "";
-                if ( $single_line =~ /^\s*(\d+[\.\)])\s+[^\s]+.*$/ ) {
-                    #
-                    # This a new list, the label should be 1
-                    #
-                    if ( $item_label == 1 ) {
-                        $item_prefix = "digits";
-                    }
-                    else {
-                        print "Number isn't 1 at beginning of list, assume this is not a list\n" if $debug;
-                    }
-                }
-                #
-                # Try roman numeral list.
-                #
-                elsif ( $single_line =~ /^\s*([ivx]+[\.\)])\s+[^\s]+.*$/ ) {
-                    #
-                    # This a new list, the label should be i
-                    #
-                    if ( uc($item_label) eq "I" ) {
-                        $item_prefix = "roman";
-                    }
-                    else {
-                        print "Number isn't i (roman 1) at beginning of list, assume this is not a list\n" if $debug;
-                    }
-                }
-                #
-                # Try lettered list.
-                #
-                elsif ( $single_line =~ /^\s*([A-Z][\.\)])\s+[^\s]+.*$/ ) {
-                    #
-                    # This a new list, the label should be A
-                    #
-                    if ( uc($item_label) eq "A" ) {
-                        $item_prefix = "letters";
-                    }
-                    else {
-                        print "Letter isn't A at beginning of list, assume this is not a list\n" if $debug;
-                    }
-                }
-                print "List item prefix type is $item_prefix\n" if $debug;
-            }
-
-            #
-            # Are we expecing a heading (previous 2 lines were blank)
-            #
-            if ( $expect_heading ) {
-                #
-                # If we detected the beginning of a list, report error.
-                # If we did not detect the beginning of a list. assume
-                # this is a heading that looks like a list item.
-                #
-                if ( $item_prefix ne "" ) {
-                    print "Expecting a heading, found a list\n" if $debug;
-                    Record_Result("OD_DATA", $line_no, $field_number, $line,
-                                  String_Value("Expected a heading after 2 blank lines") .
-                                  " " . String_Value("at line number") .
-                                  " " . ($i + 1) . ". " .
-                                  String_Value("found") . " \"$single_line\"");
-                }
-                
-                #
-                # Clear heading flag and go to next line
-                #
-                $expect_heading = 0;
-                next;
-            }
-
-            #
-            # Found an ordered list item, do we already have a list? and
-            # is it unordered?
-            #
-            print "Found ordered list item\n" if $debug;
-            if ( ($list_type ne "") && ($list_type eq "unordered") ) {
-                print "Found an ordered list item in an unordered list\n" if $debug;
-                Record_Result("OD_DATA", $line_no, $field_number, $line,
-                              String_Value("Found an ordered list item in an unordered list") .
-                              " " . String_Value("at line number") .
-                              " " . ($i + 1) . ". " .
-                              String_Value("List item value") . " \"$single_line\"");
-                next;
-            }
-            elsif ( $list_type eq "" ) {
-                $list_type = "ordered";
-            }
-            
-            #
-            # Is this item label greater than the previous label value
-            #
-            if ( $list_item_count > 1 ) {
-                #
-                # Check numeric list label
-                #
-                if ( ($item_prefix eq "digits") &&
-                     ($item_label <= $last_item_label) ) {
-                }
-                #
-                # Check lettered label
-                #
-                elsif ( ($item_prefix eq "letters") &&
-                        (ord(uc($item_label)) <= ord(uc($last_item_label))) ) {
-                }
-            }
-
-            #
-            # Are we already inside a list? If so there should be
-            # one blank line between list items
-            #
-            if ( $in_list ) {
-                if ( $blank_line_count == 0 ) {
-                    print "No blank line between list items\n" if $debug;
-                    Record_Result("OD_DATA", $line_no, $field_number, $line,
-                                  String_Value("No blank line between list items") .
-                                  " " . String_Value("at line number") .
-                                  " " . ($i + 1) . ". " .
-                                  String_Value("List item value") . " \"$single_line\"");
-                }
-                elsif ( $blank_line_count == 2 ) {
-                    #
-                    # Only check if blank line count is 2.  If it is more than
-                    # 2, we would report an error for each blank line.
-                    #
-                    print "Have $blank_line_count blank lines between list items\n" if $debug;
-                    Record_Result("OD_DATA", $line_no, $field_number, $line,
-                                  String_Value("More than 1 blank line between list items") .
-                                  " " . String_Value("at line number") .
-                                  " " . ($i + 1) . ". " .
-                                  String_Value("List item value") . " \"$single_line\"");
-                }
-            }
-
-            #
-            # We are in a list and list item.  Increment list item count and
-            # reset blank line count.
-            #
-            $in_list = 1;
-            $list_item_count++;
-            $blank_line_count = 0;
-            $in_list_item = 1;
-            $last_item_label = $item_label;
-            $expect_heading = 0;
-
-            #
-            # Set the last item content
-            #
-            if ( $list_item_count == 1 ) {
-                $last_list_item = "";
-            }
-            else {
-                $last_list_item = $list_item;
-            }
-        }
-        else {
-            #
-            # Are we inside of a list ?
-            #
-            if ( $in_list ) {
-                #
-                # Not in a list item, but in a list.  The list has ended,
-                # this text may be a heading or the beginning of a paragraph.
-                #
-                $in_list = 0;
-                $list_type = "";
-                $last_item_label = "";
-                print "End of list encountered\n" if $debug;
-            }
-            #
-            # Was the last line text also? If so we are inside a paragraph
-            #
-            elsif ( $last_line ne "" ) {
-                #
-                # Are we expecting a heading (previous 2 lines were blank)
-                #
-                if ( $expect_heading ) {
-                    print "Expecting a heading, found a paragraph\n" if $debug;
-                    Record_Result("OD_DATA", $line_no, $field_number, $line,
-                                  String_Value("Heading must be a single line") .
-                                  ", " . String_Value("found") .
-                                  " \n\"$last_line\n$single_line\"\n" .
-                                  String_Value("at line number") .
-                                  " " . ($i + 1));
-
-                    #
-                    # Clear heading flag
-                    #
-                    $expect_heading = 0;
-                }
-
-                #
-                # Inside a paragraph
-                #
-                $in_paragraph = 1;
-            }
-            else {
-                #
-                # Not in a list, ignore this line of text.
-                #
-            }
-
-            #
-            # Save this line of text and clean the blank line count
-            #
-            $last_line = $single_line;
-            $blank_line_count = 0;
-        }
-        
-        #
-        # If this is the first list item, set the list item prefix character
-        #
-        if ( $in_list_item && ($list_item_count == 1) ) {
-            $list_item_prefix = $item_prefix;
-            print "Start of list, item prefix is \"$item_prefix\"\n" if $debug;
-        }
-        #
-        # Not first list item, check that this item prefix matches the
-        # expected list item prefix.
-        #
-        elsif ( $in_list_item && ($item_prefix ne $list_item_prefix) ) {
-            print "Inconsistent list item prefix at item #$list_item_count, expecting \"$list_item_prefix\" found \"$item_prefix\"\n" if $debug;
-            Record_Result("OD_DATA", $line_no, $field_number, $line,
-                          String_Value("Inconsistent list item prefix, found") .
-                          " \"$item_prefix\" " . String_Value("expecting") .
-                          " \"$list_item_prefix\". " .
-                          String_Value("at line number") .
-                          " " . ($i + 1) . ". " .
-                          String_Value("List item value") . " \"$single_line\"");
-        }
+        push (@accessibility_results_list, $result_object);
     }
 }
 
@@ -2265,53 +1905,6 @@ sub Open_Data_CSV_Check_Data {
                     }
                     
                     #
-                    # Are we checking content errors?
-                    # If not, skip trying to get the URL.
-                    #
-                    # Skip URL checking since it can be time consuming
-                    # for data files with a large number of URLs (e.g. contract
-                    # history).
-                    #
-#                    if ( defined($$current_open_data_profile{"TP_PW_OD_CONT"}) ) {
-                    if ( 0 ) {
-                        #
-                        # Check that the URL can be reached
-                        #
-                        print "Check URL $data\n" if $debug;
-                        ($resp_url, $resp) = Crawler_Get_HTTP_Response($data, "");
-
-                        #
-                        # Was the URL valid?
-                        #
-                        if ( ! defined($resp) ) {
-                            Record_Content_Result("TP_PW_OD_CONT", $line_no,
-                                              ($i + 1), "$line",
-                                              String_Value("Invalid URL found") .
-                                              " \"$data\"");
-                        }
-                        #
-                        # Did we fail to get the URL?
-                        #
-                        elsif ( ! $resp->is_success ) {
-                            print "Error trying to get URL, error  = " .
-                                  $resp->status_line . "\n" if $debug;
-                             Record_Content_Result("TP_PW_OD_CONT", $line_no,
-                                                  ($i + 1), "$line",
-                                                  String_Value("Cannot access URL") .
-                                                  " \"$data\"\n" . $resp->status_line);
-                        }
-                        #
-                        # Got URL, clean up content file
-                        #
-                        else {
-                            $url_filename = $resp->header("WPSS-Content-File");
-                            if ( defined($url_filename) && ($url_filename ne "") ) {
-                                unlink($url_filename);
-                            }
-                        }
-                    }
-
-                    #
                     # Increment the count of values
                     #
                     $column_object->increment_data_type_count($value_type, $data,
@@ -2385,7 +1978,7 @@ sub Open_Data_CSV_Check_Data {
                     # Check for possible scientific notation value
                     # (e.g. 1.3e-005).
                     #
-                    if ( $data =~ /^\d(\.\d+)?e(\-)?\d+$/ ) {
+                    if ( $data =~ /^\d(\.\d+)?e([\-\+])?\d+$/i ) {
                         Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
                                               String_Value("Scientific notation value found") .
                                               " \"$data\" " .
@@ -2454,34 +2047,51 @@ sub Open_Data_CSV_Check_Data {
                                           " \"$column_label\" (#" . ($i + 1) . ")");
                 }
                 #
-                # Check for leading space followed by =, - or + character
-                # followed by a letter, digit or parenthesis.  This is a
-                # work around to prevent Excel from interpreting the value as
-                # a formula (e.g. =SUM(A1:F1)). This is a valid case for
-                # a single leading space character that should not be reported
-                # as an error in the next check.
-                #
-                elsif ( $data =~ /^\s[=+\-][A-Z\d\(].*/i ) {
-                    print "Ignore single leading whitespace in field that may be interpreted as a formula\n" if $debug;
-                }
-                #
-                # Check for leading or trailing whitespace in the value.
+                # Check for trailing whitespace in the value.
                 # This whitespace is unnecessary and should not be in
                 # the value.
                 #
-                elsif ( ($data =~ /^\s+/) || ($data =~ /\s+$/) ) {
+                elsif ( $data =~ /\s+$/ ) {
                     #
                     # Only record the first instance of the error as there
                     # may be many instances in the data.
                     #
                     if ( $leading_trailing_whitespace_count == 0 ) {
                         Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
-                                              String_Value("Leading or trailing whitespace characters in field value") .
+                                              String_Value("Trailing whitespace characters in heading") .
                                               " \"$data\" " .
                                               String_Value("Column") .
                                               " \"$column_label\" (#" . ($i + 1) . ")");
                     }
                     $leading_trailing_whitespace_count++;
+                }
+                #
+                # Check for leading whitespace in the value.
+                # This whitespace is unnecessary and should not be in
+                # the value.
+                #
+                elsif ( $data =~ /^\s+/ ) {
+                    #
+                    # Is this an unordered list item? (i.e. starts with a dash,
+                    # asterisk or bullet followed by whitespace).
+                    #
+                    if ( $data =~ /^\s([\-\*])\s+[^\s]+/ ) {
+                        print "Ignore single leading whitespace in field that may be interpreted as a list item\n" if $debug;
+                    }
+                    else {
+                        #
+                        # Only record the first instance of the error as there
+                        # may be many instances in the data.
+                        #
+                        if ( $leading_trailing_whitespace_count == 0 ) {
+                            Record_Content_Result("TP_PW_OD_CONT", $line_no, ($i + 1), "$line",
+                                                  String_Value("Leading whitespace characters in field value") .
+                                                  " \"$data\" " .
+                                                  String_Value("Column") .
+                                                  " \"$column_label\" (#" . ($i + 1) . ")");
+                        }
+                        $leading_trailing_whitespace_count++;
+                    }
                 }
 
                 #
@@ -3049,6 +2659,41 @@ sub Open_Data_CSV_Check_Data {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Check_CSV_Accessibility_Results
+#
+# Parameters: url - open data file URL
+#
+# Description:
+#
+#   This function returns the accessibility error list from the previously
+# checked URL (via a call to Open_Data_CSV_Check_Data).
+#
+#***********************************************************************
+sub Open_Data_Check_CSV_Accessibility_Results {
+    my ($url) = @_;
+    
+    my (@empty_list) = ();
+
+    #
+    # Get results from accessibility checks
+    #
+    print "Open_Data_Check_CSV_Accessibility_Results for $url\n" if $debug;
+
+    #
+    # Does this URL match the last processed URL?
+    #
+    if ( $url eq $current_url ) {
+        return (@accessibility_results_list);
+    }
+
+    #
+    # Return the list of errors
+    #
+    return(@empty_list);
 }
 
 #***********************************************************************
