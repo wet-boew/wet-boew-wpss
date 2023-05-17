@@ -2,9 +2,9 @@
 #
 # Name:   open_data_json.pm
 #
-# $Revision: 2380 $
+# $Revision: 2522 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Open_Data/Tools/open_data_json.pm $
-# $Date: 2022-08-31 14:01:30 -0400 (Wed, 31 Aug 2022) $
+# $Date: 2023-05-05 07:11:38 -0400 (Fri, 05 May 2023) $
 #
 # Description:
 #
@@ -16,8 +16,10 @@
 #     Set_Open_Data_JSON_Debug
 #     Set_Open_Data_JSON_Testcase_Data
 #     Set_Open_Data_JSON_Test_Profile
+#     Set_Open_Data_JSON_ACC_Test_Profile
 #     Open_Data_JSON_Check_API
 #     Open_Data_JSON_Check_Data
+#     Open_Data_Check_JSON_Accessibility_Results
 #     Open_Data_JSON_Read_Data
 #     Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes
 #     Open_Data_JSON_Get_Content_Results
@@ -77,7 +79,10 @@ use Encode;
 use crawler;
 use csv_column_object;
 use open_data_testcases;
+use text_check;
 use tqa_result_object;
+use tqa_testcases;
+use url_check;
 
 #***********************************************************************
 #
@@ -93,8 +98,10 @@ BEGIN {
                   Set_Open_Data_JSON_Debug
                   Set_Open_Data_JSON_Testcase_Data
                   Set_Open_Data_JSON_Test_Profile
+                  Set_Open_Data_JSON_ACC_Test_Profile
                   Open_Data_JSON_Check_API
                   Open_Data_JSON_Check_Data
+                  Open_Data_Check_JSON_Accessibility_Results
                   Open_Data_JSON_Read_Data
                   Open_Data_JSON_Get_JSON_CSV_Leaf_Nodes
                   Open_Data_JSON_Get_Content_Results
@@ -115,6 +122,7 @@ my (%testcase_data, $results_list_addr, $dictionary_ptr);
 my (%open_data_profile_map, $current_open_data_profile, $current_url);
 my ($filename, $python_file, $python_output, $tag_count, $is_windows);
 my (@content_results_list, $last_json_headings_list, $current_url_base);
+my ($accessibility_testcase_profile, @accessibility_results_list);
 my ($pythonpath_set) = 0;
 
 #
@@ -232,6 +240,7 @@ sub Set_Open_Data_JSON_Debug {
     # Set debug flag in supporting modules
     #
     Set_CSV_Column_Object_Debug($debug);
+    Set_Text_Check_Debug($this_debug);
 }
 
 #**********************************************************************
@@ -261,6 +270,7 @@ sub Set_Open_Data_JSON_Language {
         #
         $string_table = \%string_table_en;
     }
+    Set_Text_Check_Language($language);
 }
 
 #**********************************************************************
@@ -317,6 +327,7 @@ sub Set_Open_Data_JSON_Testcase_Data {
     # Copy the data into the table
     #
     $testcase_data{$testcase} = $data;
+    Set_Text_Check_Testcase_Data($testcase, $data);
 }
 
 #***********************************************************************
@@ -344,6 +355,28 @@ sub Set_Open_Data_JSON_Test_Profile {
     print "Set_Open_Data_JSON_Test_Profile, profile = $profile\n" if $debug;
     %local_testcase_names = %$testcase_names;
     $open_data_profile_map{$profile} = \%local_testcase_names;
+    Set_Text_Check_Test_Profile($profile, $testcase_names);
+}
+
+#***********************************************************************
+#
+# Name: Set_Open_Data_JSON_ACC_Test_Profile
+#
+# Parameters: profile - accessibility check test profile
+#
+# Description:
+#
+#   This function sets the accessibility testcase profile (e.g. WCAG 2.0).
+#
+#***********************************************************************
+sub Set_Open_Data_JSON_ACC_Test_Profile {
+    my ($profile) = @_;
+
+    #
+    # Save accessibility testcase profile name
+    #
+    print "Set_Open_Data_JSON_ACC_Test_Profile, profile = $profile\n" if $debug;
+    $accessibility_testcase_profile = $profile;
 }
 
 #***********************************************************************
@@ -495,6 +528,7 @@ sub Initialize_Test_Results {
     # Initialize globals
     #
     @content_results_list = ();
+    @accessibility_results_list = ();
     $last_json_headings_list = "";
     
     #
@@ -1327,7 +1361,8 @@ sub Check_JSON_CSV_Data {
     my ($key, $value, $field_count, $expected_field_count);
     my (%data_checksum, $checksum, $column_object, @json_csv_columns);
     my (%leaf_nodes, @expected_leaf_nodes, @leaf_node_names);
-    my (%column_objects, $data1, $value_type);
+    my (%column_objects, $data1, $value_type, @lines);
+    my ($result_object, @results_list, $tcid);
 
     #
     # Get the data array and first object item in the array
@@ -1522,6 +1557,15 @@ sub Check_JSON_CSV_Data {
                     $value_type = "date";
                 }
                 #
+                # Does this appear to be a URL value (http or https)?
+                #
+                elsif ( URL_Check_Is_URL($value) ) {
+                    $value_type = "url";
+                    if ( $column_object->type() eq "" ) {
+                        $column_object->type("url");
+                    }
+                }
+                #
                 # Blank field, skip it.
                 #
                 elsif ( $value =~ /^[\s\n\r]*$/ ) {
@@ -1570,6 +1614,41 @@ sub Check_JSON_CSV_Data {
                                       " \"$value\" " .
                                       String_Value("Field") . " \"" .
                                       $heading->term() . "\"");
+                    }
+                }
+                
+                #
+                # Is the field value a multi line text value? If so
+                # it must be checked for WCAG plain text techniques
+                #
+                if ( $value_type eq "text" ) {
+                    #
+                    # Split the field value on newline
+                    #
+                    @lines = split(/\n/, $value);
+                    
+                    #
+                    # Do we have more than 1 line in this field value?
+                    #
+                    if ( @lines > 1 ) {
+                        #
+                        # Perform accessibility checks on the field value
+                        # (e.g. headings, lists, paragraphs, tables)
+                        #
+                        @results_list = Text_Check($current_url, "",
+                                                   $accessibility_testcase_profile,
+                                                   \$value, ($i + 1), 0);
+
+                        #
+                        # Add help URL to result
+                        #
+                        foreach $result_object (@results_list) {
+                            $tcid = $result_object->testcase();
+                            if ( defined(TQA_Testcase_URL($tcid)) ) {
+                                $result_object->help_url(TQA_Testcase_URL($tcid));
+                            }
+                            push (@accessibility_results_list, $result_object);
+                        }
                     }
                 }
             }
@@ -1842,6 +1921,41 @@ sub Open_Data_JSON_Check_Data {
     # Return list of results
     #
     return(@tqa_results_list);
+}
+
+#***********************************************************************
+#
+# Name: Open_Data_Check_JSON_Accessibility_Results
+#
+# Parameters: url - open data file URL
+#
+# Description:
+#
+#   This function returns the accessibility error list from the previously
+# checked URL (via a call to Open_Data_JSON_Check_Data).
+#
+#***********************************************************************
+sub Open_Data_Check_JSON_Accessibility_Results {
+    my ($url) = @_;
+
+    my (@empty_list) = ();
+
+    #
+    # Get results from accessibility checks
+    #
+    print "Open_Data_Check_JSON_Accessibility_Results for $url\n" if $debug;
+
+    #
+    # Does this URL match the last processed URL?
+    #
+    if ( $url eq $current_url ) {
+        return (@accessibility_results_list);
+    }
+
+    #
+    # Return the list of errors
+    #
+    return(@empty_list);
 }
 
 #***********************************************************************
