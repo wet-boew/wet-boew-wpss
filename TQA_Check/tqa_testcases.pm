@@ -2,9 +2,9 @@
 #
 # Name:   tqa_testcases.pm
 #
-# $Revision: 2277 $
+# $Revision: 2499 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_testcases.pm $
-# $Date: 2022-01-24 14:54:26 -0500 (Mon, 24 Jan 2022) $
+# $Date: 2023-04-05 13:52:13 -0400 (Wed, 05 Apr 2023) $
 #
 # Description:
 #
@@ -128,6 +128,7 @@ my (%testcase_description_en) = (
 "WCAG_2.0-F25", "2.4.2 F25: Failure of Success Criterion 2.4.2 due to the title of a Web page not identifying the contents",
 "WCAG_2.0-F30", "1.1.1, 1.2.1 F30: Failure of Success Criterion 1.1.1 and 1.2.1 due to using text alternatives that are not alternatives",
 "WCAG_2.0-F32", "1.3.2 F32: Failure of Success Criterion 1.3.2 due to using white space characters to control spacing within a word",
+"WCAG_2.0-F34", "1.3.1, 1.3.2 F34: Failure of Success Criterion 1.3.1 and 1.3.2 due to using white space characters to format tables in plain text content",
 "WCAG_2.0-F38", "1.1.1 F38: Failure of Success Criterion 1.1.1 due to omitting the alt-attribute for non-text content used for decorative purposes only in HTML",
 "WCAG_2.0-F39", "1.1.1 F39: Failure of Success Criterion 1.1.1 due to providing a text alternative that is not null (e.g., alt='spacer' or alt='image') for images that should be ignored by assistive technology",
 "WCAG_2.0-F40", "2.2.1 F40: Failure of Success Criterion 2.2.1 and 2.2.4 due to using meta redirect with a time limit",
@@ -201,6 +202,7 @@ my (%testcase_description_en) = (
 #
 "WCAG_2.0-G192", "4.1.1 G192: Fully conforming to specifications",
 "WCAG_2.0-G197", "3.2.4 G197: Using labels, names, and text alternatives consistently for content that has the same functionality",
+"WCAG_2.0-Guideline41", "4.1 Guideline41: Compatible",
 "WCAG_2.0-H2", "1.1.1 H2: Combining adjacent image and text links for the same resource",
 "WCAG_2.0-H24", "1.1.1, 2.4.4 H24: Providing text alternatives for the area elements of image maps",
 "WCAG_2.0-H25", "2.4.2 H25: Providing a title using the title element",
@@ -256,8 +258,9 @@ my (%testcase_description_en) = (
 #
 "WCAG_2.0-SCR20", "2.1.1 SCR20: Using both keyboard and other device-specific functions",
 "WCAG_2.0-SCR21", "1.3.1 SCR21: Using functions of the Document Object Model (DOM) to add content to a page",
-"WCAG_2.0-Guideline41", "4.1 Guideline41: Compatible",
-
+"WCAG_2.0-T1", "1.3.1 T1: Using standard text formatting conventions for paragraphs",
+"WCAG_2.0-T2", "1.3.1 T2: Using standard text formatting conventions for lists",
+"WCAG_2.0-T3", "1.3.1 T3: Using standard text formatting conventions for headings",
 #
 # EPUB Accessibility Techniques 1.0 from http://www.idpf.org/epub/a11y/techniques/techniques.html
 #
@@ -396,6 +399,7 @@ my (%testcase_description_fr) = (
 "WCAG_2.0-F25", "2.4.2 F25: Échec du critère de succès 2.4.2 survenant quand le titre de la page Web n'identifie pas son contenu",
 "WCAG_2.0-F30", "1.1.1, 1.2.1 F30: Échec du critère de succès 1.1.1 et 1.2.1 consistant à utiliser un équivalent textuel qui n'est pas équivalent (par exemple nom de fichier ou texte par défaut)",
 "WCAG_2.0-F32", "1.3.2 F32: Échec du critère de succès 1.3.2 consistant à utiliser des caractères blancs pour contrôler l'espacement à l'intérieur d'un mot",
+"WCAG_2.0-F34", "1.3.1, 1.3.2 F34: Échec du critère de succès 1.3.1 et 1.3.2 consistant à utiliser des caractères blancs pour formater un tableau dans un contenu textuel",
 "WCAG_2.0-F38", "1.1.1 F38: Échec du critère de succès 1.1.1 consistant à omettre l'attribut alt pour un contenu non textuel utilisé de façon décorative, seulement en HTML",
 "WCAG_2.0-F39", "1.1.1 F39: Échec du critère de succès 1.1.1 consistant à fournir un équivalent textuel non vide (par exemple alt='espaceur' ou alt='image') pour des images qui doivent être ignorées par les technologies d'assistance",
 "WCAG_2.0-F40", "2.2.1 F40: Échec du critère de succès 2.2.1 et 2.2.4 consistant à utiliser une redirection meta avec un délai",
@@ -469,6 +473,7 @@ my (%testcase_description_fr) = (
 #
 "WCAG_2.0-G192", "4.1.1 G192: Se conformer entièrement aux spécifications",
 "WCAG_2.0-G197", "3.2.4 G197: Utiliser les étiquettes, les noms et les équivalents textuels de façon cohérente pour des contenus ayant la même fonctionnalité",
+"WCAG_2.0-Guideline41", "4.1 Guideline41: Compatible",
 "WCAG_2.0-H2", "1.1.1 H2: Combiner en un même lien une image et un intitulé de lien pour la même ressource",
 "WCAG_2.0-H24", "1.1.1, 2.4.4 H24: Fournir un équivalent textuel pour l'élément area d'une image à zones cliquables",
 "WCAG_2.0-H25", "2.4.2 H25: H25 : Donner un titre à l'aide de l'élément <title>",
@@ -524,7 +529,9 @@ my (%testcase_description_fr) = (
 #
 "WCAG_2.0-SCR20", "2.1.1 SCR20: Utiliser à la fois des fonctions au clavier et spécifiques à d'autres périphériques",
 "WCAG_2.0-SCR21", "1.3.1 SCR21: Utiliser les fonctions du modèle objet de document (DOM) pour ajouter du contenu à la page",
-"WCAG_2.0-Guideline41", "4.1 Guideline41: Compatible",
+"WCAG_2.0-T1", "1.3.1 T1: Utiliser les conventions standard pour le formatage des paragraphes",
+"WCAG_2.0-T2", "1.3.1 T2: Utiliser les conventions standard pour le formatage des listes",
+"WCAG_2.0-T3", "1.3.1 T3: Utiliser les conventions standard pour le formatage des en-têtes de section",
 
 #
 # EPUB Accessibility Techniques 1.0
@@ -660,6 +667,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-F25", "2.4.2",
 "WCAG_2.0-F30", "1.1.1, 1.2.1",
 "WCAG_2.0-F32", "1.3.2",
+"WCAG_2.0-F34", "1.3.1, 1.3.2",
 "WCAG_2.0-F38", "1.1.1",
 "WCAG_2.0-F39", "1.1.1",
 "WCAG_2.0-F40", "2.2.1",
@@ -696,6 +704,7 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-G158", "1.2.1",
 "WCAG_2.0-G192", "4.1.1",
 "WCAG_2.0-G197", "3.2.4",
+"WCAG_2.0-Guideline41", "4.1",
 "WCAG_2.0-H2", "1.1.1",
 "WCAG_2.0-H24", "1.1.1, 2.4.4",
 "WCAG_2.0-H25", "2.4.2",
@@ -738,7 +747,9 @@ my (%testcase_groups_table) = (
 "WCAG_2.0-SC4.1.2", "4.1.2",
 "WCAG_2.0-SCR20", "2.1.1",
 "WCAG_2.0-SCR21", "1.3.1",
-"WCAG_2.0-Guideline41", "4.1",
+"WCAG_2.0-T1", "1.3.1",
+"WCAG_2.0-T2", "1.3.1",
+"WCAG_2.0-T3", "1.3.1",
 
 #
 # EPUB Accessibility Techniques 1.0
