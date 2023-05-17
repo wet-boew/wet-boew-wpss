@@ -2,9 +2,9 @@
 #
 # Name:   tqa_check.pm
 #
-# $Revision: 2149 $
+# $Revision: 2499 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/tqa_check.pm $
-# $Date: 2021-09-21 11:09:23 -0400 (Tue, 21 Sep 2021) $
+# $Date: 2023-04-05 13:52:13 -0400 (Wed, 05 Apr 2023) $
 #
 # Description:
 #
@@ -88,6 +88,7 @@ use tqa_deque_axe;
 use tqa_pa11y;
 use tqa_result_object;
 use tqa_testcases;
+use text_check;
 use url_check;
 use xml_check;
 
@@ -238,6 +239,7 @@ sub Set_TQA_Check_Debug {
     TQA_Testcase_Debug($this_debug);
     Set_HTML_Check_Debug($this_debug);
     Set_MARC_Check_Debug($this_debug);
+    Set_Text_Check_Debug($this_debug);
     Set_XML_Check_Debug($this_debug);
     Set_CSV_Check_Debug($this_debug);
 
@@ -293,6 +295,7 @@ sub Set_TQA_Check_Language {
     Set_HTML_Check_Language($language);
     Set_MARC_Check_Language($language);
     TQA_Testcase_Language($language);
+    Set_Text_Check_Language($language);
     Set_XML_Check_Language($language);
     Set_CSV_Check_Language($language);
 
@@ -371,6 +374,7 @@ sub Set_TQA_Check_Testcase_Data {
     Set_PDF_Check_Testcase_Data($testcase, $data);
     Set_HTML_Check_Testcase_Data($testcase, $data);
     Set_MARC_Check_Testcase_Data($testcase, $data);
+    Set_Text_Check_Testcase_Data($testcase, $data);
     Set_XML_Check_Testcase_Data($testcase, $data);
     Set_CSV_Check_Testcase_Data($testcase, $data);
 
@@ -408,6 +412,7 @@ sub Set_TQA_Check_Test_Profile {
     Set_PDF_Check_Test_Profile($profile, $tqa_checks);
     Set_HTML_Check_Test_Profile($profile, $tqa_checks);
     Set_MARC_Check_Test_Profile($profile, $tqa_checks);
+    Set_Text_Check_Test_Profile($profile, $tqa_checks);
     Set_XML_Check_Test_Profile($profile, $tqa_checks);
     Set_CSV_Check_Test_Profile($profile, $tqa_checks);
 
@@ -815,6 +820,14 @@ sub TQA_Check {
     elsif ( $mime_type =~ /application\/pdf/ ) {
         @tqa_results_list = PDF_Check($this_url, $language, $profile,
                                       $content);
+    }
+    #
+    # Is it text content?
+    #
+    elsif ( ($mime_type =~ /text\/plain/) ||
+            ($this_url =~ /\.txt$/i) ) {
+        @tqa_results_list = Text_Check($this_url, $language, $profile,
+                                       $content);
     }
     #
     # Is it XML content?
