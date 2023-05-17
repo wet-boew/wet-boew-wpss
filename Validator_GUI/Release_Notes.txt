@@ -1,12 +1,41 @@
 #
 # Version history of Versions.txt
 #
-# $Revision: 2462 $
+# $Revision: 2534 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Documents/Versions.txt $
-# $Date: 2023-02-02 15:02:58 -0500 (Thu, 02 Feb 2023) $
+# $Date: 2023-05-17 11:26:31 -0400 (Wed, 17 May 2023) $
 #
 # Version number = <Major release>.<Minor release>.<Bug fix>
 #
+6.15.0 - May 17, 2023
+  Web
+    - Add checks for WCAG plain text techniques and failures for plain
+      text web pages and portions of HTML web pages using the
+      "pre" tag - WCAG_2.0-T1, WCAG_2.0-T2, WCAG_2.0-T3
+    - Checks for whitespace formatted tables and graphic character
+      formatted tables in plain text web pages and portions of HTML web
+      pages using the "pre" tag - WCAG_2.0-F34
+    - Correct function name in Deque Axe install script
+    - Ignore SSL certificate errors in web feed validator - XML_VALIDATION
+
+
+  Open Data
+    - Check for space separated or graphics character formatted tables
+      in multi-line text cells in CSV files - OD_data
+    - Fix bug in handling ordered list items found in unordered lists in
+      multi-line text cells in CSV files - OD_data
+    - Check for space separated or graphics character formatted tables
+      and plain text lists and headings in multi-line text fields
+      in JSON files - OD_data
+    - Report plain text accessibility errors in accessibility tab rather
+      than the open data tab.
+    - Ignore a single leading whitespace character in list items - OD_DATA
+    - Check roman numeral ordered lists in plain text content
+    - Ignore case when checking for scientific notation in CSV cells
+    - Set default limit of errors reported per URL to 1000 to avoid
+      memory consumption problems.
+
+  
 6.14.0 - Feb. 2, 2023
   Web
     - Check the chromedriver version against the chrome version when
