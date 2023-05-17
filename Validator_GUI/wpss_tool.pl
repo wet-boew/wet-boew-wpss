@@ -4,9 +4,9 @@
 #
 # Name:   wpss_tool.pl
 #
-# $Revision: 2455 $
+# $Revision: 2529 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/wpss_tool.pl $
-# $Date: 2023-01-31 09:24:53 -0500 (Tue, 31 Jan 2023) $
+# $Date: 2023-05-10 14:05:43 -0400 (Wed, 10 May 2023) $
 #
 # Synopsis: wpss_tool.pl [ -debug ] [ -cgi ] [ -cli ] [ -fra ] [ -eng ]
 #                        [ -xml ] [ -open_data ] [ -monitor ] [ -no_login ]
@@ -3399,6 +3399,12 @@ sub Initialize {
     if ( defined($maximum_errors_per_url) ) {
         $TQA_Result_Object_Maximum_Errors = $maximum_errors_per_url;
     }
+    else {
+        #
+        # Set maximum error count to 1000 errors per file or URL.
+        #
+        $TQA_Result_Object_Maximum_Errors = 1000;
+    }
 
     #
     # Get current date and time
@@ -4259,6 +4265,25 @@ sub HTTP_Response_Callback {
         #
         elsif ( ($mime_type =~ /application\/marc/) ||
                 ($url =~ /\.mrc$/i) ) {
+            #
+            # Save web page details
+            #
+            $web_page_details_values{"url"} = $url;
+            $web_page_details_values{"lang"} = "";
+            $web_page_details_values{"content size"} = length($content);
+
+            #
+            # Perform TQA check of CSV content
+            #
+            Perform_TQA_Check($url, \$content, $language, $mime_type, $resp,
+                              $logged_in);
+        }
+
+        #
+        # Is the file a text file ?
+        #
+        elsif ( ($mime_type =~ /text\/plain/) ||
+                ($url =~ /\.txt$/i) ) {
             #
             # Save web page details
             #
@@ -9578,6 +9603,91 @@ sub Record_Open_Data_Content_Check_Results {
 
 #***********************************************************************
 #
+# Name: Record_Open_Data_ACC_Check_Results
+#
+# Parameters: url - dataset file URL
+#             results - list of testcase results
+#
+# Description:
+#
+#   This function records open data accessibility checks results.
+#
+#***********************************************************************
+sub Record_Open_Data_ACC_Check_Results {
+    my ( $url, @results ) = @_;
+
+    my ($url_status, $status, $result_object);
+    my (%local_open_data_error_url_count);
+
+    #
+    # Check open data results
+    #
+    print "Record open data accessibility check results\n" if $debug;
+    $url_status = $tool_success;
+    foreach $result_object (@results) {
+        if ( $result_object->status != $tool_success ) {
+            #
+            # Open data error, we can stop looking for more errors
+            #
+            $url_status = $tool_error;
+            last;
+        }
+    }
+
+    #
+    # Increment document & error counters
+    #
+    Increment_Counts_and_Print_URL($acc_tab, $url,
+                                   ($url_status == $tool_error));
+
+    #
+    # Print results if it is a failure.
+    #
+    if ( ($url_status == $tool_error) && ( ! $report_passes_only ) ) {
+        #
+        # Print failures
+        #
+        foreach $result_object (@results) {
+            $status = $result_object->status;
+            if ( defined($status) && ($status != 0) ) {
+                #
+                # Increment error instance count
+                #
+                if ( ! defined($tqa_error_instance_count{$result_object->description}) ) {
+                    $tqa_error_instance_count{$result_object->description} = 1;
+                }
+                else {
+                    $tqa_error_instance_count{$result_object->description}++;
+                }
+
+                #
+                # Set URL error count
+                #
+                $local_open_data_error_url_count{$result_object->description} = 1;
+
+                #
+                # Print error
+                #
+                Validator_GUI_Print_TQA_Result($acc_tab, $result_object);
+            }
+        }
+
+        #
+        # Add blank line in report
+        #
+        Validator_GUI_Update_Results($acc_tab, "");
+    }
+
+    #
+    # Set global URL error count
+    #
+    foreach (keys %local_open_data_error_url_count) {
+        $tqa_error_url_count{$_}++;
+    }
+}
+
+#***********************************************************************
+#
 # Name: Perform_Open_Data_Check
 #
 # Parameters: url - dataset file URL
@@ -9733,6 +9843,15 @@ sub Perform_Open_Data_Check {
                 Record_Open_Data_Check_Results($member_url, @results);
                 
                 #
+                # Get any accessibility check results
+                #
+                @results = Open_Data_Check_Accessibility_Results($member_url,
+                                                                 $format, $resp,
+                                                                 $filename);
+
+                Record_Open_Data_ACC_Check_Results($member_url, @results);
+
+                #
                 # Get file details
                 #
                 $size = -s $filename;
@@ -9807,6 +9926,15 @@ sub Perform_Open_Data_Check {
                                    $filename, \%open_data_dictionary,
                                    $checksum);
         Record_Open_Data_Check_Results($url, @results);
+
+        #
+        # Get any accessibility check results
+        #
+        @results = Open_Data_Check_Accessibility_Results($url,
+                                                         $format, $resp,
+                                                         $filename);
+
+        Record_Open_Data_ACC_Check_Results($url, @results);
 
         #
         # Perform content checks on this file
@@ -9951,6 +10079,11 @@ sub Open_Data_Callback {
     # Get TQA Check profile name
     #
     $tqa_check_profile = $report_options{$tqa_profile_label};
+    
+    #
+    # Set the accessibility check profile for Open Data
+    #
+    Set_Open_Data_Check_ACC_Test_Profile($tqa_check_profile);
     
     #
     # Get Link Check profile name
