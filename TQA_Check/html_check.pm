@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 2412 $
+# $Revision: 2502 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/html_check.pm $
-# $Date: 2022-10-26 12:54:03 -0400 (Wed, 26 Oct 2022) $
+# $Date: 2023-04-19 09:54:21 -0400 (Wed, 19 Apr 2023) $
 #
 # Description:
 #
@@ -74,6 +74,7 @@ use tqa_pa11y;
 use tqa_deque_axe;
 use pdf_check;
 use textcat;
+use text_check;
 use tqa_result_object;
 use tqa_tag_object;
 use tqa_testcases;
@@ -5823,7 +5824,7 @@ sub P_Tag_Handler {
 sub End_P_Tag_Handler {
     my ( $self, $line, $column, $text ) = @_;
 
-    my ($this_text, $clean_text, $style, $style_object, $has_emphasis);
+    my ($clean_text);
 
     #
     # Get all the text found within the p tag
@@ -5860,6 +5861,59 @@ sub End_P_Tag_Handler {
     if ( $clean_text ne "" && (! $in_header_tag) ) {
         $found_content_after_heading = 1;
         print "Found content after heading\n" if $debug;
+    }
+}
+
+#***********************************************************************
+#
+# Name: End_Pre_Tag_Handler
+#
+# Parameters: self - reference to this parser
+#             line - line number
+#             column - column number
+#             text - text from tag
+#
+# Description:
+#
+#   This function is a callback handler for HTML parsing that
+# handles the end pre tag.
+#
+#***********************************************************************
+sub End_Pre_Tag_Handler {
+    my ( $self, $line, $column, $text ) = @_;
+
+    my ($this_text, $result_object, @results_list);
+
+    #
+    # Get all the text found within the p tag
+    #
+    if ( ! $have_text_handler ) {
+        #
+        # If we don't have a text handler, it was hijacked by some other
+        # tag (e.g. anchor tag).  We only care about simple paragraphs
+        # so if there is no handler, we ignore this paragraph.
+        #
+        print "End pre tag found no text handler at line $line, column $column\n" if $debug;
+        return;
+    }
+
+    #
+    # Get the pre text as a string
+    #
+    $this_text = Get_Text_Handler_Content($self, " ");
+
+    #
+    # Perform accessibility checks on the pre tag content (e.g. headings, lists,
+    # paragraphs, tables)
+    #
+    @results_list = Text_Check($current_url, "", "WCAG 2.0", \$this_text, $line,
+                               $column);
+
+    #
+    # Add help URL to result
+    #
+    foreach $result_object (@results_list) {
+        push (@$results_list_addr, $result_object);
     }
 }
 
@@ -18890,6 +18944,13 @@ sub End_Handler {
     #
     elsif ( $tagname eq "p" ) {
         End_P_Tag_Handler($self, $line, $column, $text);
+    }
+
+    #
+    # Check pre tag
+    #
+    elsif ( $tagname eq "pre" ) {
+        End_Pre_Tag_Handler($self, $line, $column, $text);
     }
 
     #
