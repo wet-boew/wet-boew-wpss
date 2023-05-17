@@ -3,9 +3,9 @@
 #
 # Name:   install_deque_axe.pl
 #
-# $Revision: 2445 $
+# $Revision: 2507 $
 # $URL: svn://10.36.148.185/WPSS_Tool/Validator_GUI/Tools/install_deque_axe.pl $
-# $Date: 2022-12-16 14:05:14 -0500 (Fri, 16 Dec 2022) $
+# $Date: 2023-04-19 10:12:41 -0400 (Wed, 19 Apr 2023) $
 #
 # Synopsis: install_deque_axe.pl [ -debug ]
 #
@@ -592,9 +592,9 @@ sub Check_Axe_Core_CLI {
         #
         if ( defined($required_version) && ($required_version ne $version) ) {
             #
-            # Install pa11y
+            # Install Deque axe
             #
-            $meets_requirements = install_deque_axe($required_version);
+            $meets_requirements = Install_deque_axe_core_cli($required_version);
         }
     }
 
@@ -633,7 +633,7 @@ sub Install_Chromedriver {
     my ($required_version) = @_;
     
     my ($installed) = 0;
-    my ($response, $output, $version, $list, $line, $required_version);
+    my ($response, $output, $version, $list, $line);
 
     #
     # Prompt user to install chromedriver module
