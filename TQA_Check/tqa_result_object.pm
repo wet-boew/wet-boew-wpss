@@ -98,9 +98,9 @@ my ($debug) = 0;
 my ($MAX_SOURCE_LINE_SIZE) = 200;
 
 #
-# Set maximum error count to 0, which means unlimited
+# Maximum error count
 #
-my ($TQA_Result_Object_Maximum_Errors) = 0;
+my ($TQA_Result_Object_Maximum_Errors);
 
 #********************************************************
 #
