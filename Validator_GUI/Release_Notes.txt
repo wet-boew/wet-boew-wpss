@@ -7,7 +7,7 @@
 #
 # Version number = <Major release>.<Minor release>.<Bug fix>
 #
-6.15.0 - May 17, 2023
+6.15.0 - July 31, 2023
   Web
     - Add checks for WCAG plain text techniques and failures for plain
       text web pages and portions of HTML web pages using the
