@@ -2,9 +2,9 @@
 #
 # Name:   html_check.pm
 #
-# $Revision: 2502 $
+# $Revision: 2554 $
 # $URL: svn://10.36.148.185/WPSS_Tool/TQA_Check/Tools/html_check.pm $
-# $Date: 2023-04-19 09:54:21 -0400 (Wed, 19 Apr 2023) $
+# $Date: 2023-07-31 11:13:12 -0400 (Mon, 31 Jul 2023) $
 #
 # Description:
 #
@@ -6696,11 +6696,12 @@ sub TD_Tag_Handler {
                 }
             }
         }
+
         #
         # Are we in a thead? If so these are header cells
         # not data cells
         #
-        elsif ( $inside_thead[$table_nesting_index] ) {
+        if ( $inside_thead[$table_nesting_index] ) {
             print "td acting a th in thead\n" if $debug;
         }
         else {
