@@ -1,4 +1,4 @@
-## Web and Open Data Validator version 6.14.0
+## Web and Open Data Validator version 6.15.0
 
 The Web and Open Data Validator provides web developers and quality assurance testers the ability to perform a number of web site, web page validation and Open data validation tasks at one time. Web site checking includes
 - Accessibility: WCAG 2.0, Deque AXE, ACT Rules, or Pa11y
@@ -13,27 +13,30 @@ Open data checking includes
 
 ## Major Changes
 
-Support for Python 3 has been added for many components. Tools that do not work with Python 3 (web feed validator, PDF file checker) will report a runtime error.
+
 
 ### Web Tool
 
 ```    
-    - Check the chromedriver version against the chrome version when using the Deque AXE tool
-    - Ignore blank terms in dc.subject metadata
-    - Support both Python 2 and 3 for supporting tools
-    - Report runtime error if a supporting tool requires Python 2 if Python 3 is installed
-    - Add installation scripts for optional software (puppeteer, pa11y, Deque axe)
+    - Add checks for WCAG plain text techniques and failures for plain text web pages and portions of 
+      HTML web pages using the "pre" tag - WCAG_2.0-T1, WCAG_2.0-T2, WCAG_2.0-T3
+    - Checks for whitespace formatted tables and graphic character formatted tables in plain text web 
+      pages and portions of HTML web pages using the "pre" tag - WCAG_2.0-F34
+    - Ignore SSL certificate errors in web feed validator - XML_VALIDATION
 ```
 
 
 ### Open Data_Tool
 
 ```
-    - Support both Python 2 and 3 for supporting tools
-    - Report runtime error if a supporting tool requires Python 2 if Python 3 is installed
-    - Include user agent type in error messages.
-    - Add installation scripts for optional software (puppeteer, pa11y, Deque axe)
-    - Update csvlint to version 0.3.0
+    - Fix bug in handling ordered list items found in unordered lists in multi-line text cells in 
+      CSV files - OD_data
+    - Check for space separated or graphics character formatted tables and plain text lists and headings
+      in multi-line text fields in JSON files - OD_data
+    - Report plain text accessibility errors in accessibility tab rather than the open data tab.
+    - Ignore a single leading whitespace character in list items - OD_DATA
+    - Check roman numeral ordered lists in plain text content
+    - Set default limit of errors reported per URL to 1000 to avoid memory consumption problems.
 ```
 
 Version 6.14.0 contains the following updates and additions
@@ -41,27 +44,29 @@ Version 6.14.0 contains the following updates and additions
 ## Web
 
 ```
-    - Check the chromedriver version against the chrome version when using the Deque AXE tool
-    - Ignore blank terms in dc.subject metadata
-    - Support both Python 2 and 3 for supporting tools
-    - Report runtime error if a supporting tool requires Python 2 if Python 3 is installed
-    - Ignore http vs https protocol for vocab - SWI_E HTML_DATA_VOCAB
-    - Check headless browser by getting a URL to verify operation
-    - Include hidden text in parent tag to avoid false failures.
-    - Include user agent type in error messages.
-    - Return error message if PhantomJS fails to get the web page (e.g. timeout). Don't just report a 404 error.
-    - Add installation scripts for optional software (puppeteer, pa11y, Deque axe)
+    - Add checks for WCAG plain text techniques and failures for plain text web pages and portions of 
+      HTML web pages using the "pre" tag - WCAG_2.0-T1, WCAG_2.0-T2, WCAG_2.0-T3
+    - Checks for whitespace formatted tables and graphic character formatted tables in plain text web 
+      pages and portions of HTML web pages using the "pre" tag - WCAG_2.0-F34
+    - Add checks for WCAG plain text techniques and failures for plain
+      text web pages and portions of HTML web pages using the
+      "pre" tag - WCAG_2.0-T1, WCAG_2.0-T2, WCAG_2.0-T3
+    - Correct function name in Deque Axe install script
+    - Ignore SSL certificate errors in web feed validator - XML_VALIDATION
 ```
 
 ## Open Data
 
 ```
-    - Support both Python 2 and 3 for supporting tools
-    - Report runtime error if a supporting tool requires Python 2 if Python 3 is installed
-    - Check headless browser by getting a URL to verify operation.
-    - Include user agent type in error messages.
-    - Add installation scripts for optional software (puppeteer, pa11y, Deque axe)
-    - Update csvlint to version 0.3.0
+    - Fix bug in handling ordered list items found in unordered lists in multi-line text cells in 
+      CSV files - OD_data
+    - Check for space separated or graphics character formatted tables and plain text lists and headings
+      in multi-line text fields in JSON files - OD_data
+    - Report plain text accessibility errors in accessibility tab rather than the open data tab.
+    - Ignore a single leading whitespace character in list items - OD_DATA
+    - Check roman numeral ordered lists in plain text content
+    - Ignore case when checking for scientific notation in CSV cells
+    - Set default limit of errors reported per URL to 1000 to avoid memory consumption problems.
 ```
 
 ## Web and Open Data Validator Installation on Windows
@@ -83,10 +88,10 @@ Required version of Java
 
 The WPSS_Tool has been tested on the following platforms
 - Windows 11 (64 bit), Strawberry Perl 5.26 (64 bit), Python 2.7.13
-- Windows 10 (64 bit), Strawberry Perl 5.32 (64 bit), Python 3.10.0
+- Windows 11 (64 bit), Strawberry Perl 5.32 (64 bit), Python 3.10.0
 
 The WPSS Tool installer is available as a release in this repository
-- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.14/WPSS_Tool.exe
+- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.15/WPSS_Tool.exe
 
 #### Chrome Headless User agent (recommended)
 The Chrome headless user agent and supporting files can be installed using the install_puppeteer.pl script in the WPSS_Tool folder.
@@ -120,7 +125,7 @@ The WPSS_Tool has been tested on the following platforms
 The Linux version has not been tested with headless chrome, pa11y or Deque AXE.
 
 The WPSS Tool installer is available as a release in this repository
-- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.14/WPSS_Tool_Linux.zip
+- https://github.com/wet-boew/wet-boew-wpss/releases/download/6.15/WPSS_Tool_Linux.zip
 
 Installation steps
 - Unzip the package; 'unzip WPSS_Tool_Linux.zip'
